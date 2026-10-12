@@ -1,9 +1,0 @@
-# sources used with rotation
-# this is included if USE_ROTATION = TRUE
-
-CEXE_headers += Castro_rotation.H
-CEXE_headers += Rotation.H
-
-CEXE_sources += rotation_sources.cpp
-CEXE_sources += Castro_rotation.cpp
-CEXE_sources += Rotation.cpp

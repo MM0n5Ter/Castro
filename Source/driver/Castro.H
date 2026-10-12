@@ -14,9 +14,6 @@
 
 using namespace castro;
 
-#ifdef AMREX_PARTICLES
-#include <particles_params.H>
-#endif
 
 #include <fundamental_constants.H>
 
@@ -27,23 +24,12 @@ using namespace castro;
 #include <AMReX_FluxRegister.H>
 #include <network.H>
 #include <eos.H>
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-#include <burner.H>
-#endif
-#endif
 
 #ifdef BL_LAZY
 #include <AMReX_Lazy.H>
 #endif
 
-#ifdef AMREX_PARTICLES
-#include <AMReX_AmrParticles.H>
-#endif
 
-#ifdef RADIATION
-#include <RadSolve.H>
-#endif
 
 #include <memory>
 #include <iostream>
@@ -55,42 +41,19 @@ using std::ostream;
 
 enum StateType : std::uint8_t {
                State_Type = 0,
-#ifdef RADIATION
-               Rad_Type,
-#endif
 #ifdef GRAVITY
                PhiGrav_Type,
                Gravity_Type,
 #endif
                Source_Type,
-#ifdef REACTIONS
-               Reactions_Type,
-#endif
-#ifdef MHD
-               Mag_Type_x,
-               Mag_Type_y,
-               Mag_Type_z,
-#endif
-#ifdef REACTIONS
-               Simplified_SDC_React_Type
-#endif
 };
 
 // Create storage for all source terms.
 
 enum sources : std::uint8_t {
                thermo_src = 0,
-#ifdef DIFFUSION
-               diff_src,
-#endif
-#ifdef HYBRID_MOMENTUM
-               hybrid_src,
-#endif
 #ifdef GRAVITY
                grav_src,
-#endif
-#ifdef ROTATION
-               rot_src,
 #endif
 #ifdef SPONGE
                sponge_src,
@@ -281,67 +244,6 @@ public:
 ///
     void initData () override;
 
-#ifdef AMREX_PARTICLES
-
-///
-/// Read particle-related inputs
-///
-    static void read_particle_params ();
-
-///
-/// Initialize particle locations and velocities (and strengths if relevant)
-///
-    void init_particles ();
-
-///
-/// Write particles in checkpoint directories
-///
-/// @param dir  directory containing checkpoint
-///
-    void ParticleCheckPoint (const std::string& dir);
-
-///
-/// Write particles in plotfile directories
-///
-/// @param dir  directory containing plotfile
-///
-    void ParticlePlotFile (const std::string& dir);
-
-///
-/// How to initialize at restart
-///
-/// @param restart_file     path to restart file
-///
-    void ParticlePostRestart (const std::string& restart_file);
-
-///
-/// Derived quantities associated with particles
-///
-/// @param name         name of particle variable to derive
-/// @param time         current time
-/// @param ngrow        Number of ghost cells
-///
-    std::unique_ptr<amrex::MultiFab> ParticleDerive (const std::string& name,
-                                                     amrex::Real           time,
-                                                     int            ngrow);
-
-///
-/// Timestamp particles
-///
-/// @param ngrow    number of ghost cells
-///
-    void TimestampParticles (int ngrow);
-
-///
-/// Advance the particles by dt
-///
-/// @param iteration    where we are in the current AMR subcycle
-/// @param time         current time
-/// @param dt           timestep
-///
-    void advance_particles (int iteration, amrex::Real time, amrex::Real dt);
-
-#endif
 
 #ifdef MAESTRO_INIT
     void MAESTRO_init ();
@@ -534,9 +436,6 @@ public:
 #endif
 
 
-#ifdef MHD
-#include <Castro_mhd.H>
-#endif
 
 ///
 /// Estimate time step.
@@ -638,17 +537,6 @@ public:
     void post_init (amrex::Real stop_time) override;
 
 #ifdef GRAVITY
-#ifdef ROTATION
-///
-/// Initialize a model using the self-consistent field method.
-///
-    void scf_relaxation();
-
-///
-/// Perform the Hachisu SCF method.
-///
-    void do_hscf_solve();
-#endif
 #endif
 
 ///
@@ -729,25 +617,8 @@ public:
                  int                dcomp) override;
 
 
-#ifdef REACTIONS
-#include <Castro_react.H>
-#endif
 
-#ifdef ROTATION
-#include <Castro_rotation.H>
-#endif
 
-#ifdef RADIATION
-
-///
-/// @param S_new        state at the new time
-/// @param iteration    where we are in the current AMR subcycle
-/// @param ncycle       the number of subcycles at this level
-///
-    void final_radiation_call (amrex::MultiFab& S_new,
-                               int iteration,
-                               int ncycle);
-#endif
 
 ///
 /// Reset the internal energy
@@ -759,11 +630,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void reset_internal_energy (
-#ifdef MHD
-                                amrex::MultiFab& Bx,
-                                amrex::MultiFab& By,
-                                amrex::MultiFab& Bz,
-#endif
                                 amrex::MultiFab& State, int ng);
 
 
@@ -777,42 +643,9 @@ public:
 /// @param u        Current state (Fab)
 ///
     static void reset_internal_energy (const amrex::Box& bx,
-#ifdef MHD
-                                amrex::Array4<amrex::Real> const& Bx,
-                                amrex::Array4<amrex::Real> const& By,
-                                amrex::Array4<amrex::Real> const& Bz,
-#endif
                                 amrex::Array4<amrex::Real> const& u);
 
 
-#ifdef MHD
-///
-/// Add magnetic contribution to energy density
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
-/// @param state    the state to operate on
-///
-    static void add_magnetic_e (
-        amrex::MultiFab& Bx,
-        amrex::MultiFab& By,
-        amrex::MultiFab& Bz,
-        amrex::MultiFab& state);
-
-///
-/// Check if divergence of B is zero at initialization
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
-/// @param state    the state to operate on
-///
-    void check_div_B (
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
-                      amrex::MultiFab& state);
-
-#endif
 
 
 
@@ -827,11 +660,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void computeTemp (
-#ifdef MHD
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
 
@@ -855,9 +683,6 @@ public:
 ///
     void swap_state_time_levels (const amrex::Real dt);
 
-#ifdef DIFFUSION
-#include <Castro_diffusion.H>
-#endif
 
 
 ///
@@ -981,9 +806,6 @@ public:
 #include <Castro_hydro.H>
 
 // SDC
-#ifdef TRUE_SDC
-#include <Castro_sdc.H>
-#endif
 
     static void extern_init ();
 
@@ -1027,9 +849,6 @@ public:
 /// @param S  State
 ///
     static void enforce_consistent_e (
-#ifdef MHD
-                               amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
-#endif
                                amrex::MultiFab& S);
 
 ///
@@ -1064,9 +883,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void clean_state (
-#ifdef MHD
-                      amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
 ///
@@ -1140,9 +956,6 @@ public:
 #endif
     }
 
-#ifdef AMREX_PARTICLES
-    static amrex::AmrTracerParticleContainer* theTracerPC () { return TracerPC.get(); }
-#endif
 
     static amrex::Vector<std::string> source_names;
 
@@ -1208,13 +1021,6 @@ protected:
 #endif
 
 
-#ifdef REACTIONS
-///
-/// Storage for the burn_weights
-///
-    amrex::MultiFab burn_weights;
-    static std::vector<std::string> burn_weight_names;
-#endif
 
 
 ///
@@ -1222,51 +1028,10 @@ protected:
 ///
     amrex::MultiFab Sborder;
 
-#ifdef MHD
-   amrex::MultiFab Bx_old_tmp;
-   amrex::MultiFab By_old_tmp;
-   amrex::MultiFab Bz_old_tmp;
-#endif
-
-#ifdef RADIATION
-    amrex::MultiFab Erborder;
-    amrex::MultiFab lamborder;
-
-    std::unique_ptr<RadSolve> rad_solver;
-#endif
 
 
 
-#ifdef TRUE_SDC
-///
-/// A state array for reaction-related data used by SDC
-///
-    amrex::MultiFab Sburn;
 
-
-///
-/// The primitive variable state array.
-///
-    amrex::MultiFab q;
-
-///
-/// A second primitive-state array used by the fourth-order method
-///
-    amrex::MultiFab q_bar;
-
-///
-/// Cell-centered temperature needed for fourth-order diffusion
-//
-#ifdef DIFFUSION
-    amrex::MultiFab T_cc;
-#endif
-
-///
-/// The auxiliary primitive variable state array.
-///
-    amrex::MultiFab qaux;
-    amrex::MultiFab qaux_bar;
-#endif
 
 
 ///
@@ -1282,18 +1047,12 @@ protected:
 #if (AMREX_SPACEDIM <= 2)
     amrex::MultiFab         P_radial;
 #endif
-#ifdef RADIATION
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > rad_fluxes;
-#endif
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab> > mass_fluxes;
 
     amrex::FluxRegister flux_reg;
 #if (AMREX_SPACEDIM <= 2)
     amrex::FluxRegister pres_reg;
-#endif
-#ifdef RADIATION
-    amrex::FluxRegister rad_flux_reg;
 #endif
 #ifdef GRAVITY
     amrex::FluxRegister phi_reg;
@@ -1325,31 +1084,6 @@ protected:
     bool keep_prev_state{};
 
 
-#ifdef TRUE_SDC
-    //
-    // Storage for the SDC time integration
-
-    // this is the new iterations solution at the time nodes
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > k_new;
-
-    // this is the old value of the advective update at the
-    // nodes of the time integration
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > A_old;
-
-    // this is the new value of the advective update at the
-    // nodes of the time integration
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > A_new;
-
-    // this is the old value of the reaction source at the
-    // nodes of the time integration
-#ifdef REACTIONS
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > R_old;
-#endif
-
-    static int SDC_NODES;
-    static amrex::Vector<amrex::Real> dt_sdc;
-    static amrex::Vector<amrex::Real> node_weights;
-#endif
 
 ///
 /// Wall time that we started the timestep
@@ -1423,20 +1157,7 @@ protected:
 ///
     static std::unique_ptr<class Diffusion> diffusion;
 
-#ifdef RADIATION
 
-
-///
-/// There can be only one Radiation object, it covers all levels:
-///
-    static std::unique_ptr<class Radiation> radiation;
-
-    friend class Radiation;
-#endif
-
-#ifdef AMREX_PARTICLES
-    static std::unique_ptr<amrex::AmrTracerParticleContainer> TracerPC;
-#endif
 
     static amrex::IntVect hydro_tile_size;
     static amrex::IntVect no_tile_size;
@@ -1464,9 +1185,6 @@ protected:
 ///
     int sdc_iteration;
 
-#ifdef TRUE_SDC
-    int current_sdc_node;
-#endif
 
 
 /* problem-specific includes */
