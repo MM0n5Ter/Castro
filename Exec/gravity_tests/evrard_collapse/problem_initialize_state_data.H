@@ -46,7 +46,7 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
     state(i,j,k,UTEMP) = eos_state.T;
     state(i,j,k,UEINT) = eos_state.e * eos_state.rho;
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = eos_state.xn[n] * eos_state.rho;
+        state(i,j,k,USPEC+n) = eos_state.xn[n] * eos_state.rho;
     }
 
     state(i,j,k,UMX) = state(i,j,k,URHO) * problem::smallu;

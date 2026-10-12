@@ -1,12 +1,12 @@
-"""Helper functions for working with Castro diagnostic files (*_diag.out)
+"""Helper functions for working with HydroSim diagnostic files (*_diag.out)
 
 To use these in a standalone script, you can do one of the following:
 
-* append $CASTRO_HOME/Util/scripts to sys.path at the top of your script:
-    sys.path.append("<path to Castro>/Util/scripts")
+* append $HYDROSIM_HOME/Util/scripts to sys.path at the top of your script:
+    sys.path.append("<path to HydroSim>/Util/scripts")
 
 * add a symlink to this file in the same directory as your script:
-    $ ln -s "$CASTRO_HOME/Util/scripts/diag_parser.py" .
+    $ ln -s "$HYDROSIM_HOME/Util/scripts/diag_parser.py" .
 
 * copy this file into the same directory as your script
 
@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 """ Format notes
-files are opened in Castro.cpp, data is written in sum_integrated_quantities.cpp
+files are opened in HydroSim.cpp, data is written in sum_integrated_quantities.cpp
 
 data_logs[0]: grid_diag.out
 intwidth, fixwidth, datwidth*
@@ -53,9 +53,9 @@ FIELD_WIDTHS = {
 
 
 def read_diag_file(file_path):
-    """Reads a Castro diagnostic file into a numpy structured array.
+    """Reads a HydroSim diagnostic file into a numpy structured array.
 
-    Currently only supports the default files that Castro generates.
+    Currently only supports the default files that HydroSim generates.
     """
     if not isinstance(file_path, Path):
         file_path = Path(file_path)

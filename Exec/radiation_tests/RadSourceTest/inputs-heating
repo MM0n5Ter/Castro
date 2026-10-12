@@ -70,30 +70,30 @@ amr.grid_log        = grdlog   # name of grid logging file
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2    4    4
-castro.hi_bc       =  2    4    4
+hydrosim.lo_bc       =  2    4    4
+hydrosim.hi_bc       =  2    4    4
 
 # WHICH PHYSICS
-castro.do_grav        = 0
-castro.do_hydro       = 0
-castro.do_radiation   = 1
-castro.do_reflux      = 1        # 1 => do refluxing
-castro.do_react       = 0        # reactions?
+hydrosim.do_grav        = 0
+hydrosim.do_hydro       = 0
+hydrosim.do_radiation   = 1
+hydrosim.do_reflux      = 1        # 1 => do refluxing
+hydrosim.do_react       = 0        # reactions?
 
 # hydro cutoff parameters
-castro.small_dens     = 1.e-10
+hydrosim.small_dens     = 1.e-10
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
-castro.init_shrink    = 1.0     # scale back initial timestep
-castro.change_max     = 1.025
-castro.initial_dt     = 1.e-16
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 1.0     # scale back initial timestep
+hydrosim.change_max     = 1.025
+hydrosim.initial_dt     = 1.e-16
 
-#castro.fixed_dt       = 1.e-11
+#hydrosim.fixed_dt       = 1.e-11
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v = 1
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v = 1
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
@@ -177,8 +177,8 @@ radiation.hi_bcval = 0.0 0.0 0.0
 radsolve.use_bbmg          = 0   # required, do not change
 radsolve.use_hypre_level   = 1   # required, do not change
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use HypreDiffOp, support symmetric matrices only
+# solver flag values >= 100 use HypreMultiDiffOp, support nonsymmetric matrices
 # 0     SMG
 # 1     PFMG
 # 100   AMG
@@ -190,7 +190,7 @@ radsolve.level_solver_flag = 0   # can be any supported hypre solver flag
 
 # if use_hypre_multilevel == 0, use CompSolver with an internal hypre
 #    level solver determined by multilevel_solver_flag.
-# if use_hypre_multilevel == 1, use HypreMultiABec directly,
+# if use_hypre_multilevel == 1, use HypreMultiDiffOp directly,
 #    multilevel_solver_flag must then be >= 100.
 
 radsolve.use_hypre_multilevel   = 0
@@ -204,12 +204,12 @@ radsolve.maxiter    = 200     # linear solver iteration limit
 
 radsolve.v = 1      # verbosity
 
-hmabec.kdim    = 5  # number of stored vectors when GMRES is used
-hmabec.bho     = 1  # use higher-order nonsymmetric boundary discretizations
-hmabec.verbose = 2  # verbosity for HypreMultiABec solvers
-habec.verbose  = 2  # verbosity for HypreABec solvers
-habec.verbose_threshold = 3  # verbosity threshold for HypreABec solvers
-habec.pfmg_relax_type = 1
+hmdop.kdim    = 5  # number of stored vectors when GMRES is used
+hmdop.bho     = 1  # use higher-order nonsymmetric boundary discretizations
+hmdop.verbose = 2  # verbosity for HypreMultiDiffOp solvers
+hdop.verbose  = 2  # verbosity for HypreDiffOp solvers
+hdop.verbose_threshold = 3  # verbosity threshold for HypreDiffOp solvers
+hdop.pfmg_relax_type = 1
 
 # additional parameters for CompSolver (used when use_hypre_multilevel == 0)
 radsolve.use_harmonic_avg   = 0

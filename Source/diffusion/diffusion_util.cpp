@@ -3,7 +3,7 @@
 
 #include <state_indices.H>
 
-#include <castro_params.H>
+#include <hydrosim_params.H>
 #include <eos.H>
 #include <conductivity.H>
 
@@ -25,34 +25,34 @@ fill_temp_cond(const Box& bx,
     eos_state.T = U_arr(i,j,k,UTEMP);   // needed as an initial guess
     eos_state.e = U_arr(i,j,k,UEINT) * rhoinv;
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = U_arr(i,j,k,UFS+n) * rhoinv;
+      eos_state.xn[n] = U_arr(i,j,k,USPEC+n) * rhoinv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = U_arr(i,j,k,UFX+n) * rhoinv;
+      eos_state.aux[n] = U_arr(i,j,k,UAUXV+n) * rhoinv;
     }
 #endif
 
     if (eos_state.e < 0.0_rt) {
-      eos_state.T = castro::small_temp;
+      eos_state.T = hydrosim::small_temp;
       eos(eos_input_rt, eos_state);
     } else {
       eos(eos_input_re, eos_state);
     }
 
 
-    if (eos_state.rho > castro::diffuse_cutoff_density) {
+    if (eos_state.rho > hydrosim::diffuse_cutoff_density) {
       conductivity(eos_state);
 
-      if (eos_state.rho < castro::diffuse_cutoff_density_hi) {
-        Real multiplier = (eos_state.rho - castro::diffuse_cutoff_density) /
-          (castro::diffuse_cutoff_density_hi - castro::diffuse_cutoff_density);
+      if (eos_state.rho < hydrosim::diffuse_cutoff_density_hi) {
+        Real multiplier = (eos_state.rho - hydrosim::diffuse_cutoff_density) /
+          (hydrosim::diffuse_cutoff_density_hi - hydrosim::diffuse_cutoff_density);
         eos_state.conductivity = eos_state.conductivity * multiplier;
       }
     } else {
       eos_state.conductivity = 0.0_rt;
     }
-    coeff_arr(i,j,k) = castro::diffuse_cond_scale_fac * eos_state.conductivity;
+    coeff_arr(i,j,k) = hydrosim::diffuse_cond_scale_fac * eos_state.conductivity;
 
   });
 }
@@ -74,34 +74,34 @@ fill_temp_diff_coeff(const Box& bx,
     eos_state.T = U_arr(i,j,k,UTEMP);   // needed as an initial guess
     eos_state.e = U_arr(i,j,k,UEINT) * rhoinv;
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = U_arr(i,j,k,UFS+n) * rhoinv;
+      eos_state.xn[n] = U_arr(i,j,k,USPEC+n) * rhoinv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = U_arr(i,j,k,UFX+n) * rhoinv;
+      eos_state.aux[n] = U_arr(i,j,k,UAUXV+n) * rhoinv;
     }
 #endif
 
     if (eos_state.e < 0.0_rt) {
-      eos_state.T = castro::small_temp;
+      eos_state.T = hydrosim::small_temp;
       eos(eos_input_rt, eos_state);
     } else {
       eos(eos_input_re, eos_state);
     }
 
 
-    if (eos_state.rho > castro::diffuse_cutoff_density) {
+    if (eos_state.rho > hydrosim::diffuse_cutoff_density) {
       conductivity(eos_state);
 
-      if (eos_state.rho < castro::diffuse_cutoff_density_hi) {
-        Real multiplier = (eos_state.rho - castro::diffuse_cutoff_density) /
-          (castro::diffuse_cutoff_density_hi - castro::diffuse_cutoff_density);
+      if (eos_state.rho < hydrosim::diffuse_cutoff_density_hi) {
+        Real multiplier = (eos_state.rho - hydrosim::diffuse_cutoff_density) /
+          (hydrosim::diffuse_cutoff_density_hi - hydrosim::diffuse_cutoff_density);
         eos_state.conductivity = eos_state.conductivity * multiplier;
       }
     } else {
       eos_state.conductivity = 0.0_rt;
     }
-    coeff_arr(i,j,k) = castro::diffuse_cond_scale_fac * eos_state.conductivity *
+    coeff_arr(i,j,k) = hydrosim::diffuse_cond_scale_fac * eos_state.conductivity *
       rhoinv / eos_state.cv;
 
   });

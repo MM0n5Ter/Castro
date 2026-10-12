@@ -1,27 +1,27 @@
 # sources used with hydro
 
 ifneq ($(USE_MHD),TRUE)
-  CEXE_sources += Castro_hydro.cpp
-  CEXE_sources += Castro_ctu_hydro.cpp
+  CEXE_sources += HydroSim_hydro.cpp
+  CEXE_sources += HydroSim_ctu_hydro.cpp
 endif
 
-CEXE_sources += Castro_ctu.cpp
-CEXE_sources += Castro_mol.cpp
+CEXE_sources += HydroSim_ctu.cpp
+CEXE_sources += HydroSim_mol.cpp
 CEXE_headers += advection_util.H
 CEXE_sources += advection_util.cpp
 CEXE_headers += flatten.H
 
 ifeq ($(USE_TRUE_SDC),TRUE)
-  CEXE_sources += Castro_mol_hydro.cpp
+  CEXE_sources += HydroSim_mol_hydro.cpp
 endif
 
 ifeq ($(USE_HYBRID_MOMENTUM), TRUE)
   CEXE_headers += hybrid.H
-  CEXE_sources += Castro_hybrid.cpp
+  CEXE_sources += HydroSim_hybrid.cpp
 endif
 
 ifeq ($(USE_RAD), TRUE)
-  CEXE_sources += Castro_ctu_rad.cpp
+  CEXE_sources += HydroSim_ctu_rad.cpp
 endif
 
 CEXE_headers += ppm.H

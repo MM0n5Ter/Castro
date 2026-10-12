@@ -30,7 +30,7 @@ def single_slice(ds, field:str,
     Parameters
     ==================================================================================
     ds:
-      A single Castro dataset for plotting the slice plot
+      A single HydroSim dataset for plotting the slice plot
 
     field:
       A single field name for plotting the slice plot.

@@ -1,5 +1,5 @@
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -13,7 +13,7 @@
 using namespace amrex;
 
 void
-Castro::trace_ppm_rad(const Box& bx,
+HydroSim::trace_ppm_rad(const Box& bx,
                       const int idir,
                       Array4<Real const> const& U_arr,
                       Array4<Real const> const& rho_inv_arr,
@@ -137,33 +137,33 @@ Castro::trace_ppm_rad(const Box& bx,
    Real lamm[NGROUPS];
 
     for (int g = 0; g < NGROUPS; g++) {
-      lam0[g] = qaux_arr(i,j,k,QLAMS+g);
-      lamp[g] = qaux_arr(i,j,k,QLAMS+g);
-      lamm[g] = qaux_arr(i,j,k,QLAMS+g);
+      lam0[g] = qaux_arr(i,j,k,QFLXLIM+g);
+      lamp[g] = qaux_arr(i,j,k,QFLXLIM+g);
+      lamm[g] = qaux_arr(i,j,k,QFLXLIM+g);
     }
 
     Real rho = q_arr(i,j,k,QRHO);
 
     // cgassq is the gas soundspeed **2
     // cc is the total soundspeed **2 (gas + radiation)
-    Real cgassq = qaux_arr(i,j,k,QCG)*qaux_arr(i,j,k,QCG);
+    Real cgassq = qaux_arr(i,j,k,QCSNDGAS)*qaux_arr(i,j,k,QCSNDGAS);
     Real cc = qaux_arr(i,j,k,QC);
     Real csq = cc*cc;
 
     Real un = q_arr(i,j,k,QUN);
 
     Real p = q_arr(i,j,k,QPRES);
-    Real rhoe_g = q_arr(i,j,k,QREINT);
+    Real rhoe_g = q_arr(i,j,k,QRHOEI);
     Real h_g = ( (p+rhoe_g)/rho)/csq;
 
-    Real gam_g = qaux_arr(i,j,k,QGAMCG);
+    Real gam_g = qaux_arr(i,j,k,QGAM1GAS);
 
-    Real ptot = q_arr(i,j,k,QPTOT);
+    Real ptot = q_arr(i,j,k,QPTOTAL);
 
     Real er[NGROUPS];
     Real hr[NGROUPS];
     for (int g = 0; g < NGROUPS; g++) {
-      er[g] = q_arr(i,j,k,QRAD+g);
+      er[g] = q_arr(i,j,k,QERAD+g);
       hr[g] = (lam0[g] + 1.0_rt)*er[g]/rho;
     }
 
@@ -173,20 +173,20 @@ Castro::trace_ppm_rad(const Box& bx,
 
     Real flat = 1.0;
 
-    if (castro::first_order_hydro) {
+    if (hydrosim::first_order_hydro) {
         flat = 0.0;
     }
-    else if (castro::use_flattening) {
+    else if (hydrosim::use_flattening) {
         flat = hydro::flatten(i, j, k, q_arr, QPRES);
 
 #ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, q_arr, QPTOT);
+        flat *= hydro::flatten(i, j, k, q_arr, QPTOTAL);
 
         if (radiation::flatten_pp_threshold > 0.0) {
             if ( q_arr(i-1,j,k,QU) + q_arr(i,j-1,k,QV) + q_arr(i,j,k-1,QW) >
                  q_arr(i+1,j,k,QU) + q_arr(i,j+1,k,QV) + q_arr(i,j,k+1,QW) ) {
 
-                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOT)) {
+                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOTAL)) {
                     flat = 0.0;
                 }
             }
@@ -329,12 +329,12 @@ Castro::trace_ppm_rad(const Box& bx,
       Real un_ref = Im[QUN][0];
 
       Real p_ref = Im[QPRES][0];
-      Real rhoe_g_ref = Im[QREINT][0];
+      Real rhoe_g_ref = Im[QRHOEI][0];
 
-      Real ptot_ref = Im[QPTOT][0];
+      Real ptot_ref = Im[QPTOTAL][0];
       Real er_ref[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        er_ref[g] = Im[QRAD+g][0];
+        er_ref[g] = Im[QERAD+g][0];
       }
 
       rho_ref = amrex::max(rho_ref, lsmall_dens);
@@ -348,19 +348,19 @@ Castro::trace_ppm_rad(const Box& bx,
 
       // we also add the sources here so they participate in the tracing
       Real dum = un_ref - Im[QUN][0] - hdt*Im_src[QUN][0];
-      Real dptotm = ptot_ref - Im[QPTOT][0] - hdt*Im_src[QPRES][0];
+      Real dptotm = ptot_ref - Im[QPTOTAL][0] - hdt*Im_src[QPRES][0];
 
       Real drho = rho_ref - Im[QRHO][1] - hdt*Im_src[QRHO][1];
-      Real dptot = ptot_ref - Im[QPTOT][1] - hdt*Im_src[QPRES][1];
-      Real drhoe_g = rhoe_g_ref - Im[QREINT][1] - hdt*Im_src[QREINT][1];
+      Real dptot = ptot_ref - Im[QPTOTAL][1] - hdt*Im_src[QPRES][1];
+      Real drhoe_g = rhoe_g_ref - Im[QRHOEI][1] - hdt*Im_src[QRHOEI][1];
 
       Real der[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        der[g] = er_ref[g] - Im[QRAD+g][1];
+        der[g] = er_ref[g] - Im[QERAD+g][1];
       }
 
       Real dup = un_ref - Im[QUN][2] - hdt*Im_src[QUN][2];
-      Real dptotp = ptot_ref - Im[QPTOT][2] - hdt*Im_src[QPRES][2];
+      Real dptotp = ptot_ref - Im[QPTOTAL][2] - hdt*Im_src[QPRES][2];
 
       // {rho, u, p, (rho e)} eigensystem
 
@@ -392,7 +392,7 @@ Castro::trace_ppm_rad(const Box& bx,
       // note that the a{mpz}right as defined above have the minus already
       qp(i,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + alphap + alpham + alpha0r);
       qp(i,j,k,QUN) = un_ref + (alphap - alpham)*cc/rho;
-      qp(i,j,k,QREINT) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
+      qp(i,j,k,QRHOEI) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
 
       qp(i,j,k,QPRES) = p_ref + (alphap + alpham)*cgassq;
       for (int g = 0; g < NGROUPS; g++) {
@@ -400,22 +400,22 @@ Castro::trace_ppm_rad(const Box& bx,
       }
       qp(i,j,k,QPRES) = amrex::max(lsmall_pres, qp(i,j,k,QPRES));
 
-      qp(i,j,k,QPTOT) = ptot_ref + (alphap + alpham)*csq;
-      qp(i,j,k,QREITOT) = qp(i,j,k,QREINT);
+      qp(i,j,k,QPTOTAL) = ptot_ref + (alphap + alpham)*csq;
+      qp(i,j,k,QRHOEITOT) = qp(i,j,k,QRHOEI);
 
       Real qrtmp;
       for (int g = 0; g < NGROUPS; g++) {
         qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-        qp(i,j,k,QRAD+g) = qrtmp;
-        qp(i,j,k,QREITOT) += qrtmp;
+        qp(i,j,k,QERAD+g) = qrtmp;
+        qp(i,j,k,QRHOEITOT) += qrtmp;
       }
 
       for (int g = 0; g < NGROUPS; g++) {
-        if (qp(i,j,k,QRAD+g) < 0.0_rt) {
-          Real er_foo = -qp(i,j,k,QRAD+g);
-          qp(i,j,k,QRAD+g) = 0.0_rt;
-          qp(i,j,k,QPTOT) += lamp[g] * er_foo;
-          qp(i,j,k,QREITOT) += er_foo;
+        if (qp(i,j,k,QERAD+g) < 0.0_rt) {
+          Real er_foo = -qp(i,j,k,QERAD+g);
+          qp(i,j,k,QERAD+g) = 0.0_rt;
+          qp(i,j,k,QPTOTAL) += lamp[g] * er_foo;
+          qp(i,j,k,QRHOEITOT) += er_foo;
         }
       }
 
@@ -443,12 +443,12 @@ Castro::trace_ppm_rad(const Box& bx,
       Real un_ref = Ip[QUN][2];
 
       Real p_ref = Ip[QPRES][2];
-      Real rhoe_g_ref = Ip[QREINT][2];
+      Real rhoe_g_ref = Ip[QRHOEI][2];
 
-      Real ptot_ref = Ip[QPTOT][2];
+      Real ptot_ref = Ip[QPTOTAL][2];
       Real er_ref[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        er_ref[g] = Ip[QRAD+g][2];
+        er_ref[g] = Ip[QERAD+g][2];
       }
 
       rho_ref = amrex::max(rho_ref, lsmall_dens);
@@ -458,19 +458,19 @@ Castro::trace_ppm_rad(const Box& bx,
       // *p are the jumps carried by u+c
 
       Real dum = un_ref - Ip[QUN][0] - hdt*Ip_src[QUN][0];
-      Real dptotm = ptot_ref - Ip[QPTOT][0] - hdt*Ip_src[QPRES][0];
+      Real dptotm = ptot_ref - Ip[QPTOTAL][0] - hdt*Ip_src[QPRES][0];
 
       Real drho = rho_ref - Ip[QRHO][1] - hdt*Ip_src[QRHO][1];
-      Real dptot = ptot_ref - Ip[QPTOT][1] - hdt*Ip_src[QPRES][1];
-      Real drhoe_g = rhoe_g_ref - Ip[QREINT][1] - hdt*Ip_src[QREINT][1];
+      Real dptot = ptot_ref - Ip[QPTOTAL][1] - hdt*Ip_src[QPRES][1];
+      Real drhoe_g = rhoe_g_ref - Ip[QRHOEI][1] - hdt*Ip_src[QRHOEI][1];
 
       Real der[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        der[g]  = er_ref[g]  - Ip[QRAD+g][1];
+        der[g]  = er_ref[g]  - Ip[QERAD+g][1];
       }
 
       Real dup = un_ref - Ip[QUN][2] - hdt*Ip_src[QUN][2];
-      Real dptotp = ptot_ref - Ip[QPTOT][2] - hdt*Ip_src[QPRES][2];
+      Real dptotp = ptot_ref - Ip[QPTOTAL][2] - hdt*Ip_src[QPRES][2];
 
       // {rho, u, p, (rho e)} eigensystem
 
@@ -504,29 +504,29 @@ Castro::trace_ppm_rad(const Box& bx,
       if (idir == 0) {
         qm(i+1,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + alphap + alpham + alpha0r);
         qm(i+1,j,k,QUN) = un_ref + (alphap - alpham)*cc/rho;
-        qm(i+1,j,k,QREINT) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
+        qm(i+1,j,k,QRHOEI) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
 
         qm(i+1,j,k,QPRES) = p_ref + (alphap + alpham)*cgassq;
         for (int g = 0; g < NGROUPS; g++) {
           qm(i+1,j,k,QPRES) += -lamm[g]*alphar[g];
         }
 
-        qm(i+1,j,k,QPTOT) = ptot_ref + (alphap + alpham)*csq;
-        qm(i+1,j,k,QREITOT) = qm(i+1,j,k,QREINT);
+        qm(i+1,j,k,QPTOTAL) = ptot_ref + (alphap + alpham)*csq;
+        qm(i+1,j,k,QRHOEITOT) = qm(i+1,j,k,QRHOEI);
 
         Real qrtmp;
         for (int g = 0; g < NGROUPS; g++) {
           qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-          qm(i+1,j,k,QRAD+g) = qrtmp;
-          qm(i+1,j,k,QREITOT) += qrtmp;
+          qm(i+1,j,k,QERAD+g) = qrtmp;
+          qm(i+1,j,k,QRHOEITOT) += qrtmp;
         }
 
         for (int g = 0; g < NGROUPS; g++) {
-          if (qm(i+1,j,k,QRAD+g) < 0.0_rt) {
-            Real er_foo = -qm(i+1,j,k,QRAD+g);
-            qm(i+1,j,k,QRAD+g) = 0.0_rt;
-            qm(i+1,j,k,QPTOT) += lamm[g] * er_foo;
-            qm(i+1,j,k,QREITOT) += er_foo;
+          if (qm(i+1,j,k,QERAD+g) < 0.0_rt) {
+            Real er_foo = -qm(i+1,j,k,QERAD+g);
+            qm(i+1,j,k,QERAD+g) = 0.0_rt;
+            qm(i+1,j,k,QPTOTAL) += lamm[g] * er_foo;
+            qm(i+1,j,k,QRHOEITOT) += er_foo;
           }
         }
 
@@ -537,35 +537,35 @@ Castro::trace_ppm_rad(const Box& bx,
       } else if (idir == 1) {
         qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, rho_ref + alphap + alpham + alpha0r);
         qm(i,j+1,k,QUN) = un_ref + (alphap - alpham)*cc/rho;
-        qm(i,j+1,k,QREINT) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
+        qm(i,j+1,k,QRHOEI) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
 
         qm(i,j+1,k,QPRES) = p_ref + (alphap + alpham)*cgassq;
         for (int g = 0; g < NGROUPS; g++) {
           qm(i,j+1,k,QPRES) += -lamm[g]*alphar[g];
         }
 
-        qm(i,j+1,k,QPTOT) = ptot_ref + (alphap + alpham)*csq;
-        qm(i,j+1,k,QREITOT) = qm(i,j+1,k,QREINT);
+        qm(i,j+1,k,QPTOTAL) = ptot_ref + (alphap + alpham)*csq;
+        qm(i,j+1,k,QRHOEITOT) = qm(i,j+1,k,QRHOEI);
 
         Real qrtmp;
         for (int g = 0; g < NGROUPS; g++) {
           qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-          qm(i,j+1,k,QRAD+g) = qrtmp;
-          qm(i,j+1,k,QREITOT) += qrtmp;
+          qm(i,j+1,k,QERAD+g) = qrtmp;
+          qm(i,j+1,k,QRHOEITOT) += qrtmp;
         }
 
         for (int g = 0; g < NGROUPS; g++) {
           qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-          qm(i,j+1,k,QRAD+g) = qrtmp;
-          qm(i,j+1,k,QREITOT) += qrtmp;
+          qm(i,j+1,k,QERAD+g) = qrtmp;
+          qm(i,j+1,k,QRHOEITOT) += qrtmp;
         }
 
         for (int g = 0; g < NGROUPS; g++) {
-          if (qm(i,j+1,k,QRAD+g) < 0.0_rt) {
-            Real er_foo = -qm(i,j+1,k,QRAD+g);
-            qm(i,j+1,k,QRAD+g) = 0.0_rt;
-            qm(i,j+1,k,QPTOT) += lamm[g] * er_foo;
-            qm(i,j+1,k,QREITOT) += er_foo;
+          if (qm(i,j+1,k,QERAD+g) < 0.0_rt) {
+            Real er_foo = -qm(i,j+1,k,QERAD+g);
+            qm(i,j+1,k,QERAD+g) = 0.0_rt;
+            qm(i,j+1,k,QPTOTAL) += lamm[g] * er_foo;
+            qm(i,j+1,k,QRHOEITOT) += er_foo;
           }
         }
 
@@ -578,35 +578,35 @@ Castro::trace_ppm_rad(const Box& bx,
 
         qm(i,j,k+1,QRHO) = amrex::max(lsmall_dens, rho_ref + alphap + alpham + alpha0r);
         qm(i,j,k+1,QUN) = un_ref + (alphap - alpham)*cc/rho;
-        qm(i,j,k+1,QREINT) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
+        qm(i,j,k+1,QRHOEI) = rhoe_g_ref + (alphap + alpham)*h_g*csq + alpha0e_g;
 
         qm(i,j,k+1,QPRES) = p_ref + (alphap + alpham)*cgassq;
         for (int g = 0; g < NGROUPS; g++) {
           qm(i,j,k+1,QPRES) += -lamm[g]*alphar[g];
         }
 
-        qm(i,j,k+1,QPTOT) = ptot_ref + (alphap + alpham)*csq;
-        qm(i,j,k+1,QREITOT) = qm(i,j,k+1,QREINT);
+        qm(i,j,k+1,QPTOTAL) = ptot_ref + (alphap + alpham)*csq;
+        qm(i,j,k+1,QRHOEITOT) = qm(i,j,k+1,QRHOEI);
 
         Real qrtmp;
         for (int g = 0; g < NGROUPS; g++) {
           qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-          qm(i,j,k+1,QRAD+g) = qrtmp;
-          qm(i,j,k+1,QREITOT) += qrtmp;
+          qm(i,j,k+1,QERAD+g) = qrtmp;
+          qm(i,j,k+1,QRHOEITOT) += qrtmp;
         }
 
         for (int g = 0; g < NGROUPS; g++) {
           qrtmp = er_ref[g] + (alphap + alpham)*hr[g] + alphar[g];
-          qm(i,j,k+1,QRAD+g) = qrtmp;
-          qm(i,j,k+1,QREITOT) += qrtmp;
+          qm(i,j,k+1,QERAD+g) = qrtmp;
+          qm(i,j,k+1,QRHOEITOT) += qrtmp;
         }
 
         for (int g = 0; g < NGROUPS; g++) {
-          if (qm(i,j,k+1,QRAD+g) < 0.0_rt) {
-            Real er_foo = -qm(i,j,k+1,QRAD+g);
-            qm(i,j,k+1,QRAD+g) = 0.0_rt;
-            qm(i,j,k+1,QPTOT) += lamm[g] * er_foo;
-            qm(i,j,k+1,QREITOT) += er_foo;
+          if (qm(i,j,k+1,QERAD+g) < 0.0_rt) {
+            Real er_foo = -qm(i,j,k+1,QERAD+g);
+            qm(i,j,k+1,QERAD+g) = 0.0_rt;
+            qm(i,j,k+1,QPTOTAL) += lamm[g] * er_foo;
+            qm(i,j,k+1,QRHOEITOT) += er_foo;
           }
         }
 
@@ -638,15 +638,15 @@ Castro::trace_ppm_rad(const Box& bx,
         qm(i+1,j,k,QRHO) = qm(i+1,j,k,QRHO) + sourcr;
         qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), lsmall_dens);
         qm(i+1,j,k,QPRES ) = qm(i+1,j,k,QPRES ) + sourcp;
-        qm(i+1,j,k,QREINT) = qm(i+1,j,k,QREINT) + source;
+        qm(i+1,j,k,QRHOEI) = qm(i+1,j,k,QRHOEI) + source;
         for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QRAD+g) += sourcer[g];
+          qm(i+1,j,k,QERAD+g) += sourcer[g];
         }
-        qm(i+1,j,k,QPTOT) = qm(i+1,j,k,QPTOT) + sourcp;
-        qm(i+1,j,k,QREITOT) = qm(i+1,j,k,QREINT);
+        qm(i+1,j,k,QPTOTAL) = qm(i+1,j,k,QPTOTAL) + sourcp;
+        qm(i+1,j,k,QRHOEITOT) = qm(i+1,j,k,QRHOEI);
         for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QPTOT) += lamm[g]*sourcer[g];
-          qm(i+1,j,k,QREITOT) += qm(i+1,j,k,QRAD+g);
+          qm(i+1,j,k,QPTOTAL) += lamm[g]*sourcer[g];
+          qm(i+1,j,k,QRHOEITOT) += qm(i+1,j,k,QERAD+g);
           }
       }
 
@@ -654,15 +654,15 @@ Castro::trace_ppm_rad(const Box& bx,
         qp(i,j,k,QRHO) = qp(i,j,k,QRHO) + sourcr;
         qp(i,j,k,QRHO) = amrex::max(qp(i,j,k,QRHO), lsmall_dens);
         qp(i,j,k,QPRES) = qp(i,j,k,QPRES) + sourcp;
-        qp(i,j,k,QREINT) = qp(i,j,k,QREINT) + source;
+        qp(i,j,k,QRHOEI) = qp(i,j,k,QRHOEI) + source;
         for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QRAD+g) += sourcer[g];
+          qp(i,j,k,QERAD+g) += sourcer[g];
         }
-        qp(i,j,k,QPTOT) = qp(i,j,k,QPTOT) + sourcp;
-        qp(i,j,k,QREITOT) = qp(i,j,k,QREINT);
+        qp(i,j,k,QPTOTAL) = qp(i,j,k,QPTOTAL) + sourcp;
+        qp(i,j,k,QRHOEITOT) = qp(i,j,k,QRHOEI);
         for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QPTOT) += lamp[g]*sourcer[g];
-          qp(i,j,k,QREITOT) += qp(i,j,k,QRAD+g);
+          qp(i,j,k,QPTOTAL) += lamp[g]*sourcer[g];
+          qp(i,j,k,QRHOEITOT) += qp(i,j,k,QERAD+g);
         }
       }
     }

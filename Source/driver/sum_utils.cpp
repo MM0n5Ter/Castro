@@ -2,8 +2,8 @@
 
 #include <numbers>
 
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 
 #ifdef GRAVITY
 #include <Gravity.H>
@@ -16,7 +16,7 @@
 using namespace amrex;
 
 Real
-Castro::volWgtSum (const std::string& name, Real time, bool local, bool finemask)
+HydroSim::volWgtSum (const std::string& name, Real time, bool local, bool finemask)
 {
     auto mf = derive(name, time, 0);
 
@@ -26,9 +26,9 @@ Castro::volWgtSum (const std::string& name, Real time, bool local, bool finemask
 }
 
 Real
-Castro::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
+HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
 {
-    BL_PROFILE("Castro::volWgtSum()");
+    BL_PROFILE("HydroSim::volWgtSum()");
 
     bool mask_available = level < parent->finestLevel() && finemask;
 
@@ -76,7 +76,7 @@ Castro::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
 }
 
 Real
-Castro::locWgtSum (const std::string& name, Real time, int idir, bool local)
+HydroSim::locWgtSum (const std::string& name, Real time, int idir, bool local)
 {
     auto mf = derive(name, time, 0);
 
@@ -86,9 +86,9 @@ Castro::locWgtSum (const std::string& name, Real time, int idir, bool local)
 }
 
 Real
-Castro::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
+HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
 {
-    BL_PROFILE("Castro::locWgtSum()");
+    BL_PROFILE("HydroSim::locWgtSum()");
 
     bool mask_available = level < parent->finestLevel();
 
@@ -166,7 +166,7 @@ Castro::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
 }
 
 Real
-Castro::volProductSum (const std::string& name1,
+HydroSim::volProductSum (const std::string& name1,
                        const std::string& name2,
                        Real time, bool local)
 {
@@ -180,12 +180,12 @@ Castro::volProductSum (const std::string& name1,
 }
 
 Real
-Castro::volProductSum (const MultiFab& mf1,
+HydroSim::volProductSum (const MultiFab& mf1,
                        const MultiFab& mf2,
                        int comp1, int comp2,
                        bool local)
 {
-    BL_PROFILE("Castro::volProductSum()");
+    BL_PROFILE("HydroSim::volProductSum()");
 
     bool mask_available = level < parent->finestLevel();
 
@@ -228,12 +228,12 @@ Castro::volProductSum (const MultiFab& mf1,
 }
 
 Real
-Castro::locSquaredSum (const std::string& name,
+HydroSim::locSquaredSum (const std::string& name,
                        Real               time,
                        int                idir,
                        bool               local)
 {
-    BL_PROFILE("Castro::locSquaredSum()");
+    BL_PROFILE("HydroSim::locSquaredSum()");
 
     auto mf = derive(name, time, 0);
 
@@ -315,7 +315,7 @@ Castro::locSquaredSum (const std::string& name,
 
 #ifdef GRAVITY
 void
-Castro::gwstrain (Real time,
+HydroSim::gwstrain (Real time,
                   Real& h_plus_1, Real& h_cross_1,
                   Real& h_plus_2, Real& h_cross_2,
                   Real& h_plus_3, Real& h_cross_3,
@@ -323,11 +323,11 @@ Castro::gwstrain (Real time,
 
     amrex::ignore_unused(time);
 
-    BL_PROFILE("Castro::gwstrain()");
+    BL_PROFILE("HydroSim::gwstrain()");
 
     // We have nothing to do if the user did not request the gravitational wave
     // strain (inferred from whether the observation distance is positive).
-    if (castro::gw_dist <= 0.0_rt) {
+    if (hydrosim::gw_dist <= 0.0_rt) {
         return;
     }
 
@@ -536,7 +536,7 @@ Castro::gwstrain (Real time,
     for (int dir = 0; dir < 3; ++dir) {
 
         Real dist[3] = {0.0};
-        dist[dir] = castro::gw_dist;
+        dist[dir] = hydrosim::gw_dist;
 
         Real r = std::sqrt(dist[0] * dist[0] + dist[1] * dist[1] + dist[2] * dist[2]);
 

@@ -1,7 +1,7 @@
-#ifndef CASTRO_HYBRID_H
-#define CASTRO_HYBRID_H
+#ifndef HYDROSIM_HYBRID_H
+#define HYDROSIM_HYBRID_H
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 using namespace amrex;
 
@@ -92,7 +92,7 @@ void set_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
 /// Compute and store the flux of the hybrid momentum components
 ///
 /// @param state          the Godunov state
-/// @param geomdata       the Castro geometry data object
+/// @param geomdata       the HydroSim geometry data object
 /// @param idir           coordinate direction for flux computation (0 = x, 1 = y, 2 = z)
 /// @param i              x zone index
 /// @param j              y zone index
@@ -101,7 +101,7 @@ void set_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
 /// @param cell_centered  is this a cell-centered flux or an interface flux?
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void compute_hybrid_flux(const GpuArray<Real, NGDNV>& state, const GeometryData& geomdata,
+void compute_hybrid_flux(const GpuArray<Real, NIFC>& state, const GeometryData& geomdata,
                          int idir, int i, int j, int k,
                          GpuArray<Real, NUM_STATE>& flux, bool cell_centered = false)
 {
@@ -129,28 +129,28 @@ void compute_hybrid_flux(const GpuArray<Real, NGDNV>& state, const GeometryData&
     GpuArray<Real, 3> linear_mom;
 
     for (int dir = 0; dir < 3; ++dir)
-        linear_mom[dir] = state[GDRHO] * state[GDU + dir];
+        linear_mom[dir] = state[IFCRHO] * state[IFCU + dir];
 
     GpuArray<Real, 3> hybrid_mom;
 
     linear_to_hybrid(loc, linear_mom, hybrid_mom);
 
-    Real u_adv = state[GDU + idir];
+    Real u_adv = state[IFCU + idir];
 
     if (idir == 0) {
         flux[UMR] = hybrid_mom[0] * u_adv;
-        flux[UML] = hybrid_mom[1] * u_adv - loc[1] * state[GDPRES];
+        flux[UML] = hybrid_mom[1] * u_adv - loc[1] * state[IFCPRES];
         flux[UMP] = hybrid_mom[2] * u_adv;
     }
     else if (idir == 1) {
         flux[UMR] = hybrid_mom[0] * u_adv;
-        flux[UML] = hybrid_mom[1] * u_adv + loc[0] * state[GDPRES];
+        flux[UML] = hybrid_mom[1] * u_adv + loc[0] * state[IFCPRES];
         flux[UMP] = hybrid_mom[2] * u_adv;
     }
     else {
         flux[UMR] = hybrid_mom[0] * u_adv;
         flux[UML] = hybrid_mom[1] * u_adv;
-        flux[UMP] = hybrid_mom[2] * u_adv + state[GDPRES];
+        flux[UMP] = hybrid_mom[2] * u_adv + state[IFCPRES];
     }
 
 }

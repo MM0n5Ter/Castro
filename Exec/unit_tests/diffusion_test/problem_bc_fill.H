@@ -46,7 +46,7 @@ void problem_bc_fill(int i, int j, int k,
         }
     }
 
-    // If we evaluate diffusion within castro, then boundary condition needs to be cell-centered.
+    // If we evaluate diffusion within hydrosim, then boundary condition needs to be cell-centered.
     // If MLMG is used to evaluate diffusion term, then the Dirichlet boundary condition
     // for MLMG needs to be face-centered. This is done via mlabec.setLevelBC(0, &Temperature)
     // in Diffusion.cpp. Here add another 0.5 * dx to convert from cell-centered to face-centered.
@@ -102,7 +102,7 @@ void problem_bc_fill(int i, int j, int k,
         state(i,j,k,UEDEN) = problem::rho0 * eos_state.e;
         state(i,j,k,UEINT) = problem::rho0 * eos_state.e;
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = problem::rho0 * X[n];
+            state(i,j,k,USPEC+n) = problem::rho0 * X[n];
         }
     }
 }

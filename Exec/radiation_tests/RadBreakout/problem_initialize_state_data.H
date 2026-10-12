@@ -105,12 +105,12 @@ void problem_initialize_state_data (int i, int j, int k,
     // set the composition to be all in the first species
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 
-    state(i,j,k,UFX+problem::iye) = Ye * rho;
-    state(i,j,k,UFX+problem::iinvmu) = invmu * rho;
+    state(i,j,k,UAUXV+problem::iye) = Ye * rho;
+    state(i,j,k,UAUXV+problem::iinvmu) = invmu * rho;
 
     // set the internal energy via the EOS
 
@@ -120,10 +120,10 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n) * rhoInv;
+        eos_state.xn[n] = state(i,j,k,USPEC+n) * rhoInv;
     }
     for (int n = 0; n < NumAux; n++) {
-        eos_state.aux[n] = state(i,j,k,UFX+n) * rhoInv;
+        eos_state.aux[n] = state(i,j,k,UAUXV+n) * rhoInv;
     }
 
     eos(eos_input_rt, eos_state);

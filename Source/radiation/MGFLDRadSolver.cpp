@@ -26,33 +26,33 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
   int fine_level =  parent->finestLevel();
 
   // allocation and initialization
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
   Real delta_t = parent->dtLevel(level);
 
   int ngrow = 1;
 
-  Real time = castro->get_state_data(Rad_Type).curTime();
-  Real oldtime = castro->get_state_data(Rad_Type).prevTime();
+  Real time = hydrosim->get_state_data(Rad_Type).curTime();
+  Real oldtime = hydrosim->get_state_data(Rad_Type).prevTime();
 
-  MultiFab& S_new = castro->get_new_data(State_Type);
-  FillPatchIterator fpi_new(*castro, S_new, ngrow, time, State_Type, 0, S_new.nComp());
+  MultiFab& S_new = hydrosim->get_new_data(State_Type);
+  FillPatchIterator fpi_new(*hydrosim, S_new, ngrow, time, State_Type, 0, S_new.nComp());
   MultiFab& S_new_border = fpi_new.get_mf();
 
   Array<MultiFab, AMREX_SPACEDIM> lambda;
   if (radiation::limiter > 0) {
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-        lambda[idim].define(castro->getEdgeBoxArray(idim), dmap, nGroups, 0);
+        lambda[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, nGroups, 0);
     }
 
     if (inner_update_limiter == -1) {
-      MultiFab& Er_lag = castro->get_old_data(Rad_Type);
+      MultiFab& Er_lag = hydrosim->get_old_data(Rad_Type);
       Er_lag.setBndry(-1.0);
       Er_lag.FillBoundary(parent->Geom(level).periodicity());
 
-      MultiFab& S_old = castro->get_old_data(State_Type);
-      FillPatchIterator fpi_old(*castro, S_old, ngrow, oldtime, State_Type, 0, S_old.nComp());
+      MultiFab& S_old = hydrosim->get_old_data(State_Type);
+      FillPatchIterator fpi_old(*hydrosim, S_old, ngrow, oldtime, State_Type, 0, S_old.nComp());
       MultiFab& S_lag = fpi_old.get_mf();
 
       MultiFab kpr_lag(grids,dmap,nGroups,1);
@@ -68,7 +68,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
   }
   else {
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-        lambda[idim].define(castro->getEdgeBoxArray(idim), dmap, 1, 0);
+        lambda[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, 1, 0);
       lambda[idim].setVal(1./3.);
     }
   }
@@ -78,7 +78,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
   // Er_pi: previous inner iteration
   // Er_star: previous outer iteration
   //
-  MultiFab& Er_new = castro->get_new_data(Rad_Type);
+  MultiFab& Er_new = hydrosim->get_new_data(Rad_Type);
   {
     MultiFab rhs(grids,dmap,1,0);
     for (int igroup=0; igroup<nGroups; igroup++) {
@@ -139,7 +139,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
   MultiFab coupT(grids,dmap,1,0); // \sum{\kappa E - j}
 
   // multigroup boundary object
-  MGRadBndry mgbd(grids,dmap, nGroups, castro->Geom());
+  MGRadBndry mgbd(grids,dmap, nGroups, hydrosim->Geom());
   getBndryDataMG(mgbd, Er_new, time, level);
 
   bool have_Sanchez_Pomraning = false;
@@ -153,7 +153,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     }
   }
 
-  RadSolve* const solver = castro->rad_solver.get();
+  RadSolve* const solver = hydrosim->rad_solver.get();
 
   Real relative_in, absolute_in, error_er;
   Real rel_rhoe, abs_rhoe;
@@ -166,7 +166,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
 
   Array<MultiFab, AMREX_SPACEDIM> Flux;
   for (int n = 0; n < AMREX_SPACEDIM; n++) {
-      Flux[n].define(castro->getEdgeBoxArray(n), dmap, 1, 0);
+      Flux[n].define(hydrosim->getEdgeBoxArray(n), dmap, 1, 0);
   }
 
   std::unique_ptr<MultiFab> flxsave;

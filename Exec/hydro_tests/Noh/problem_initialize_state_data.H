@@ -1,7 +1,7 @@
 #ifndef problem_initialize_state_data_H
 #define problem_initialize_state_data_H
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 #include <eos.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -32,7 +32,7 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
     state(i,j,k,UTEMP) = zone_state.T;
     state(i,j,k,UEINT) = zone_state.e * zone_state.rho;
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = zone_state.xn[n] * zone_state.rho;
+        state(i,j,k,USPEC+n) = zone_state.xn[n] * zone_state.rho;
     }
 
     state(i,j,k,UMX) = state(i,j,k,URHO) * vel[0];

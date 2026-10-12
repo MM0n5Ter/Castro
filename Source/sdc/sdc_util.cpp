@@ -1,9 +1,9 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 void
-Castro::ca_sdc_update_advection_o2_lobatto(const Box& bx,
+HydroSim::hs_sdc_update_advection_o2_lobatto(const Box& bx,
                                            Real dt_m, Real dt,
                                            Array4<const Real> const& k_m,
                                            Array4<Real> const& k_n,
@@ -33,7 +33,7 @@ Castro::ca_sdc_update_advection_o2_lobatto(const Box& bx,
 
 
 void
-Castro::ca_sdc_update_advection_o2_radau(const Box& bx,
+HydroSim::hs_sdc_update_advection_o2_radau(const Box& bx,
                                          Real dt_m, Real dt,
                                          Array4<const Real> const& k_m,
                                          Array4<Real> const& k_n,
@@ -74,7 +74,7 @@ Castro::ca_sdc_update_advection_o2_radau(const Box& bx,
 }
 
 void
-Castro::ca_sdc_update_advection_o4_lobatto(const Box& bx,
+HydroSim::hs_sdc_update_advection_o4_lobatto(const Box& bx,
                                            Real dt_m, Real dt,
                                            Array4<const Real> const& k_m,
                                            Array4<Real> const& k_n,
@@ -113,12 +113,12 @@ Castro::ca_sdc_update_advection_o4_lobatto(const Box& bx,
     }
     else
     {
-        amrex::Abort("error in ca_sdc_update_advection_o4_lobatto -- should not be here");
+        amrex::Abort("error in hs_sdc_update_advection_o4_lobatto -- should not be here");
     }
 }
 
 void
-Castro::ca_sdc_update_advection_o4_radau(const Box& bx,
+HydroSim::hs_sdc_update_advection_o4_radau(const Box& bx,
                                          Real dt_m, Real dt,
                                          Array4<const Real> const& k_m,
                                          Array4<Real> const& k_n,
@@ -174,13 +174,13 @@ Castro::ca_sdc_update_advection_o4_radau(const Box& bx,
     }
     else
     {
-        amrex::Abort("error in ca_sdc_update_advection_o4_radau -- should not be here");
+        amrex::Abort("error in hs_sdc_update_advection_o4_radau -- should not be here");
     }
 }
 
 #ifdef REACTIONS
 void
-Castro::ca_sdc_compute_C2_lobatto(const Box& bx,
+HydroSim::hs_sdc_compute_C2_lobatto(const Box& bx,
                                   Real dt_m, Real dt,
                                   Array4<const Real> const& A_m,
                                   Array4<const Real> const& A_0_old,
@@ -209,10 +209,10 @@ Castro::ca_sdc_compute_C2_lobatto(const Box& bx,
             0.5_rt * (R_0_old(i,j,k,n) + R_1_old(i,j,k,n));
     });
 
-} // end ca_sdc_compute_C2_lobatto
+} // end hs_sdc_compute_C2_lobatto
 
 void
-Castro::ca_sdc_compute_C2_radau(const Box& bx,
+HydroSim::hs_sdc_compute_C2_radau(const Box& bx,
                                 Real dt_m, Real dt,
                                 Array4<const Real> const& A_m,
                                 Array4<const Real> const& A_0_old,
@@ -258,10 +258,10 @@ Castro::ca_sdc_compute_C2_radau(const Box& bx,
                  (A_2_old(i,j,k,n) + R_2_old(i,j,k,n)));
         });
     }
-} // end ca_sdc_compute_C2_radau
+} // end hs_sdc_compute_C2_radau
 
 void
-Castro::ca_sdc_compute_C4_lobatto(const Box& bx,
+HydroSim::hs_sdc_compute_C4_lobatto(const Box& bx,
                                   Real dt_m, Real dt,
                                   Array4<const Real> const& A_m,
                                   Array4<const Real> const& A_0_old,
@@ -310,14 +310,14 @@ Castro::ca_sdc_compute_C4_lobatto(const Box& bx,
     }
     else
     {
-        amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
+        amrex::Abort("error in hs_sdc_compute_C4 -- should not be here");
     }
 
-} // end subroutine ca_sdc_compute_C4_lobatto
+} // end subroutine hs_sdc_compute_C4_lobatto
 
 
 void
-Castro::ca_sdc_compute_C4_radau(const Box& bx,
+HydroSim::hs_sdc_compute_C4_radau(const Box& bx,
                                 Real dt_m, Real dt,
                                 Array4<const Real> const& A_m,
                                 Array4<const Real> const& A_0_old,
@@ -382,12 +382,12 @@ Castro::ca_sdc_compute_C4_radau(const Box& bx,
     }
     else
     {
-        amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
+        amrex::Abort("error in hs_sdc_compute_C4 -- should not be here");
     }
-} //  end ca_sdc_compute_C4_radau
+} //  end hs_sdc_compute_C4_radau
 
 void
-Castro::ca_sdc_conservative_update(const Box& bx, Real const dt_m,
+HydroSim::hs_sdc_conservative_update(const Box& bx, Real const dt_m,
                                    Array4<const Real> const& U_old,
                                    Array4<Real> const& U_new,
                                    Array4<const Real> const& C,
@@ -401,11 +401,11 @@ Castro::ca_sdc_conservative_update(const Box& bx, Real const dt_m,
     {
         U_new(i,j,k,n) = U_old(i,j,k,n) + dt_m * R_new(i,j,k,n) + dt_m * C(i,j,k,n);
     });
-} // end subroutine ca_sdc_conservative_update
+} // end subroutine hs_sdc_conservative_update
 #endif
 
 
-void Castro::ca_sdc_compute_initial_guess(const Box& bx,
+void HydroSim::hs_sdc_compute_initial_guess(const Box& bx,
                                           Array4<const Real> const& U_old,
                                           Array4<const Real> const& U_new,
                                           Array4<const Real> const& Adv_old,
@@ -437,27 +437,27 @@ void Castro::ca_sdc_compute_initial_guess(const Box& bx,
 
 
 #ifdef REACTIONS
-void Castro::ca_store_reaction_state(const Box& bx,
+void HydroSim::hs_store_reaction_state(const Box& bx,
                                      Array4<const Real> const& React_old,
                                      Array4<Real> const& R_store)
 {
     // copy the data from the last node's reactive source to the state data
 
-    // for R_store we use the indices defined in Castro_setup.cpp for
+    // for R_store we use the indices defined in HydroSim_setup.cpp for
     // Reactions_Type
 
     if (store_omegadot) {
         amrex::ParallelFor(bx, NumSpec,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            R_store(i,j,k,1+n) = React_old(i,j,k,UFS+n);
+            R_store(i,j,k,1+n) = React_old(i,j,k,USPEC+n);
         });
 
 #if NAUX_NET > 0
         amrex::ParallelFor(bx, NumAux,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            R_store(i,j,k,1+NumSpec+n) = React_old(i,j,k,UFX+n);
+            R_store(i,j,k,1+NumSpec+n) = React_old(i,j,k,UAUXV+n);
         });
 #endif
     }

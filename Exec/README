@@ -86,7 +86,7 @@ rotating_torus:
 RT:
 
   A Rayleigh-Taylor instability.  This problem setup was used in
-  the first Castro paper.
+  the first HydroSim paper.
 
 
 RT_particles:
@@ -98,13 +98,13 @@ RT_particles:
 Sedov:
 
   The standard Sedov-Taylor blast wave problem.  This setup was used
-  in the original Castro paper.
+  in the original HydroSim paper.
 
 
 Sod:
 
   A one-dimensional shock tube setup, including the classic Sod
-  problem.  This setup was used in the original Castro paper.
+  problem.  This setup was used in the original HydroSim paper.
 
 
 Sod_stellar:
@@ -131,7 +131,7 @@ toy_convect:
 
   A simple nova-like convection problem with an external heating
   source.  This problem shows how to use the model parser to
-  initialize a 1-d atmosphere on the Castro grid, incorporate a custom
+  initialize a 1-d atmosphere on the HydroSim grid, incorporate a custom
   tagging routine, and write a custom diagnostics routine.
 
 

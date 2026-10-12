@@ -3,9 +3,9 @@
 
 #include <prob_parameters.H>
 #include <eos.H>
-#include <Castro_math.H>
+#include <HydroSim_math.H>
 #include <Rotation.H>
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 AMREX_INLINE
 void problem_initialize ()

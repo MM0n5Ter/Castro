@@ -13,23 +13,23 @@ using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 /// Multipole gravity data
 ///
 namespace multipole {
-    const int lnum_max = 30;
+    const int l_max_storage = 30;
 
-    extern AMREX_GPU_MANAGED amrex::Real volumeFactor;
-    extern AMREX_GPU_MANAGED amrex::Real parityFactor;
+    extern AMREX_GPU_MANAGED amrex::Real volumeScale;
+    extern AMREX_GPU_MANAGED amrex::Real mirrorFactor;
 
     extern AMREX_GPU_MANAGED amrex::Real rmax;
 
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doSymmetricAddLo;
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doSymmetricAddHi;
-    extern AMREX_GPU_MANAGED bool doSymmetricAdd;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> mirrorAddLo;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> mirrorAddHi;
+    extern AMREX_GPU_MANAGED bool mirrorAdd;
 
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doReflectionLo;
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doReflectionHi;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> reflectLo;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> reflectHi;
 
-    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, lnum_max, 0, lnum_max> factArray;
-    extern AMREX_GPU_MANAGED amrex::Array1D<amrex::Real, 0, lnum_max> parity_q0;
-    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, lnum_max, 0, lnum_max> parity_qC_qS;
+    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, l_max_storage, 0, l_max_storage> legNormTable;
+    extern AMREX_GPU_MANAGED amrex::Array1D<amrex::Real, 0, l_max_storage> mirror_m0;
+    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, l_max_storage, 0, l_max_storage> mirror_mC_mS;
 }
 
 ///
@@ -76,11 +76,11 @@ public:
 
 
 ///
-/// Set ``Gravity`` object's ``numpts_at_level`` variable.
+/// Set ``Gravity`` object's ``radial_npts_level`` variable.
 ///
 /// @param numpts       number of points
 ///
-  void set_numpts_in_gravity(int numpts);
+  void set_radial_npts(int numpts);
 
 ///
 /// Setup gravity at level ``level``.
@@ -90,7 +90,7 @@ public:
 /// @param volume       MultiFab, volume elements of cells
 /// @param area         MultiFab, area elements of cells
 ///
-  void install_level (int                   level,
+  void register_level (int                   level,
                       amrex::AmrLevel*             level_data,
                       amrex::MultiFab&             volume,
                       amrex::MultiFab*             area);
@@ -108,17 +108,17 @@ public:
 ///
 /// Returns ``no_sync``
 ///
-  static int NoSync();
+  static int SkipSync();
 
 ///
 /// Returns ``do_composite_phi_correction``
 ///
-  static int DoCompositeCorrection();
+  static int ApplyCompositeCorrection();
 
 ///
 /// Returns ``test_solves``
 ///
-  static int test_results_of_solves ();
+  static int verify_solves ();
 
 
 ///
@@ -159,7 +159,7 @@ public:
 /// @param level        level index
 /// @param addend       Vector of MultiFabs to add to grad phi
 ///
-  void plus_grad_phi_curr(int level, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& addend);
+  void add_to_grad_phi_curr(int level, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& addend);
 
 
 ///
@@ -172,7 +172,7 @@ public:
 ///
 /// Calculate the maximum value of the RHS over all levels.
 /// This should only be called at a synchronization point where
-/// all Castro levels have valid new time data at the same simulation time.
+/// all HydroSim levels have valid new time data at the same simulation time.
 /// The RHS we will use is the density multiplied by 4*pi*G and also
 /// multiplied by the metric terms, just as it would be in a real solve.
 ///
@@ -224,7 +224,7 @@ public:
 /// @param level                        Base level index
 /// @param finest_level                 Fine level index
 ///
-  void multilevel_solve_for_new_phi (int level, int finest_level);
+  void solve_new_phi_all_levels (int level, int finest_level);
 
 ///
 /// Actually do the multilevel solve for new phi from base level to finest level
@@ -234,7 +234,7 @@ public:
 /// @param grad_phi         gradient of phi
 /// @param is_new           Should we use the new state (1) or previous state (0)?
 ///
-  void actual_multilevel_solve      (int level, int finest_level,
+  void run_multilevel_solve      (int level, int finest_level,
                                      const amrex::Vector<amrex::Vector<amrex::MultiFab*> >& grad_phi,
                                      int is_new);
 
@@ -245,14 +245,14 @@ public:
 /// @param level                       level index
 /// @param comp_phi                    MultiFab containing computed phi
 /// @param comp_gphi                   Vector of MultiFabs containing computed grad phi
-/// @param comp_minus_level_phi        MultiFab, computed minus level phi
-/// @param comp_minus_level_grad_phi   Vector of MultiFabs, computed minus level grad phi
+/// @param composite_level_phi_diff        MultiFab, computed minus level phi
+/// @param composite_level_grad_phi_diff   Vector of MultiFabs, computed minus level grad phi
 ///
-  void create_comp_minus_level_grad_phi(int level,
+  void build_composite_level_diff(int level,
                                         amrex::MultiFab& comp_phi,
                                         const amrex::Vector<amrex::MultiFab*>& comp_gphi,
-                                        amrex::MultiFab& comp_minus_level_phi,
-                                        amrex::Vector<std::unique_ptr<amrex::MultiFab> >& comp_minus_level_grad_phi);
+                                        amrex::MultiFab& composite_level_phi_diff,
+                                        amrex::Vector<std::unique_ptr<amrex::MultiFab> >& composite_level_grad_phi_diff);
 
 
 ///
@@ -262,7 +262,7 @@ public:
 /// @param phi_crse     MultiFab to contain coarse phi
 /// @param time         Current time
 ///
-  void GetCrsePhi(int level,
+  void GetCoarsePhiAtTime(int level,
                   amrex::MultiFab& phi_crse,
                   amrex::Real time);
 
@@ -296,7 +296,7 @@ public:
 /// @param ecz         gradients wrt z
 /// @param coord_type  coordinate system
 
-  static void test_residual (const amrex::Box& bx,
+  static void check_residual (const amrex::Box& bx,
                       amrex::Array4<amrex::Real> const& rhs,
                       amrex::Array4<amrex::Real> const& ecx,
 #if AMREX_SPACEDIM >= 2
@@ -312,24 +312,24 @@ public:
 ///
 /// @param level
 ///
-  void test_level_grad_phi_prev(int level);
+  void check_level_grad_phi_prev(int level);
 
 ///
 /// @param level
 ///
-  void test_level_grad_phi_curr(int level);
+  void check_level_grad_phi_curr(int level);
 
 ///
 /// @param level
 ///
-  void test_composite_phi(int level);
+  void check_composite_phi(int level);
 
 
 ///
 /// @param level    Level index
 /// @param is_new   Use new state data (1) or old state data (0)?
 ///
-  void average_fine_ec_onto_crse_ec(int level, int is_new);
+  void avg_down_face_grad(int level, int is_new);
 
 
 ///
@@ -339,7 +339,7 @@ public:
 /// @param time         Current time
 /// @param radial_grav  Vector containing gravity in radial direction
 ///
-  void make_radial_gravity(int level, amrex::Real time, RealVector& radial_grav);
+  void build_radial_gravity(int level, amrex::Real time, RealVector& radial_grav);
 
 ///
 /// Interpolate monopole gravitational field in the radial direction
@@ -348,7 +348,7 @@ public:
 /// @param radial_grav  Radial gravity
 /// @param grav_vector  Gravity vector
 ///
-  void interpolate_monopole_grav(int level, RealVector& radial_grav, amrex::MultiFab& grav_vector) const;
+  void map_radial_gravity_to_grid(int level, RealVector& radial_grav, amrex::MultiFab& grav_vector) const;
 
 ///
 /// Integrate radially outward to find radial mass distribution
@@ -361,7 +361,7 @@ public:
 /// @param n1d          Number of radial points in the domain
 /// @param level        Level index
 ///
-  void compute_radial_mass(const amrex::Box& bx,
+  void bin_radial_mass(const amrex::Box& bx,
                            amrex::Array4<amrex::Real const> const& u,
                            RealVector& radial_mass,
                            RealVector& radial_vol,
@@ -378,12 +378,12 @@ public:
 /// @param Rhs
 /// @param phi
 ///
-  void fill_multipole_BCs(int crse_level, int fine_level, const amrex::Vector<amrex::MultiFab*>& Rhs, amrex::MultiFab& phi);
+  void set_multipole_boundary_phi(int crse_level, int fine_level, const amrex::Vector<amrex::MultiFab*>& Rhs, amrex::MultiFab& phi);
 
 ///
 /// Initialize multipole gravity
 ///
-  void init_multipole_grav() const;
+  void setup_multipole_tables() const;
 
 #if (AMREX_SPACEDIM == 3)
 
@@ -395,13 +395,13 @@ public:
 /// @param Rhs          Vector of MultiFabs, right hand side
 /// @param phi          MultiFab, phi
 ///
-  void fill_direct_sum_BCs(int crse_level, int fine_level, const amrex::Vector<amrex::MultiFab*>& Rhs, amrex::MultiFab& phi);
+  void set_direct_sum_boundary_phi(int crse_level, int fine_level, const amrex::Vector<amrex::MultiFab*>& Rhs, amrex::MultiFab& phi);
 #endif
 
 ///
 /// Make multigrid boundary conditions
 ///
-  void make_mg_bc();
+  void set_solver_bc_types();
 
 ///
 /// Pointers to amr,amrlevel.
@@ -435,7 +435,7 @@ public:
 ///
 /// Resnorm at each level
 ///
-  amrex::Vector<amrex::Real> level_solver_resnorm;
+  amrex::Vector<amrex::Real> level_final_residual;
 
 ///
 /// Maximum value of the RHS (used for obtaining absolute tolerances)
@@ -456,7 +456,7 @@ public:
   std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_lobc;
   std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_hibc;
 
-  int   numpts_at_level;
+  int   radial_npts_level;
 
   static int   test_solves;
   static amrex::Real  mass_offset;
@@ -469,7 +469,7 @@ public:
 #endif
   static int   stencil_type;
 
-  static amrex::Real max_radius_all_in_domain;
+  static amrex::Real max_inscribed_radius;
 
 #if (AMREX_SPACEDIM < 3)
 
@@ -480,7 +480,7 @@ public:
 /// @param Rhs      MultiFab
 /// @param coeffs   Vector of MultiFabs
 ///
-  void applyMetricTerms(int level,amrex::MultiFab& Rhs, const amrex::Vector<amrex::MultiFab*>& coeffs) const;
+  void scaleByMetric(int level,amrex::MultiFab& Rhs, const amrex::Vector<amrex::MultiFab*>& coeffs) const;
 #endif
 
 ///
@@ -488,7 +488,7 @@ public:
 /// @param phi          Gravitational potential
 /// @param grav_vector  Gravity vector
 ///
-    void add_pointmass_to_gravity (int level, amrex::MultiFab& phi, amrex::MultiFab& grav_vector) const;
+    void add_point_mass_field (int level, amrex::MultiFab& phi, amrex::MultiFab& grav_vector) const;
 
 ///
 /// Get the rhs
@@ -524,7 +524,7 @@ public:
 /// @param rel_eps      Relative tolerance
 /// @param abs_eps      Absolute tolerance
 ///
-    amrex::Real actual_solve_with_mlmg (int crse_level, int fine_level,
+    amrex::Real run_mlmg_solve (int crse_level, int fine_level,
                                         const amrex::Vector<amrex::MultiFab*>& phi,
                                         const amrex::Vector<const amrex::MultiFab*>& rhs,
                                         const amrex::Vector<std::array<amrex::MultiFab*,AMREX_SPACEDIM> >& grad_phi,
@@ -544,7 +544,7 @@ public:
 /// @param res
 /// @param time         Current time
 ///
-    amrex::Real solve_phi_with_mlmg (int crse_level, int fine_level,
+    amrex::Real solve_potential_mlmg (int crse_level, int fine_level,
                                      const amrex::Vector<amrex::MultiFab*>& phi,
                                      const amrex::Vector<amrex::MultiFab*>& rhs,
                                      const amrex::Vector<amrex::Vector<amrex::MultiFab*> >& grad_phi,
@@ -554,10 +554,10 @@ public:
 };
 
 ///
-/// @class GradPhiPhysBCFunct
+/// @class GradPotBCNoOp
 /// @brief A physical boundary condition function for grad phi
 ///
-using GradPhiPhysBCFunct = amrex::PhysBCFunctNoOp;
+using GradPotBCNoOp = amrex::PhysBCFunctNoOp;
 
 
 #endif

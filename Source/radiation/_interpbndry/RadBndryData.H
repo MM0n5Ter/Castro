@@ -1,5 +1,5 @@
-#ifndef CASTRO_RAD_BNDRYDATA_H
-#define CASTRO_RAD_BNDRYDATA_H
+#ifndef HYDROSIM_RAD_BNDRYDATA_H
+#define HYDROSIM_RAD_BNDRYDATA_H
 
 #include <AMReX_BLassert.H>
 #include <AMReX_BoxArray.H>

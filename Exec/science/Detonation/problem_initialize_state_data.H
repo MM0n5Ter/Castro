@@ -35,7 +35,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = problem::T_l + (problem::T_r - problem::T_l) * (1.0_rt - sigma);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * problem::xn[n];
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * problem::xn[n];
     }
 
     eos_t eos_state;
@@ -50,7 +50,7 @@ void problem_initialize_state_data (int i, int j, int k,
     set_aux_comp_from_X(eos_state);
 
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = state(i,j,k,URHO) * eos_state.aux[n];
+        state(i,j,k,UAUXV+n) = state(i,j,k,URHO) * eos_state.aux[n];
     }
 #endif
 
@@ -58,8 +58,8 @@ void problem_initialize_state_data (int i, int j, int k,
 
 #ifdef NSE_NET
     // set initial conditions for NSE_NET
-    state(i,j,k,UMUP) = problem::mu_p;
-    state(i,j,k,UMUN) = problem::mu_n;
+    state(i,j,k,UMU_P) = problem::mu_p;
+    state(i,j,k,UMU_N) = problem::mu_n;
 
     burn_t burn_state;
     burn_state.T = state(i,j,k,UTEMP);
@@ -78,11 +78,11 @@ void problem_initialize_state_data (int i, int j, int k,
                                               burn_state, 1.0e-10_rt, true);
 
       // for (int n = 0; n < NumSpec; ++n) {
-      //   state(i,j,k,UFS+n) = state(i,j,k,URHO) * nse_state.xn[n];
+      //   state(i,j,k,USPEC+n) = state(i,j,k,URHO) * nse_state.xn[n];
       // }
 
-      state(i,j,k,UMUP) = nse_state.mu_p;
-      state(i,j,k,UMUN) = nse_state.mu_n;
+      state(i,j,k,UMU_P) = nse_state.mu_p;
+      state(i,j,k,UMU_N) = nse_state.mu_n;
     }
 #endif
 

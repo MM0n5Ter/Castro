@@ -35,15 +35,15 @@ void problem_initialize_state_data (int i, int j, int k,
     // set the composition to be all in the first species
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = 0.0_rt;
+        state(i,j,k,UAUXV+n) = 0.0_rt;
     }
-    state(i,j,k,UFX) = state(i,j,k,URHO);
+    state(i,j,k,UAUXV) = state(i,j,k,URHO);
 #endif
 
     if (std::abs(xcen)/x0 < problem::x_jump) {

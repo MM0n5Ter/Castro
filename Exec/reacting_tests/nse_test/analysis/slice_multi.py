@@ -14,7 +14,7 @@ from yt.units import cm
 plotfile = sys.argv[1]
 
 # slice plot of temperature
-ds = yt.load(plotfile, hint="castro")
+ds = yt.load(plotfile, hint="hydrosim")
 
 xctr = 0.5*(ds.domain_left_edge[0] + ds.domain_right_edge[0])
 L_x = ds.domain_right_edge[0] - ds.domain_left_edge[0]

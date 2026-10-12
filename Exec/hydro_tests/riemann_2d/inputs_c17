@@ -14,24 +14,24 @@ amr.n_cell           = 400 400 400         # number of cells
 # 1 = Inflow            4 = SlipWall
 # 2 = Outflow           5 = NoSlipWall
 # >>>>>>>>>>>> BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc         = 0  0  0
-castro.hi_bc         = 0  0  0
+hydrosim.lo_bc         = 0  0  0
+hydrosim.hi_bc         = 0  0  0
 
 #WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
 
 #TIME STEP CONTROL
 
-castro.cfl           = 0.6
-castro.init_shrink   = 1.0
-castro.change_max     = 1.1
-#castro.fixed_dt      = 
+hydrosim.cfl           = 0.6
+hydrosim.init_shrink   = 1.0
+hydrosim.change_max     = 1.1
+#hydrosim.fixed_dt      = 
 
 
 #DIAGNOSTIC & VERBOSITY
-castro.sum_interval = 1
-castro.v            = 1
+hydrosim.sum_interval = 1
+hydrosim.v            = 1
 amr.v               = 1
 
 

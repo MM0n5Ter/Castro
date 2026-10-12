@@ -37,7 +37,7 @@ def nuc_list_filter(nuc):
 
 def get_Te_profile(plotfile, plot_in_nse=False):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()
@@ -55,7 +55,7 @@ def get_Te_profile(plotfile, plot_in_nse=False):
 
 def get_nuc_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()
@@ -167,7 +167,7 @@ def plot_nuc_frac(prefix, nums, skip, limitlabels, xmin, xmax):
         skiplabels = 1
 
     pfile = f"{prefix}{nums[1]}"
-    ds = yt.load(pfile, hint="castro")
+    ds = yt.load(pfile, hint="hydrosim")
 
     nuc_list = [f[1] for f in ds.field_list if f[1][0] == "X"]
     nuc_list.sort(key=nuc_list_filter)

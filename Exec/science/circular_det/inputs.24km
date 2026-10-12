@@ -16,40 +16,40 @@ amr.n_cell           = 64       64
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2   2   4
-castro.hi_bc       =  2   2   4
+hydrosim.lo_bc       =  2   2   4
+hydrosim.hi_bc       =  2   2   4
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
 
-castro.ppm_type = 1
-castro.ppm_temp_fix = 0
+hydrosim.ppm_type = 1
+hydrosim.ppm_temp_fix = 0
 
-castro.time_integration_method = 3
+hydrosim.time_integration_method = 3
 
-castro.disable_shock_burning = 1
-castro.shock_detection_threshold = 1
+hydrosim.disable_shock_burning = 1
+hydrosim.shock_detection_threshold = 1
 
-# castro.transverse_reset_density = 1
+# hydrosim.transverse_reset_density = 1
 
-castro.small_dens   = 1.e-5
-castro.small_temp     = 1.e7
+hydrosim.small_dens   = 1.e-5
+hydrosim.small_temp     = 1.e7
 
-castro.use_flattening = 1
+hydrosim.use_flattening = 1
 
-castro.riemann_solver = 1
+hydrosim.riemann_solver = 1
 
 # TIME STEP CONTROL
-castro.cfl            = 0.4     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.05    # scale back initial timestep
+hydrosim.cfl            = 0.4     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.05    # scale back initial timestep
 
-#castro.dtnuc_e = 0.1
+#hydrosim.dtnuc_e = 0.1
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 #amr.grid_log        = grdlog  # name of grid logging file
 

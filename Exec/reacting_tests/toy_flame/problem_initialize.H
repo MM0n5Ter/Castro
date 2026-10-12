@@ -33,15 +33,15 @@ void problem_initialize ()
     std::cout << "flame width = " << lambda_f << std::endl;
     std::cout << "flame speed = " << v_f << std::endl;
 
-    // Set up Castro data logs for this problem
+    // Set up HydroSim data logs for this problem
 
-    if (castro::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
+    if (hydrosim::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 
-        Castro::problem_data_logs.resize(1);
+        HydroSim::problem_data_logs.resize(1);
 
-        Castro::problem_data_logs[0].reset(new std::fstream);
-        Castro::problem_data_logs[0]->open("toy_flame.log", std::ios::out | std::ios::app);
-        if (!Castro::problem_data_logs[0]->good()) {
+        HydroSim::problem_data_logs[0].reset(new std::fstream);
+        HydroSim::problem_data_logs[0]->open("toy_flame.log", std::ios::out | std::ios::app);
+        if (!HydroSim::problem_data_logs[0]->good()) {
             amrex::FileOpenFailed("toy_flame.log");
         }
 

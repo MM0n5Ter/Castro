@@ -72,7 +72,7 @@ with *one* additional level of refinement *coarser* than the previous level 0 gr
 a factor of "ref_ratio" (in this case, 2).   The new domain will be a factor of "grown_factor" (in this case, 8)
 
 Note that ref_ratio must be 2 or 4, because those are the only cromulent
-values in CASTRO.
+values in HYDROSIM.
 
 grown_factor can be any reasonable integer; I've only tested 2, 3, 4 and 8.  It does not need
 to be a multiple of 2.
@@ -98,7 +98,7 @@ to be a multiple of 2.
     geometry.prob_lo =  0  0
     geometry.prob_hi = 8P 8P
 
-    castro.grown_factor = 8
+    hydrosim.grown_factor = 8
 
     amr.ref_ratio = 2 4 4 4 4
 
@@ -120,8 +120,8 @@ In this case amr.n_cell = (8/2)*D = 4D.
 value in the list of ref_ratio, since that will now be the ref_ratio between the new level 0
 and the new level 1.
 
-5) You must set castro.grown_factor in your inputs file to be the same grown_factor you used
-when you called Embiggen*ex so that the CASTRO code knows how big the original domain
+5) You must set hydrosim.grown_factor in your inputs file to be the same grown_factor you used
+when you called Embiggen*ex so that the HYDROSIM code knows how big the original domain
 was.
 
 6) Note that if you have run 100 steps at the original level 0, that would be equivalent
@@ -164,15 +164,15 @@ In this case grown_factor can be either 2 or 3.
     geometry.prob_lo = -P/2 -P/2
     geometry.prob_hi = 3P/2 3P/2
 
-    castro.grown_factor = 2
+    hydrosim.grown_factor = 2
 
-    castro.star_at_center = 1
+    hydrosim.star_at_center = 1
 
     amr.ref_ratio = 2 4 4 4 4
 
 ****************************************************
 
-NOTE: don't forget to set castro.star_at_center in your inputs file when you restart.
+NOTE: don't forget to set hydrosim.star_at_center in your inputs file when you restart.
 
 NOTE: when star_at_center = 1, MAKE SURE that you have defined the center of the star
 in your subroutine PROBINIT to be
@@ -182,7 +182,7 @@ in your subroutine PROBINIT to be
 
 i.e. don't assume that problo is zero.
 
-Also -- in subroutine ca_initdata, make sure that you set
+Also -- in subroutine hs_initdata, make sure that you set
 
          x = xlo(1) + (dble(i-lo(1)) + 0.5d0) * delta(1) - center(1)
          y = xlo(2) + (dble(j-lo(2)) + 0.5d0) * delta(2) - center(2)
@@ -260,12 +260,12 @@ Then you need to:
    geometry.prob_lo = 0.5 0
    geometry.prob_hi = 1.0 0.306
 
-   castro.old_theta_ncell = 240
+   hydrosim.old_theta_ncell = 240
 
 ****************************************************
 
-Note that you should only set `castro.old_theta_ncell = 240`
-once after you restart. This parameter tells castro that it needs
+Note that you should only set `hydrosim.old_theta_ncell = 240`
+once after you restart. This parameter tells hydrosim that it needs
 to initialize new zones that are larger than this based on
 `problem_initialize_state_data()`.
 

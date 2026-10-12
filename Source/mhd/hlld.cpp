@@ -1,11 +1,11 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <mhd_util.H>
 
 using namespace amrex;
 
 void
-Castro::hlld(const Box& bx,
+HydroSim::hlld(const Box& bx,
              Array4<Real const> const& qleft,
              Array4<Real const> const& qright,
              Array4<Real> const& flx,
@@ -110,7 +110,7 @@ Castro::hlld(const Box& bx,
     FL(UMAGP1) = qL(QVELN) * qL(QMAGP1) - qL(QVELP1) * qL(QMAGN);
     FL(UMAGP2) = qL(QVELN) * qL(QMAGP2) - qL(QVELP2) * qL(QMAGN);
     for (int n = 0; n < NumSpec; n++) {
-      FL(UFS+n) = qL(QVELN) * uL(UFS+n);
+      FL(USPEC+n) = qL(QVELN) * uL(USPEC+n);
     }
     FL(UEINT) = qL(QVELN) * uL(UEINT);
     FL(UTEMP) = 0.0_rt;
@@ -134,7 +134,7 @@ Castro::hlld(const Box& bx,
     FR(UMAGP1) = qR(QVELN) * qR(QMAGP1) - qR(QVELP1) * qR(QMAGN);
     FR(UMAGP2) = qR(QVELN) * qR(QMAGP2) - qR(QVELP2) * qR(QMAGN);
     for (int n = 0; n < NumSpec; n++) {
-      FR(UFS+n) = qR(QVELN) * uR(UFS+n);
+      FR(USPEC+n) = qR(QVELN) * uR(USPEC+n);
     }
     FR(UEINT) = qR(QVELN) * uR(UEINT);
     FR(UTEMP) = 0.0_rt;
@@ -193,8 +193,8 @@ Castro::hlld(const Box& bx,
     // Species * states
 
     for (int n = 0; n < NumSpec; n++) {
-      UsL(UFS+n) = qL(QFS+n) * UsL(URHO);
-      UsR(UFS+n) = qR(QFS+n) * UsR(URHO);
+      UsL(USPEC+n) = qL(QSPEC+n) * UsL(URHO);
+      UsR(USPEC+n) = qR(QSPEC+n) * UsR(URHO);
     }
 
     // e
@@ -317,8 +317,8 @@ Castro::hlld(const Box& bx,
     // species
 
     for (int n = 0; n < NumSpec; n++) {
-      UssL(UFS+n) = UsL(UFS+n);
-      UssR(UFS+n) = UsR(UFS+n);
+      UssL(USPEC+n) = UsL(USPEC+n);
+      UssR(USPEC+n) = UsR(USPEC+n);
     }
 
     // e

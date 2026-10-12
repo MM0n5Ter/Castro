@@ -206,7 +206,7 @@ void problem_initialize ()
     ambient::ambient_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
     for (int n = 0; n < NumSpec; n++) {
-        ambient::ambient_state[UFS+n] =
+        ambient::ambient_state[USPEC+n] =
             ambient::ambient_state[URHO] * model::profile(0).state(model::npts-1, model::ispec+n);
     }
 
@@ -220,7 +220,7 @@ void problem_initialize ()
     eos_state.rho = ambient::ambient_state[URHO];
     eos_state.T = ambient::ambient_state[UTEMP];
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = ambient::ambient_state[UFS+n] / eos_state.rho;
+        eos_state.xn[n] = ambient::ambient_state[USPEC+n] / eos_state.rho;
     }
 
     eos(eos_input_rt, eos_state);

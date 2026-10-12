@@ -124,7 +124,7 @@ def doit(plotfile):
                                       f"t = {ds.current_time.d}",
                                       dict(horizontalalignment="left")],
                                      [(0.5,0.95),
-                                      "Castro simulation of double detonation SN Ia",
+                                      "HydroSim simulation of double detonation SN Ia",
                                       dict(color="y", fontsize="24",
                                            horizontalalignment="center")]])
 

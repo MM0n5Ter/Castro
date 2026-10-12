@@ -4,7 +4,7 @@ This is a single mode Rayleigh-Taylor instability problem.  The
 instability is triggered by perturbing the interface between the dense
 and light fluid.
 
-This problem was used in the Castro I paper to compare different PPM
+This problem was used in the HydroSim I paper to compare different PPM
 types.
 
 
@@ -22,5 +22,5 @@ assign particles according to the ``particle_file`` locations.
 These particles are moved with the fluid velocity each time step, and
 if they leave the domain then they just "disappear."
 
-This test is primarily designed to test the ability of Castro to
+This test is primarily designed to test the ability of HydroSim to
 handle particles.

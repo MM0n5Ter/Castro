@@ -5,11 +5,11 @@ set -x
 
 DIM=2
 SDC_ITERS=2
-EXEC=./Castro${DIM}d.gnu.MPI.SMPLSDC.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.SMPLSDC.ex
 
 RUNPARAMS="
-castro.time_integration_method=3
-castro.sdc_iters=${SDC_ITERS}"
+hydrosim.time_integration_method=3
+hydrosim.sdc_iters=${SDC_ITERS}"
 
 mpiexec -n 8 ${EXEC} inputs.64 ${RUNPARAMS} &> 64.out
 mpiexec -n 8 ${EXEC} inputs.128 ${RUNPARAMS} &> 128.out

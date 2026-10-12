@@ -49,14 +49,14 @@ check_trace_source(amrex::Array4<amrex::Real const> const& srcQ, const int idir,
 /// This uses the standard PPM limiters described in Colella & Woodward (1984)
 ///
 /// @param s      Real[nslp] the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
-/// @param flatn  The flattening coefficient
+/// @param flatcoef  The flattening coefficient
 /// @param sm     The value of the parabola on the left edge of the zone
 /// @param sp     The value of the parabola on the right edge of the zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 ppm_reconstruct(const amrex::Real* s,
-                const amrex::Real flatn, amrex::Real& sm, amrex::Real& sp) {
+                const amrex::Real flatcoef, amrex::Real& sm, amrex::Real& sp) {
 
 
     if (ppm_do_limiting) {
@@ -120,8 +120,8 @@ ppm_reconstruct(const amrex::Real* s,
 
         // Flatten the parabola
 
-        sm = flatn * sm + (1.0_rt - flatn) * s[i0];
-        sp = flatn * sp + (1.0_rt - flatn) * s[i0];
+        sm = flatcoef * sm + (1.0_rt - flatcoef) * s[i0];
+        sp = flatcoef * sp + (1.0_rt - flatcoef) * s[i0];
 
         // Modify using quadratic limiters -- note this version of the limiting comes
         // from Colella and Sekora (2008), not the original PPM paper.
@@ -159,7 +159,7 @@ ppm_reconstruct(const amrex::Real* s,
 /// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
 /// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
 ///                    i-2, i-1, i, i+1, i+2
-/// @param flatn       flattening coefficient
+/// @param flatcoef       flattening coefficient
 /// @param lo_bc_test  true if a physical boundary is just to the left of this zone
 /// @param hi_bc_test  true if a physical boundary is just to the right of this zone
 ///
@@ -170,7 +170,7 @@ ppm_reconstruct(const amrex::Real* s,
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
-ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatn,
+ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatcoef,
                        const amrex::Real dx,
                        amrex::Real& sm, amrex::Real& sp) {
 
@@ -226,7 +226,7 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
         tp[ip2] = p[ip2];
     }
 
-    ppm_reconstruct(tp, flatn, sm, sp);
+    ppm_reconstruct(tp, flatcoef, sm, sp);
 
 
     // now correct sm and sp to be back to the full pressure by
@@ -234,7 +234,7 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
     // if we are doing the full well-balanced method, then we
     // don't do this until after the characteristic tracing
 
-    if (do_hse && !castro::ppm_well_balanced) {
+    if (do_hse && !hydrosim::ppm_well_balanced) {
         sp += p_p_hse;
         sm += p_m_hse;
     }

@@ -60,7 +60,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEINT) = problem::rho0 * eos_state.e;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = problem::rho0 * X[n];
+        state(i,j,k,USPEC+n) = problem::rho0 * X[n];
     }
 
 }

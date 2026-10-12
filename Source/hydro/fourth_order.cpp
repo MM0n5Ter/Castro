@@ -1,11 +1,11 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef DIFFUSION
 #include <conductivity.H>
 #endif
 
 void
-Castro::fourth_interfaces(const Box& bx,
+HydroSim::fourth_interfaces(const Box& bx,
                           const int idir, const int ncomp,
                           Array4<Real const> const& a,
                           Array4<Real> const& a_int) {
@@ -161,11 +161,11 @@ Castro::fourth_interfaces(const Box& bx,
 
 
 void
-Castro::states(const Box& bx,
+HydroSim::states(const Box& bx,
                const int idir, const int ncomp,
                Array4<Real const> const& a,
                Array4<Real const> const& a_int,
-               Array4<Real const> const& flatn,
+               Array4<Real const> const& flatcoef,
                Array4<Real> const& al,
                Array4<Real> const& ar) {
 
@@ -295,8 +295,8 @@ Castro::states(const Box& bx,
 
         // apply flattening
 
-        al(i+1,j,k,ncomp) = flatn(i,j,k)*al(i+1,j,k,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
-        ar(i,j,k,ncomp) = flatn(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
+        al(i+1,j,k,ncomp) = flatcoef(i,j,k)*al(i+1,j,k,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
+        ar(i,j,k,ncomp) = flatcoef(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
 
 
         // now handle any physical boundaries here by modifying the interface values
@@ -462,8 +462,8 @@ Castro::states(const Box& bx,
 
         // apply flattening
 
-        al(i,j+1,k,ncomp) = flatn(i,j,k)*al(i,j+1,k,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
-        ar(i,j,k,ncomp) = flatn(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
+        al(i,j+1,k,ncomp) = flatcoef(i,j,k)*al(i,j+1,k,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
+        ar(i,j,k,ncomp) = flatcoef(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
 
         // now handle any physical boundaries here by modifying the interface values
 
@@ -627,8 +627,8 @@ Castro::states(const Box& bx,
         }
 
         // apply flattening
-        al(i,j,k+1,ncomp) = flatn(i,j,k)*al(i,j,k+1,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
-        ar(i,j,k,ncomp) = flatn(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatn(i,j,k))*a(i,j,k,ncomp);
+        al(i,j,k+1,ncomp) = flatcoef(i,j,k)*al(i,j,k+1,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
+        ar(i,j,k,ncomp) = flatcoef(i,j,k)*ar(i,j,k,ncomp) + (1.0_rt - flatcoef(i,j,k))*a(i,j,k,ncomp);
 
 
         // now handle any physical boundaries here by modifying the interface values
@@ -690,7 +690,7 @@ Castro::states(const Box& bx,
 
 
 void
-Castro::fourth_avisc(const Box& bx,
+HydroSim::fourth_avisc(const Box& bx,
                      Array4<Real const> const& q_arr,
                      Array4<Real const> const& qaux_arr,
                      Array4<Real> const& avis,
@@ -789,7 +789,7 @@ Castro::fourth_avisc(const Box& bx,
 
 #ifdef DIFFUSION
 void
-Castro::fourth_add_diffusive_flux(const Box& bx,
+HydroSim::fourth_add_diffusive_flux(const Box& bx,
                                   Array4<Real const> const& q_arr,
                                   const int temp_comp,
                                   Array4<Real const> const& qint,
@@ -808,13 +808,13 @@ Castro::fourth_add_diffusive_flux(const Box& bx,
 
     eos_state.rho = qint(i,j,k,QRHO);
     eos_state.T = q_arr(i,j,k,temp_comp);  // initial guess
-    eos_state.e = qint(i,j,k,QREINT) / qint(i,j,k,QRHO);
+    eos_state.e = qint(i,j,k,QRHOEI) / qint(i,j,k,QRHO);
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = qint(i,j,k,QFS+n);
+      eos_state.xn[n] = qint(i,j,k,QSPEC+n);
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = qint(i,j,k,QFX+n);
+      eos_state.aux[n] = qint(i,j,k,QAUXV+n);
     }
 #endif
 

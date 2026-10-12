@@ -23,9 +23,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = problem::rho0 * problem::v0;
             state(i,j,k,UMY) = 0.e0_rt;
             state(i,j,k,UMZ) = 0.e0_rt;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint0;
             state(i,j,k,UEDEN) = problem::etot0;
@@ -38,9 +38,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = problem::rho1 * problem::v1;
             state(i,j,k,UMY) = 0.e0_rt;
             state(i,j,k,UMZ) = 0.e0_rt;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint1;
             state(i,j,k,UEDEN) = problem::etot1;
@@ -56,9 +56,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = 0.e0_rt;
             state(i,j,k,UMY) = problem::rho0 * problem::v0;
             state(i,j,k,UMZ) = 0.e0_rt;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint0;
             state(i,j,k,UEDEN) = problem::etot0;
@@ -71,9 +71,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = 0.e0_rt;
             state(i,j,k,UMY) = problem::rho1 * problem::v1;
             state(i,j,k,UMZ) = 0.e0_rt;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint1;
             state(i,j,k,UEDEN) = problem::etot1;
@@ -89,9 +89,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = 0.e0_rt;
             state(i,j,k,UMY) = 0.e0_rt;
             state(i,j,k,UMZ) = problem::rho0 * problem::v0;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint0;
             state(i,j,k,UEDEN) = problem::etot0;
@@ -104,9 +104,9 @@ void problem_bc_fill(int i, int j, int k,
             state(i,j,k,UMX) = 0.e0_rt;
             state(i,j,k,UMY) = 0.e0_rt;
             state(i,j,k,UMZ) = problem::rho1 * problem::v1;
-            state(i,j,k,UFS) = state(i,j,k,URHO);
+            state(i,j,k,USPEC) = state(i,j,k,URHO);
             if (NAUX_NET > 0) {
-                state(i,j,k,UFX) = state(i,j,k,URHO);
+                state(i,j,k,UAUXV) = state(i,j,k,URHO);
             }
             state(i,j,k,UEINT) = problem::eint1;
             state(i,j,k,UEDEN) = problem::etot1;

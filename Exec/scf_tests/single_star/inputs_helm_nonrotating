@@ -7,8 +7,8 @@ geometry.coord_sys   =  1
 geometry.prob_lo     =  0.0   -1.6e9
 geometry.prob_hi     =  1.6e9  1.6e9
 amr.n_cell           =  32     64
-castro.lo_bc         =  3      2
-castro.hi_bc         =  2      2
+hydrosim.lo_bc         =  3      2
+hydrosim.hi_bc         =  2      2
 
 #elif AMREX_SPACEDIM == 3
 
@@ -16,8 +16,8 @@ geometry.coord_sys   =  0
 geometry.prob_lo     = -1.6e9 -1.6e9 -1.6e9
 geometry.prob_hi     =  1.6e9  1.6e9  1.6e9
 amr.n_cell           =  64     64     64
-castro.lo_bc         =  2      2      2
-castro.hi_bc         =  2      2      2
+hydrosim.lo_bc         =  2      2      2
+hydrosim.hi_bc         =  2      2      2
 
 #endif
 
@@ -27,29 +27,29 @@ amr.n_error_buf      = 2 2 2 2 2 0 0 0 0 0 0
 amr.blocking_factor  = 16
 amr.max_grid_size    = 32
 
-castro.max_tagging_radius = 0.6
+hydrosim.max_tagging_radius = 0.6
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_grav  = 1
-castro.do_rotation = 1
-castro.rotational_period = 100.0
+hydrosim.do_hydro = 1
+hydrosim.do_grav  = 1
+hydrosim.do_rotation = 1
+hydrosim.rotational_period = 100.0
 
-castro.do_scf_initial_model = 1
-castro.scf_maximum_density = 1.3519e6
-castro.scf_equatorial_radius = 1.0e9
-castro.scf_polar_radius = 1.0e9
-castro.scf_relax_tol = 1.e-4
+hydrosim.do_scf_initial_model = 1
+hydrosim.scf_maximum_density = 1.3519e6
+hydrosim.scf_equatorial_radius = 1.0e9
+hydrosim.scf_polar_radius = 1.0e9
+hydrosim.scf_relax_tol = 1.e-4
 
 # GRAVITY
-gravity.gravity_type = PoissonGrav # Full self-gravity with the Poisson equation
+gravity.gravity_type = FullPoisson # Full self-gravity with the Poisson equation
 gravity.max_multipole_order = 6    # Multipole expansion includes terms up to r**(-max_multipole_order)
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing integrals
+hydrosim.sum_interval   = 1       # timesteps between computing integrals
 amr.data_log          = grid_diag.out
 
-castro.v = 1
+hydrosim.v = 1
 amr.v = 1
 
 # CHECKPOINT FILES

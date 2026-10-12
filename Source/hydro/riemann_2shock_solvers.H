@@ -158,7 +158,7 @@ namespace TwoShock {
     ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
-    riemanncg(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
+    riemann_colella_glaz(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
               RiemannState& qint) {
 
       // this implements the approximate Riemann solver of Colella & Glaz
@@ -182,7 +182,7 @@ namespace TwoShock {
 
       // Note: in the original Colella & Glaz paper, they predicted
       // gamma_e to the interfaces using a special (non-hyperbolic)
-      // evolution equation.  In Castro, we instead bring (rho e)
+      // evolution equation.  In HydroSim, we instead bring (rho e)
       // to the edges, so we construct the necessary gamma_e here from
       // what we have on the interfaces.
       amrex::Real gamel = ql.p / ql.rhoe + 1.0_rt;
@@ -528,7 +528,7 @@ namespace TwoShock {
     ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
-    riemannus(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
+    riemann_cgf_approx(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
               RiemannState& qint) {
 
       // Colella, Glaz, and Ferguson solver
@@ -542,7 +542,7 @@ namespace TwoShock {
 
       amrex::Real wsmall = small_dens * raux.csmall;
 
-      // this is Castro I: Eq. 33
+      // this is HydroSim I: Eq. 33
 
       amrex::Real wl = amrex::max(wsmall, std::sqrt(std::abs(ql.gamc * ql.p * ql.rho)));
       amrex::Real wr = amrex::max(wsmall, std::sqrt(std::abs(qr.gamc * qr.p * qr.rho)));
@@ -672,16 +672,16 @@ namespace TwoShock {
       qint.un = frac*ustar + (1.0_rt - frac)*uo;
 
     #ifdef RADIATION
-      amrex::Real pgdnv_t = frac*pstar + (1.0_rt - frac)*po;
-      amrex::Real pgdnv_g = frac*pstar_g + (1.0_rt - frac)*po_g;
-      amrex::Real regdnv_g = frac*estar_g + (1.0_rt - frac)*reo_g;
-      amrex::Real regdnv_r[NGROUPS];
+      amrex::Real pface_t = frac*pstar + (1.0_rt - frac)*po;
+      amrex::Real pface_g = frac*pstar_g + (1.0_rt - frac)*po_g;
+      amrex::Real reface_g = frac*estar_g + (1.0_rt - frac)*reo_g;
+      amrex::Real reface_r[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-          regdnv_r[g] = frac*estar_r[g] + (1.0_rt - frac)*reo_r[g];
+          reface_r[g] = frac*estar_r[g] + (1.0_rt - frac)*reo_r[g];
       }
     #else
       qint.p = frac*pstar + (1.0_rt - frac)*po;
-      amrex::Real regdnv = frac*estar + (1.0_rt - frac)*reo;
+      amrex::Real reface = frac*estar + (1.0_rt - frac)*reo;
     #endif
 
       // as it stands now, we set things assuming that the rarefaction
@@ -695,15 +695,15 @@ namespace TwoShock {
           qint.rho = ro;
           qint.un = uo;
     #ifdef RADIATION
-          pgdnv_t = po;
-          pgdnv_g = po_g;
-          regdnv_g = reo_g;
+          pface_t = po;
+          pface_g = po_g;
+          reface_g = reo_g;
           for (int g = 0; g < NGROUPS; g++) {
-              regdnv_r[g] = reo_r[g];
+              reface_r[g] = reo_r[g];
           }
     #else
           qint.p = po;
-          regdnv = reo;
+          reface = reo;
     #endif
       }
 
@@ -712,35 +712,35 @@ namespace TwoShock {
           qint.rho = rstar;
           qint.un = ustar;
     #ifdef RADIATION
-          pgdnv_t = pstar;
-          pgdnv_g = pstar_g;
-          regdnv_g = estar_g;
+          pface_t = pstar;
+          pface_g = pstar_g;
+          reface_g = estar_g;
           for (int g = 0; g < NGROUPS; g++) {
-              regdnv_r[g] = estar_r[g];
+              reface_r[g] = estar_r[g];
           }
     #else
           qint.p = pstar;
-          regdnv = estar;
+          reface = estar;
     #endif
         }
 
     #ifdef RADIATION
       for (int g = 0; g < NGROUPS; g++) {
-          qint.er[g] = amrex::max(regdnv_r[g], 0.0_rt);
+          qint.er[g] = amrex::max(reface_r[g], 0.0_rt);
       }
 
-      qint.p_g = pgdnv_g;
-      qint.p = pgdnv_t;
-      qint.rhoe_g = regdnv_g;
+      qint.p_g = pface_g;
+      qint.p = pface_t;
+      qint.rhoe_g = reface_g;
 
-      qint.rhoe = regdnv_g;
+      qint.rhoe = reface_g;
       for (int g = 0; g < NGROUPS; g++) {
-          qint.rhoe += regdnv_r[g];
+          qint.rhoe += reface_r[g];
       }
 
     #else
       qint.p = amrex::max(qint.p, small_pres);
-      qint.rhoe = regdnv;
+      qint.rhoe = reface;
     #endif
 
       // Enforce that fluxes through a symmetry plane or wall are hard zero.

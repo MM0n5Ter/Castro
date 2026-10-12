@@ -4,7 +4,7 @@ This problem was developed to test the convergence of the 4th order
 SDC solver with gravity, reactions, and reflecting boundary
 conditions.
 
-This was featured in the Castro SDC paper:
+This was featured in the HydroSim SDC paper:
 https://ui.adsabs.harvard.edu/abs/2019ApJ...886..105Z
 
 
@@ -53,7 +53,7 @@ resolution was not shown in the paper).
   $\rho X(\isotm{Fe}{56})$             35908410   3.264            3739049   3.713           285208.5
   ```
 
-  which is essentially the same values shown in table 11 of the Castro SDC paper.
+  which is essentially the same values shown in table 11 of the HydroSim SDC paper.
 
 ## HSE convergence
 
@@ -86,10 +86,10 @@ This setup can also be used just to test HSE convergence.
 
 ## Original Cori convergence testing
 
-The results in the Castro SDC paper were run on Cori, using
+The results in the HydroSim SDC paper were run on Cori, using
 the file in `job_scripts/`.
 
-* in `Castro/Exec/reacting_tests/bubble_convergence`
+* in `HydroSim/Exec/reacting_tests/bubble_convergence`
     ```
     make USE_TRUE_SDC=TRUE COMP=intel -j 4
     ```
@@ -98,11 +98,11 @@ the file in `job_scripts/`.
     ```
     mkdir bubble_convergence
     cd bubble_convergence
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/Castro2d.intel.haswell.MPI.ex .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/helm_table.dat .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/inputs_2d.* .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/probin.* .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/job_scripts/cori.bubble_convergence.slurm .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/HydroSim2d.intel.haswell.MPI.ex .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/helm_table.dat .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/inputs_2d.* .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/probin.* .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/job_scripts/cori.bubble_convergence.slurm .
     sbatch cori.bubble_convergence.slurm
     ```
 
@@ -110,8 +110,8 @@ the file in `job_scripts/`.
 
   in the `bubble_convergence` output directory:
     ```
-    cp ~/development/Castro//Exec/reacting_tests/bubble_convergence/job_scripts/check_convergence.sh .
-    cp ~/development/Castro//Exec/reacting_tests/bubble_convergence/job_scripts/create_pretty_tables.py .
+    cp ~/development/HydroSim//Exec/reacting_tests/bubble_convergence/job_scripts/check_convergence.sh .
+    cp ~/development/HydroSim//Exec/reacting_tests/bubble_convergence/job_scripts/create_pretty_tables.py .
     ```
 
   edit it to use bash and give the proper executable name.  Then:

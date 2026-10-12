@@ -35,13 +35,13 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = interpolate(dist, model::itemp);
     Real sumX{0.0_rt};
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = amrex::min(1.0_rt, amrex::max(interpolate(dist, model::ispec+n), network_rp::small_x));
-        sumX += state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = amrex::min(1.0_rt, amrex::max(interpolate(dist, model::ispec+n), network_rp::small_x));
+        sumX += state(i,j,k,USPEC+n);
     }
 
     // normalize
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) /= sumX;
+        state(i,j,k,USPEC+n) /= sumX;
     }
 
     burn_t burn_state;
@@ -49,7 +49,7 @@ void problem_initialize_state_data (int i, int j, int k,
     burn_state.rho = state(i,j,k,URHO);
     burn_state.T = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; n++) {
-        burn_state.xn[n] = state(i,j,k,UFS+n);
+        burn_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
 #ifdef AUX_THERMO
@@ -57,7 +57,7 @@ void problem_initialize_state_data (int i, int j, int k,
 
     set_aux_comp_from_X(burn_state);
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = state(i,j,k,URHO) * burn_state.aux[n];
+        state(i,j,k,UAUXV+n) = state(i,j,k,URHO) * burn_state.aux[n];
     }
 #endif
 
@@ -67,12 +67,12 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = state(i,j,k,URHO) * burn_state.e;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 
 #ifdef NSE_NET
-    state(i,j,k,UMUP) = problem::mu_p;
-    state(i,j,k,UMUN) = problem::mu_n;
+    state(i,j,k,UMU_P) = problem::mu_p;
+    state(i,j,k,UMU_N) = problem::mu_n;
 #endif
 
     // initial velocities = 0

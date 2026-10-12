@@ -47,6 +47,6 @@ apply_metric(const Box& bx,
 
     } else {
         amrex::Print() << "Bogus coord_type in apply_metric " << coord_type << std::endl;
-        amrex::Error("Error:: MGutils.cpp :: ca_apply_metric");
+        amrex::Error("Error:: MGutils.cpp :: hs_apply_metric");
     }
 }

@@ -57,7 +57,7 @@ Real flatten(int i, int j, int k,
       chi2 = tst;
     }
 
-    Real flatn = 1.0_rt - std::max(chi2 * z2, chi * z);
+    Real flatcoef = 1.0_rt - std::max(chi2 * z2, chi * z);
 
 
 #if AMREX_SPACEDIM >= 2
@@ -102,7 +102,7 @@ Real flatten(int i, int j, int k,
       chi2 = tst;
     }
 
-    flatn = std::min(flatn, 1.0_rt - std::max(chi2 * z2, chi * z));
+    flatcoef = std::min(flatcoef, 1.0_rt - std::max(chi2 * z2, chi * z));
 #endif
 
 
@@ -148,10 +148,10 @@ Real flatten(int i, int j, int k,
       chi2 = tst;
     }
 
-    flatn = std::min(flatn,  1.0_rt - std::max(chi2 * z2, chi * z));
+    flatcoef = std::min(flatcoef,  1.0_rt - std::max(chi2 * z2, chi * z));
 #endif
 
-    return flatn;
+    return flatcoef;
 }
 
 }

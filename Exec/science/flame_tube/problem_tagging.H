@@ -2,7 +2,7 @@
 #define problem_tagging_H
 #include <AMReX_TagBox.H>
 #include <prob_parameters.H>
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 ///
 /// Define problem-specific tagging criteria
@@ -27,7 +27,7 @@ void problem_tagging(int i, int j, int k,
 
     if (problem::tag_by_density) {
         if (state(i,j,k,URHO) > problem::cutoff_density &&
-            state(i,j,k,UFS) / state(i,j,k,URHO) > problem::X_min) {
+            state(i,j,k,USPEC) / state(i,j,k,URHO) > problem::X_min) {
 
             Real dist = std::abs(loc[0] - problem::center[0]);
             if (level < problem::max_hse_tagging_level && dist < problem::x_refine_distance) {

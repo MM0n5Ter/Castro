@@ -37,30 +37,30 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = interpolate(dist, model::itemp);
     Real pres = interpolate(dist, model::ipres);
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = amrex::max(interpolate(dist, model::ispec+n), small_x);
+        state(i,j,k,USPEC+n) = amrex::max(interpolate(dist, model::ispec+n), small_x);
     }
 
 
     Real sumX = 0.0_rt;
     for (int n = 0; n < NumSpec; n++) {
-        sumX += state(i,j,k,UFS+n);
+        sumX += state(i,j,k,USPEC+n);
     }
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,UFS+n) / sumX;
+        state(i,j,k,USPEC+n) = state(i,j,k,USPEC+n) / sumX;
     }
 
     // also get Ye from the model
 
-    state(i,j,k,UFX+AuxZero::iye) = interpolate(dist, model::iaux+AuxZero::iye);
+    state(i,j,k,UAUXV+AuxZero::iye) = interpolate(dist, model::iaux+AuxZero::iye);
 
     burn_t burn_state;
     burn_state.rho = state(i,j,k,URHO);
     burn_state.T = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; n++) {
-        burn_state.xn[n] = state(i,j,k,UFS+n);
+        burn_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
-    burn_state.aux[AuxZero::iye] = state(i,j,k,UFX+AuxZero::iye);
+    burn_state.aux[AuxZero::iye] = state(i,j,k,UAUXV+AuxZero::iye);
 
 #ifdef SIMPLIFIED_SDC
     // if we are doing simplified-SDC + NSE, then the `in_nse()`
@@ -85,22 +85,22 @@ void problem_initialize_state_data (int i, int j, int k,
         nse_table_t nse_state;
         nse_state.T = state(i,j,k,UTEMP);
         nse_state.rho = state(i,j,k,URHO);
-        nse_state.Ye = state(i,j,k,UFX+AuxZero::iye);
+        nse_state.Ye = state(i,j,k,UAUXV+AuxZero::iye);
         nse_interp(nse_state);
 
-        state(i,j,k,UFX+AuxZero::iabar) = nse_state.abar;
-        state(i,j,k,UFX+AuxZero::ibea) = nse_state.bea;
+        state(i,j,k,UAUXV+AuxZero::iabar) = nse_state.abar;
+        state(i,j,k,UAUXV+AuxZero::ibea) = nse_state.bea;
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = amrex::max(nse_state.X[n], small_x);
+            state(i,j,k,USPEC+n) = amrex::max(nse_state.X[n], small_x);
         }
 
         // we just got new X's, so we need to re-renormalize them
         sumX = 0.0_rt;
         for (int n = 0; n < NumSpec; n++) {
-            sumX += state(i,j,k,UFS+n);
+            sumX += state(i,j,k,USPEC+n);
         }
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = state(i,j,k,UFS+n) / sumX;
+            state(i,j,k,USPEC+n) = state(i,j,k,USPEC+n) / sumX;
         }
 
     } else {
@@ -110,7 +110,7 @@ void problem_initialize_state_data (int i, int j, int k,
         set_aux_comp_from_X(burn_state);
 
         for (int n = 0; n < NumAux; n++) {
-            state(i,j,k,UFX+n) = burn_state.aux[n];
+            state(i,j,k,UAUXV+n) = burn_state.aux[n];
         }
     }
 
@@ -122,10 +122,10 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.T = state(i,j,k,UTEMP);
     eos_state.p = pres;
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n);
+        eos_state.xn[n] = state(i,j,k,USPEC+n);
     }
     for (int n = 0; n < NumAux; n++) {
-        eos_state.aux[n] = state(i,j,k,UFX+n);
+        eos_state.aux[n] = state(i,j,k,UAUXV+n);
     }
 
     if (problem::interpolate_pres == 1) {
@@ -138,7 +138,7 @@ void problem_initialize_state_data (int i, int j, int k,
             nse_T_abar_from_p(eos_state.rho, eos_state.p, eos_state.aux[AuxZero::iye],
                               eos_state.T, eos_state.aux[AuxZero::iabar]);
             state(i,j,k,UTEMP) = eos_state.T;
-            state(i,j,k,UFX+AuxZero::iabar) = eos_state.aux[AuxZero::iabar];
+            state(i,j,k,UAUXV+AuxZero::iabar) = eos_state.aux[AuxZero::iabar];
 
             // now call the EOS with the new T and abar to get e
             eos(eos_input_rt, eos_state);
@@ -147,10 +147,10 @@ void problem_initialize_state_data (int i, int j, int k,
             nse_table_t nse_state;
             nse_state.T = state(i,j,k,UTEMP);
             nse_state.rho = state(i,j,k,URHO);
-            nse_state.Ye = state(i,j,k,UFX+AuxZero::iye);
+            nse_state.Ye = state(i,j,k,UAUXV+AuxZero::iye);
             nse_interp(nse_state);
 
-            state(i,j,k,UFX+AuxZero::ibea) = nse_state.bea;
+            state(i,j,k,UAUXV+AuxZero::ibea) = nse_state.bea;
 
         } else {
             eos(eos_input_rp, eos_state);
@@ -166,11 +166,11 @@ void problem_initialize_state_data (int i, int j, int k,
     // add density scaling to composition
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = state(i,j,k,URHO) * state(i,j,k,UFX+n);
+        state(i,j,k,UAUXV+n) = state(i,j,k,URHO) * state(i,j,k,UAUXV+n);
     }
 
     // initial velocities = 0
@@ -261,7 +261,7 @@ void problem_initialize_state_data (int i, int j, int k,
         // apply the cutoff function to the perturbational velocity
         // add perturbational velocity to background velocity
         for (auto n = 0; n < 3; ++n) {
-            vpert[n] *= problem::velpert_amplitude * state(i, j, k, UFS + problem::isi28);
+            vpert[n] *= problem::velpert_amplitude * state(i, j, k, USPEC + problem::isi28);
 
             state(i, j, k, UMX + n) += vpert[n];
         }

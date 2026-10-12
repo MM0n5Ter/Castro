@@ -44,9 +44,9 @@ void problem_initialize_state_data (int i, int j, int k,
     // single species for all zones
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = 1.0_rt;
+    state(i,j,k,USPEC) = 1.0_rt;
 
     // momentum field
 
@@ -72,7 +72,7 @@ void problem_initialize_state_data (int i, int j, int k,
     // Convert mass fractions to conserved quantity
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) *= rho;
+        state(i,j,k,USPEC+n) *= rho;
     }
 }
 #endif

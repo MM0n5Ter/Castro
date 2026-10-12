@@ -5,7 +5,7 @@
 
 AMREX_INLINE
 void
-Castro::problem_diagnostics ()
+HydroSim::problem_diagnostics ()
 {
     int finest_level = parent->finestLevel();
     amrex::Real time = state[State_Type].curTime();
@@ -14,8 +14,8 @@ Castro::problem_diagnostics ()
     amrex::Real peak_x = -1.e200;
 
     for (int lev = 0; lev <= finest_level; lev++) {
-        Castro& ca_lev = getLevel(lev);
-        ca_lev.det_peak_properties(time, rho_enuc_max, peak_x);
+        HydroSim& hs_lev = getLevel(lev);
+        hs_lev.det_peak_properties(time, rho_enuc_max, peak_x);
     }
 
     ParallelDescriptor::ReduceRealMax(rho_enuc_max);

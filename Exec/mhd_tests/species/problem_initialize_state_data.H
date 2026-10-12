@@ -46,10 +46,10 @@ void problem_initialize_state_data (int i, int j, int k,
     r2 /= 0.01_rt;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = std::exp(-r2);
-    state(i,j,k,UFS+1)= 1.0_rt - std::exp(-r2);
+    state(i,j,k,USPEC) = std::exp(-r2);
+    state(i,j,k,USPEC+1)= 1.0_rt - std::exp(-r2);
 
 }
 #endif

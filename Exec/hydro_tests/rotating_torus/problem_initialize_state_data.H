@@ -3,9 +3,9 @@
 
 #include <prob_parameters.H>
 #include <eos.H>
-#include <Castro_math.H>
+#include <HydroSim_math.H>
 #include <Rotation.H>
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void problem_initialize_state_data (int i, int j, int k,
@@ -102,7 +102,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = state(i,j,k,UEINT) + 0.5_rt * rho * (vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * (1.0_rt / static_cast<Real>(NumSpec));
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * (1.0_rt / static_cast<Real>(NumSpec));
     }
 }
 

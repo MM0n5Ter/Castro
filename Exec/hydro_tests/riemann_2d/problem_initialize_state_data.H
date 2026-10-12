@@ -99,7 +99,7 @@ void problem_initialize_state_data(int i, int j, int k,
     }
 
     //We will consider only one specie.
-    state(i, j, k,UFS) = state(i,j,k,URHO);
+    state(i, j, k,USPEC) = state(i,j,k,URHO);
 }
 
 #endif

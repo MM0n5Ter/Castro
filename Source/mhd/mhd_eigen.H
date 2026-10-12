@@ -1,11 +1,11 @@
-#ifndef CASTRO_MHD_EIGEN_H
-#define CASTRO_MHD_EIGEN_H
+#ifndef HYDROSIM_MHD_EIGEN_H
+#define HYDROSIM_MHD_EIGEN_H
 
 #include <mhd_util.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-evals(Array1D<Real, 0, NEIGN-1>& lam,
+evals(Array1D<Real, 0, NEVEC-1>& lam,
       const Real as_in,
       Array1D<Real, 0, NQ-1>& Q,
       const int dir) {
@@ -57,8 +57,8 @@ evals(Array1D<Real, 0, NEIGN-1>& lam,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-evecx(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
-      Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& reig,
+evecx(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
+      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
       const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
@@ -135,133 +135,133 @@ evecx(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
 
 
   // u - cf wave
-  leig(0, IEIGN_RHO) = 0.0;
-  leig(0, IEIGN_U) = -N*cff;
-  leig(0, IEIGN_V) = N*Qs*bety;
-  leig(0, IEIGN_W) = N*Qs*betz;
-  leig(0, IEIGN_P) = N*alf/Q(QRHO);
-  leig(0, IEIGN_BT) = N*AAs*bety/Q(QRHO);
-  leig(0, IEIGN_BTT) = N*AAs*betz/Q(QRHO);
+  leig(0, IEVEC_RHO) = 0.0;
+  leig(0, IEVEC_U) = -N*cff;
+  leig(0, IEVEC_V) = N*Qs*bety;
+  leig(0, IEVEC_W) = N*Qs*betz;
+  leig(0, IEVEC_P) = N*alf/Q(QRHO);
+  leig(0, IEVEC_BT) = N*AAs*bety/Q(QRHO);
+  leig(0, IEVEC_BTT) = N*AAs*betz/Q(QRHO);
 
   // u - cax
-  leig(1, IEIGN_RHO) = 0.0;
-  leig(1, IEIGN_U) = 0.0;
-  leig(1, IEIGN_V) = -0.5_rt*betz;
-  leig(1, IEIGN_W) = 0.5_rt*bety;
-  leig(1, IEIGN_P) = 0.0;
-  leig(1, IEIGN_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
-  leig(1, IEIGN_BTT) = 0.5_rt*bety*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_RHO) = 0.0;
+  leig(1, IEVEC_U) = 0.0;
+  leig(1, IEVEC_V) = -0.5_rt*betz;
+  leig(1, IEVEC_W) = 0.5_rt*bety;
+  leig(1, IEVEC_P) = 0.0;
+  leig(1, IEVEC_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_BTT) = 0.5_rt*bety*S/std::sqrt(Q(QRHO));
 
   // u - cs
-  leig(2, IEIGN_RHO) = 0.0;
-  leig(2, IEIGN_U) = -N*css;
-  leig(2, IEIGN_V) = -N*Qf*bety;
-  leig(2, IEIGN_W) = -N*Qf*betz;
-  leig(2, IEIGN_P) = N*als/Q(QRHO);
-  leig(2, IEIGN_BT) = -N*AAf*bety/Q(QRHO);
-  leig(2, IEIGN_BTT) = -N*AAf*betz/Q(QRHO);
+  leig(2, IEVEC_RHO) = 0.0;
+  leig(2, IEVEC_U) = -N*css;
+  leig(2, IEVEC_V) = -N*Qf*bety;
+  leig(2, IEVEC_W) = -N*Qf*betz;
+  leig(2, IEVEC_P) = N*als/Q(QRHO);
+  leig(2, IEVEC_BT) = -N*AAf*bety/Q(QRHO);
+  leig(2, IEVEC_BTT) = -N*AAf*betz/Q(QRHO);
 
   // u
-  leig(3, IEIGN_RHO) = 1.0;
-  leig(3, IEIGN_U) = 0.0;
-  leig(3, IEIGN_V) = 0.0;
-  leig(3, IEIGN_W) = 0.0;
-  leig(3, IEIGN_P) = -1.0_rt/as;
-  leig(3, IEIGN_BT) = 0.0;
-  leig(3, IEIGN_BTT) = 0.0;
+  leig(3, IEVEC_RHO) = 1.0;
+  leig(3, IEVEC_U) = 0.0;
+  leig(3, IEVEC_V) = 0.0;
+  leig(3, IEVEC_W) = 0.0;
+  leig(3, IEVEC_P) = -1.0_rt/as;
+  leig(3, IEVEC_BT) = 0.0;
+  leig(3, IEVEC_BTT) = 0.0;
 
   // u + cs
-  leig(4, IEIGN_RHO) = 0.0;
-  leig(4, IEIGN_U) = N*css;
-  leig(4, IEIGN_V) = N*Qf*bety;
-  leig(4, IEIGN_W) = N*Qf*betz;
-  leig(4, IEIGN_P) = N*als/Q(QRHO);
-  leig(4, IEIGN_BT) = -N*AAf*bety/Q(QRHO);
-  leig(4, IEIGN_BTT) = -N*AAf*betz/Q(QRHO);
+  leig(4, IEVEC_RHO) = 0.0;
+  leig(4, IEVEC_U) = N*css;
+  leig(4, IEVEC_V) = N*Qf*bety;
+  leig(4, IEVEC_W) = N*Qf*betz;
+  leig(4, IEVEC_P) = N*als/Q(QRHO);
+  leig(4, IEVEC_BT) = -N*AAf*bety/Q(QRHO);
+  leig(4, IEVEC_BTT) = -N*AAf*betz/Q(QRHO);
 
   // u + cax
-  leig(5, IEIGN_RHO) = 0.0;
-  leig(5, IEIGN_U) = 0.0;
-  leig(5, IEIGN_V) = 0.5_rt*betz;
-  leig(5, IEIGN_W) = -0.5_rt*bety;
-  leig(5, IEIGN_P) = 0.0;
-  leig(5, IEIGN_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
-  leig(5, IEIGN_BTT) = 0.5_rt*bety*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_RHO) = 0.0;
+  leig(5, IEVEC_U) = 0.0;
+  leig(5, IEVEC_V) = 0.5_rt*betz;
+  leig(5, IEVEC_W) = -0.5_rt*bety;
+  leig(5, IEVEC_P) = 0.0;
+  leig(5, IEVEC_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_BTT) = 0.5_rt*bety*S/std::sqrt(Q(QRHO));
 
   // u + cf
-  leig(6, IEIGN_RHO) = 0.0;
-  leig(6, IEIGN_U) = N*cff;
-  leig(6, IEIGN_V) = -N*Qs*bety;
-  leig(6, IEIGN_W) = -N*Qs*betz;
-  leig(6, IEIGN_P) = N*alf/Q(QRHO);
-  leig(6, IEIGN_BT) = N*AAs*bety/Q(QRHO);
-  leig(6, IEIGN_BTT) = N*AAs*betz/Q(QRHO);
+  leig(6, IEVEC_RHO) = 0.0;
+  leig(6, IEVEC_U) = N*cff;
+  leig(6, IEVEC_V) = -N*Qs*bety;
+  leig(6, IEVEC_W) = -N*Qs*betz;
+  leig(6, IEVEC_P) = N*alf/Q(QRHO);
+  leig(6, IEVEC_BT) = N*AAs*bety/Q(QRHO);
+  leig(6, IEVEC_BTT) = N*AAs*betz/Q(QRHO);
 
   // u - cf ; u - Cax ; u - cs ; u ; u + cs ; u + Cax ; u + cf
 
-  reig(IEIGN_RHO, 0) = Q(QRHO)*alf;
-  reig(IEIGN_RHO, 1) = 0.0;
-  reig(IEIGN_RHO, 2) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 3) = 1.0_rt;
-  reig(IEIGN_RHO, 4) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 5) = 0.0;
-  reig(IEIGN_RHO, 6) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 0) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 1) = 0.0;
+  reig(IEVEC_RHO, 2) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 3) = 1.0_rt;
+  reig(IEVEC_RHO, 4) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 5) = 0.0;
+  reig(IEVEC_RHO, 6) = Q(QRHO)*alf;
 
-  reig(IEIGN_U, 0) = -cff;
-  reig(IEIGN_U, 1) = 0.0;
-  reig(IEIGN_U, 2) = -css;
-  reig(IEIGN_U, 3) = 0.0;
-  reig(IEIGN_U, 4) = css;
-  reig(IEIGN_U, 5) = 0.0;
-  reig(IEIGN_U, 6) = cff;
+  reig(IEVEC_U, 0) = -cff;
+  reig(IEVEC_U, 1) = 0.0;
+  reig(IEVEC_U, 2) = -css;
+  reig(IEVEC_U, 3) = 0.0;
+  reig(IEVEC_U, 4) = css;
+  reig(IEVEC_U, 5) = 0.0;
+  reig(IEVEC_U, 6) = cff;
 
-  reig(IEIGN_V, 0) = Qs*bety;
-  reig(IEIGN_V, 1) = -betz;
-  reig(IEIGN_V, 2) = -Qf*bety;
-  reig(IEIGN_V, 3) = 0.0;
-  reig(IEIGN_V, 4) = Qf*bety;
-  reig(IEIGN_V, 5) = betz;
-  reig(IEIGN_V, 6) = -Qs*bety;
+  reig(IEVEC_V, 0) = Qs*bety;
+  reig(IEVEC_V, 1) = -betz;
+  reig(IEVEC_V, 2) = -Qf*bety;
+  reig(IEVEC_V, 3) = 0.0;
+  reig(IEVEC_V, 4) = Qf*bety;
+  reig(IEVEC_V, 5) = betz;
+  reig(IEVEC_V, 6) = -Qs*bety;
 
-  reig(IEIGN_W, 0) = Qs*betz;
-  reig(IEIGN_W, 1) = bety;
-  reig(IEIGN_W, 2) = -Qf*betz;
-  reig(IEIGN_W, 3) = 0.0;
-  reig(IEIGN_W, 4) = Qf*betz;
-  reig(IEIGN_W, 5) = -bety;
-  reig(IEIGN_W, 6) = -Qs*betz;
+  reig(IEVEC_W, 0) = Qs*betz;
+  reig(IEVEC_W, 1) = bety;
+  reig(IEVEC_W, 2) = -Qf*betz;
+  reig(IEVEC_W, 3) = 0.0;
+  reig(IEVEC_W, 4) = Qf*betz;
+  reig(IEVEC_W, 5) = -bety;
+  reig(IEVEC_W, 6) = -Qs*betz;
 
-  reig(IEIGN_P, 0) = Q(QRHO)*as*alf;
-  reig(IEIGN_P, 1) = 0.0;
-  reig(IEIGN_P, 2) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 3) = 0.0;
-  reig(IEIGN_P, 4) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 5) = 0.0;
-  reig(IEIGN_P, 6) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 0) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 1) = 0.0;
+  reig(IEVEC_P, 2) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 3) = 0.0;
+  reig(IEVEC_P, 4) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 5) = 0.0;
+  reig(IEVEC_P, 6) = Q(QRHO)*as*alf;
 
-  reig(IEIGN_BT, 0) = AAs*bety;
-  reig(IEIGN_BT, 1) = -betz*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 2) = -AAf*bety;
-  reig(IEIGN_BT, 3) = 0.0;
-  reig(IEIGN_BT, 4) = -AAf*bety;
-  reig(IEIGN_BT, 5) = -betz*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 6) = AAs*bety;
+  reig(IEVEC_BT, 0) = AAs*bety;
+  reig(IEVEC_BT, 1) = -betz*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 2) = -AAf*bety;
+  reig(IEVEC_BT, 3) = 0.0;
+  reig(IEVEC_BT, 4) = -AAf*bety;
+  reig(IEVEC_BT, 5) = -betz*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 6) = AAs*bety;
 
-  reig(IEIGN_BTT, 0) = AAs*betz;
-  reig(IEIGN_BTT, 1) = bety*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 2) = -AAf*betz;
-  reig(IEIGN_BTT, 3) = 0.0;
-  reig(IEIGN_BTT, 4) = -AAf*betz;
-  reig(IEIGN_BTT, 5) = bety*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 6) = AAs*betz;
+  reig(IEVEC_BTT, 0) = AAs*betz;
+  reig(IEVEC_BTT, 1) = bety*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 2) = -AAf*betz;
+  reig(IEVEC_BTT, 3) = 0.0;
+  reig(IEVEC_BTT, 4) = -AAf*betz;
+  reig(IEVEC_BTT, 5) = bety*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 6) = AAs*betz;
 
 }
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-evecy(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
-      Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& reig,
+evecy(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
+      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
       const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
@@ -337,133 +337,133 @@ evecy(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
 
 
   // v - cf
-  leig(0, IEIGN_RHO) = 0.0;
-  leig(0, IEIGN_U) = N*Qs*betx;
-  leig(0, IEIGN_V) = -N*cff;
-  leig(0, IEIGN_W) = N*Qs*betz;
-  leig(0, IEIGN_P) = N*alf/Q(QRHO);
-  leig(0, IEIGN_BT) = N*AAs*betx/Q(QRHO);
-  leig(0, IEIGN_BTT) = N*AAs*betz/Q(QRHO);
+  leig(0, IEVEC_RHO) = 0.0;
+  leig(0, IEVEC_U) = N*Qs*betx;
+  leig(0, IEVEC_V) = -N*cff;
+  leig(0, IEVEC_W) = N*Qs*betz;
+  leig(0, IEVEC_P) = N*alf/Q(QRHO);
+  leig(0, IEVEC_BT) = N*AAs*betx/Q(QRHO);
+  leig(0, IEVEC_BTT) = N*AAs*betz/Q(QRHO);
 
   // v - cay
-  leig(1, IEIGN_RHO) = 0.0;
-  leig(1, IEIGN_U) = -0.5_rt*betz;
-  leig(1, IEIGN_V) = 0.0;
-  leig(1, IEIGN_W) = 0.5_rt*betx;
-  leig(1, IEIGN_P) = 0.0;
-  leig(1, IEIGN_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
-  leig(1, IEIGN_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_RHO) = 0.0;
+  leig(1, IEVEC_U) = -0.5_rt*betz;
+  leig(1, IEVEC_V) = 0.0;
+  leig(1, IEVEC_W) = 0.5_rt*betx;
+  leig(1, IEVEC_P) = 0.0;
+  leig(1, IEVEC_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
 
   // v - cs
-  leig(2, IEIGN_RHO) = 0.0;
-  leig(2, IEIGN_U) = -N*Qf*betx;
-  leig(2, IEIGN_V) = -N*css;
-  leig(2, IEIGN_W) = -N*Qf*betz;
-  leig(2, IEIGN_P) = N*als/Q(QRHO);
-  leig(2, IEIGN_BT) = -N*AAf*betx/Q(QRHO);
-  leig(2, IEIGN_BTT) = -N*AAf*betz/Q(QRHO);
+  leig(2, IEVEC_RHO) = 0.0;
+  leig(2, IEVEC_U) = -N*Qf*betx;
+  leig(2, IEVEC_V) = -N*css;
+  leig(2, IEVEC_W) = -N*Qf*betz;
+  leig(2, IEVEC_P) = N*als/Q(QRHO);
+  leig(2, IEVEC_BT) = -N*AAf*betx/Q(QRHO);
+  leig(2, IEVEC_BTT) = -N*AAf*betz/Q(QRHO);
 
   // v
-  leig(3, IEIGN_RHO) = 1.0_rt;
-  leig(3, IEIGN_U) = 0.0;
-  leig(3, IEIGN_V) = 0.0;
-  leig(3, IEIGN_W) = 0.0;
-  leig(3, IEIGN_P) = -1.0_rt/as;
-  leig(3, IEIGN_BT) = 0.0;
-  leig(3, IEIGN_BTT) = 0.0;
+  leig(3, IEVEC_RHO) = 1.0_rt;
+  leig(3, IEVEC_U) = 0.0;
+  leig(3, IEVEC_V) = 0.0;
+  leig(3, IEVEC_W) = 0.0;
+  leig(3, IEVEC_P) = -1.0_rt/as;
+  leig(3, IEVEC_BT) = 0.0;
+  leig(3, IEVEC_BTT) = 0.0;
 
   // v + cs
-  leig(4, IEIGN_RHO) = 0.0;
-  leig(4, IEIGN_U) = N*Qf*betx;
-  leig(4, IEIGN_V) = N*css;
-  leig(4, IEIGN_W) = N*Qf*betz;
-  leig(4, IEIGN_P) = N*als/Q(QRHO);
-  leig(4, IEIGN_BT) = -N*AAf*betx/Q(QRHO);
-  leig(4, IEIGN_BTT) = -N*AAf*betz/Q(QRHO);
+  leig(4, IEVEC_RHO) = 0.0;
+  leig(4, IEVEC_U) = N*Qf*betx;
+  leig(4, IEVEC_V) = N*css;
+  leig(4, IEVEC_W) = N*Qf*betz;
+  leig(4, IEVEC_P) = N*als/Q(QRHO);
+  leig(4, IEVEC_BT) = -N*AAf*betx/Q(QRHO);
+  leig(4, IEVEC_BTT) = -N*AAf*betz/Q(QRHO);
 
   // v + cay
-  leig(5, IEIGN_RHO) = 0.0;
-  leig(5, IEIGN_U) = 0.5_rt*betz;
-  leig(5, IEIGN_V) = 0.0;
-  leig(5, IEIGN_W) = -0.5_rt*betx;
-  leig(5, IEIGN_P) = 0.0;
-  leig(5, IEIGN_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
-  leig(5, IEIGN_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_RHO) = 0.0;
+  leig(5, IEVEC_U) = 0.5_rt*betz;
+  leig(5, IEVEC_V) = 0.0;
+  leig(5, IEVEC_W) = -0.5_rt*betx;
+  leig(5, IEVEC_P) = 0.0;
+  leig(5, IEVEC_BT) = -0.5_rt*betz*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
 
   // v + cf
-  leig(6, IEIGN_RHO) = 0.0;
-  leig(6, IEIGN_U) = -N*Qs*betx;
-  leig(6, IEIGN_V) = N*cff;
-  leig(6, IEIGN_W) = -N*Qs*betz;
-  leig(6, IEIGN_P) = N*alf/Q(QRHO);
-  leig(6, IEIGN_BT) = N*AAs*betx/Q(QRHO);
-  leig(6, IEIGN_BTT) = N*AAs*betz/Q(QRHO);
+  leig(6, IEVEC_RHO) = 0.0;
+  leig(6, IEVEC_U) = -N*Qs*betx;
+  leig(6, IEVEC_V) = N*cff;
+  leig(6, IEVEC_W) = -N*Qs*betz;
+  leig(6, IEVEC_P) = N*alf/Q(QRHO);
+  leig(6, IEVEC_BT) = N*AAs*betx/Q(QRHO);
+  leig(6, IEVEC_BTT) = N*AAs*betz/Q(QRHO);
 
   // v - cf ; v - Cay ; v - cs ; v ; v + cs ; v + Cay ; v + cf
 
-  reig(IEIGN_RHO, 0) = Q(QRHO)*alf;
-  reig(IEIGN_RHO, 1) = 0.0;
-  reig(IEIGN_RHO, 2) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 3) = 1.0_rt;
-  reig(IEIGN_RHO, 4) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 5) = 0.0;
-  reig(IEIGN_RHO, 6) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 0) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 1) = 0.0;
+  reig(IEVEC_RHO, 2) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 3) = 1.0_rt;
+  reig(IEVEC_RHO, 4) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 5) = 0.0;
+  reig(IEVEC_RHO, 6) = Q(QRHO)*alf;
 
-  reig(IEIGN_V, 0) = -cff;
-  reig(IEIGN_V, 1) = 0.0;
-  reig(IEIGN_V, 2) = -css;
-  reig(IEIGN_V, 3) = 0.0;
-  reig(IEIGN_V, 4) = css;
-  reig(IEIGN_V, 5) = 0.0;
-  reig(IEIGN_V, 6) = cff;
+  reig(IEVEC_V, 0) = -cff;
+  reig(IEVEC_V, 1) = 0.0;
+  reig(IEVEC_V, 2) = -css;
+  reig(IEVEC_V, 3) = 0.0;
+  reig(IEVEC_V, 4) = css;
+  reig(IEVEC_V, 5) = 0.0;
+  reig(IEVEC_V, 6) = cff;
 
-  reig(IEIGN_U, 0) = Qs*betx;
-  reig(IEIGN_U, 1) = -betz;
-  reig(IEIGN_U, 2) = -Qf*betx;
-  reig(IEIGN_U, 3) = 0.0;
-  reig(IEIGN_U, 4) = Qf*betx;
-  reig(IEIGN_U, 5) = betz;
-  reig(IEIGN_U, 6) = -Qs*betx;
+  reig(IEVEC_U, 0) = Qs*betx;
+  reig(IEVEC_U, 1) = -betz;
+  reig(IEVEC_U, 2) = -Qf*betx;
+  reig(IEVEC_U, 3) = 0.0;
+  reig(IEVEC_U, 4) = Qf*betx;
+  reig(IEVEC_U, 5) = betz;
+  reig(IEVEC_U, 6) = -Qs*betx;
 
-  reig(IEIGN_W, 0) = Qs*betz;
-  reig(IEIGN_W, 1) = betx;
-  reig(IEIGN_W, 2) = -Qf*betz;
-  reig(IEIGN_W, 3) = 0.0;
-  reig(IEIGN_W, 4) = Qf*betz;
-  reig(IEIGN_W, 5) = -betx;
-  reig(IEIGN_W, 6) = -Qs*betz;
+  reig(IEVEC_W, 0) = Qs*betz;
+  reig(IEVEC_W, 1) = betx;
+  reig(IEVEC_W, 2) = -Qf*betz;
+  reig(IEVEC_W, 3) = 0.0;
+  reig(IEVEC_W, 4) = Qf*betz;
+  reig(IEVEC_W, 5) = -betx;
+  reig(IEVEC_W, 6) = -Qs*betz;
 
-  reig(IEIGN_P, 0) = Q(QRHO)*as*alf;
-  reig(IEIGN_P, 1) = 0.0;
-  reig(IEIGN_P, 2) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 3) = 0.0;
-  reig(IEIGN_P, 4) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 5) = 0.0;
-  reig(IEIGN_P, 6) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 0) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 1) = 0.0;
+  reig(IEVEC_P, 2) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 3) = 0.0;
+  reig(IEVEC_P, 4) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 5) = 0.0;
+  reig(IEVEC_P, 6) = Q(QRHO)*as*alf;
 
-  reig(IEIGN_BT, 0) = AAs*betx;
-  reig(IEIGN_BT, 1) = -betz*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 2) = -AAf*betx;
-  reig(IEIGN_BT, 3) = 0.0;
-  reig(IEIGN_BT, 4) = -AAf*betx;
-  reig(IEIGN_BT, 5) = -betz*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 6) = AAs*betx;
+  reig(IEVEC_BT, 0) = AAs*betx;
+  reig(IEVEC_BT, 1) = -betz*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 2) = -AAf*betx;
+  reig(IEVEC_BT, 3) = 0.0;
+  reig(IEVEC_BT, 4) = -AAf*betx;
+  reig(IEVEC_BT, 5) = -betz*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 6) = AAs*betx;
 
-  reig(IEIGN_BTT, 0) = AAs*betz;
-  reig(IEIGN_BTT, 1) = betx*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 2) = -AAf*betz;
-  reig(IEIGN_BTT, 3) = 0.0;
-  reig(IEIGN_BTT, 4) = -AAf*betz;
-  reig(IEIGN_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 6) = AAs*betz;
+  reig(IEVEC_BTT, 0) = AAs*betz;
+  reig(IEVEC_BTT, 1) = betx*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 2) = -AAf*betz;
+  reig(IEVEC_BTT, 3) = 0.0;
+  reig(IEVEC_BTT, 4) = -AAf*betz;
+  reig(IEVEC_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 6) = AAs*betz;
 
 }
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-evecz(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
-      Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& reig,
+evecz(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
+      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
       const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
@@ -538,141 +538,141 @@ evecz(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
 
 
   // w - cf
-  leig(0, IEIGN_RHO) = 0.0;
-  leig(0, IEIGN_U) = N*Qs*betx;
-  leig(0, IEIGN_V) = N*Qs*bety;
-  leig(0, IEIGN_W) = -N*cff;
-  leig(0, IEIGN_P) = N*alf/Q(QRHO);
-  leig(0, IEIGN_BT) = N*AAs*betx/Q(QRHO);
-  leig(0, IEIGN_BTT) = N*AAs*bety/Q(QRHO);
+  leig(0, IEVEC_RHO) = 0.0;
+  leig(0, IEVEC_U) = N*Qs*betx;
+  leig(0, IEVEC_V) = N*Qs*bety;
+  leig(0, IEVEC_W) = -N*cff;
+  leig(0, IEVEC_P) = N*alf/Q(QRHO);
+  leig(0, IEVEC_BT) = N*AAs*betx/Q(QRHO);
+  leig(0, IEVEC_BTT) = N*AAs*bety/Q(QRHO);
 
   // w - caz
-  leig(1, IEIGN_RHO) = 0.0;
-  leig(1, IEIGN_U) = -0.5_rt*bety;
-  leig(1, IEIGN_V) = 0.5_rt*betx;
-  leig(1, IEIGN_W) = 0.0;
-  leig(1, IEIGN_P) = 0.0;
-  leig(1, IEIGN_BT) = -0.5_rt*bety*S/std::sqrt(Q(QRHO));
-  leig(1, IEIGN_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_RHO) = 0.0;
+  leig(1, IEVEC_U) = -0.5_rt*bety;
+  leig(1, IEVEC_V) = 0.5_rt*betx;
+  leig(1, IEVEC_W) = 0.0;
+  leig(1, IEVEC_P) = 0.0;
+  leig(1, IEVEC_BT) = -0.5_rt*bety*S/std::sqrt(Q(QRHO));
+  leig(1, IEVEC_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
 
   // w - cs
-  leig(2, IEIGN_RHO) = 0.0;
-  leig(2, IEIGN_U) = -N*Qf*betx;
-  leig(2, IEIGN_V) = -N*Qf*bety;
-  leig(2, IEIGN_W) = -N*css;
-  leig(2, IEIGN_P) = N*als/Q(QRHO);
-  leig(2, IEIGN_BT) = -N*AAf*betx/Q(QRHO);
-  leig(2, IEIGN_BTT) = -N*AAf*bety/Q(QRHO);
+  leig(2, IEVEC_RHO) = 0.0;
+  leig(2, IEVEC_U) = -N*Qf*betx;
+  leig(2, IEVEC_V) = -N*Qf*bety;
+  leig(2, IEVEC_W) = -N*css;
+  leig(2, IEVEC_P) = N*als/Q(QRHO);
+  leig(2, IEVEC_BT) = -N*AAf*betx/Q(QRHO);
+  leig(2, IEVEC_BTT) = -N*AAf*bety/Q(QRHO);
 
   // w
-  leig(3, IEIGN_RHO) = 1.0_rt;
-  leig(3, IEIGN_U) = 0.0;
-  leig(3, IEIGN_V) = 0.0;
-  leig(3, IEIGN_W) = 0.0;
-  leig(3, IEIGN_P) = -1.0_rt/as;
-  leig(3, IEIGN_BT) = 0.0;
-  leig(3, IEIGN_BTT) = 0.0;
+  leig(3, IEVEC_RHO) = 1.0_rt;
+  leig(3, IEVEC_U) = 0.0;
+  leig(3, IEVEC_V) = 0.0;
+  leig(3, IEVEC_W) = 0.0;
+  leig(3, IEVEC_P) = -1.0_rt/as;
+  leig(3, IEVEC_BT) = 0.0;
+  leig(3, IEVEC_BTT) = 0.0;
 
   // w + cs
-  leig(4, IEIGN_RHO) = 0.0;
-  leig(4, IEIGN_U) = N*Qf*betx;
-  leig(4, IEIGN_V) = N*Qf*bety;
-  leig(4, IEIGN_W) = N*css;
-  leig(4, IEIGN_P) = N*als/Q(QRHO);
-  leig(4, IEIGN_BT) = -N*AAf*betx/Q(QRHO);
-  leig(4, IEIGN_BTT) = -N*AAf*bety/Q(QRHO);
+  leig(4, IEVEC_RHO) = 0.0;
+  leig(4, IEVEC_U) = N*Qf*betx;
+  leig(4, IEVEC_V) = N*Qf*bety;
+  leig(4, IEVEC_W) = N*css;
+  leig(4, IEVEC_P) = N*als/Q(QRHO);
+  leig(4, IEVEC_BT) = -N*AAf*betx/Q(QRHO);
+  leig(4, IEVEC_BTT) = -N*AAf*bety/Q(QRHO);
 
   // w + caz
-  leig(5, IEIGN_RHO) = 0.0;
-  leig(5, IEIGN_U) = 0.5_rt*bety;
-  leig(5, IEIGN_V) = -0.5_rt*betx;
-  leig(5, IEIGN_W) = 0.0;
-  leig(5, IEIGN_P) = 0.0;
-  leig(5, IEIGN_BT) = -0.5_rt*bety*S/std::sqrt(Q(QRHO));
-  leig(5, IEIGN_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_RHO) = 0.0;
+  leig(5, IEVEC_U) = 0.5_rt*bety;
+  leig(5, IEVEC_V) = -0.5_rt*betx;
+  leig(5, IEVEC_W) = 0.0;
+  leig(5, IEVEC_P) = 0.0;
+  leig(5, IEVEC_BT) = -0.5_rt*bety*S/std::sqrt(Q(QRHO));
+  leig(5, IEVEC_BTT) = 0.5_rt*betx*S/std::sqrt(Q(QRHO));
 
   // w + cf
-  leig(6, IEIGN_RHO) = 0.0;
-  leig(6, IEIGN_U) = -N*Qs*betx;
-  leig(6, IEIGN_V) = -N*Qs*bety;
-  leig(6, IEIGN_W) = N*cff;
-  leig(6, IEIGN_P) = N*alf/Q(QRHO);
-  leig(6, IEIGN_BT) = N*AAs*betx/Q(QRHO);
-  leig(6, IEIGN_BTT) = N*AAs*bety/Q(QRHO);
+  leig(6, IEVEC_RHO) = 0.0;
+  leig(6, IEVEC_U) = -N*Qs*betx;
+  leig(6, IEVEC_V) = -N*Qs*bety;
+  leig(6, IEVEC_W) = N*cff;
+  leig(6, IEVEC_P) = N*alf/Q(QRHO);
+  leig(6, IEVEC_BT) = N*AAs*betx/Q(QRHO);
+  leig(6, IEVEC_BTT) = N*AAs*bety/Q(QRHO);
 
   //  w - cf ; w - Caz ; w - cs ; w ; w + cs ; w + Caz ; w + cf
 
-  reig(IEIGN_RHO, 0) = Q(QRHO)*alf;
-  reig(IEIGN_RHO, 1) = 0.0;
-  reig(IEIGN_RHO, 2) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 3) = 1.0_rt;
-  reig(IEIGN_RHO, 4) = Q(QRHO)*als;
-  reig(IEIGN_RHO, 5) = 0.0;
-  reig(IEIGN_RHO, 6) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 0) = Q(QRHO)*alf;
+  reig(IEVEC_RHO, 1) = 0.0;
+  reig(IEVEC_RHO, 2) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 3) = 1.0_rt;
+  reig(IEVEC_RHO, 4) = Q(QRHO)*als;
+  reig(IEVEC_RHO, 5) = 0.0;
+  reig(IEVEC_RHO, 6) = Q(QRHO)*alf;
 
-  reig(IEIGN_W, 0) = -cff;
-  reig(IEIGN_W, 1) = 0.0;
-  reig(IEIGN_W, 2) = -css;
-  reig(IEIGN_W, 3) = 0.0;
-  reig(IEIGN_W, 4) = css;
-  reig(IEIGN_W, 5) = 0.0;
-  reig(IEIGN_W, 6) = cff;
+  reig(IEVEC_W, 0) = -cff;
+  reig(IEVEC_W, 1) = 0.0;
+  reig(IEVEC_W, 2) = -css;
+  reig(IEVEC_W, 3) = 0.0;
+  reig(IEVEC_W, 4) = css;
+  reig(IEVEC_W, 5) = 0.0;
+  reig(IEVEC_W, 6) = cff;
 
-  reig(IEIGN_U, 0) = Qs*betx;
-  reig(IEIGN_U, 1) = -bety;
-  reig(IEIGN_U, 2) = -Qf*betx;
-  reig(IEIGN_U, 3) = 0.0;
-  reig(IEIGN_U, 4) = Qf*betx;
-  reig(IEIGN_U, 5) = bety;
-  reig(IEIGN_U, 6) = -Qs*betx;
+  reig(IEVEC_U, 0) = Qs*betx;
+  reig(IEVEC_U, 1) = -bety;
+  reig(IEVEC_U, 2) = -Qf*betx;
+  reig(IEVEC_U, 3) = 0.0;
+  reig(IEVEC_U, 4) = Qf*betx;
+  reig(IEVEC_U, 5) = bety;
+  reig(IEVEC_U, 6) = -Qs*betx;
 
-  reig(IEIGN_V, 0) = Qs*bety;
-  reig(IEIGN_V, 1) = betx;
-  reig(IEIGN_V, 2) = -Qf*bety;
-  reig(IEIGN_V, 3) = 0.0;
-  reig(IEIGN_V, 4) = Qf*bety;
-  reig(IEIGN_V, 5) = -betx;
-  reig(IEIGN_V, 6) = -Qs*bety;
+  reig(IEVEC_V, 0) = Qs*bety;
+  reig(IEVEC_V, 1) = betx;
+  reig(IEVEC_V, 2) = -Qf*bety;
+  reig(IEVEC_V, 3) = 0.0;
+  reig(IEVEC_V, 4) = Qf*bety;
+  reig(IEVEC_V, 5) = -betx;
+  reig(IEVEC_V, 6) = -Qs*bety;
 
-  reig(IEIGN_P, 0) = Q(QRHO)*as*alf;
-  reig(IEIGN_P, 1) = 0.0;
-  reig(IEIGN_P, 2) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 3) = 0.0;
-  reig(IEIGN_P, 4) = Q(QRHO)*as*als;
-  reig(IEIGN_P, 5) = 0.0;
-  reig(IEIGN_P, 6) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 0) = Q(QRHO)*as*alf;
+  reig(IEVEC_P, 1) = 0.0;
+  reig(IEVEC_P, 2) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 3) = 0.0;
+  reig(IEVEC_P, 4) = Q(QRHO)*as*als;
+  reig(IEVEC_P, 5) = 0.0;
+  reig(IEVEC_P, 6) = Q(QRHO)*as*alf;
 
-  reig(IEIGN_BT, 0) = AAs*betx;
-  reig(IEIGN_BT, 1) = -bety*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 2) = -AAf*betx;
-  reig(IEIGN_BT, 3) = 0.0;
-  reig(IEIGN_BT, 4) = -AAf*betx;
-  reig(IEIGN_BT, 5) = -bety*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BT, 6) = AAs*betx;
+  reig(IEVEC_BT, 0) = AAs*betx;
+  reig(IEVEC_BT, 1) = -bety*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 2) = -AAf*betx;
+  reig(IEVEC_BT, 3) = 0.0;
+  reig(IEVEC_BT, 4) = -AAf*betx;
+  reig(IEVEC_BT, 5) = -bety*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BT, 6) = AAs*betx;
 
-  reig(IEIGN_BTT, 0) = AAs*bety;
-  reig(IEIGN_BTT, 1) = betx*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 2) = -AAf*bety;
-  reig(IEIGN_BTT, 3) = 0.0;
-  reig(IEIGN_BTT, 4) = -AAf*bety;
-  reig(IEIGN_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
-  reig(IEIGN_BTT, 6) = AAs*bety;
+  reig(IEVEC_BTT, 0) = AAs*bety;
+  reig(IEVEC_BTT, 1) = betx*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 2) = -AAf*bety;
+  reig(IEVEC_BTT, 3) = 0.0;
+  reig(IEVEC_BTT, 4) = -AAf*bety;
+  reig(IEVEC_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
+  reig(IEVEC_BTT, 6) = AAs*bety;
 
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-check_evecs(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
-            Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& reig) {
+check_evecs(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
+            Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig) {
 
   // this checks if the eigenvectors are properly orthornomal
 
-  for (int n = 0; n < NEIGN; n++) {
-    for (int m = 0; m < NEIGN; m++) {
+  for (int n = 0; n < NEVEC; n++) {
+    for (int m = 0; m < NEVEC; m++) {
 
       // dot product of l_m . r_n
       Real dot = 0.0;
-      for (int p = 0; p < NEIGN; p++)
+      for (int p = 0; p < NEVEC; p++)
       {
         dot += leig(m, p) * reig(p, n);
       }

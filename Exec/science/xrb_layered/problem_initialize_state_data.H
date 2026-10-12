@@ -44,12 +44,12 @@ void problem_initialize_state_data (int i, int j, int k,
 
     Real sumX{0.0};
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = interpolate(height, model::ispec+n);
-        sumX += state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = interpolate(height, model::ispec+n);
+        sumX += state(i,j,k,USPEC+n);
     }
 
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) /= sumX;
+        state(i,j,k,USPEC+n) /= sumX;
     }
 
     eos_t eos_state;
@@ -58,7 +58,7 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.p = p_zone;
 
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n);
+        eos_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
     eos(eos_input_rp, eos_state);
@@ -68,7 +68,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = state(i,j,k,UEINT);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 
 
@@ -100,7 +100,7 @@ void problem_initialize_state_data (int i, int j, int k,
             // need to recompute partial densities since we've updated rho
 
             for (int n = 0; n < NumSpec; n++) {
-                state(i,j,k,UFS+n) = state(i,j,k,URHO) * eos_state.xn[n];
+                state(i,j,k,USPEC+n) = state(i,j,k,URHO) * eos_state.xn[n];
             }
 
         }

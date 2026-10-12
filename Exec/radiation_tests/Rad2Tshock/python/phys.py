@@ -12,12 +12,12 @@ mp     = 1.672621777e-24   # Proton mass
 NA     = 6.02214129e23     # Avogadro constant
 k      = 1.3806488e-16     # Boltzmann constant
 R      = 8.3144621454689518e7       # gas constant = k * NA
-                                    # This is how the value of R in CASTRO
+                                    # This is how the value of R in HYDROSIM
 sigma  = 5.670373e-5       # Stefan-Boltzmann constant
 sigmaT = 6.652458734e-25   # Thomson cross section
 a      = 7.5657313567241239e-15      # Radiation density constant
                                      # a = 4.*sigma/c
-                                     # because this is how a is computed in CASTRO
+                                     # because this is how a is computed in HYDROSIM
 
 # conversion factor
 eV     = 1.602176487e-12   # Electron volt

@@ -183,7 +183,7 @@ rarefaction(const amrex::Real pstar,
     // initial guess at integration step
     amrex::Real dp = (pstar - p_s) / static_cast<amrex::Real>(100);
 
-    amrex::Real T = castro::T_guess;
+    amrex::Real T = hydrosim::T_guess;
 
     // adaptive RK4 loop
 
@@ -251,7 +251,7 @@ rarefaction(const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -307,7 +307,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -385,7 +385,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
         for (int n = 0; n < NumSpec; ++n) {
             eos_state.xn[n] = xn[n];
         }
-        eos_state.T = castro::T_guess;
+        eos_state.T = hydrosim::T_guess;
 
         eos(eos_input_rp, eos_state);
 

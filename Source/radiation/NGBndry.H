@@ -1,5 +1,5 @@
-#ifndef CASTRO_NGBNDRY_H
-#define CASTRO_NGBNDRY_H
+#ifndef HYDROSIM_NGBNDRY_H
+#define HYDROSIM_NGBNDRY_H
 
 #include <RadInterpBndryData.H>
 #include <AMReX_BC_TYPES.H>

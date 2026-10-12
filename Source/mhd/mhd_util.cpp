@@ -1,12 +1,12 @@
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 
 #include <mhd_util.H>
 
 using namespace amrex;
 
 void
-Castro::consup_mhd(const Box& bx, const Real dt,
+HydroSim::cons_update_mhd(const Box& bx, const Real dt,
                    Array4<Real> const& U_new,
                    Array4<Real const> const& flux0,
                    Array4<Real const> const& flux1,
@@ -33,7 +33,7 @@ Castro::consup_mhd(const Box& bx, const Real dt,
     if (n == UTEMP) {
       U_new(i,j,k,n) = 0.0_rt;
 #ifdef SHOCK_VAR
-    } else if (n == USHK) {
+    } else if (n == USHOCK) {
       U_new(i,j,k,n) = 0.0_rt;
 #endif
     } else {
@@ -52,7 +52,7 @@ Castro::consup_mhd(const Box& bx, const Real dt,
 
 
 void
-Castro::PrimToCons(const Box& bx,
+HydroSim::PrimToCons(const Box& bx,
                    Array4<Real const> const& q_arr,
                    Array4<Real> const& u_arr) {
 
@@ -72,11 +72,11 @@ Castro::PrimToCons(const Box& bx,
     eos_state.p = q_arr(i,j,k,QPRES);
     eos_state.T = 100.0_rt; // dummy initial T.
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = q_arr(i,j,k,QFS+n);
+      eos_state.xn[n] = q_arr(i,j,k,QSPEC+n);
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = q_arr(i,j,k,QFX+n);
+      eos_state.aux[n] = q_arr(i,j,k,QAUXV+n);
     }
 #endif
 
@@ -99,7 +99,7 @@ Castro::PrimToCons(const Box& bx,
 
     // species
     for (int n = 0; n < NumSpec; n++) {
-      u_arr(i,j,k,UFS+n) = q_arr(i,j,k,QRHO) * q_arr(i,j,k,QFS+n);
+      u_arr(i,j,k,USPEC+n) = q_arr(i,j,k,QRHO) * q_arr(i,j,k,QSPEC+n);
     }
 
   });
@@ -107,7 +107,7 @@ Castro::PrimToCons(const Box& bx,
 
 
 void
-Castro::prim_half(const Box& bx,
+HydroSim::prim_half(const Box& bx,
                   Array4<Real> const& q2D,
                   Array4<Real const> const& q_arr,
                   Array4<Real const> const& flxx,

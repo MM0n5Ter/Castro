@@ -30,13 +30,13 @@ DO_TRUE_SDC_RUNS = 0
 
 COMMON_FILES = ["helm_table.dat"] #, "nse19.tbl"]
 
-STRANG_EXEC = "./Castro1d.gnu.ex"
+STRANG_EXEC = "./HydroSim1d.gnu.ex"
 NEEDED_STRANG_FILES = [STRANG_EXEC] + COMMON_FILES
 
-SIMPLE_SDC_EXEC = "./Castro1d.gnu.SMPLSDC.ex"
+SIMPLE_SDC_EXEC = "./HydroSim1d.gnu.SMPLSDC.ex"
 NEEDED_SIMPLE_SDC_FILES = [SIMPLE_SDC_EXEC] + COMMON_FILES
 
-TRUE_SDC_EXEC = "./Castro1d.gnu.TRUESDC.ex"
+TRUE_SDC_EXEC = "./HydroSim1d.gnu.TRUESDC.ex"
 NEEDED_TRUE_SDC_FILES = [TRUE_SDC_EXEC] + COMMON_FILES
 
 def setup_runs():

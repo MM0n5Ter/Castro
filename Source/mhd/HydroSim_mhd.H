@@ -1,0 +1,110 @@
+#ifndef HYDROSIM_MHD_H
+#define HYDROSIM_MHD_H
+
+    advance_status construct_ctu_mhd_source(amrex::Real time, amrex::Real dt);
+
+    void
+    plm(const amrex::Box& bx,
+        const int idir,
+        amrex::Array4<amrex::Real const> const& s,
+        amrex::Array4<amrex::Real const> const& qaux,
+        amrex::Array4<amrex::Real const> const& flatcoef,
+        amrex::Array4<amrex::Real const> const& Bx,
+        amrex::Array4<amrex::Real const> const& By,
+        amrex::Array4<amrex::Real const> const& Bz,
+        amrex::Array4<amrex::Real> const& qleft,
+        amrex::Array4<amrex::Real> const& qright,
+        amrex::Array4<amrex::Real const> const& srcQ,
+        const amrex::Real dt);
+
+    void
+    ppm_mhd(const amrex::Box& bx,
+            const int idir,
+            amrex::Array4<amrex::Real const> const& q_arr,
+            amrex::Array4<amrex::Real const> const& qaux,
+            amrex::Array4<amrex::Real const> const& flatcoef,
+            amrex::Array4<amrex::Real const> const& Bx,
+            amrex::Array4<amrex::Real const> const& By,
+            amrex::Array4<amrex::Real const> const& Bz,
+            amrex::Array4<amrex::Real> const& qleft,
+            amrex::Array4<amrex::Real> const& qright,
+            amrex::Array4<amrex::Real const> const& srcQ,
+            const amrex::Real dt);
+
+    void
+    cons_update_mhd(const amrex::Box& bx, const Real dt,
+               amrex::Array4<amrex::Real> const& U_new,
+               amrex::Array4<amrex::Real const> const& flux0,
+               amrex::Array4<amrex::Real const> const& flux1,
+               amrex::Array4<amrex::Real const> const& flux2);
+
+    static void
+    PrimToCons(const amrex::Box& bx,
+               amrex::Array4<amrex::Real const> const& q_arr,
+               amrex::Array4<amrex::Real> const& u_arr);
+
+    void
+    prim_half(const amrex::Box& bx,
+              amrex::Array4<amrex::Real> const& q2D,
+              amrex::Array4<amrex::Real const> const& q_arr,
+              amrex::Array4<amrex::Real const> const& flxx,
+              amrex::Array4<amrex::Real const> const& flxy,
+              amrex::Array4<amrex::Real const> const& flxz,
+              const amrex::Real dt);
+
+
+    static void
+    electric_edge_x(const amrex::Box& bx,
+                    amrex::Array4<amrex::Real const> const& q_arr,
+                    amrex::Array4<amrex::Real> const& E,
+                    amrex::Array4<amrex::Real const> const& flxy,
+                    amrex::Array4<amrex::Real const> const& flxz);
+
+    static void
+    electric_edge_y(const amrex::Box& bx,
+                    amrex::Array4<amrex::Real const> const& q_arr,
+                    amrex::Array4<amrex::Real> const& E,
+                    amrex::Array4<amrex::Real const> const& flxx,
+                    amrex::Array4<amrex::Real const> const& flxz);
+
+    static void
+    electric_edge_z(const amrex::Box& bx,
+                    amrex::Array4<amrex::Real const> const& q_arr,
+                    amrex::Array4<amrex::Real> const& E,
+                    amrex::Array4<amrex::Real const> const& flxx,
+                    amrex::Array4<amrex::Real const> const& flxy);
+
+    void
+    corner_couple(const amrex::Box& bx,
+                  amrex::Array4<amrex::Real> const& qr_out,
+                  amrex::Array4<amrex::Real> const& ql_out,
+                  amrex::Array4<amrex::Real const> const& ur,
+                  amrex::Array4<amrex::Real const> const& ul,
+                  amrex::Array4<amrex::Real const> const& flxd2,
+                  amrex::Array4<amrex::Real const> const& Ed1,
+                  amrex::Array4<amrex::Real const> const& Ed3,
+                  const int d1, const int d2, const int d3,
+                  const amrex::Real dt);
+
+    void
+    half_step(const amrex::Box& bx,
+              amrex::Array4<amrex::Real> const& qr_out,
+              amrex::Array4<amrex::Real> const& ql_out,
+              amrex::Array4<amrex::Real const> const& ur,
+              amrex::Array4<amrex::Real const> const& ul,
+              amrex::Array4<amrex::Real const> const& flxd1,
+              amrex::Array4<amrex::Real const> const& flxd2,
+              amrex::Array4<amrex::Real const> const& Ed,
+              amrex::Array4<amrex::Real const> const& Ed1,
+              amrex::Array4<amrex::Real const> const& Ed2,
+              const int d, const int d1, const int d2, const amrex::Real dt);
+
+    static void
+    hlld(const amrex::Box& bx,
+         amrex::Array4<amrex::Real const> const& qleft,
+         amrex::Array4<amrex::Real const> const& qright,
+         amrex::Array4<amrex::Real> const& flx,
+         const int dir);
+
+
+#endif

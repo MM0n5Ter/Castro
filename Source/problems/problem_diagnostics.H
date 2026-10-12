@@ -6,6 +6,6 @@
 
 AMREX_INLINE
 void
-Castro::problem_diagnostics () {}
+HydroSim::problem_diagnostics () {}
 
 #endif

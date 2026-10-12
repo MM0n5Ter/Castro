@@ -50,7 +50,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEINT) = eos_state.rho * eos_state.e;
     state(i,j,k,UTEMP) = eos_state.T;
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = eos_state.rho * eos_state.xn[n];
+        state(i,j,k,USPEC+n) = eos_state.rho * eos_state.xn[n];
     }
 }
 #endif

@@ -17,17 +17,17 @@ geometry.prob_lo     = 0       0       0
   # 1 = Inflow             4 = SlipWall
   # 2 = Outflow            5 = NoSlipWall
   # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-  castro.lo_bc       =  2   2   1
-  castro.hi_bc       =  2   2   2
+  hydrosim.lo_bc       =  2   2   1
+  hydrosim.hi_bc       =  2   2   2
 
-  castro.zl_ext_bc_type = 1
-  castro.hse_interp_temp = 0
-  castro.hse_fixed_temp = 3.e8   # this should match problem.T_star
-  castro.hse_reflect_vels = 1
+  hydrosim.zl_ext_bc_type = 1
+  hydrosim.hse_interp_temp = 0
+  hydrosim.hse_fixed_temp = 3.e8   # this should match problem.T_star
+  hydrosim.hse_reflect_vels = 1
 
-  castro.fill_ambient_bc = 1
-  castro.ambient_fill_dir = 2
-  castro.ambient_outflow_vel = 1
+  hydrosim.fill_ambient_bc = 1
+  hydrosim.ambient_fill_dir = 2
+  hydrosim.ambient_outflow_vel = 1
 
 #elif AMREX_SPACEDIM == 2
   geometry.coord_sys   = 1                  # 0 => cart, 1 => RZ  2=>spherical
@@ -40,72 +40,72 @@ geometry.prob_lo     = 0       0       0
   # 1 = Inflow             4 = SlipWall
   # 2 = Outflow            5 = NoSlipWall
   # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-  castro.lo_bc       =  3   1
-  castro.hi_bc       =  2   2
+  hydrosim.lo_bc       =  3   1
+  hydrosim.hi_bc       =  2   2
 
-  castro.yl_ext_bc_type = 1
-  castro.hse_interp_temp = 0
-  castro.hse_fixed_temp = 3.e8   # this should match problem.T_star
-  castro.hse_reflect_vels = 1
+  hydrosim.yl_ext_bc_type = 1
+  hydrosim.hse_interp_temp = 0
+  hydrosim.hse_fixed_temp = 3.e8   # this should match problem.T_star
+  hydrosim.hse_reflect_vels = 1
 
-  castro.fill_ambient_bc = 1
-  castro.ambient_fill_dir = 1
-  castro.ambient_outflow_vel = 1
+  hydrosim.fill_ambient_bc = 1
+  hydrosim.ambient_fill_dir = 1
+  hydrosim.ambient_outflow_vel = 1
 
 #endif
 
-castro.domain_is_plane_parallel = 1
+hydrosim.domain_is_plane_parallel = 1
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
-castro.do_rotation = 1
-castro.do_grav = 1
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
+hydrosim.do_rotation = 1
+hydrosim.do_grav = 1
+hydrosim.do_sponge = 1
 
-castro.small_temp = 1.e6
-castro.small_dens = 1.e-5
+hydrosim.small_temp = 1.e6
+hydrosim.small_dens = 1.e-5
 
-castro.ppm_type = 1
-castro.grav_source_type = 2
+hydrosim.ppm_type = 1
+hydrosim.grav_coupling_type = 2
 
-gravity.gravity_type = ConstantGrav
+gravity.gravity_type = UniformField
 gravity.const_grav   = -1.5e14
 
-castro.rotational_period = 0.001
-castro.rotation_include_centrifugal = 0
+hydrosim.rotational_period = 0.001
+hydrosim.rotation_include_centrifugal = 0
 
-castro.diffuse_temp = 1
-castro.diffuse_cutoff_density_hi = 5.e4
-castro.diffuse_cutoff_density = 2.e4
+hydrosim.diffuse_temp = 1
+hydrosim.diffuse_cutoff_density_hi = 5.e4
+hydrosim.diffuse_cutoff_density = 2.e4
 
-castro.diffuse_cond_scale_fac = 1.0
+hydrosim.diffuse_cond_scale_fac = 1.0
 
-castro.react_rho_min = 1.e2
-castro.react_rho_max = 5.e6
+hydrosim.react_rho_min = 1.e2
+hydrosim.react_rho_max = 5.e6
 
-castro.react_T_min = 6.e7
+hydrosim.react_T_min = 6.e7
 
-castro.sponge_upper_density = 1.e2
-castro.sponge_lower_density = 1.e0
-castro.sponge_timescale     = 1.e-7
+hydrosim.sponge_upper_density = 1.e2
+hydrosim.sponge_lower_density = 1.e0
+hydrosim.sponge_timescale     = 1.e-7
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
-castro.use_retry      = 1
-castro.max_subcycles = 16
+hydrosim.use_retry      = 1
+hydrosim.max_subcycles = 16
 
-castro.retry_small_density_cutoff = 1.0
+hydrosim.retry_small_density_cutoff = 1.0
 
-castro.abundance_failure_tolerance = 0.1
-castro.abundance_failure_rho_cutoff = 1.0
+hydrosim.abundance_failure_tolerance = 0.1
+hydrosim.abundance_failure_rho_cutoff = 1.0
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 0       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 0       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING

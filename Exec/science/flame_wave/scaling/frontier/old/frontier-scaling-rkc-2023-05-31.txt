@@ -1,4 +1,4 @@
-# Castro       git describe: 23.04-2-gabeccccb9
+# HydroSim       git describe: 23.04-2-gabeccccb9
 # AMReX        git describe: 23.04-9-g1e73fa8ec
 # Microphysics git describe: 23.04-3-gdc41ef4e
 #

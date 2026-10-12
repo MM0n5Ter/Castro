@@ -1,5 +1,5 @@
-#ifndef CASTRO_MGRADBNDRY_H
-#define CASTRO_MGRADBNDRY_H
+#ifndef HYDROSIM_MGRADBNDRY_H
+#define HYDROSIM_MGRADBNDRY_H
 
 #include <NGBndry.H>
 

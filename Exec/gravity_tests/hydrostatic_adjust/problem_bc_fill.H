@@ -33,7 +33,7 @@ void problem_bc_fill(int i, int j, int k,
                                            state(i,j,k,UMY) * state(i,j,k,UMY) +
                                            state(i,j,k,UMZ) * state(i,j,k,UMZ)) / state(i,j,k,URHO);
             for (int n = 0; n < NumSpec; ++n) {
-                state(i,j,k,UFS+n) = problem::hse_rho_top * problem::hse_X_top[n];
+                state(i,j,k,USPEC+n) = problem::hse_rho_top * problem::hse_X_top[n];
             }
 
         }
@@ -55,7 +55,7 @@ void problem_bc_fill(int i, int j, int k,
                                            state(i,j,k,UMY) * state(i,j,k,UMY) +
                                            state(i,j,k,UMZ) * state(i,j,k,UMZ)) / state(i,j,k,URHO);
             for (int n = 0; n < NumSpec; ++n) {
-                state(i,j,k,UFS+n) = problem::hse_rho_top * problem::hse_X_top[n];
+                state(i,j,k,USPEC+n) = problem::hse_rho_top * problem::hse_X_top[n];
             }
 
         }
@@ -77,7 +77,7 @@ void problem_bc_fill(int i, int j, int k,
                                            state(i,j,k,UMY) * state(i,j,k,UMY) +
                                            state(i,j,k,UMZ) * state(i,j,k,UMZ)) / state(i,j,k,URHO);
             for (int n = 0; n < NumSpec; ++n) {
-                state(i,j,k,UFS+n) = problem::hse_rho_top * problem::hse_X_top[n];
+                state(i,j,k,USPEC+n) = problem::hse_rho_top * problem::hse_X_top[n];
             }
 
         }

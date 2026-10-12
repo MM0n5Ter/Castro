@@ -14,47 +14,47 @@ amr.n_cell           = 512
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  1
-castro.hi_bc       =  2
+hydrosim.lo_bc       =  1
+hydrosim.hi_bc       =  2
 
-castro.xl_ext_bc_type = 1
-castro.hse_interp_temp = 1
-castro.hse_reflect_vels = 1
+hydrosim.xl_ext_bc_type = 1
+hydrosim.hse_interp_temp = 1
+hydrosim.hse_reflect_vels = 1
 
-castro.fill_ambient_bc = 1
-castro.ambient_fill_dir = 0
-castro.ambient_outflow_vel = 1
+hydrosim.fill_ambient_bc = 1
+hydrosim.ambient_fill_dir = 0
+hydrosim.ambient_outflow_vel = 1
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.do_rotation = 0
-castro.do_grav = 1
-castro.do_sponge = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.do_rotation = 0
+hydrosim.do_grav = 1
+hydrosim.do_sponge = 0
 
-castro.small_temp = 1.e6
-castro.small_dens = 1.e-5
+hydrosim.small_temp = 1.e6
+hydrosim.small_dens = 1.e-5
 
-castro.ppm_type = 1
-castro.grav_source_type = 2
+hydrosim.ppm_type = 1
+hydrosim.grav_coupling_type = 2
 
-gravity.gravity_type = ConstantGrav
+gravity.gravity_type = UniformField
 gravity.const_grav   = -1.5e14
 
-castro.diffuse_temp = 0
+hydrosim.diffuse_temp = 0
 
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 1.0     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
-castro.use_retry      = 1
-castro.max_subcycles = 16
-castro.fixed_dt = 9.375e-9
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 1.0     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
+hydrosim.use_retry      = 1
+hydrosim.max_subcycles = 16
+hydrosim.fixed_dt = 9.375e-9
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING

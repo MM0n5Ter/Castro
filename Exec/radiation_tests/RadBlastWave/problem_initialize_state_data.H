@@ -109,9 +109,9 @@ void problem_initialize_state_data (int i, int j, int k,
 
     // set the composition to be all in the first species
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
@@ -121,7 +121,7 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T   = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; ++n) {
-        eos_state.xn[n] = state(i,j,k,UFS+n) / state(i,j,k,URHO);
+        eos_state.xn[n] = state(i,j,k,USPEC+n) / state(i,j,k,URHO);
     }
 
     eos(eos_input_rt, eos_state);

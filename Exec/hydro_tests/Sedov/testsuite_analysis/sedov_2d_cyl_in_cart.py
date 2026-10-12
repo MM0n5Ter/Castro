@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# run as: ./sedov_2d_cyl_in_cart.py castro_dir plotfle
+# run as: ./sedov_2d_cyl_in_cart.py hydrosim_dir plotfle
 
 import sys
 import os
@@ -11,12 +11,12 @@ import matplotlib
 matplotlib.use('agg')
 import pylab
 
-def process(castro_dir, plotfile):
+def process(hydrosim_dir, plotfile):
 
     run_dir = os.getcwd()
 
     # 1. make sure that the analysis tool is built
-    build_dir = castro_dir + "/Diagnostics/Sedov/"
+    build_dir = hydrosim_dir + "/Diagnostics/Sedov/"
     os.chdir(build_dir)
     os.system("make DIM=2 >& /dev/null")
 
@@ -45,7 +45,7 @@ def process(castro_dir, plotfile):
     os.system("./{} -p {} -s {}".format(analysis_routine, plotfile, "sedov_2d_cyl_in_cart.out"))
 
 
-    analytic = castro_dir + "/Exec/hydro_tests/Sedov/Verification/cylindrical_sedov.dat"
+    analytic = hydrosim_dir + "/Exec/hydro_tests/Sedov/Verification/cylindrical_sedov.dat"
     analytic_data = np.loadtxt(analytic)
 
     data = np.loadtxt("sedov_2d_cyl_in_cart.out")
@@ -105,9 +105,9 @@ def process(castro_dir, plotfile):
 if __name__ == "__main__":
 
     if len(sys.argv) < 3:
-        sys.exit("usage: ./sedov_2d_cyl_in_cart.py castro_dir plotfile")
+        sys.exit("usage: ./sedov_2d_cyl_in_cart.py hydrosim_dir plotfile")
 
-    castro_dir = str(sys.argv[1])
+    hydrosim_dir = str(sys.argv[1])
     plotfile = str(sys.argv[2])
 
-    process(castro_dir, plotfile)
+    process(hydrosim_dir, plotfile)

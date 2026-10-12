@@ -1,8 +1,8 @@
 # sources used with mhd
 
-CEXE_headers += Castro_mhd.H
+CEXE_headers += HydroSim_mhd.H
 
-CEXE_sources += Castro_mhd.cpp
+CEXE_sources += HydroSim_mhd.cpp
 CEXE_sources += mhd_util.cpp
 CEXE_headers += mhd_util.H
 CEXE_headers += mhd_eigen.H

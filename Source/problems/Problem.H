@@ -1,7 +1,7 @@
 #ifndef PROBLEM_H
 #define PROBLEM_H
 
-/* problem-specific Castro:: declarations go here */
+/* problem-specific HydroSim:: declarations go here */
 
 #ifdef DO_PROBLEM_POST_TIMESTEP
 void problem_post_timestep();

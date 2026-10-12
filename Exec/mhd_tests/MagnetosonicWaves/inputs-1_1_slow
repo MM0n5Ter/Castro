@@ -14,27 +14,27 @@ amr.n_cell           =  16     16    8
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   0   0 
-castro.hi_bc       =  0   0   0 
+hydrosim.lo_bc       =  0   0   0 
+hydrosim.hi_bc       =  0   0   0 
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.ppm_type = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.ppm_type = 0
 
-castro.use_flattening = 0
+hydrosim.use_flattening = 0
 
-castro.small_temp = 1.e-10
-castro.small_dens = 1.e-6
-castro.small_pres = 1.e-10
+hydrosim.small_temp = 1.e-10
+hydrosim.small_dens = 1.e-6
+hydrosim.small_pres = 1.e-10
 
 # TIME STEP CONTROL
-castro.fixed_dt  = 0.021
-castro.cfl       = 0.8     # cfl number for hyperbolic system
+hydrosim.fixed_dt  = 0.021
+hydrosim.cfl       = 0.8     # cfl number for hyperbolic system
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 #amr.grid_log         = grdlog  # name of grid logging file
 

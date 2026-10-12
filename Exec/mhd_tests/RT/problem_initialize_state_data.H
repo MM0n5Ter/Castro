@@ -50,9 +50,9 @@ void problem_initialize_state_data (int i, int j, int k,
         (1 + std::tanh((r[AMREX_SPACEDIM-1] - pertheight) / 0.005_rt));
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;

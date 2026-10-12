@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 #include <global.H>
 #include <timestep.H>
 
@@ -74,11 +74,11 @@ timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const Geome
             eos_state.T   = u(i,j,k,UTEMP);
             eos_state.e   = u(i,j,k,UEINT) * rhoInv;
             for (int n = 0; n < NumSpec; ++n) {
-                eos_state.xn[n] = u(i,j,k,UFS+n) * rhoInv;
+                eos_state.xn[n] = u(i,j,k,USPEC+n) * rhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; ++n) {
-                eos_state.aux[n] = u(i,j,k,UFX+n) * rhoInv;
+                eos_state.aux[n] = u(i,j,k,UAUXV+n) * rhoInv;
             }
 #endif
 
@@ -116,7 +116,7 @@ timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const Geome
 
     ReduceTuple hv = reduce_data.value();
     Real estdt = amrex::get<0>(hv);
-    estdt = std::min(estdt, max_dt / castro::cfl);
+    estdt = std::min(estdt, max_dt / hydrosim::cfl);
 
     return estdt;
 }

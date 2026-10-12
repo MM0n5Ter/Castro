@@ -24,15 +24,15 @@ void problem_initialize ()
         }
     }
 
-    // Set up Castro data logs for this problem
+    // Set up HydroSim data logs for this problem
 
-    if (castro::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
+    if (hydrosim::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 
-        Castro::problem_data_logs.resize(1);
+        HydroSim::problem_data_logs.resize(1);
 
-        Castro::problem_data_logs[0].reset(new std::fstream);
-        Castro::problem_data_logs[0]->open("xrb_diag.out", std::ios::out | std::ios::app);
-        if (!Castro::problem_data_logs[0]->good()) {
+        HydroSim::problem_data_logs[0].reset(new std::fstream);
+        HydroSim::problem_data_logs[0]->open("xrb_diag.out", std::ios::out | std::ios::app);
+        if (!HydroSim::problem_data_logs[0]->good()) {
             amrex::FileOpenFailed("xrb_diag.out");
         }
 
@@ -43,7 +43,7 @@ void problem_initialize ()
     ambient::ambient_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
     for (int n = 0; n < NumSpec; n++) {
-        ambient::ambient_state[UFS+n] =
+        ambient::ambient_state[USPEC+n] =
             ambient::ambient_state[URHO] * model::profile(0).state(model::npts-1, model::ispec+n);
     }
 
@@ -57,7 +57,7 @@ void problem_initialize ()
     eos_state.rho = ambient::ambient_state[URHO];
     eos_state.T = ambient::ambient_state[UTEMP];
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = ambient::ambient_state[UFS+n] / eos_state.rho;
+        eos_state.xn[n] = ambient::ambient_state[USPEC+n] / eos_state.rho;
     }
 
     eos(eos_input_rt, eos_state);

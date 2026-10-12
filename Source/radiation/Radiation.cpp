@@ -59,7 +59,7 @@ std::string Radiation::current_group_name = "Radiation";
 
 int Radiation::pure_hydro = 0;
 
-// static initialization, must be called before Castro::variableSetUp
+// static initialization, must be called before HydroSim::variableSetUp
 
 void Radiation::read_static_params()
 {
@@ -262,10 +262,10 @@ void Radiation::read_static_params()
 
 }
 
-Radiation::Radiation(Amr* Parent, Castro* castro, int restart)
+Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
   : parent(Parent)
 {
-  // castro is passed in, rather than obtained from parent, because this
+  // hydrosim is passed in, rather than obtained from parent, because this
   // routine will be called in some cases before any AmrLevels have
   // been installed into the parent's array of levels.
 
@@ -298,8 +298,8 @@ Radiation::Radiation(Amr* Parent, Castro* castro, int restart)
     // every instance of Hypre must use the same factor (or
     // be responsible for changing it internally).
 
-    HypreABec::fluxFactor() = c;
-    HypreMultiABec::fluxFactor() = c;
+    HypreDiffOp::fluxFactor() = c;
+    HypreMultiDiffOp::fluxFactor() = c;
 
   }
 
@@ -837,7 +837,7 @@ void Radiation::compute_eta(MultiFab& eta, MultiFab& etainv,
                     Real temp = state_arr(i,j,k,UTEMP) + dT_loc;
                     Real Ye;
                     if (NumAux > 0)  {
-                        Ye = state_arr(i,j,k,UFX);
+                        Ye = state_arr(i,j,k,UAUXV);
                     } else {
                         Ye = 0.e0_rt;
                     }
@@ -1174,11 +1174,11 @@ void Radiation::state_update(MultiFab& state, MultiFab& frhoes)
                 eos_state.T   = state_arr(i,j,k,UTEMP);
                 eos_state.e   = state_arr(i,j,k,UEINT) * rhoInv;
                 for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = state_arr(i,j,k,UFS+n) * rhoInv;
+                    eos_state.xn[n] = state_arr(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = state_arr(i,j,k,UFX+n) * rhoInv;
+                    eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
@@ -1250,9 +1250,9 @@ void Radiation::getBndryData(RadBndry& bd, MultiFab& Er,
                              Real time, int level)
 {
   BL_PROFILE("Radiation::getBndryData");
-  Castro      *castro = (Castro*)&parent->getLevel(level);
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim      *hydrosim = (HydroSim*)&parent->getLevel(level);
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
 
   if (level == 0) {
     bd.setBndryValues(Er, Rad, 0, 1, rad_bc); // Rad=0
@@ -1280,9 +1280,9 @@ void Radiation::getBndryDataMG(MGRadBndry& mgbd, MultiFab& Er,
                                Real time, int level)
 {
   BL_PROFILE("Radiation::getBndryDataMG");
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
 
   if(level == 0) {
     mgbd.setBndryValues(Er, 0, 0, Radiation::nGroups, rad_bc);
@@ -1306,9 +1306,9 @@ void Radiation::getBndryDataMG(MGRadBndry& mgbd, MultiFab& Er,
 void Radiation::getBndryDataMG_ga(MGRadBndry& mgbd, MultiFab& Er, int level)
 {
   BL_PROFILE("Radiation::getBndryDataMG_ga");
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
 
   if(level == 0) {
     mgbd.setBndryValues(Er, 0, 0, 1, rad_bc);
@@ -1332,20 +1332,20 @@ void Radiation::filBndry(BndryRegister& bdry, int level, Real time)
   BL_PROFILE("Radiation::filBndry");
   // in this routine "level" is the coarse level
 
-  Castro      *castro = (Castro*)&parent->getLevel(level);
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim      *hydrosim = (HydroSim*)&parent->getLevel(level);
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
   const Geometry& geom  = parent->Geom(level);
 
-  Real old_time = castro->get_state_data(Rad_Type).prevTime();
-  Real new_time = castro->get_state_data(Rad_Type).curTime();
+  Real old_time = hydrosim->get_state_data(Rad_Type).prevTime();
+  Real new_time = hydrosim->get_state_data(Rad_Type).curTime();
   Real eps = (new_time > old_time) ? 0.001*(new_time - old_time) : 1.0;
 
   BL_ASSERT( (time > old_time-eps) && (time < new_time + eps));
 
-  MultiFab& S_new = castro->get_new_data(Rad_Type);
+  MultiFab& S_new = hydrosim->get_new_data(Rad_Type);
   // the next line is OK even if S_old is not defined yet
-  MultiFab& S_old = castro->get_old_data(Rad_Type);
+  MultiFab& S_old = hydrosim->get_old_data(Rad_Type);
 
   if (!geom.isAnyPeriodic()) {
     int n_ghost = 0;
@@ -1428,11 +1428,11 @@ void Radiation::get_c_v(FArrayBox& c_v, FArrayBox& temp, FArrayBox& state,
         eos_state.rho = state_arr(i,j,k,URHO);
         eos_state.T   = temp_arr(i,j,k);
         for (int n = 0; n < NumSpec; ++n) {
-            eos_state.xn[n] = state_arr(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = state_arr(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; ++n) {
-            eos_state.aux[n] = state_arr(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -1501,11 +1501,11 @@ void Radiation::get_planck_and_temp(MultiFab& fkp,
                 eos_state.T   = state_arr(i,j,k,UTEMP);
                 eos_state.e   = temp_arr(i,j,k) * rhoInv;
                 for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = state_arr(i,j,k,UFS+n) * rhoInv;
+                    eos_state.xn[n] = state_arr(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = state_arr(i,j,k,UFX+n) * rhoInv;
+                    eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
@@ -1524,7 +1524,7 @@ void Radiation::get_planck_and_temp(MultiFab& fkp,
             Real temp = state_arr(i,j,k,UTEMP);
             Real Ye;
             if (NumAux > 0)  {
-                Ye = state_arr(i,j,k,UFX);
+                Ye = state_arr(i,j,k,UAUXV);
             } else {
                 Ye = 0.e0_rt;
             }
@@ -1558,7 +1558,7 @@ void Radiation::get_planck_and_temp(MultiFab& fkp,
 // physical boundaries will not be used, however.
 
 void Radiation::get_rosseland(MultiFab& kappa_r,
-                              AmrLevel* castro,
+                              AmrLevel* hydrosim,
                               int igroup)
 {
   BL_PROFILE("Radiation::get_rosseland");
@@ -1570,11 +1570,11 @@ void Radiation::get_rosseland(MultiFab& kappa_r,
       return;
   }
 
-  Real time = castro->get_state_data(State_Type).curTime();
-  MultiFab& S_new = castro->get_new_data(State_Type);
+  Real time = hydrosim->get_state_data(State_Type).curTime();
+  MultiFab& S_new = hydrosim->get_new_data(State_Type);
   int nstate = S_new.nComp();
 
-  FillPatchIterator fpi(*castro, S_new, 1, time, State_Type, 0, nstate);
+  FillPatchIterator fpi(*hydrosim, S_new, 1, time, State_Type, 0, nstate);
   MultiFab& state = fpi.get_mf();
 
   const Real nu = nugroup[igroup];
@@ -1612,11 +1612,11 @@ void Radiation::get_rosseland(MultiFab& kappa_r,
                   eos_state.T   = state_arr(i,j,k,UTEMP);
                   eos_state.e   = state_arr(i,j,k,UEINT) * rhoInv;
                   for (int n = 0; n < NumSpec; ++n) {
-                      eos_state.xn[n] = state_arr(i,j,k,UFS+n) * rhoInv;
+                      eos_state.xn[n] = state_arr(i,j,k,USPEC+n) * rhoInv;
                   }
 #if NAUX_NET > 0
                   for (int n = 0; n < NumAux; ++n) {
-                      eos_state.aux[n] = state_arr(i,j,k,UFX+n) * rhoInv;
+                      eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) * rhoInv;
                   }
 #endif
 
@@ -1631,7 +1631,7 @@ void Radiation::get_rosseland(MultiFab& kappa_r,
               Real temp = state_arr(i,j,k,UTEMP);
               Real Ye;
               if (NumAux > 0) {
-                  Ye = state_arr(i,j,k,UFX);
+                  Ye = state_arr(i,j,k,UAUXV);
               } else {
                   Ye = 0.e0_rt;
               }
@@ -1684,7 +1684,7 @@ void Radiation::update_rosseland_from_temp(MultiFab& kappa_r,
           Real temp = state_arr(i,j,k,UTEMP);
           Real Ye;
           if (NumAux > 0) {
-              Ye = state_arr(i,j,k,UFX);
+              Ye = state_arr(i,j,k,UAUXV);
           } else {
               Ye = 0.e0_rt;
           }
@@ -1725,7 +1725,7 @@ void Radiation::SGFLD_compute_rosseland(MultiFab& kappa_r, const MultiFab& state
           Real temp = state_arr(i,j,k,UTEMP);
           Real Ye;
           if (NumAux > 0) {
-              Ye = state_arr(i,j,k,UFX);
+              Ye = state_arr(i,j,k,UAUXV);
           } else {
               Ye = 0.e0_rt;
           }
@@ -1760,7 +1760,7 @@ void Radiation::SGFLD_compute_rosseland(FArrayBox& kappa_r, const FArrayBox& sta
       Real temp = state_arr(i,j,k,UTEMP);
       Real Ye;
       if (NumAux > 0) {
-          Ye = state_arr(i,j,k,UFX);
+          Ye = state_arr(i,j,k,UAUXV);
       } else {
           Ye = 0.e0_rt;
       }
@@ -1821,9 +1821,9 @@ void Radiation::deferred_sync_setup(int crse_level)
 void Radiation::deferred_sync(int level, MultiFab& rhs, int indx)
 {
   int fine_level = parent->finestLevel();
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
   Real delta_t = parent->dtLevel(level);
 
   if (level < parent->maxLevel() &&
@@ -1833,13 +1833,13 @@ void Radiation::deferred_sync(int level, MultiFab& rhs, int indx)
 
     if (indx == 0) {
       // clean up fine-fine interfaces (does all groups at once)
-        sync_flux.ClearInternalBorders(castro->Geom());
+        sync_flux.ClearInternalBorders(hydrosim->Geom());
     }
 
     Real scale = delta_t_old[level] / delta_t;
     if (!do_sync) scale = 0.0;
 
-    sync_flux.Reflux(rhs, scale, indx, 0, 1, castro->Geom());
+    sync_flux.Reflux(rhs, scale, indx, 0, 1, hydrosim->Geom());
 
     // If there is a sync source from a still finer level,
     // test for an intersection that will not be caught by
@@ -2117,7 +2117,7 @@ void Radiation::deferred_sync(int level, MultiFab& rhs, int indx)
         Real scale = delta_t_old[flev-1] / delta_t;
         if (!do_sync) scale = 0.0;
 
-        ref_sync_flux.Reflux(rhs, scale, 0, 0, 1, castro->Geom());
+        ref_sync_flux.Reflux(rhs, scale, 0, 0, 1, hydrosim->Geom());
 
       } // end if "this register may overlap current level"
 
@@ -2497,19 +2497,19 @@ void Radiation::fluxLimiter(int level,
 
 void Radiation::get_rosseland_v_dcf(MultiFab& kappa_r, MultiFab& v, MultiFab& dcf,
                                     Real delta_t, Real c,
-                                    AmrLevel* castro, int igroup)
+                                    AmrLevel* hydrosim, int igroup)
 {
     BL_ASSERT(kappa_r.nGrow() == 1);
     BL_ASSERT(      v.nGrow() == 1);
     BL_ASSERT(    dcf.nGrow() == 1);
 
-    int nstate = castro->get_new_data(State_Type).nComp();
-    Real time = castro->get_state_data(State_Type).curTime();
+    int nstate = hydrosim->get_new_data(State_Type).nComp();
+    Real time = hydrosim->get_state_data(State_Type).curTime();
 
-    FillPatchIterator fpi_r(*castro, kappa_r, 1, time, Rad_Type, 0, 1);
+    FillPatchIterator fpi_r(*hydrosim, kappa_r, 1, time, Rad_Type, 0, 1);
     MultiFab& Er = fpi_r.get_mf();
 
-    FillPatchIterator fpi_s(*castro, kappa_r, 1, time, State_Type, 0, nstate);
+    FillPatchIterator fpi_s(*hydrosim, kappa_r, 1, time, State_Type, 0, nstate);
     MultiFab& S = fpi_s.get_mf();
 
     Real sigma_loc = sigma;
@@ -2565,11 +2565,11 @@ void Radiation::get_rosseland_v_dcf(MultiFab& kappa_r, MultiFab& v, MultiFab& dc
                     eos_state.T   = S_arr(i,j,k,UTEMP);
                     eos_state.e   = S_arr(i,j,k,UEINT) * rhoInv;
                     for (int n = 0; n < NumSpec; ++n) {
-                        eos_state.xn[n] = S_arr(i,j,k,UFS+n) * rhoInv;
+                        eos_state.xn[n] = S_arr(i,j,k,USPEC+n) * rhoInv;
                     }
 #if NAUX_NET > 0
                     for (int n = 0; n < NumAux; ++n) {
-                        eos_state.aux[n] = S_arr(i,j,k,UFX+n) * rhoInv;
+                        eos_state.aux[n] = S_arr(i,j,k,UAUXV+n) * rhoInv;
                     }
 #endif
 
@@ -2593,7 +2593,7 @@ void Radiation::get_rosseland_v_dcf(MultiFab& kappa_r, MultiFab& v, MultiFab& dc
                 Real temp = S_arr(i,j,k,UTEMP);
                 Real Ye;
                 if (NumAux > 0)  {
-                    Ye = S_arr(i,j,k,UFX);
+                    Ye = S_arr(i,j,k,UAUXV);
                 } else {
                     Ye = 0.e0_rt;
                 }
@@ -2672,15 +2672,15 @@ void Radiation::set_current_group(int igroup)
 
 void Radiation::filter_prim(int level, MultiFab& State)
 {
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
   const Geometry& geom = parent->Geom(level);
   auto geomdata = geom.data();
 
   int ngrow = filter_prim_T;
   int ncomp = State.nComp();
-  Real time = castro->get_state_data(Rad_Type).curTime();
+  Real time = hydrosim->get_state_data(Rad_Type).curTime();
 
-  FillPatchIterator fpi(*castro,State,ngrow,time,State_Type,0,ncomp);
+  FillPatchIterator fpi(*hydrosim,State,ngrow,time,State_Type,0,ncomp);
   MultiFab& S_fp = fpi.get_mf();
 
 #ifdef _OPENMP

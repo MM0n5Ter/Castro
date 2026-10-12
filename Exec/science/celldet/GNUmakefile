@@ -20,7 +20,7 @@ USE_MHD = FALSE
 
 USE_MODEL_PARSER = TRUE
 
-CASTRO_HOME ?= ../../..
+HYDROSIM_HOME ?= ../../..
 
 #GPU_COMPATIBLE_PROBLEM = TRUE
 
@@ -35,4 +35,4 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

@@ -1,13 +1,13 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geomdata,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -45,11 +45,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -102,11 +102,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             eos_state.T = dat(i+1,j,k,UTEMP);
             eos_state.e = dat(i+1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i+1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i+1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i+1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i+1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -126,11 +126,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             eos_state.T = dat(i-1,j,k,UTEMP);
             eos_state.e = dat(i-1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i-1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i-1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i-1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i-1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -152,11 +152,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             eos_state.T = dat(i,j+1,k,UTEMP);
             eos_state.e = dat(i,j+1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j+1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j+1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j+1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j+1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -176,11 +176,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             eos_state.T = dat(i,j-1,k,UTEMP);
             eos_state.e = dat(i,j-1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j-1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j-1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j-1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j-1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -210,7 +210,7 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
 }
 
 
-void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& geomdata,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -248,11 +248,11 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -309,11 +309,11 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
             eos_state.T = dat(i+1,j,k,UTEMP);
             eos_state.e = dat(i+1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i+1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i+1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i+1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i+1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -333,11 +333,11 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
             eos_state.T = dat(i-1,j,k,UTEMP);
             eos_state.e = dat(i-1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i-1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i-1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i-1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i-1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -359,11 +359,11 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
             eos_state.T = dat(i,j+1,k,UTEMP);
             eos_state.e = dat(i,j+1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j+1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j+1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j+1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j+1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -383,11 +383,11 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
             eos_state.T = dat(i,j-1,k,UTEMP);
             eos_state.e = dat(i,j-1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j-1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j-1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j-1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j-1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -417,7 +417,7 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 }
 
 
-void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& geomdata,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -448,11 +448,11 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -474,11 +474,11 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
             eos_state.T = dat(i+1,j,k,UTEMP);
             eos_state.e = dat(i+1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i+1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i+1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i+1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i+1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -498,11 +498,11 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
             eos_state.T = dat(i-1,j,k,UTEMP);
             eos_state.e = dat(i-1,j,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i-1,j,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i-1,j,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i-1,j,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i-1,j,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -523,7 +523,7 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 }
 
 
-void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& geomdata,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -554,11 +554,11 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -581,11 +581,11 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
             eos_state.T = dat(i,j+1,k,UTEMP);
             eos_state.e = dat(i,j+1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j+1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j+1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j+1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j+1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -605,11 +605,11 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
             eos_state.T = dat(i,j-1,k,UTEMP);
             eos_state.e = dat(i,j-1,k,UEINT) * lrhoInv;
             for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = dat(i,j-1,k,UFS+n) * lrhoInv;
+                eos_state.xn[n] = dat(i,j-1,k,USPEC+n) * lrhoInv;
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = dat(i,j-1,k,UFX+n) * lrhoInv;
+                eos_state.aux[n] = dat(i,j-1,k,UAUXV+n) * lrhoInv;
             }
 #endif
 
@@ -630,7 +630,7 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 }
 
 
-void ca_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& geomdata,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {

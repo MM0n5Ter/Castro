@@ -1,9 +1,9 @@
-#include <Castro.H>
-#include <Castro_math.H>
+#include <HydroSim.H>
+#include <HydroSim_math.H>
 #include <Rotation.H>
 
 void
-Castro::fill_rotational_psi(const Box& bx,
+HydroSim::fill_rotational_psi(const Box& bx,
                             Array4<Real> const& psi,
                             const Real time) {
 

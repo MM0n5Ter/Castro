@@ -1,13 +1,13 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <model_parser.H>
 
 using namespace amrex;
 
 
-void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void hs_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                  const FArrayBox& datfab, const Geometry& geomdata,
                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {

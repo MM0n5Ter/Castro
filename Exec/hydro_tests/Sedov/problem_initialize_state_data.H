@@ -160,13 +160,13 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
 
     // The temperature initialization will be done later
     // in the call to clean_state. We want to avoid
-    // EOS calls in ca_initdata. So that there is valid
+    // EOS calls in hs_initdata. So that there is valid
     // data for an initial guess for the EOS, we initialize
     // to the ambient temperature everywhere.
 
     state(i,j,k,UTEMP) = problem::temp_ambient;
 
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 }
 
 #endif

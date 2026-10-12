@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXEC=./Castro3d.gnu.ex
+EXEC=./HydroSim3d.gnu.ex
 
 ${EXEC} inputs amr.n_cell=16 16 16 amr.plot_file=cube_plt_16_ &> cube_16.out
 error_16=$(grep "Error" cube_16.out | awk '{print $3}')

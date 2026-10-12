@@ -1,7 +1,7 @@
 #ifndef riemann_solvers_H
 #define riemann_solvers_H
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 #include <riemann_type.H>
 #include <riemann_2shock_solvers.H>
 #ifdef HYBRID_MOMENTUM
@@ -21,7 +21,7 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 #ifdef RADIATION
                Array4<Real> const& rF,
 #endif
-               Array4<Real> const& qgdnv, const bool store_full_state) {
+               Array4<Real> const& qface, const bool store_full_state) {
 
     // given a primitive state, compute the flux in direction idir
     //
@@ -82,12 +82,12 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
     F(i,j,k,UTEMP) = 0.0;
 #ifdef SHOCK_VAR
-    F(i,j,k,USHK) = 0.0;
+    F(i,j,k,USHOCK) = 0.0;
 #endif
 
 #ifdef NSE_NET
-    F(i,j,k,UMUP) = 0.0;
-    F(i,j,k,UMUN) = 0.0;
+    F(i,j,k,UMU_P) = 0.0;
+    F(i,j,k,UMU_N) = 0.0;
 #endif
 
 #ifdef RADIATION
@@ -107,40 +107,40 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
 #ifdef HYBRID_MOMENTUM
     // the hybrid routine uses the Godunov indices, not the full NQ state
-    GpuArray<Real, NGDNV> qgdnv_zone;
-    qgdnv_zone[GDRHO] = qint.rho;
+    GpuArray<Real, NIFC> qface_zone;
+    qface_zone[IFCRHO] = qint.rho;
     if (idir == 0) {
-        qgdnv_zone[GDU] = qint.un;
-        qgdnv_zone[GDV] = qint.ut;
-        qgdnv_zone[GDW] = qint.utt;
+        qface_zone[IFCU] = qint.un;
+        qface_zone[IFCV] = qint.ut;
+        qface_zone[IFCW] = qint.utt;
     } else if (idir == 1) {
-        qgdnv_zone[GDV] = qint.un;
-        qgdnv_zone[GDU] = qint.ut;
-        qgdnv_zone[GDW] = qint.utt;
+        qface_zone[IFCV] = qint.un;
+        qface_zone[IFCU] = qint.ut;
+        qface_zone[IFCW] = qint.utt;
     } else {
-        qgdnv_zone[GDW] = qint.un;
-        qgdnv_zone[GDU] = qint.ut;
-        qgdnv_zone[GDV] = qint.utt;
+        qface_zone[IFCW] = qint.un;
+        qface_zone[IFCU] = qint.ut;
+        qface_zone[IFCV] = qint.utt;
     }
-    qgdnv_zone[GDPRES] = qint.p;
+    qface_zone[IFCPRES] = qint.p;
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
-        qgdnv_zone[GDLAMS+g] = qint.lam[g];
-        qgdnv_zone[GDERADS+g] = qint.er[g];
+        qface_zone[IFCFLXLIM+g] = qint.lam[g];
+        qface_zone[IFCERAD+g] = qint.er[g];
     }
 #endif
     GpuArray<Real, NUM_STATE> F_zone;
     for (int n = 0; n < NUM_STATE; n++) {
         F_zone[n] = F(i,j,k,n);
     }
-    compute_hybrid_flux(qgdnv_zone, geomdata, idir, i, j, k, F_zone);
+    compute_hybrid_flux(qface_zone, geomdata, idir, i, j, k, F_zone);
     for (int n = 0; n < NUM_STATE; n++) {
         F(i,j,k,n) = F_zone[n];
     }
 #endif
 
     // now we store the interface state in the full 4-d array.  We
-    // either store just the NGDNV subset or the whole NQ hydro state,
+    // either store just the NIFC subset or the whole NQ hydro state,
     // depending on the value of store_full_state
 
     // note: we don't handle the passives here
@@ -149,64 +149,64 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
         // this is the primitive variable state on the interface
 
-        qgdnv(i,j,k,QRHO) = qint.rho;
+        qface(i,j,k,QRHO) = qint.rho;
         if (idir == 0) {
-            qgdnv(i,j,k,QU) = qint.un;
-            qgdnv(i,j,k,QV) = qint.ut;
-            qgdnv(i,j,k,QW) = qint.utt;
+            qface(i,j,k,QU) = qint.un;
+            qface(i,j,k,QV) = qint.ut;
+            qface(i,j,k,QW) = qint.utt;
         } else if (idir == 1) {
-            qgdnv(i,j,k,QV) = qint.un;
-            qgdnv(i,j,k,QU) = qint.ut;
-            qgdnv(i,j,k,QW) = qint.utt;
+            qface(i,j,k,QV) = qint.un;
+            qface(i,j,k,QU) = qint.ut;
+            qface(i,j,k,QW) = qint.utt;
         } else {
-            qgdnv(i,j,k,QW) = qint.un;
-            qgdnv(i,j,k,QU) = qint.ut;
-            qgdnv(i,j,k,QV) = qint.utt;
+            qface(i,j,k,QW) = qint.un;
+            qface(i,j,k,QU) = qint.ut;
+            qface(i,j,k,QV) = qint.utt;
         }
 
-        qgdnv(i,j,k,QTEMP) = 0.0_rt;
+        qface(i,j,k,QTEMP) = 0.0_rt;
 
 #ifdef RADIATION
-        qgdnv(i,j,k,QPRES) = qint.p_g;
-        qgdnv(i,j,k,QREINT) = qint.rhoe_g;
-        qgdnv(i,j,k,QPTOT) = qint.p;
-        qgdnv(i,j,k,QREITOT) = qint.rhoe;
+        qface(i,j,k,QPRES) = qint.p_g;
+        qface(i,j,k,QRHOEI) = qint.rhoe_g;
+        qface(i,j,k,QPTOTAL) = qint.p;
+        qface(i,j,k,QRHOEITOT) = qint.rhoe;
         for (int g = 0; g < NGROUPS; g++) {
-            qgdnv(i,j,k,QRAD) = qint.er[g];
+            qface(i,j,k,QERAD) = qint.er[g];
         }
 #else
-        qgdnv(i,j,k,QPRES) = qint.p;
-        qgdnv(i,j,k,QREINT) = qint.rhoe;
+        qface(i,j,k,QPRES) = qint.p;
+        qface(i,j,k,QRHOEI) = qint.rhoe;
 #endif
 
     } else {
 
         // this is the reduced "Godunov" state on the interface,
-        // with NGDNV components
+        // with NIFC components
 
 #ifdef HYBRID_MOMENTUM
-        qgdnv(i,j,k,GDRHO) = qint.rho;
+        qface(i,j,k,IFCRHO) = qint.rho;
 #endif
         if (idir == 0) {
-            qgdnv(i,j,k,GDU) = qint.un;
-            qgdnv(i,j,k,GDV) = qint.ut;
-            qgdnv(i,j,k,GDW) = qint.utt;
+            qface(i,j,k,IFCU) = qint.un;
+            qface(i,j,k,IFCV) = qint.ut;
+            qface(i,j,k,IFCW) = qint.utt;
         } else if (idir == 1) {
-            qgdnv(i,j,k,GDV) = qint.un;
-            qgdnv(i,j,k,GDU) = qint.ut;
-            qgdnv(i,j,k,GDW) = qint.utt;
+            qface(i,j,k,IFCV) = qint.un;
+            qface(i,j,k,IFCU) = qint.ut;
+            qface(i,j,k,IFCW) = qint.utt;
         } else {
-            qgdnv(i,j,k,GDW) = qint.un;
-            qgdnv(i,j,k,GDU) = qint.ut;
-            qgdnv(i,j,k,GDV) = qint.utt;
+            qface(i,j,k,IFCW) = qint.un;
+            qface(i,j,k,IFCU) = qint.ut;
+            qface(i,j,k,IFCV) = qint.utt;
         }
 #ifndef RADIATION
-        qgdnv(i,j,k,GDPRES) = qint.p;
+        qface(i,j,k,IFCPRES) = qint.p;
 #else
-        qgdnv(i,j,k,GDPRES) = qint.p_g;
+        qface(i,j,k,IFCPRES) = qint.p_g;
         for (int g = 0; g < NGROUPS; g++) {
-            qgdnv(i,j,k,GDLAMS+g) = qint.lam[g];
-            qgdnv(i,j,k,GDERADS+g) = qint.er[g];
+            qface(i,j,k,IFCFLXLIM+g) = qint.lam[g];
+            qface(i,j,k,IFCERAD+g) = qint.er[g];
         }
 #endif
 
@@ -252,36 +252,36 @@ riemann_state(const int i, const int j, const int k, const int idir,
 
       // minus state
       eos_state.rho = qm(i,j,k,QRHO);
-      eos_state.e = qm(i,j,k,QREINT)/qm(i,j,k,QRHO);
+      eos_state.e = qm(i,j,k,QRHOEI)/qm(i,j,k,QRHO);
       for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = qm(i,j,k,QFS+n);
+          eos_state.xn[n] = qm(i,j,k,QSPEC+n);
       }
 #if NAUX_NET > 0
       for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = qm(i,j,k,QFX+n);
+          eos_state.aux[n] = qm(i,j,k,QAUXV+n);
       }
 #endif
 
       eos(eos_input_re, eos_state);
 
-      qm(i,j,k,QREINT) = eos_state.e * eos_state.rho;
+      qm(i,j,k,QRHOEI) = eos_state.e * eos_state.rho;
       qm(i,j,k,QPRES) = eos_state.p;
 
       // plus state
       eos_state.rho = qp(i,j,k,QRHO);
-      eos_state.e = qp(i,j,k,QREINT)/qp(i,j,k,QRHO);
+      eos_state.e = qp(i,j,k,QRHOEI)/qp(i,j,k,QRHO);
       for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = qp(i,j,k,QFS+n);
+          eos_state.xn[n] = qp(i,j,k,QSPEC+n);
       }
 #if NAUX_NET > 0
       for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = qp(i,j,k,QFX+n);
+          eos_state.aux[n] = qp(i,j,k,QAUXV+n);
       }
 #endif
 
       eos(eos_input_re, eos_state);
 
-      qp(i,j,k,QREINT) = eos_state.e * eos_state.rho;
+      qp(i,j,k,QRHOEI) = eos_state.e * eos_state.rho;
       qp(i,j,k,QPRES) = eos_state.p;
   }
 
@@ -322,13 +322,13 @@ riemann_state(const int i, const int j, const int k, const int idir,
   if (riemann_solver == 0) {
       // Colella, Glaz, & Ferguson solver
 
-      TwoShock::riemannus(ql, qr, raux, qint);
+      TwoShock::riemann_cgf_approx(ql, qr, raux, qint);
 
   } else if (riemann_solver == 1) {
       // Colella & Glaz solver
 
 #ifndef RADIATION
-      TwoShock::riemanncg(ql, qr, raux, qint);
+      TwoShock::riemann_colella_glaz(ql, qr, raux, qint);
 #endif
 
 #ifndef AMREX_USE_GPU

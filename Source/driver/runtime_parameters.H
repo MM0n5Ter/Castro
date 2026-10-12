@@ -3,7 +3,7 @@
 
 #include <AMReX_Print.H>
 #include <AMReX_ParmParse.H>
-#include <castro_limits.H>
+#include <hydrosim_limits.H>
 
 #ifdef DIFFUSION
 #include <diffusion_params.H>
@@ -26,8 +26,8 @@ initialize_cpp_runparams()
 {
 
     {
-        amrex::ParmParse pp("castro");
-#include <castro_queries.H>
+        amrex::ParmParse pp("hydrosim");
+#include <hydrosim_queries.H>
     }
 
 #ifdef AMREX_PARTICLES
@@ -71,7 +71,7 @@ void
 validate_runparams()
 {
 
-    amrex::Vector<std::string> check_namespaces = {"castro", "problem"};
+    amrex::Vector<std::string> check_namespaces = {"hydrosim", "problem"};
 #ifdef AMREX_PARTICLES
     check_namespaces.push_back("particles");
 #endif
@@ -102,7 +102,7 @@ validate_runparams()
 
     for (const auto& nm: check_namespaces)
     {
-        // "castro"
+        // "hydrosim"
         if (amrex::ParmParse::hasUnusedInputs(nm)) {
             amrex::Print() << Font::Bold << FGColor::Yellow
                            << "[WARNING] the following " + nm + ".* parameters are ignored\n";
@@ -111,7 +111,7 @@ validate_runparams()
                 amrex::Print() << p << "\n";
             }
             amrex::Print() << ResetDisplay << std::endl;
-            if (castro::abort_on_invalid_params) {
+            if (hydrosim::abort_on_invalid_params) {
                 amrex::Error("Error: invalid parameters");
             }
         }

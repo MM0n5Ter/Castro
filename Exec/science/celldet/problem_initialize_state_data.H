@@ -32,7 +32,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = problem::T_l + (problem::T_r - problem::T_l) * (1.0_rt - sigma);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * problem::xn[n];
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * problem::xn[n];
     }
 
     eos_t eos_state;
@@ -47,7 +47,7 @@ void problem_initialize_state_data (int i, int j, int k,
     set_aux_comp_from_X(eos_state);
 
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = state(i,j,k,URHO) * eos_state.aux[n];
+        state(i,j,k,UAUXV+n) = state(i,j,k,URHO) * eos_state.aux[n];
     }
 #endif
 

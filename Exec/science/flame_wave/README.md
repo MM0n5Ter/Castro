@@ -21,7 +21,7 @@ including:
 
   This explored both 2D and 3D pure He flames.  Another change was in
   the lower boundary condition -- a reflecting boundary was used an
-  `castro.use_pslope` was enabled.  The inputs files for this are in
+  `hydrosim.use_pslope` was enabled.  The inputs files for this are in
   `inputs_He/` and also available on Zenodo:
   https://zenodo.org/record/7692201
 

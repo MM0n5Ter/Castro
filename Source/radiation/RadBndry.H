@@ -1,5 +1,5 @@
-#ifndef CASTRO_RADBNDRY_H
-#define CASTRO_RADBNDRY_H
+#ifndef HYDROSIM_RADBNDRY_H
+#define HYDROSIM_RADBNDRY_H
 
 #include <NGBndry.H>
 

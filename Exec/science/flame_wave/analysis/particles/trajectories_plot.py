@@ -1,5 +1,5 @@
 """
-Creates a trajectory plot for each unique particle from a Castro simulation with tracer particles enabled.
+Creates a trajectory plot for each unique particle from a HydroSim simulation with tracer particles enabled.
 The start and end points of each trajectory are also marked.
 
 Set the xlim and ylim as needed to match the region where particles are distributed (likely a subset of problo and probhi)

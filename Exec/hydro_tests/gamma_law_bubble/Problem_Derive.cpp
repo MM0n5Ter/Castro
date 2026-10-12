@@ -1,14 +1,14 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <prob_util.H>
 
 using namespace amrex;
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void hs_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
               const FArrayBox& datfab, const Geometry& geomdata,
               Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -52,11 +52,11 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
     eos_state.T = dat(i,j,k,UTEMP);
     eos_state.e = dat(i,j,k,UEINT) * rhoInv;
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+      eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+      eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
     }
 #endif
 
@@ -76,7 +76,7 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void hs_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& geomdata,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
@@ -117,11 +117,11 @@ void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
     eos_state.rho = dat(i,j,k,URHO);
     eos_state.T = T;
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+      eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+      eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
     }
 #endif
     eos_state.e = e;
@@ -143,7 +143,7 @@ void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void hs_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& geomdata,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
 
@@ -195,7 +195,7 @@ void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void hs_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
                  const FArrayBox& datfab, const Geometry& geomdata,
                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {

@@ -125,7 +125,7 @@ def _Dvr_Dt(field, data):
     Material derivative of velocity along radial direction
     Dvr/Dt = -1/rho dp/dr + g + 1/r (vt^2 + vp^2) + 2 Omega vp sin(theta)
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.rotational_period") / s
     grav  = data.ds.parameters.get("gravity.const_grav") * cm / s**2
     P     = data["boxlib", "pressure"]
     vr    = data["boxlib", "x_velocity"]
@@ -152,7 +152,7 @@ def _Dvt_Dt(field, data):
     Material derivative of velocity along theta direction
     Dvt/Dt = -1/rho dp/rdtheta + 1/r (-vr vt + vp^2 cot(theta)) + 2 Omega vp cos(theta)
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.rotational_period") / s
     P     = data["boxlib", "pressure"]
     vr    = data["boxlib", "x_velocity"]
     vt    = data["boxlib", "y_velocity"]
@@ -178,7 +178,7 @@ def _Dvp_Dt(field, data):
     Material derivative of velocity along phi direction
     Dvt/Dt = -1/rho dp/rsin(theta)dphi - 1/r (vr vp + vt vp cot(theta)) - 2 Omega (vt cos(theta) + vr sin(theta))
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.rotational_period") / s
     vr    = data["boxlib", "x_velocity"]
     vt    = data["boxlib", "y_velocity"]
     vp    = data["boxlib", "z_velocity"]

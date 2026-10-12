@@ -1,6 +1,6 @@
 # Radiation diagnostics
 
-This directory contains diagnostics for Castro's radiation tests.
+This directory contains diagnostics for HydroSim's radiation tests.
 These are:
 
 - `gaussian_pulse`: Process a 2-d gaussian radiation pulse.

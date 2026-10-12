@@ -56,7 +56,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,URHO) = problem::rho_1 + ((problem::rho_2 - problem::rho_1) / 2.0_rt) *
         (1 + std::tanh((r[AMREX_SPACEDIM-1] - pertheight) / 0.005_rt));
 
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;

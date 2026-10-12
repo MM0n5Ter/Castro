@@ -22,11 +22,11 @@ ifeq ($(USE_MHD),TRUE)
   CEXE_headers += problem_initialize_mhd_data.H
 endif
 
-CEXE_headers += Castro_bc_fill_nd.H
-CEXE_sources += Castro_bc_fill_nd.cpp
+CEXE_headers += HydroSim_bc_fill_nd.H
+CEXE_sources += HydroSim_bc_fill_nd.cpp
 CEXE_sources += ambient_fill.cpp
 
 CEXE_headers += ambient.H
 CEXE_sources += ambient.cpp
 
-CEXE_sources += Castro_problem_source.cpp
+CEXE_sources += HydroSim_problem_source.cpp

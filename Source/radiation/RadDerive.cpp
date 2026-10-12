@@ -2,13 +2,13 @@
 #include <AMReX.H>
 
 #include <RadDerive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <Radiation.H>
 
 using namespace amrex;
 
-void ca_derertot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void hs_derertot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {

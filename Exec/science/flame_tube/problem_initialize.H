@@ -22,13 +22,13 @@ void problem_initialize ()
     // check to make sure that small_dens is less than low_density_cutoff
     // if not, funny things can happen above the atmosphere
 
-    if (castro::small_dens >= 0.99_rt * problem::low_density_cutoff) {
+    if (hydrosim::small_dens >= 0.99_rt * problem::low_density_cutoff) {
         amrex::Error("ERROR: small_dens should be set lower than low_density_cutoff");
     }
 
     // make sure hse_fixed_temp is the same as T_star, if it's specified
 
-    if (castro::hse_fixed_temp > 0.0_rt && castro::hse_fixed_temp != problem::T_star) {
+    if (hydrosim::hse_fixed_temp > 0.0_rt && hydrosim::hse_fixed_temp != problem::T_star) {
         amrex::Error("ERROR: hse_fixed_temp should be the same as T_star");
     }
 
@@ -196,7 +196,7 @@ void problem_initialize ()
     ambient::ambient_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
     for (int n = 0; n < NumSpec; n++) {
-        ambient::ambient_state[UFS+n] =
+        ambient::ambient_state[USPEC+n] =
             ambient::ambient_state[URHO] * model::profile(0).state(model::npts-1, model::ispec+n);
     }
 
@@ -210,7 +210,7 @@ void problem_initialize ()
     eos_state.rho = ambient::ambient_state[URHO];
     eos_state.T = ambient::ambient_state[UTEMP];
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = ambient::ambient_state[UFS+n] / eos_state.rho;
+        eos_state.xn[n] = ambient::ambient_state[USPEC+n] / eos_state.rho;
     }
 
     eos(eos_input_rt, eos_state);

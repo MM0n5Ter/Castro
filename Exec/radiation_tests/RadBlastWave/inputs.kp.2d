@@ -66,24 +66,24 @@ amr.grid_log        = grdlog  # name of grid logging file
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3    2    2
-castro.hi_bc       =  2    2    2
+hydrosim.lo_bc       =  3    2    2
+hydrosim.hi_bc       =  2    2    2
 
 # WHICH PHYSICS
-castro.do_hydro       = 1
-castro.do_radiation   = 1
+hydrosim.do_hydro       = 1
+hydrosim.do_radiation   = 1
 
 # hydro cutoff parameters
-castro.small_dens     = 1.e-30
+hydrosim.small_dens     = 1.e-30
 
 # TIME STEP CONTROL
-castro.cfl            = 0.6     # cfl number for hyperbolic system
-castro.init_shrink    = 0.01     # scale back initial timestep
-castro.change_max     = 1.05
+hydrosim.cfl            = 0.6     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.01     # scale back initial timestep
+hydrosim.change_max     = 1.05
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v = 1
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v = 1
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
@@ -139,8 +139,8 @@ radiation.hi_bcval = 0.0  0.0 0.0
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use HypreDiffOp, support symmetric matrices only
+# solver flag values >= 100 use HypreMultiDiffOp, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
@@ -166,8 +166,8 @@ radsolve.maxiter    = 200     # linear solver iteration limit
 
 radsolve.v = 1      # verbosity
 
-hmabec.verbose = 2  # verbosity for HypreMultiABec solvers
-habec.verbose  = 2  # verbosity for HypreABec solvers
+hmdop.verbose = 2  # verbosity for HypreMultiDiffOp solvers
+hdop.verbose  = 2  # verbosity for HypreDiffOp solvers
 
 #
 # The default strategy is SFC.

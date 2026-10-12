@@ -15,40 +15,40 @@ amr.n_cell           = 1024
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2
-castro.hi_bc       =  2
+hydrosim.lo_bc       =  2
+hydrosim.hi_bc       =  2
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
 
-castro.time_integration_method = 2
-castro.sdc_order = 4
+hydrosim.time_integration_method = 2
+hydrosim.sdc_order = 4
 
-castro.sdc_solver = 1
+hydrosim.sdc_solver = 1
 
-castro.use_reconstructed_gamma1 = 1
+hydrosim.use_reconstructed_gamma1 = 1
 
-castro.small_temp = 1.e6
-castro.small_dens = 1.e-5
+hydrosim.small_temp = 1.e6
+hydrosim.small_dens = 1.e-5
 
-castro.ppm_type = 1
+hydrosim.ppm_type = 1
 
-castro.diffuse_temp = 1
-castro.diffuse_cutoff_density = 1.e-2
+hydrosim.diffuse_temp = 1
+hydrosim.diffuse_cutoff_density = 1.e-2
 
 
 # TIME STEP CONTROL
-castro.cfl            = 0.75    # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.75    # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
-castro.dtnuc_e        = 0.25
+hydrosim.dtnuc_e        = 0.25
 
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
@@ -67,9 +67,9 @@ amr.check_int       = 10000       # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_file       = plt        # root name of plotfile
 amr.plot_per        = 5.e-7
-castro.plot_per_is_exact = 1
+hydrosim.plot_per_is_exact = 1
 amr.derive_plot_vars = ALL
-castro.store_omegadot = 1
+hydrosim.store_omegadot = 1
 
 # problem initialization
 

@@ -1,9 +1,9 @@
-#ifndef CASTRO_RAD_UTIL_H
-#define CASTRO_RAD_UTIL_H
+#ifndef HYDROSIM_RAD_UTIL_H
+#define HYDROSIM_RAD_UTIL_H
 
 #include <cmath>
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 #include <radiation_params.H>
 #include <fluxlimiter.H>
 
@@ -210,8 +210,8 @@ compute_ptot_ctot(const Real* lam, const Real* q,
       gamr = lam[g] + 1.0_rt;
     }
 
-    prad += lam[g]*q[QRAD+g];
-    csrad2 += gamr * (lam[g]*q[QRAD+g]) / q[QRHO];
+    prad += lam[g]*q[QERAD+g];
+    csrad2 += gamr * (lam[g]*q[QERAD+g]) / q[QRHO];
   }
 
   ptot = q[QPRES] + prad;

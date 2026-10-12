@@ -16,7 +16,7 @@
 # INTEGRATOR: VODE
 # SCREENING: screen5
 #
-# Castro       git describe: 24.08-3-g15327db6b
+# HydroSim       git describe: 24.08-3-g15327db6b
 # AMReX        git describe: 24.08-25-g6dcaa1223
 # Microphysics git describe: 24.08-2-g8ce3375a
 

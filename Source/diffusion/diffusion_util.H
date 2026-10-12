@@ -1,5 +1,5 @@
-#ifndef CASTRO_DIFFUSION_UTIL_H
-#define CASTRO_DIFFUSION_UTIL_H
+#ifndef HYDROSIM_DIFFUSION_UTIL_H
+#define HYDROSIM_DIFFUSION_UTIL_H
 
 void
 fill_temp_cond(const amrex::Box& bx,

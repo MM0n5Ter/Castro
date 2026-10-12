@@ -1,7 +1,7 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <Radiation.H>
 #include <prob_parameters.H>
 #include <extern_parameters.H>

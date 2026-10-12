@@ -5,7 +5,7 @@
 \usepackage{mathpazo}
 
 \newcommand{\gcc}{\mathrm{g~cm^{-3} }}
-\newcommand{\castro}{{\sffamily{Castro}}}
+\newcommand{\hydrosim}{{\sffamily{HydroSim}}}
 
 \begin{document}
 
@@ -14,13 +14,13 @@
 \end{center}
 
 
-\section{\castro\ Solver Details}
+\section{\hydrosim\ Solver Details}
 
 We are using the gray radiation solver.  Weiqun suggests
 \begin{itemize}
 \item {\tt radiation.comoving = 1} ---should be more stable
 \item {\tt radsolve.level\_solver\_flag = 1} ---should be faster than {\tt 0}
-\item {\tt castro.cfl}: the value we were using by default is {\tt
+\item {\tt hydrosim.cfl}: the value we were using by default is {\tt
   0.9}---this may be too high.
 \end{itemize}
 
@@ -33,13 +33,13 @@ YM10 suggest the form of the opacity as (Eq.\ 3):
 \end{equation}
 with $\tilde{\kappa} = 0.18~\mathrm{cm^2~g^{-1}}$, and $P_\mathrm{kb}
 = 1000~\mathrm{bar} = 10^9~\mathrm{erg~cm^{-3}}$.  Note that this form
-of opacity has different units than what \castro\ uses.  For \castro\,
+of opacity has different units than what \hydrosim\ uses.  For \hydrosim\,
 opacity has units of $\mathrm{cm^{-1}}$, so we have:
 \begin{equation}
   \kappa = \rho \tilde{\kappa} = \tilde{\kappa}_0 \rho \left ( \frac{P}{P_\mathrm{kb}} \right )
 \end{equation}
 
-\castro\ takes the opacity as a simple power law of density and temperature (without any
+\hydrosim\ takes the opacity as a simple power law of density and temperature (without any
 reference values for scaling).  We replace the pressure using the EOS:
 \begin{equation}
   P = \frac{\rho k T}{\mu m_p}
@@ -50,12 +50,12 @@ the gas temperature.  Substituting this in, we have:
   \kappa = \tilde{\kappa}_0 \rho^2 \frac{k T}{\mu m_p P_\mathrm{kb}}
 \end{equation}
 
-Since \castro\ wants $\kappa = \kappa_0 \rho^m T^{-n}$, we evaluate
+Since \hydrosim\ wants $\kappa = \kappa_0 \rho^m T^{-n}$, we evaluate
 this with $\rho = 1~\gcc$ and $T = 1~\mathrm{K}$:
 \begin{equation}
   \kappa = 6.35 \times 10^{-3} \, \rho^2 T~\mathrm{cm^{-1}}
 \end{equation}
-This can be set in \castro\ as:
+This can be set in \hydrosim\ as:
 \begin{verbatim}
 radiation.const_kappa_p = 6.35e-3
 radiation.kappa_p.exp_m = 2

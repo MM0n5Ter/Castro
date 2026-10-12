@@ -14,29 +14,29 @@ amr.n_cell           = 64 64 256
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0    0    1
-castro.hi_bc       =  0    0    2
+hydrosim.lo_bc       =  0    0    1
+hydrosim.hi_bc       =  0    0    2
 
 
-castro.zl_ext_bc_type = 1
-castro.hse_interp_temp = 1
-castro.hse_reflect_vels = 1
+hydrosim.zl_ext_bc_type = 1
+hydrosim.hse_interp_temp = 1
+hydrosim.hse_reflect_vels = 1
 
-castro.hse_zero_vels=0
+hydrosim.hse_zero_vels=0
 fab.format=NATIVE_32
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.add_ext_src = 0
-castro.do_grav = 1
-castro.do_sponge = 1
-castro.do_radiation = 1
-castro.do_rotation = 0
-castro.do_reflux      = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.add_ext_src = 0
+hydrosim.do_grav = 1
+hydrosim.do_sponge = 1
+hydrosim.do_radiation = 1
+hydrosim.do_rotation = 0
+hydrosim.do_reflux      = 1
 
 
-#castro.do_tracer_particles      = 1
+#hydrosim.do_tracer_particles      = 1
 #particles.particle_init_file    = particle_file   # initial position of particles
 #particles.particle_restart_file = xxxxx           # we can add new particles at restart
 #particles.timestamp_dir         = particle_dir    # directory for output
@@ -45,37 +45,37 @@ castro.do_reflux      = 1
 #particles.v                     = 1               # verbosity
 
 
-#castro.ppm_type = 1
-#castro.ppm_reference = 1
-#castro.ppm_reference_edge_limit = 1
-#castro.riemann_solver = 1
+#hydrosim.ppm_type = 1
+#hydrosim.ppm_reference = 1
+#hydrosim.ppm_reference_edge_limit = 1
+#hydrosim.riemann_solver = 1
 
-gravity.gravity_type = ConstantGrav
+gravity.gravity_type = UniformField
 gravity.const_grav   = -1.0e3
 
-castro.sponge_lower_factor = 0.0
-castro.sponge_upper_factor = 1.0
+hydrosim.sponge_lower_factor = 0.0
+hydrosim.sponge_upper_factor = 1.0
 
-castro.sponge_lower_density = 1.1e-15
-castro.sponge_upper_density = 1.0e-13
+hydrosim.sponge_lower_density = 1.1e-15
+hydrosim.sponge_upper_density = 1.0e-13
 
-castro.sponge_target_x_velocity = 0.0
+hydrosim.sponge_target_x_velocity = 0.0
 
-castro.sponge_lower_pressure = 0.9e1
-castro.sponge_upper_pressure = 1.0e1
+hydrosim.sponge_lower_pressure = 0.9e1
+hydrosim.sponge_upper_pressure = 1.0e1
 
-castro.sponge_timescale    = 1.e2
+hydrosim.sponge_timescale    = 1.e2
 
 # TIME STEP CONTROL
-castro.cfl            = 0.01     # cfl number for hyperbolic system
-castro.init_shrink    = 0.01     # scale back initial timestep
-castro.change_max     = 1.001     # max time step growth
+hydrosim.cfl            = 0.01     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.01     # scale back initial timestep
+hydrosim.change_max     = 1.001     # max time step growth
 
-#castro.fixed_dt = 1.0e-3
-#castro.initial_dt = 1e-4
+#hydrosim.fixed_dt = 1.0e-3
+#hydrosim.initial_dt = 1e-4
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING 
@@ -214,8 +214,8 @@ radiation.plot_kappa_r = 1
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use HypreDiffOp, support symmetric matrices only
+# solver flag values >= 100 use HypreMultiDiffOp, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
@@ -240,5 +240,5 @@ radsolve.maxiter    = 200     # linear solver iteration limit
 
 radsolve.v = 0      # verbosity
 
-hmabec.verbose = 0  # verbosity for HypreMultiABec solvers
-habec.verbose  = 0  # verbosity for HypreABec solvers
+hmdop.verbose = 0  # verbosity for HypreMultiDiffOp solvers
+hdop.verbose  = 0  # verbosity for HypreDiffOp solvers

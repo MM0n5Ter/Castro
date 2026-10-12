@@ -1,6 +1,6 @@
 #include <numbers>
 
-#include <Castro.H>
+#include <HydroSim.H>
 #include <fundamental_constants.H>
 #include <Gravity.H>
 #include <Rotation.H>
@@ -50,7 +50,7 @@ namespace scf {
 
 }
 
-void Castro::scf_relaxation() {
+void HydroSim::scf_relaxation() {
 
     AMREX_ASSERT(level == 0);
 
@@ -59,7 +59,7 @@ void Castro::scf_relaxation() {
     // Maximum density must be set.
 
     if (scf_maximum_density <= 0) {
-        amrex::Error("castro.scf_maximum_density must be set for SCF relaxation.");
+        amrex::Error("hydrosim.scf_maximum_density must be set for SCF relaxation.");
     }
 
     // Equatorial radius and polar radius must both
@@ -100,7 +100,7 @@ void Castro::scf_relaxation() {
 }
 
 void
-Castro::do_hscf_solve()
+HydroSim::do_hscf_solve()
 {
 
     const int finest_level = parent->finestLevel();
@@ -116,8 +116,8 @@ Castro::do_hscf_solve()
 
     // Note that the sign is somewhat arbitrary here.
 
-    scf_r_A[0] += castro::scf_equatorial_radius;
-    scf_r_B[2] += castro::scf_polar_radius;
+    scf_r_A[0] += hydrosim::scf_equatorial_radius;
+    scf_r_B[2] += hydrosim::scf_polar_radius;
 
     // To do the relaxation loop, we need to know the target maximum
     // enthalpy on the domain. So we'll loop through the grid and
@@ -161,14 +161,14 @@ Castro::do_hscf_solve()
             {
                 eos_t eos_state;
 
-                eos_state.rho = castro::scf_maximum_density;
+                eos_state.rho = hydrosim::scf_maximum_density;
                 eos_state.T   = state_arr(i,j,k,UTEMP);
                 for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
+                    eos_state.xn[n] = state_arr(i,j,k,USPEC+n) / state_arr(i,j,k,URHO);
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
+                    eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) / state_arr(i,j,k,URHO);
                 }
 #endif
 
@@ -243,7 +243,7 @@ Castro::do_hscf_solve()
         for (int lev = 0; lev <= finest_level; ++lev) {
 
             MultiFab::Copy((*state_vec[lev]), getLevel(lev).get_new_data(State_Type), 0, 0, NUM_STATE, 0);
-            MultiFab::Copy((*phi[lev]), getLevel(lev).get_new_data(PhiGrav_Type), 0, 0, 1, 0);
+            MultiFab::Copy((*phi[lev]), getLevel(lev).get_new_data(Potential_Type), 0, 0, 1, 0);
 
             if (lev < finest_level) {
                 const MultiFab& mask = getLevel(lev+1).build_fine_mask();
@@ -491,11 +491,11 @@ Castro::do_hscf_solve()
                         eos_state.rho = state_arr(i,j,k,URHO); // Initial guess for the EOS
                         eos_state.T   = state_arr(i,j,k,UTEMP);
                         for (int n = 0; n < NumSpec; ++n) {
-                            eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
+                            eos_state.xn[n] = state_arr(i,j,k,USPEC+n) / state_arr(i,j,k,URHO);
                         }
 #if NAUX_NET > 0
                         for (int n = 0; n < NumAux; ++n) {
-                            eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
+                            eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) / state_arr(i,j,k,URHO);
                         }
 #endif
                         eos_state.h   = enthalpy_arr(i,j,k);
@@ -506,7 +506,7 @@ Castro::do_hscf_solve()
                         state_arr(i,j,k,UTEMP) = eos_state.T;
                         state_arr(i,j,k,UEINT) = state_arr(i,j,k,URHO) * eos_state.e;
                         for (int n = 0; n < NumSpec; ++n) {
-                            state_arr(i,j,k,UFS+n) = state_arr(i,j,k,URHO) * eos_state.xn[n];
+                            state_arr(i,j,k,USPEC+n) = state_arr(i,j,k,URHO) * eos_state.xn[n];
                         }
 
                         state_arr(i,j,k,UMX) = 0.0;
@@ -544,7 +544,7 @@ Castro::do_hscf_solve()
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             MultiFab::Copy(getLevel(lev).get_new_data(State_Type), (*state_vec[lev]), 0, 0, NUM_STATE, 0);
-            MultiFab::Copy(getLevel(lev).get_new_data(PhiGrav_Type), (*phi[lev]), 0, 0, 1, 0);
+            MultiFab::Copy(getLevel(lev).get_new_data(Potential_Type), (*phi[lev]), 0, 0, 1, 0);
         }
 
         for (int lev = finest_level-1; lev >= 0; --lev) {
@@ -560,7 +560,7 @@ Castro::do_hscf_solve()
 
         // Update the gravitational field -- only after we've completed cleaning up the state above.
 
-        gravity->multilevel_solve_for_new_phi(0, finest_level);
+        gravity->solve_new_phi_all_levels(0, finest_level);
 
         // Update diagnostic quantities.
 
@@ -615,11 +615,11 @@ Castro::do_hscf_solve()
                         eos_state.rho = state_arr(i,j,k,URHO);
                         eos_state.T   = state_arr(i,j,k,UTEMP);
                         for (int n = 0; n < NumSpec; ++n) {
-                            eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
+                            eos_state.xn[n] = state_arr(i,j,k,USPEC+n) / state_arr(i,j,k,URHO);
                         }
 #if NAUX_NET > 0
                         for (int n = 0; n < NumAux; ++n) {
-                            eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
+                            eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) / state_arr(i,j,k,URHO);
                         }
 #endif
 

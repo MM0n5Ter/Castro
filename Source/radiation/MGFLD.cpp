@@ -283,11 +283,11 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
           eos_state.rho = S_new_arr(i,j,k,URHO);
           eos_state.T   = temp_arr(i,j,k);
           for (int n = 0; n < NumSpec; ++n) {
-              eos_state.xn[n] = S_new_arr(i,j,k,UFS+n) * rhoInv;
+              eos_state.xn[n] = S_new_arr(i,j,k,USPEC+n) * rhoInv;
           }
 #if NAUX_NET > 0
           for (int n = 0; n < NumAux; ++n) {
-              eos_state.aux[n] = S_new_arr(i,j,k,UFX+n) * rhoInv;
+              eos_state.aux[n] = S_new_arr(i,j,k,UAUXV+n) * rhoInv;
           }
 #endif
 
@@ -343,7 +343,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
 
           Real Ye;
           if (NumAux > 0) {
-              Real Ye = S_new_arr(i,j,k,UFX);
+              Real Ye = S_new_arr(i,j,k,UAUXV);
           } else {
               Ye = 0.e0_rt;
           }
@@ -448,8 +448,8 @@ void Radiation::gray_accel(MultiFab& Er_new, MultiFab& Er_pi,
 {
   const Geometry& geom = parent->Geom(level);
   auto dx = parent->Geom(level).CellSizeArray();
-  const Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const DistributionMapping& dmap = castro->DistributionMap();
+  const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
 
   if (nGroups > 1) {
     solver->setHypreMulti(1.0);
@@ -544,12 +544,12 @@ void Radiation::gray_accel(MultiFab& Er_new, MultiFab& Er_pi,
   solver->cellCenteredApplyMetrics(level, acoefs);
   solver->setLevelACoeffs(level, acoefs);
 
-  const DistributionMapping& dm = castro->DistributionMap();
+  const DistributionMapping& dm = hydrosim->DistributionMap();
 
   // B & C coefficients
   Array<MultiFab, AMREX_SPACEDIM> bcoefs, ccoefs, bcgrp;
   for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-    const BoxArray& edge_boxes = castro->getEdgeBoxArray(idim);
+    const BoxArray& edge_boxes = hydrosim->getEdgeBoxArray(idim);
 
     bcoefs[idim].define(edge_boxes, dm, 1, 0);
     bcoefs[idim].setVal(0.0);
@@ -901,11 +901,11 @@ void Radiation::update_matter(MultiFab& rhoe_new, MultiFab& temp_new,
                     eos_state.T   = S_new_arr(i,j,k,UTEMP);
                     eos_state.e   = Tp_n(i,j,k) * rhoInv;
                     for (int n = 0; n < NumSpec; ++n) {
-                        eos_state.xn[n] = S_new_arr(i,j,k,UFS+n) * rhoInv;
+                        eos_state.xn[n] = S_new_arr(i,j,k,USPEC+n) * rhoInv;
                     }
 #if NAUX_NET > 0
                     for (int n = 0; n < NumAux; ++n) {
-                        eos_state.aux[n] = S_new_arr(i,j,k,UFX+n) * rhoInv;
+                        eos_state.aux[n] = S_new_arr(i,j,k,UAUXV+n) * rhoInv;
                     }
 #endif
 
@@ -945,11 +945,11 @@ void Radiation::update_matter(MultiFab& rhoe_new, MultiFab& temp_new,
                 eos_state.rho = S_new_arr(i,j,k,URHO);
                 eos_state.T   = Tp_n(i,j,k);
                 for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = S_new_arr(i,j,k,UFS+n) * rhoInv;
+                    eos_state.xn[n] = S_new_arr(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = S_new_arr(i,j,k,UFX+n) * rhoInv;
+                    eos_state.aux[n] = S_new_arr(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
@@ -1737,7 +1737,7 @@ void Radiation::MGFLD_compute_rosseland(FArrayBox& kappa_r, const FArrayBox& sta
       Real temp = state_arr(i,j,k,UTEMP);
       Real Ye;
       if (NumAux > 0) {
-          Ye = state_arr(i,j,k,UFX);
+          Ye = state_arr(i,j,k,UAUXV);
       } else {
           Ye = 0.e0_rt;
       }
@@ -1780,7 +1780,7 @@ void Radiation::MGFLD_compute_rosseland(MultiFab& kappa_r, const MultiFab& state
             Real temp = state_arr(i,j,k,UTEMP);
             Real Ye;
             if (NumAux > 0) {
-                Ye = state_arr(i,j,k,UFX);
+                Ye = state_arr(i,j,k,UAUXV);
             } else {
                 Ye = 0.e0_rt;
             }
@@ -1816,7 +1816,7 @@ void Radiation::MGFLD_compute_scattering(FArrayBox& kappa_s, const FArrayBox& st
         Real temp = sta(i,j,k,UTEMP);
         Real Ye;
         if (NumAux > 0) {
-            Ye = sta(i,j,k,UFX);
+            Ye = sta(i,j,k,UAUXV);
         }
         else {
             Ye = 0.e0_rt;
@@ -1858,11 +1858,11 @@ void Radiation::bisect_matter(MultiFab& rhoe_new, MultiFab& temp_new,
           eos_state.rho = state(i,j,k,URHO);
           eos_state.T   =  temp(i,j,k);
           for (int n = 0; n < NumSpec; ++n) {
-              eos_state.xn[n] = state(i,j,k,UFS+n) * rhoInv;
+              eos_state.xn[n] = state(i,j,k,USPEC+n) * rhoInv;
           }
 #if NAUX_NET > 0
           for (int n = 0; n < NumAux; ++n) {
-              eos_state.aux[n] = state(i,j,k,UFX+n) * rhoInv;
+              eos_state.aux[n] = state(i,j,k,UAUXV+n) * rhoInv;
           }
 #endif
 

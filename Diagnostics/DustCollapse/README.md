@@ -1,7 +1,7 @@
 # Sedov diagnostic routines
 
 The diagnostic routines in `Diagnostics/DustCollapse` are used to construct
-the data which appears in Figure 12 in the first CASTRO paper.
+the data which appears in Figure 12 in the first HYDROSIM paper.
 
 The analytic maximum density has been computed from the initial density
 and the analytic r(t) using conservation of mass; this is hard-wired

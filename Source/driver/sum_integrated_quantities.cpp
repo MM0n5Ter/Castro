@@ -1,6 +1,6 @@
 #include <iomanip>
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef GRAVITY
 #include <Gravity.H>
@@ -11,13 +11,13 @@
 using namespace amrex;
 
 void
-Castro::sum_integrated_quantities ()
+HydroSim::sum_integrated_quantities ()
 {
     if (verbose <= 0) {
         return;
     }
 
-    BL_PROFILE("Castro::sum_integrated_quantities()");
+    BL_PROFILE("HydroSim::sum_integrated_quantities()");
 
     bool local_flag = true;
 
@@ -56,47 +56,47 @@ Castro::sum_integrated_quantities ()
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
-        Castro& ca_lev = getLevel(lev);
-        const MultiFab& S_new = ca_lev.get_new_data(State_Type);
+        HydroSim& hs_lev = getLevel(lev);
+        const MultiFab& S_new = hs_lev.get_new_data(State_Type);
 #ifdef GRAVITY
-        MultiFab& phi_new = ca_lev.get_new_data(PhiGrav_Type);
+        MultiFab& phi_new = hs_lev.get_new_data(Potential_Type);
 #endif
 #ifdef REACTIONS
-        MultiFab& R_new = ca_lev.get_new_data(Reactions_Type);
+        MultiFab& R_new = hs_lev.get_new_data(Reactions_Type);
 #endif
 
-        mass   += ca_lev.volWgtSum(S_new, URHO, local_flag);
-        mom[0] += ca_lev.volWgtSum(S_new, UMX, local_flag);
-        mom[1] += ca_lev.volWgtSum(S_new, UMY, local_flag);
-        mom[2] += ca_lev.volWgtSum(S_new, UMZ, local_flag);
+        mass   += hs_lev.volWgtSum(S_new, URHO, local_flag);
+        mom[0] += hs_lev.volWgtSum(S_new, UMX, local_flag);
+        mom[1] += hs_lev.volWgtSum(S_new, UMY, local_flag);
+        mom[2] += hs_lev.volWgtSum(S_new, UMZ, local_flag);
 
-        ang_mom[0] += ca_lev.volWgtSum("angular_momentum_x", time, local_flag);
-        ang_mom[1] += ca_lev.volWgtSum("angular_momentum_y", time, local_flag);
-        ang_mom[2] += ca_lev.volWgtSum("angular_momentum_z", time, local_flag);
+        ang_mom[0] += hs_lev.volWgtSum("angular_momentum_x", time, local_flag);
+        ang_mom[1] += hs_lev.volWgtSum("angular_momentum_y", time, local_flag);
+        ang_mom[2] += hs_lev.volWgtSum("angular_momentum_z", time, local_flag);
 
 #ifdef HYBRID_MOMENTUM
-        hyb_mom[0] += ca_lev.volWgtSum(S_new, UMR, local_flag);
-        hyb_mom[1] += ca_lev.volWgtSum(S_new, UML, local_flag);
-        hyb_mom[2] += ca_lev.volWgtSum(S_new, UMP, local_flag);
+        hyb_mom[0] += hs_lev.volWgtSum(S_new, UMR, local_flag);
+        hyb_mom[1] += hs_lev.volWgtSum(S_new, UML, local_flag);
+        hyb_mom[2] += hs_lev.volWgtSum(S_new, UMP, local_flag);
 #endif
 
-        com[0] += ca_lev.locWgtSum(S_new, URHO, 0, local_flag);
-        com[1] += ca_lev.locWgtSum(S_new, URHO, 1, local_flag);
-        com[2] += ca_lev.locWgtSum(S_new, URHO, 2, local_flag);
+        com[0] += hs_lev.locWgtSum(S_new, URHO, 0, local_flag);
+        com[1] += hs_lev.locWgtSum(S_new, URHO, 1, local_flag);
+        com[2] += hs_lev.locWgtSum(S_new, URHO, 2, local_flag);
 
-        rho_e += ca_lev.volWgtSum(S_new, UEINT, local_flag);
-        rho_K += ca_lev.volWgtSum("kineng", time, local_flag);
-        rho_E += ca_lev.volWgtSum(S_new, UEDEN, local_flag);
+        rho_e += hs_lev.volWgtSum(S_new, UEINT, local_flag);
+        rho_K += hs_lev.volWgtSum("kineng", time, local_flag);
+        rho_E += hs_lev.volWgtSum(S_new, UEDEN, local_flag);
 #ifdef GRAVITY
-        if (gravity->get_gravity_type() == "PoissonGrav") {
-            rho_phi += ca_lev.volProductSum(S_new, phi_new, URHO, 0, local_flag);
+        if (gravity->get_gravity_type() == "FullPoisson") {
+            rho_phi += hs_lev.volProductSum(S_new, phi_new, URHO, 0, local_flag);
         }
 #endif
 
         // Compute extrema
 
 #ifdef REACTIONS
-        auto dx = ca_lev.geom.CellSizeArray();
+        auto dx = hs_lev.geom.CellSizeArray();
 
         Real dd = 0.0_rt;
 #if AMREX_SPACEDIM == 1
@@ -158,11 +158,11 @@ Castro::sum_integrated_quantities ()
                     eos_state.T   = T;
                     eos_state.e   = U(i,j,k,UEINT) * rhoInv;
                     for (int n = 0; n < NumSpec; ++n) {
-                        eos_state.xn[n] = U(i,j,k,UFS+n) * rhoInv;
+                        eos_state.xn[n] = U(i,j,k,USPEC+n) * rhoInv;
                     }
 #if NAUX_NET > 0
                     for (int n = 0; n < NumAux; ++n) {
-                        eos_state.aux[n] = U(i,j,k,UFX+n) * rhoInv;
+                        eos_state.aux[n] = U(i,j,k,UAUXV+n) * rhoInv;
                     }
 #endif
 
@@ -258,7 +258,7 @@ Castro::sum_integrated_quantities ()
             // Total energy is 1/2 * rho * phi + rho * E for self-gravity,
             // and rho * phi + rho * E for externally-supplied gravity.
             std::string gravity_type = gravity->get_gravity_type();
-            if (gravity_type == "PoissonGrav" || gravity_type == "MonopoleGrav") {
+            if (gravity_type == "FullPoisson" || gravity_type == "SphericalMonopole") {
                 total_energy = 0.5 * rho_phi + rho_E;
             }
             else {
@@ -311,7 +311,7 @@ Castro::sum_integrated_quantities ()
             std::cout << "TIME= " << time << " MAXIMUM T_S / T_E    = " << ts_te_max << '\n';
 #endif
 
-            std::ostream& data_log1 = *Castro::data_logs[0];
+            std::ostream& data_log1 = *HydroSim::data_logs[0];
 
             if (data_log1.good()) {
 
@@ -441,11 +441,11 @@ Castro::sum_integrated_quantities ()
 
         for (int lev = 0; lev <= finest_level; lev++)
         {
-            Castro& ca_lev = getLevel(lev);
+            HydroSim& hs_lev = getLevel(lev);
 
 #if (AMREX_SPACEDIM > 1)
             // Gravitational wave signal. This is designed to add to these quantities so we can send them directly.
-            ca_lev.gwstrain(time, h_plus_1, h_cross_1, h_plus_2, h_cross_2, h_plus_3, h_cross_3, local_flag);
+            hs_lev.gwstrain(time, h_plus_1, h_cross_1, h_plus_2, h_cross_2, h_plus_3, h_cross_3, local_flag);
 #endif
 
         }
@@ -472,7 +472,7 @@ Castro::sum_integrated_quantities ()
 
         if (ParallelDescriptor::IOProcessor()) {
 
-            std::ostream& log = *Castro::data_logs[1];
+            std::ostream& log = *HydroSim::data_logs[1];
 
             // Write header row
 
@@ -545,7 +545,7 @@ Castro::sum_integrated_quantities ()
         // Species names
 
         for (int i = 0; i < NumSpec; i++) {
-            species_names[i] = desc_lst[State_Type].name(UFS+i);
+            species_names[i] = desc_lst[State_Type].name(USPEC+i);
             species_names[i] = species_names[i].substr(4,std::string::npos);
             species_mass[i] = 0.0;
         }
@@ -555,7 +555,7 @@ Castro::sum_integrated_quantities ()
         for (int lev = 0; lev <= finest_level; ++lev) {
             const MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
             for (int i = 0; i < NumSpec; ++i) {
-                species_mass[i] += getLevel(lev).volWgtSum(S_new, UFS + i, local_flag) / C::M_solar;
+                species_mass[i] += getLevel(lev).volWgtSum(S_new, USPEC + i, local_flag) / C::M_solar;
             }
         }
 
@@ -575,7 +575,7 @@ Castro::sum_integrated_quantities ()
 
         if (ParallelDescriptor::IOProcessor()) {
 
-            std::ostream& log = *Castro::data_logs[2];
+            std::ostream& log = *HydroSim::data_logs[2];
 
             if (time == 0.0) {
 
@@ -661,7 +661,7 @@ Castro::sum_integrated_quantities ()
 
         if (ParallelDescriptor::IOProcessor()) {
 
-            std::ostream& log = *Castro::data_logs[3];
+            std::ostream& log = *HydroSim::data_logs[3];
 
             if (time == 0.0) {
 

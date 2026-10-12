@@ -13,7 +13,7 @@
 
 #include <exact_riemann.H>
 
-#include <castro_params.H>
+#include <hydrosim_params.H>
 #include <params_type.H>
 
 // a global struct to hold the params
@@ -25,10 +25,10 @@ int main(int argc, char *argv[]) {
 
     std::cout << "starting the exact Riemann solver..." << std::endl;
 
-    // initialize the Castro runtime parameters
+    // initialize the HydroSim runtime parameters
 
-    amrex::ParmParse pp("castro");
-#include <castro_queries.H>
+    amrex::ParmParse pp("hydrosim");
+#include <hydrosim_queries.H>
 
     // initialize the external runtime parameters in C++
 
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     network_init();
 #endif
 
-    eos_init(castro::small_temp, castro::small_dens);
+    eos_init(hydrosim::small_temp, hydrosim::small_dens);
 
     exact_riemann();
 

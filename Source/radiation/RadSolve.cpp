@@ -22,17 +22,17 @@ RadSolve::RadSolve (Amr* Parent, int level, const BoxArray& grids, const Distrib
     read_params();
 
     if (radsolve::level_solver_flag < 100) {
-        hd.reset(new HypreABec(grids, dmap, parent->Geom(level), radsolve::level_solver_flag));
+        hd.reset(new HypreDiffOp(grids, dmap, parent->Geom(level), radsolve::level_solver_flag));
     }
     else {
         if (radsolve::use_hypre_nonsymmetric_terms == 0) {
-            hm.reset(new HypreMultiABec(level, level, radsolve::level_solver_flag));
+            hm.reset(new HypreMultiDiffOp(level, level, radsolve::level_solver_flag));
             hm->addLevel(level, parent->Geom(level), grids, dmap,
                          IntVect::TheUnitVector());
             hm->buildMatrixStructure();
         }
         else {
-            hem.reset(new HypreExtMultiABec(level, level, radsolve::level_solver_flag));
+            hem.reset(new HypreExtMultiDiffOp(level, level, radsolve::level_solver_flag));
             cMulti  = hem->cMultiplier();
             d1Multi = hem->d1Multiplier();
             d2Multi = hem->d2Multiplier();
@@ -414,15 +414,15 @@ void RadSolve::levelDCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
                             MultiFab& vel, MultiFab& dcf)
 {
     BL_PROFILE("RadSolve::levelDCoeffs");
-    const Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-    const DistributionMapping& dm = castro->DistributionMap();
+    const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+    const DistributionMapping& dm = hydrosim->DistributionMap();
     const Geometry& geom = parent->Geom(level);
     const auto dx = geom.CellSizeArray();
     const auto geomdata = geom.data();
 
     for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 
-        MultiFab dcoefs(castro->getEdgeBoxArray(idim), dm, 1, 0);
+        MultiFab dcoefs(hydrosim->getEdgeBoxArray(idim), dm, 1, 0);
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -813,11 +813,11 @@ void RadSolve::levelDterm(int level, MultiFab& Dterm, MultiFab& Er, int igroup)
   const Geometry& geom = parent->Geom(level);
   const GeometryData& geomdata = geom.data();
   auto dx = parent->Geom(level).CellSizeArray();
-  const Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
+  const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
 
   Array<MultiFab, AMREX_SPACEDIM> Dterm_face;
   for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
-      Dterm_face[idim].define(castro->getEdgeBoxArray(idim), dmap, 1, 0);
+      Dterm_face[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, 1, 0);
   }
 
   // grow a larger MultiFab to hold Er so we can difference across faces
@@ -1050,8 +1050,8 @@ void RadSolve::levelRhs(int level, MultiFab& rhs, const MultiFab& jg,
                         Real delta_t, int igroup, int it, Real ptc_tau)
 {
   BL_PROFILE("RadSolve::levelRhs (MGFLD version)");
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  Real time = castro->get_state_data(Rad_Type).curTime();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  Real time = hydrosim->get_state_data(Rad_Type).curTime();
   const Real* dx = parent->Geom(level).CellSize();
   auto geomdata = parent->Geom(level).data();
 

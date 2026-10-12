@@ -1,12 +1,12 @@
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 #include <Rotation.H>
 #ifdef HYBRID_MOMENTUM
 #include <hybrid.H>
 #endif
 
 void
-Castro::rsrc(const Box& bx,
+HydroSim::rsrc(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real> const& source,
              const Real dt) {
@@ -136,7 +136,7 @@ Castro::rsrc(const Box& bx,
 
 
 void
-Castro::corrrsrc(const Box& bx,
+HydroSim::corrrsrc(const Box& bx,
                  Array4<Real const> const& uold,
                  Array4<Real const> const& unew,
                  Array4<Real> const& source,
@@ -258,7 +258,7 @@ Castro::corrrsrc(const Box& bx,
 
     if (implicit_rotation_update == 1) {
 
-      // Coupled/implicit momentum update (wdmerger paper I; Section 2.4)
+      // Coupled/implicit momentum update (binarywd paper I; Section 2.4)
       // http://adsabs.harvard.edu/abs/2016ApJ...819...94K
 
       // Do the full corrector step with the old contribution (subtract 1/2 times the old term) and do
@@ -279,7 +279,7 @@ Castro::corrrsrc(const Box& bx,
       // axes, obtained using Cramer's rule (the coefficient matrix is
       // defined above). In practice the user will probably only be using
       // one axis for rotation; if it's the z-axis, then this reduces to
-      // Equations 25 and 26 in the wdmerger paper. Note that this will
+      // Equations 25 and 26 in the binarywd paper. Note that this will
       // have the correct form regardless of whether the state variables are
       // measured in the rotating frame or not; we handled that in the construction
       // of the dt_omega_matrix. It also has the correct form if we have disabled

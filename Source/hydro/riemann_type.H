@@ -1,5 +1,5 @@
-#ifndef CASTRO_RIEMANN_H
-#define CASTRO_RIEMANN_H
+#ifndef HYDROSIM_RIEMANN_H
+#define HYDROSIM_RIEMANN_H
 
 #include <AMReX_REAL.H>
 
@@ -86,16 +86,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i-1,j,k,QC)));
         raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i-1,j,k,QC));
 
-        ql.gamc = qaux_arr(i-1,j,k,QGAMC);
-        qr.gamc = qaux_arr(i,j,k,QGAMC);
+        ql.gamc = qaux_arr(i-1,j,k,QGAM1);
+        qr.gamc = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.gamcg = qaux_arr(i-1,j,k,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
+        ql.gamcg = qaux_arr(i-1,j,k,QGAM1GAS);
+        qr.gamcg = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i-1,j,k,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
+            ql.lam[g] = qaux_arr(i-1,j,k,QFLXLIM+g);
+            qr.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
         }
 #endif
 
@@ -112,16 +112,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i,j-1,k,QC)));
         raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j-1,k,QC));
 
-        ql.gamc = qaux_arr(i,j-1,k,QGAMC);
-        qr.gamc = qaux_arr(i,j,k,QGAMC);
+        ql.gamc = qaux_arr(i,j-1,k,QGAM1);
+        qr.gamc = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.gamcg = qaux_arr(i,j-1,k,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
+        ql.gamcg = qaux_arr(i,j-1,k,QGAM1GAS);
+        qr.gamcg = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i,j-1,k,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
+            ql.lam[g] = qaux_arr(i,j-1,k,QFLXLIM+g);
+            qr.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
         }
 #endif
 
@@ -138,16 +138,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i,j,k-1,QC)));
         raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j,k-1,QC));
 
-        ql.gamc = qaux_arr(i,j,k-1,QGAMC);
-        qr.gamc = qaux_arr(i,j,k,QGAMC);
+        ql.gamc = qaux_arr(i,j,k-1,QGAM1);
+        qr.gamc = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.gamcg = qaux_arr(i,j,k-1,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
+        ql.gamcg = qaux_arr(i,j,k-1,QGAM1GAS);
+        qr.gamcg = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i,j,k-1,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
+            ql.lam[g] = qaux_arr(i,j,k-1,QFLXLIM+g);
+            qr.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
         }
 #endif
 
@@ -157,33 +157,33 @@ load_input_states(const int i, const int j, const int k, const int idir,
     ql.p = qleft_arr(i,j,k,QPRES);
     qr.p = qright_arr(i,j,k,QPRES);
 
-    ql.rhoe = qleft_arr(i,j,k,QREINT);
-    qr.rhoe = qright_arr(i,j,k,QREINT);
+    ql.rhoe = qleft_arr(i,j,k,QRHOEI);
+    qr.rhoe = qright_arr(i,j,k,QRHOEI);
 
 #else
-    ql.p = qleft_arr(i,j,k,QPTOT);
-    ql.rhoe = qleft_arr(i,j,k,QREITOT);
+    ql.p = qleft_arr(i,j,k,QPTOTAL);
+    ql.rhoe = qleft_arr(i,j,k,QRHOEITOT);
     for (int g = 0; g < NGROUPS; g++) {
-      ql.er[g] = qleft_arr(i,j,k,QRAD+g);
+      ql.er[g] = qleft_arr(i,j,k,QERAD+g);
     }
     ql.p_g = qleft_arr(i,j,k,QPRES);
-    ql.rhoe_g = qleft_arr(i,j,k,QREINT);
+    ql.rhoe_g = qleft_arr(i,j,k,QRHOEI);
 
-    qr.p = qright_arr(i,j,k,QPTOT);
-    qr.rhoe = qright_arr(i,j,k,QREITOT);
+    qr.p = qright_arr(i,j,k,QPTOTAL);
+    qr.rhoe = qright_arr(i,j,k,QRHOEITOT);
     for (int g = 0; g < NGROUPS; g++) {
-      qr.er[g] = qright_arr(i,j,k,QRAD+g);
+      qr.er[g] = qright_arr(i,j,k,QERAD+g);
     }
     qr.p_g = qright_arr(i,j,k,QPRES);
-    qr.rhoe_g = qright_arr(i,j,k,QREINT);
+    qr.rhoe_g = qright_arr(i,j,k,QRHOEI);
 #endif
 
     // cleaning
 
 #ifdef TRUE_SDC
     if (use_reconstructed_gamma1 == 1) {
-        ql.gamc = qleft_arr(i,j,k,QGC);
-        qr.gamc = qright_arr(i,j,k,QGC);
+        ql.gamc = qleft_arr(i,j,k,QGAM1P);
+        qr.gamc = qright_arr(i,j,k,QGAM1P);
     }
 #endif
 
@@ -199,11 +199,11 @@ load_input_states(const int i, const int j, const int k, const int idir,
         eos_state.T = small_temp;
         eos_state.rho = ql.rho;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = qleft_arr(i,j,k,QFS+n);
+            eos_state.xn[n] = qleft_arr(i,j,k,QSPEC+n);
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = qleft_arr(i,j,k,QFX+n);
+            eos_state.aux[n] = qleft_arr(i,j,k,QAUXV+n);
         }
 #endif
 
@@ -223,11 +223,11 @@ load_input_states(const int i, const int j, const int k, const int idir,
         eos_state.T = small_temp;
         eos_state.rho = qr.rho;
         for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = qright_arr(i,j,k,QFS+n);
+            eos_state.xn[n] = qright_arr(i,j,k,QSPEC+n);
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = qright_arr(i,j,k,QFX+n);
+            eos_state.aux[n] = qright_arr(i,j,k,QAUXV+n);
         }
 #endif
 

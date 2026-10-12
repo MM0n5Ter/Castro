@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <Gravity.H>
 
@@ -12,7 +12,7 @@
 
 using namespace amrex;
 
-void Castro::problem_post_init()
+void HydroSim::problem_post_init()
 {
     BL_ASSERT(level == 0);
 
@@ -84,7 +84,7 @@ void Castro::problem_post_init()
                 if (std::sqrt(xx * xx + yy * yy + zz * zz) < problem::diameter / 2) {
                     u(i,j,k,URHO) *= update_factor;
                     for (int n = 0; n < NumSpec; ++n) {
-                        u(i,j,k,UFS+n) *= update_factor;
+                        u(i,j,k,USPEC+n) *= update_factor;
                     }
                 }
             });
@@ -110,7 +110,7 @@ void Castro::problem_post_init()
         amrex::Abort("Sphere does not have the right amount of mass.");
     }
 
-    gravity->multilevel_solve_for_new_phi(0, parent->finestLevel());
+    gravity->solve_new_phi_all_levels(0, parent->finestLevel());
 
     const int norm_power = 2;
 

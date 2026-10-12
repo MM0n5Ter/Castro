@@ -33,8 +33,8 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = problem::T_0;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
 }
 #endif

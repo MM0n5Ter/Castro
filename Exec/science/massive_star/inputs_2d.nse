@@ -16,8 +16,8 @@ amr.n_cell         = 1024 2048
 
 amr.max_level      = 2      # maximum level number allowed
 
-castro.lo_bc       =  3 2
-castro.hi_bc       =  2 2
+hydrosim.lo_bc       =  3 2
+hydrosim.hi_bc       =  2 2
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -25,34 +25,34 @@ castro.hi_bc       =  2 2
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.do_hydro = 1
-castro.do_grav  = 1
-castro.do_react = 1
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_grav  = 1
+hydrosim.do_react = 1
+hydrosim.do_sponge = 1
 
-castro.ppm_type = 1
-castro.ppm_temp_fix = 0
-castro.use_pslope = 1
+hydrosim.ppm_type = 1
+hydrosim.ppm_temp_fix = 0
+hydrosim.use_pslope = 1
 
-castro.use_flattening = 1
+hydrosim.use_flattening = 1
 
-castro.riemann_solver = 1
+hydrosim.riemann_solver = 1
 
-gravity.gravity_type = MonopoleGrav
-gravity.drdxfac = 2
-castro.grav_source_type = 4
+gravity.gravity_type = SphericalMonopole
+gravity.radial_bins_per_dx = 2
+hydrosim.grav_coupling_type = 4
 
-castro.sponge_upper_density = 1.e3
-castro.sponge_lower_density = 1.e2
-castro.sponge_timescale     = 1.e-3
+hydrosim.sponge_upper_density = 1.e3
+hydrosim.sponge_lower_density = 1.e2
+hydrosim.sponge_timescale     = 1.e-3
 
-castro.cfl            = 0.4     # cfl number for hyperbolic system
-castro.init_shrink    = 0.01     # scale back initial timestep by this factor
-castro.change_max     = 1.2    # factor by which dt is allowed to change each timestep
-castro.sum_interval   = 1       # timesteps between computing and printing volume averages
+hydrosim.cfl            = 0.4     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.01     # scale back initial timestep by this factor
+hydrosim.change_max     = 1.2    # factor by which dt is allowed to change each timestep
+hydrosim.sum_interval   = 1       # timesteps between computing and printing volume averages
 
-#castro.dtnuc_e = 0.25
-#castro.dtnuc_X = 0.25
+#hydrosim.dtnuc_e = 0.25
+#hydrosim.dtnuc_X = 0.25
 
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 10000   # how often to regrid
@@ -65,7 +65,7 @@ amr.check_int       = 50     # number of timesteps between checkpoints
 amr.plot_file       = massive_star_plt     # root name of plot file
 amr.plot_per = 5.0
 amr.derive_plot_vars = ALL
-castro.store_burn_weights = 0
+hydrosim.store_burn_weights = 0
 
 amr.small_plot_file       = massive_star_smallplt     # root name of plot file
 amr.small_plot_per = 0.5
@@ -74,22 +74,22 @@ amr.derive_small_plot_vars = abar Ye enuc MachNumber magvel magvort
 
 fab.format = NATIVE_32
 
-castro.plot_per_is_exact = 0
+hydrosim.plot_per_is_exact = 0
 
 
 amr.max_grid_size   = 512       # maximum grid size allowed -- used to control parallelism
 amr.blocking_factor = 32       # block factor in grid generation
 
 amr.v               = 1       # control verbosity in Amr.cpp
-castro.v            = 1       # control verbosity in Castro.cpp
+hydrosim.v            = 1       # control verbosity in HydroSim.cpp
 
 
-castro.small_dens   = 1.0
-castro.small_temp   = 1.e6
+hydrosim.small_dens   = 1.0
+hydrosim.small_temp   = 1.e6
 
-castro.time_integration_method = 3
-castro.use_retry = 1
-castro.max_subcycles = 16
+hydrosim.time_integration_method = 3
+hydrosim.use_retry = 1
+hydrosim.max_subcycles = 16
 
 # problem initialization
 
@@ -102,9 +102,9 @@ problem.interpolate_pres = 1
 
 # convection
 
-castro.drive_initial_convection = 1
-castro.drive_initial_convection_reinit_period = 2
-castro.drive_initial_convection_tmax = 100
+hydrosim.drive_initial_convection = 1
+hydrosim.drive_initial_convection_reinit_period = 2
+hydrosim.drive_initial_convection_tmax = 100
 
 # refinement
 

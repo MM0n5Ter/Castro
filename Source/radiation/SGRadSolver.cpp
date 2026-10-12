@@ -28,14 +28,14 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
 
   // Allocation and initialization:
 
-  Castro *castro = dynamic_cast<Castro*>(&parent->getLevel(level));
-  const BoxArray& grids = castro->boxArray();
-  const DistributionMapping& dmap = castro->DistributionMap();
+  HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const BoxArray& grids = hydrosim->boxArray();
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
   Real delta_t          = parent->dtLevel(level);
-  Real time = castro->get_state_data(Rad_Type).curTime();
+  Real time = hydrosim->get_state_data(Rad_Type).curTime();
 
-  MultiFab& S_new = castro->get_new_data(State_Type);
-  MultiFab& Er_new = castro->get_new_data(Rad_Type);
+  MultiFab& S_new = hydrosim->get_new_data(State_Type);
+  MultiFab& Er_new = hydrosim->get_new_data(Rad_Type);
 
   MultiFab Er_old(grids, dmap, Er_new.nComp(), Er_new.nGrow());
   MultiFab::Copy(Er_old, Er_new, 0, 0, Er_new.nComp(), 0);
@@ -43,7 +43,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   Array<MultiFab, AMREX_SPACEDIM> Ff_new;
 
   for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      Ff_new[idim].define(castro->getEdgeBoxArray(idim), dmap, 1, 0);
+      Ff_new[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, 1, 0);
   }
 
   MultiFab Dterm;
@@ -90,10 +90,10 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   if (has_dcoefs) {
     velo.define(grids, dmap, AMREX_SPACEDIM, 1);
     dcfactor.define(grids, dmap, 1, 1);
-    get_rosseland_v_dcf(kappa_r, velo, dcfactor, delta_t, c, castro);
+    get_rosseland_v_dcf(kappa_r, velo, dcfactor, delta_t, c, hydrosim);
   }
   else {
-    get_rosseland(kappa_r, castro); // fills everywhere, incl ghost cells
+    get_rosseland(kappa_r, hydrosim); // fills everywhere, incl ghost cells
   }
 
   MultiFab eta(grids,dmap,1,0);
@@ -102,7 +102,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   Array<MultiFab, AMREX_SPACEDIM> lambda;
 
   for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-      lambda[idim].define(castro->getEdgeBoxArray(idim), dmap, 1, 0);
+      lambda[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, 1, 0);
   }
 
   if (update_limiter == 0) {
@@ -113,14 +113,14 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
     // lambda now contains flux limiter
   }
   else if (update_limiter < 0) {
-    MultiFab& Er_lag = castro->get_old_data(Rad_Type);
+    MultiFab& Er_lag = hydrosim->get_old_data(Rad_Type);
     scaledGradient(level, lambda, kappa_r, 0, Er_lag, 0);
     fluxLimiter(level, lambda);
   }
 
   // Implicit update loop:
 
-  RadBndry bd(grids, dmap, castro->Geom());
+  RadBndry bd(grids, dmap, hydrosim->Geom());
 
   getBndryData(bd, Er_new, time, level);
 
@@ -140,7 +140,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   FluxRegister* flux_out =
       (level > 0) ? flux_trial[level].get() : nullptr;
 
-  RadSolve* const solver = castro->rad_solver.get();
+  RadSolve* const solver = hydrosim->rad_solver.get();
 
   solver->levelBndry(bd);
 
@@ -175,7 +175,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
 
     if (it > 1 && it <= update_rosseland + 1) {
       // only updates cells in interior of fine level:
-      update_rosseland_from_temp(kappa_r, temp, S_new, castro->Geom());
+      update_rosseland_from_temp(kappa_r, temp, S_new, hydrosim->Geom());
     }
 
     // solve linear system:
@@ -197,7 +197,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
 
     if (has_dcoefs) {
       if (it>1) {
-        update_dcf(dcfactor, etainv, fkp, kappa_r, castro->Geom());
+        update_dcf(dcfactor, etainv, fkp, kappa_r, hydrosim->Geom());
       }
       solver->levelDCoeffs(level, lambda, velo, dcfactor);
     }

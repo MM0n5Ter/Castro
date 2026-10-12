@@ -10,9 +10,9 @@ PROFILE    = FALSE
 USE_RAD = TRUE
 
 
-CASTRO_HOME ?= ../../..
+HYDROSIM_HOME ?= ../../..
 
-# has the f90 routine ca_initgroups and group structure in probdata_module
+# has the f90 routine hs_initgroups and group structure in probdata_module
 #HAS_INITGROUPS = TRUE
 
 EOS_DIR     := rad_power_law
@@ -30,4 +30,4 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

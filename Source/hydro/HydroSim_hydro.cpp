@@ -1,0 +1,352 @@
+#include <HydroSim.H>
+
+#ifdef RADIATION
+#include <Radiation.H>
+#endif
+
+using namespace amrex;
+
+#ifdef TRUE_SDC
+void
+HydroSim::cons_to_prim(const Real time)
+{
+
+    BL_PROFILE("HydroSim::cons_to_prim()");
+
+#ifdef RADIATION
+    AmrLevel::FillPatch(*this, Erborder, NUM_GROW, time, Rad_Type, 0, Radiation::nGroups);
+
+    MultiFab lamborder(grids, dmap, Radiation::nGroups, NUM_GROW);
+    if (radiation->pure_hydro) {
+      lamborder.setVal(0.0, NUM_GROW);
+    }
+    else {
+      radiation->compute_limiter(level, grids, Sborder, Erborder, lamborder);
+    }
+#endif
+
+    MultiFab& S_new = get_new_data(State_Type);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new, hydro_tile_size); mfi.isValid(); ++mfi) {
+
+        const Box& qbx = mfi.growntilebox(NUM_GROW);
+
+        Array4<Real> const q_arr = q.array(mfi);
+        Array4<Real> const qaux_arr = qaux.array(mfi);
+        Array4<Real> const Sborder_arr = Sborder.array(mfi);
+#ifdef RADIATION
+        Array4<Real> const Erborder_arr = Erborder.array(mfi);
+        Array4<Real> const lamborder_arr = lamborder.array(mfi);
+#endif
+
+        // Convert the conservative state to the primitive variable state.
+        // This fills both q and qaux.
+
+        ctoprim(qbx,
+                time,
+                Sborder_arr,
+#ifdef RADIATION
+                Erborder_arr,
+                lamborder_arr,
+#endif
+                q_arr,
+                qaux_arr);
+
+    }
+
+}
+#endif
+
+
+#ifdef TRUE_SDC
+void
+HydroSim::cons_to_prim_fourth(const Real time)
+{
+
+    BL_PROFILE("HydroSim::cons_to_prim_fourth()");
+
+    // convert the conservative state cell averages to primitive cell
+    // averages with 4th order accuracy
+
+    auto domain_lo = geom.Domain().loVect3d();
+    auto domain_hi = geom.Domain().hiVect3d();
+
+    MultiFab& S_new = get_new_data(State_Type);
+
+    // we don't support radiation here
+#ifdef RADIATION
+    amrex::Abort("radiation not supported to fourth order");
+#else
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    {
+        FArrayBox U_cc;
+
+        for (MFIter mfi(S_new, hydro_tile_size); mfi.isValid(); ++mfi) {
+
+            const Box& qbx = mfi.growntilebox(NUM_GROW);
+            const Box& qbxm1 = mfi.growntilebox(NUM_GROW-1);
+
+            // note: these conversions are using a growntilebox, so it
+            // will include ghost cells
+
+            // convert U_avg to U_cc -- this will use a Laplacian
+            // operation and will result in U_cc defined only on
+            // NUM_GROW-1 ghost cells at the end.
+
+            U_cc.resize(qbx, NUM_STATE);
+            Elixir elix_u_cc = U_cc.elixir();
+            auto const U_cc_arr = U_cc.array();
+
+            make_cell_center(qbxm1, Sborder.array(mfi), U_cc_arr, domain_lo, domain_hi);
+
+            // enforce the minimum density on the new cell-centered state
+            do_enforce_minimum_density(qbxm1, U_cc.array(), verbose);
+
+            // and ensure that the internal energy is positive
+            reset_internal_energy(qbxm1, U_cc.array());
+
+            // convert U_avg to q_bar -- this will be done on all NUM_GROW
+            // ghost cells.
+            auto Sborder_arr = Sborder.array(mfi);
+            auto q_bar_arr = q_bar.array(mfi);
+            auto qaux_bar_arr = qaux_bar.array(mfi);
+
+            ctoprim(qbx,
+                    time,
+                    Sborder_arr,
+                    q_bar_arr,
+                    qaux_bar_arr);
+
+            // this is what we should construct the flattening coefficient
+            // from
+
+            // convert U_cc to q_cc (we'll store this temporarily in q,
+            // qaux).  This will remain valid only on the NUM_GROW-1 ghost
+            // cells.
+            auto q_arr = q.array(mfi);
+            auto qaux_arr = qaux.array(mfi);
+
+            ctoprim(qbxm1,
+                    time,
+                    U_cc_arr,
+                    q_arr,
+                    qaux_arr);
+        }
+    }
+
+    // check for NaNs
+#ifndef AMREX_USE_GPU
+    check_for_nan(q);
+    check_for_nan(q_bar);
+#endif
+
+#ifdef DIFFUSION
+    // we need the cell-center temperature for the diffusion stencil,
+    // so save it here, by copying from q (which is cell-center at the
+    // moment).
+    MultiFab::Copy(T_cc, q, QTEMP, 0, 1, NUM_GROW-1);
+#endif
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new, hydro_tile_size); mfi.isValid(); ++mfi) {
+
+      const Box& qbxm1 = mfi.growntilebox(NUM_GROW-1);
+
+      // now convert q, qaux into 4th order accurate averages
+      // this will create q, qaux in NUM_GROW-1 ghost cells, but that's
+      // we need here
+
+      make_fourth_average(qbxm1, q.array(mfi), q_bar.array(mfi), domain_lo, domain_hi);
+
+      // not sure if we need to convert qaux this way, or if we can
+      // just evaluate it (we may not need qaux at all actually)
+
+      make_fourth_average(qbxm1, qaux.array(mfi), qaux_bar.array(mfi), domain_lo, domain_hi);
+
+    }
+
+#endif // RADIATION
+}
+#endif
+
+void
+HydroSim::check_for_cfl_violation(const MultiFab& State, const Real dt)
+{
+    BL_PROFILE("HydroSim::check_for_cfl_violation()");
+
+    int cfl_violation = 0;
+
+    auto dx = geom.CellSizeArray();
+    const auto problo = geom.ProbLoArray();
+    const auto coord = geom.Coord();
+    amrex::ignore_unused(problo, coord);
+
+    Real dtdx = dt / dx[0];
+
+    Real dtdy = 0.0_rt;
+    if (AMREX_SPACEDIM >= 2) {
+      dtdy = dt / dx[1];
+      if (coord == 2) {
+          // dx[1] in Spherical2D is just rdtheta, need rdtheta for physical length
+          // Just choose to divide by the smallest r
+          dtdy /= problo[0] + 0.5_rt * dx[0];
+      }
+    }
+
+    Real dtdz = 0.0_rt;
+    if (AMREX_SPACEDIM == 3) {
+      dtdz = dt / dx[2];
+    }
+
+    ReduceOps<ReduceOpMax> reduce_op;
+    ReduceData<Real> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(State, hydro_tile_size); mfi.isValid(); ++mfi) {
+
+        const Box& bx = mfi.tilebox();
+
+        auto U = State.array(mfi);
+
+        reduce_op.eval(bx, reduce_data,
+        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            // Compute running max of Courant number over grids
+
+            Real rho = U(i,j,k,URHO);
+            Real rhoInv = 1.0 / rho;
+
+            Real u = U(i,j,k,UMX) * rhoInv;
+            Real v = U(i,j,k,UMY) * rhoInv;
+            Real w = U(i,j,k,UMZ) * rhoInv;
+
+            eos_rep_t eos_state;
+
+            eos_state.rho = U(i,j,k,URHO);
+            eos_state.T = U(i,j,k,UTEMP);
+            eos_state.e = U(i,j,k,UEINT) * rhoInv;
+            for (int n = 0; n < NumSpec; n++) {
+                eos_state.xn[n] = U(i,j,k,USPEC+n) * rhoInv;
+            }
+#if NAUX_NET > 0
+            for (int n = 0; n < NumAux; n++) {
+                eos_state.aux[n] = U(i,j,k,UAUXV+n) * rhoInv;
+            }
+#endif
+
+            eos(eos_input_re, eos_state);
+
+            Real cs = eos_state.cs;
+
+            Real courx = (cs + std::abs(u)) * dtdx;
+            Real coury = (cs + std::abs(v)) * dtdy;
+            Real courz = (cs + std::abs(w)) * dtdz;
+
+            if (hydrosim::time_integration_method == 0) {
+
+#ifndef AMREX_USE_GPU
+                if (verbose == 1) {
+
+                    if (courx > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in check_for_cfl_violation" << std::endl;
+                        std::cout << ">>> ... (u+c) * dt / dx > 1 " << courx << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... u = " << u << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                    if (coury > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in check_for_cfl_violation" << std::endl;
+                        std::cout << ">>> ... (v+c) * dt / dx > 1 " << coury << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... v = " << v << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                    if (courz > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in check_for_cfl_violation" << std::endl;
+                        std::cout << ">>> ... (w+c) * dt / dx > 1 " << courz << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... w = " << w << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                }
+#endif
+
+                // CTU integration constraint
+
+                return {amrex::max(courx, coury, courz)};
+
+            }
+            else {
+
+                // method-of-lines constraint
+                Real courtmp = courx;
+                if (AMREX_SPACEDIM >= 2) {
+                    courtmp += coury;
+                }
+                if (AMREX_SPACEDIM == 3) {
+                    courtmp += courz;
+                }
+
+#ifndef AMREX_USE_GPU
+                if (verbose == 1) {
+
+                    // note: it might not be 1 for all RK integrators
+                    if (courtmp > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in check_for_cfl_violation" << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... u = " << u << " v = " << v
+                                  << " w = " << w << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                }
+#endif
+
+                return {courtmp};
+
+            }
+
+        });
+
+    }
+
+    ReduceTuple hv = reduce_data.value();
+    Real courno = amrex::get<0>(hv);
+
+    ParallelDescriptor::ReduceRealMax(courno);
+
+    if (courno > 1.0) {
+        amrex::Print() << Font::Bold << FGColor::Yellow << "[WARNING] EFFECTIVE CFL AT LEVEL " << level << " IS " << courno << ResetDisplay << std::endl << std::endl;
+        cfl_violation = 1;
+    }
+
+    // If we detect a CFL violation, abort.
+    if (cfl_violation) {
+        amrex::Abort("CFL is too high at this level; go back to a checkpoint and restart with lower CFL number");
+    }
+}

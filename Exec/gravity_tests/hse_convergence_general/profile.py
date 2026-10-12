@@ -17,7 +17,7 @@ def doit(pfile=None):
 
     for pf in pfile:
         print(f"about to read {pfile}")
-        ds = yt.load(pf, hint="castro")
+        ds = yt.load(pf, hint="hydrosim")
 
         label = pf.split("plt")[-1]
 

@@ -1,5 +1,5 @@
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -15,7 +15,7 @@ using namespace amrex;
 using namespace reconstruction;
 
 void
-Castro::trace_ppm(const Box& bx,
+HydroSim::trace_ppm(const Box& bx,
                   const int idir,
                   Array4<Real const> const& U_arr,
                   Array4<Real const> const& rho_inv_arr,
@@ -86,7 +86,7 @@ Castro::trace_ppm(const Box& bx,
     // or theta-direction in spherical coordinate need tracing
 
     if ((coord == 2 || (idir == 0 && coord == 1))
-        && (n == QRHO || n == QPRES || n == QREINT)) {
+        && (n == QRHO || n == QPRES || n == QRHOEI)) {
         do_source_trace[n] = 1;
         continue;
     }
@@ -175,14 +175,14 @@ Castro::trace_ppm(const Box& bx,
 
     Real flat = 1.0;
 
-    if (castro::first_order_hydro) {
+    if (hydrosim::first_order_hydro) {
         flat = 0.0;
     }
-    else if (castro::use_flattening) {
+    else if (hydrosim::use_flattening) {
         flat = hydro::flatten(i, j, k, q_arr, QPRES);
 
 #ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, q_arr, QPTOT);
+        flat *= hydro::flatten(i, j, k, q_arr, QPTOTAL);
 
         if (radiation::flatten_pp_threshold > 0.0) {
             Real vel_sum_m = q_arr(i-1,j,k,QU);
@@ -197,7 +197,7 @@ Castro::trace_ppm(const Box& bx,
 #endif
 
             if (vel_sum_m > vel_sum_p) {
-                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOT)) {
+                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOTAL)) {
                     flat = 0.0;
                 }
             }
@@ -245,7 +245,7 @@ Castro::trace_ppm(const Box& bx,
     amrex::Real p_m_hse{};
     amrex::Real p_p_hse{};
 
-    if (castro::use_pslope || castro::ppm_well_balanced) {
+    if (hydrosim::use_pslope || hydrosim::ppm_well_balanced) {
         Real trho[nslp];
         Real src[nslp];
 
@@ -254,7 +254,7 @@ Castro::trace_ppm(const Box& bx,
 
         in_hse = ppm_reconstruct_pslope(trho, s, src, flat, dL, sm, sp);
 
-        if (in_hse && castro::ppm_well_balanced) {
+        if (in_hse && hydrosim::ppm_well_balanced) {
             // we are working with the perturbational pressure
             ppm_int_profile(sm, sp, 0.0_rt, un, cc, dtdL, Ip_p, Im_p);
             p_m_hse = s[i0] - 0.5_rt * dL * trho[i0] * src[i0];
@@ -274,7 +274,7 @@ Castro::trace_ppm(const Box& bx,
     Real Ip_rhoe[3];
     Real Im_rhoe[3];
 
-    load_stencil(q_arr, idir, i, j, k, QREINT, s);
+    load_stencil(q_arr, idir, i, j, k, QRHOEI, s);
     ppm_reconstruct(s, flat, sm, sp);
     ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_rhoe, Im_rhoe);
 
@@ -300,7 +300,7 @@ Castro::trace_ppm(const Box& bx,
     Real Ip_gc_2;
     Real Im_gc_2;
 
-    load_stencil(qaux_arr, idir, i, j, k, QGAMC, s);
+    load_stencil(qaux_arr, idir, i, j, k, QGAM1, s);
     ppm_reconstruct(s, flat, sm, sp);
     ppm_int_profile_single(sm, sp, s[i0], un-cc, dtdL, Ip_gc_0, Im_gc_0);
     ppm_int_profile_single(sm, sp, s[i0], un+cc, dtdL, Ip_gc_2, Im_gc_2);
@@ -387,17 +387,17 @@ Castro::trace_ppm(const Box& bx,
     Real Im_src_rhoe[3] = {0.0_rt};
 
 #ifndef AMREX_USE_GPU
-    do_trace = do_source_trace[QREINT];
+    do_trace = do_source_trace[QRHOEI];
 #else
     if (coord == 2 || (idir == 0 && coord == 1)) {
         do_trace = 1;
     } else {
-        do_trace = check_trace_source(srcQ, idir, i, j, k, QREINT);
+        do_trace = check_trace_source(srcQ, idir, i, j, k, QRHOEI);
     }
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QREINT, s);
+        load_stencil(srcQ, idir, i, j, k, QRHOEI, s);
 #if AMREX_SPACEDIM <= 2
         if (coord == 2 || (idir == 0 && coord == 1)) {
             add_geometric_rhoe_source(q_arr, dloga, i, j, k, QUN, s);
@@ -487,7 +487,7 @@ Castro::trace_ppm(const Box& bx,
 
     // for well-balanced, the velocity sources should not be added
 
-    amrex::Real fac = (castro::ppm_well_balanced && in_hse) ? 0.0_rt : 1.0_rt;
+    amrex::Real fac = (hydrosim::ppm_well_balanced && in_hse) ? 0.0_rt : 1.0_rt;
 
     // plus state on face i
 
@@ -564,7 +564,7 @@ Castro::trace_ppm(const Box& bx,
       // note that the a{mpz}right as defined above have the minus already
       qp(i,j,k,QRHO) = std::max(lsmall_dens, rho_ref +  alphap + alpham + alpha0r);
       qp(i,j,k,QUN) = un_ref + (alphap - alpham)*cc_ref*rho_ref_inv;
-      qp(i,j,k,QREINT) = std::max(castro::small_dens * castro::small_ener,
+      qp(i,j,k,QRHOEI) = std::max(hydrosim::small_dens * hydrosim::small_ener,
                                     rhoe_g_ref + (alphap + alpham)*h_g_ref + alpha0e_g);
       qp(i,j,k,QPRES) = std::max(lsmall_pres, p_m_hse + p_ref + (alphap + alpham)*csq_ref);
 
@@ -641,7 +641,7 @@ Castro::trace_ppm(const Box& bx,
       if (idir == 0) {
         qm(i+1,j,k,QRHO) = std::max(lsmall_dens, rho_ref +  alphap + alpham + alpha0r);
         qm(i+1,j,k,QUN) = un_ref + (alphap - alpham)*cc_ref*rho_ref_inv;
-        qm(i+1,j,k,QREINT) = std::max(castro::small_dens * castro::small_ener,
+        qm(i+1,j,k,QRHOEI) = std::max(hydrosim::small_dens * hydrosim::small_ener,
                                         rhoe_g_ref + (alphap + alpham)*h_g_ref + alpha0e_g);
         qm(i+1,j,k,QPRES) = std::max(lsmall_pres, p_p_hse + p_ref + (alphap + alpham)*csq_ref);
 
@@ -652,7 +652,7 @@ Castro::trace_ppm(const Box& bx,
       } else if (idir == 1) {
         qm(i,j+1,k,QRHO) = std::max(lsmall_dens, rho_ref +  alphap + alpham + alpha0r);
         qm(i,j+1,k,QUN) = un_ref + (alphap - alpham)*cc_ref*rho_ref_inv;
-        qm(i,j+1,k,QREINT) = std::max(castro::small_dens * castro::small_ener,
+        qm(i,j+1,k,QRHOEI) = std::max(hydrosim::small_dens * hydrosim::small_ener,
                                       rhoe_g_ref + (alphap + alpham)*h_g_ref + alpha0e_g);
         qm(i,j+1,k,QPRES) = std::max(lsmall_pres, p_p_hse + p_ref + (alphap + alpham)*csq_ref);
 
@@ -663,7 +663,7 @@ Castro::trace_ppm(const Box& bx,
       } else if (idir == 2) {
         qm(i,j,k+1,QRHO) = std::max(lsmall_dens, rho_ref +  alphap + alpham + alpha0r);
         qm(i,j,k+1,QUN) = un_ref + (alphap - alpham)*cc_ref*rho_ref_inv;
-        qm(i,j,k+1,QREINT) = std::max(castro::small_dens * castro::small_ener,
+        qm(i,j,k+1,QRHOEI) = std::max(hydrosim::small_dens * hydrosim::small_ener,
                                         rhoe_g_ref + (alphap + alpham)*h_g_ref + alpha0e_g);
         qm(i,j,k+1,QPRES) = std::max(lsmall_pres, p_p_hse + p_ref + (alphap + alpham)*csq_ref);
 

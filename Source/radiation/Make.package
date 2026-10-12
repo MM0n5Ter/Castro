@@ -1,9 +1,9 @@
 # sources used with radiation
 # this is included if USE_RAD = TRUE
 
-CEXE_sources += HypreExtMultiABec.cpp
-CEXE_sources += HypreMultiABec.cpp
-CEXE_sources += HypreABec.cpp
+CEXE_sources += HypreExtMultiDiffOp.cpp
+CEXE_sources += HypreMultiDiffOp.cpp
+CEXE_sources += HypreDiffOp.cpp
 CEXE_sources += Radiation.cpp
 CEXE_sources += RadSolve.cpp
 CEXE_sources += RadBndry.cpp
@@ -13,18 +13,18 @@ CEXE_sources += SGRadSolver.cpp
 CEXE_sources += RadPlotvar.cpp
 CEXE_sources += MGFLD.cpp
 CEXE_sources += MGFLDRadSolver.cpp
-CEXE_sources += Castro_radiation.cpp
+CEXE_sources += HydroSim_radiation.cpp
 CEXE_sources += energy_diagnostics.cpp
 
-CEXE_headers += HypreExtMultiABec.H
-CEXE_headers += HypreMultiABec.H
-CEXE_headers += HypreABec.H
+CEXE_headers += HypreExtMultiDiffOp.H
+CEXE_headers += HypreMultiDiffOp.H
+CEXE_headers += HypreDiffOp.H
 CEXE_headers += Radiation.H
 CEXE_headers += RadSolve.H
 CEXE_headers += RadBndry.H
 CEXE_headers += RadTypes.H
 CEXE_headers += MGRadBndry.H
-CEXE_headers += HABEC.H
+CEXE_headers += HDIFFOP.H
 CEXE_headers += filter.H
 CEXE_headers += filt_prim.H
 

@@ -94,9 +94,9 @@ void problem_initialize_state_data (int i, int j, int k,
 #endif
     }
 
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
     for (int n = 1; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
 
 }

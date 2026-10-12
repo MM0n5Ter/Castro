@@ -3,7 +3,7 @@
 
 #include <prob_parameters.H>
 #include <eos.H>
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& state, const GeometryData& geomdata)
@@ -83,7 +83,7 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
 
     eos_state.rho = state(i,j,k,URHO);
     eos_state.p   = problem::p_0;
-    eos_state.T   = castro::small_temp; // Initial guess for the EOS
+    eos_state.T   = hydrosim::small_temp; // Initial guess for the EOS
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = problem::X_0[n];
     }
@@ -100,7 +100,7 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
     state(i,j,k,UEDEN) = state(i,j,k,URHO) * eint;
     state(i,j,k,UEINT) = state(i,j,k,URHO) * eint;
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * problem::X_0[n];
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * problem::X_0[n];
     }
 }
 #endif

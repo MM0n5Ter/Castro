@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <riemann_solvers.H>
 #include <HLL_solvers.H>
@@ -13,14 +13,14 @@
 using namespace amrex;
 
 void
-Castro::cmpflx_plus_godunov(const Box& bx,
+HydroSim::riemann_flux_and_state(const Box& bx,
                             Array4<Real> const& qm,
                             Array4<Real> const& qp,
                             Array4<Real> const& flx,
 #ifdef RADIATION
                             Array4<Real> const& rflx,
 #endif
-                            Array4<Real> const& qgdnv,
+                            Array4<Real> const& qface,
                             Array4<Real const> const& qaux_arr,
                             Array4<Real const> const& shk,
                             const int idir, const bool store_full_state) {
@@ -32,14 +32,14 @@ Castro::cmpflx_plus_godunov(const Box& bx,
 
     // Solve Riemann problem to get the fluxes
 
-    // store_full_state determines what is put into qgdnv.  if
+    // store_full_state determines what is put into qface.  if
     // store_full_state is True, we put all NQ variables into the
-    // qgdnv.  if store_full_state is False, we only store the NGDNV
+    // qface.  if store_full_state is False, we only store the NIFC
     // needed elsewhere in the algorithm.
 
 
     // Note: because the NQ variables do not include lambda and the
-    // NGDNV do, we only support store_full_state = false for
+    // NIFC do, we only support store_full_state = false for
     // Radiation
 
 #ifdef RADIATION
@@ -96,9 +96,9 @@ Castro::cmpflx_plus_godunov(const Box& bx,
 #ifdef RADIATION
                            rflx,
 #endif
-                           qgdnv, store_full_state);
+                           qface, store_full_state);
 
-            // now do the passives -- we didn't include them in qint, qgdnv, or flux above
+            // now do the passives -- we didn't include them in qint, qface, or flux above
 
             // the passives are always just upwinded, so we do that here
             // regardless of the solver
@@ -120,7 +120,7 @@ Castro::cmpflx_plus_godunov(const Box& bx,
                 flx(i,j,k,n) = flx(i,j,k,URHO) * X_int;
 
                 if (store_full_state) {
-                    qgdnv(i,j,k,nqp) = X_int;
+                    qface(i,j,k,nqp) = X_int;
                 }
             }
 
@@ -130,7 +130,7 @@ Castro::cmpflx_plus_godunov(const Box& bx,
                       qm, qp,
                       qaux_arr,
                       flx,
-                      qgdnv, store_full_state,
+                      qface, store_full_state,
                       geomdata,
                       special_bnd_lo, special_bnd_hi,
                       domlo, domhi);

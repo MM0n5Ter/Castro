@@ -88,11 +88,11 @@ namespace timestep {
                 eos_state.T = u(i,j,k,UTEMP);
                 eos_state.e = u(i,j,k,UEINT) * rhoInv;
                 for (int n = 0; n < NumSpec; n++) {
-                    eos_state.xn[n] = u(i,j,k,UFS+n) * rhoInv;
+                    eos_state.xn[n] = u(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; n++) {
-                    eos_state.aux[n] = u(i,j,k,UFX+n) * rhoInv;
+                    eos_state.aux[n] = u(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
@@ -134,7 +134,7 @@ namespace timestep {
                 // The CTU method has a less restrictive timestep than MOL-based
                 // schemes (including the true SDC).  Since the simplified SDC
                 // solver is based on CTU, we can use its timestep.
-                if (castro::time_integration_method == 0 || castro::time_integration_method == 3) {
+                if (hydrosim::time_integration_method == 0 || hydrosim::time_integration_method == 3) {
                     Real dt = amrex::min(dt1, dt2, dt3);
                     return {ValLocPair<Real, IntVect>{dt, idx}};
 
@@ -202,11 +202,11 @@ namespace timestep {
                 eos_state.e = u_arr(i,j,k,UEINT) * rhoInv;
                 eos_state.T = u_arr(i,j,k,UTEMP);
                 for (int n = 0; n < NumSpec; n++) {
-                  eos_state.xn[n] = u_arr(i,j,k,UFS+n) * rhoInv;
+                  eos_state.xn[n] = u_arr(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; n++) {
-                  eos_state.aux[n] = u_arr(i,j,k,UFX+n) * rhoInv;
+                  eos_state.aux[n] = u_arr(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
@@ -272,9 +272,9 @@ namespace timestep {
             // dt < 0.5 dx**2 / D
             // where D = k/(rho c_v), and k is the conductivity
 
-            const Real ldiffuse_cutoff_density = castro::diffuse_cutoff_density;
-            const Real lmax_dt = castro::max_dt;
-            const Real lcfl = castro::cfl;
+            const Real ldiffuse_cutoff_density = hydrosim::diffuse_cutoff_density;
+            const Real lmax_dt = hydrosim::max_dt;
+            const Real lcfl = hydrosim::cfl;
 
             auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
@@ -300,11 +300,11 @@ namespace timestep {
                     eos_state.T = ustate(i,j,k,UTEMP);
                     eos_state.e = ustate(i,j,k,UEINT) * rho_inv;
                     for (int n = 0; n < NumSpec; n++) {
-                        eos_state.xn[n]  = ustate(i,j,k,UFS+n) * rho_inv;
+                        eos_state.xn[n]  = ustate(i,j,k,USPEC+n) * rho_inv;
                     }
 #if NAUX_NET > 0
                     for (int n = 0; n < NumAux; n++) {
-                        eos_state.aux[n] = ustate(i,j,k,UFX+n) * rho_inv;
+                        eos_state.aux[n] = ustate(i,j,k,UAUXV+n) * rho_inv;
                     }
 #endif
 
@@ -350,7 +350,7 @@ namespace timestep {
 #ifdef REACTIONS
         else if constexpr (T == burning) {
 
-            if (castro::dtnuc_e > 1.e199_rt && castro::dtnuc_X > 1.e199_rt) {
+            if (hydrosim::dtnuc_e > 1.e199_rt && hydrosim::dtnuc_X > 1.e199_rt) {
                 IntVect idx(AMREX_D_DECL(0,0,0));
                 return {ValLocPair<Real, IntVect>{1.e200_rt, idx}};
             }
@@ -427,25 +427,25 @@ namespace timestep {
                 burn_state.T   = S(i,j,k,UTEMP);
                 burn_state.e   = S(i,j,k,UEINT) * rhoInv;
                 for (int n = 0; n < NumSpec; ++n) {
-                    burn_state.xn[n] = S(i,j,k,UFS+n) * rhoInv;
+                    burn_state.xn[n] = S(i,j,k,USPEC+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; ++n) {
-                    burn_state.aux[n] = S(i,j,k,UFX+n) * rhoInv;
+                    burn_state.aux[n] = S(i,j,k,UAUXV+n) * rhoInv;
                 }
 #endif
 
                 // Don't consider zones that are outside our burning criteria.
 
-                if (burn_state.T < castro::react_T_min || burn_state.T > castro::react_T_max ||
-                    burn_state.rho < castro::react_rho_min || burn_state.rho > castro::react_rho_max) {
+                if (burn_state.T < hydrosim::react_T_min || burn_state.T > hydrosim::react_T_max ||
+                    burn_state.rho < hydrosim::react_rho_min || burn_state.rho > hydrosim::react_rho_max) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                 }
 
                 // Don't consider zones with shocks if we disabled
                 // burning in shocks
 #ifdef SHOCK_VAR
-                if (S(i,j,k,USHK) > 0.0_rt && castro::disable_shock_burning == 1) {
+                if (S(i,j,k,USHOCK) > 0.0_rt && hydrosim::disable_shock_burning == 1) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                 }
 #endif
@@ -476,7 +476,7 @@ namespace timestep {
                 dedt = amrex::max(std::abs(dedt), derivative_floor);
 
                 for (int n = 0; n < NumSpec; ++n) {
-                    if (X[n] >= castro::dtnuc_X_threshold) {
+                    if (X[n] >= hydrosim::dtnuc_X_threshold) {
                         dXdt[n] = amrex::max(std::abs(dXdt[n]), derivative_floor);
                     } else {
                         dXdt[n] = derivative_floor;
@@ -498,18 +498,18 @@ namespace timestep {
 #endif // SIMPLIFIED_SDC
 
 #ifdef NSE_NET
-                burn_state.mu_p = S(i,j,k,UMUP);
-                burn_state.mu_n = S(i,j,k,UMUN);
+                burn_state.mu_p = S(i,j,k,UMU_P);
+                burn_state.mu_n = S(i,j,k,UMU_N);
 #endif
 
                 if (!in_nse(burn_state)) {
 #endif // NSE
-                    dt_tmp = castro::dtnuc_e * e / dedt;
+                    dt_tmp = hydrosim::dtnuc_e * e / dedt;
 #ifdef NSE
                 }
 #endif // NSE
                 for (int n = 0; n < NumSpec; ++n) {
-                    dt_tmp = amrex::min(dt_tmp, castro::dtnuc_X * (X[n] / dXdt[n]));
+                    dt_tmp = amrex::min(dt_tmp, hydrosim::dtnuc_X * (X[n] / dXdt[n]));
                 }
 
                 return {ValLocPair<Real, IntVect>{dt_tmp, idx}};

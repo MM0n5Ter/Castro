@@ -56,7 +56,7 @@ def get_Te_profile(plotfile, plot_in_nse=False):
 
 def get_nuc_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()
@@ -170,7 +170,7 @@ def plot_nuc_frac(prefix, nums, skip, limitlabels, xmin, xmax):
         skiplabels = 1
 
     # load a dataset to discover species
-    ds = yt.load(f"{prefix}{nums[0]}", hint="castro")
+    ds = yt.load(f"{prefix}{nums[0]}", hint="hydrosim")
 
     nuc_list = [f[1] for f in ds.field_list if f[1].startswith("X")]
     nuc_list.sort(key=nuc_list_filter)

@@ -51,7 +51,7 @@ namespace powell {
 
         for (int n = 1; n <= NumSpec; ++n) {
             Z(n) = burn_state.y[SFS-1+n] -
-                dt_m * R_full[UFS-1+n] - burn_state.ydot_a[SFS-1+n];
+                dt_m * R_full[USPEC-1+n] - burn_state.ydot_a[SFS-1+n];
         }
         Z(NumSpec+1) = burn_state.y[SEINT] -
             dt_m * R_full[UEINT] - burn_state.ydot_a[SEINT];
@@ -161,7 +161,7 @@ namespace powell {
         // we'll store this in the burn_t ydot_a[]
 
         for (int n = 0; n < NumSpec; ++n) {
-            burn_state.ydot_a[SFS + n] = U_old[UFS + n] + dt_m * C[UFS + n];
+            burn_state.ydot_a[SFS + n] = U_old[USPEC + n] + dt_m * C[USPEC + n];
         }
         burn_state.ydot_a[SEINT] = U_old[UEINT] + dt_m * C[UEINT];
 
@@ -175,7 +175,7 @@ namespace powell {
 
         // locate the initial guess
         for (int n = 0; n < NumSpec; ++n) {
-            hj.x(n+1) = U_new[UFS+n];
+            hj.x(n+1) = U_new[USPEC+n];
         }
         hj.x(NumSpec+1) = U_new[UEINT];
 
@@ -191,7 +191,7 @@ namespace powell {
         // update the full U_new
 
         for (int n = 0; n < NumSpec; ++n) {
-            U_new[UFS+n] = hj.x(n+1);
+            U_new[USPEC+n] = hj.x(n+1);
         }
 
         U_new[UEINT] = hj.x(NumSpec+1);

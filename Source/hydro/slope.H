@@ -1,7 +1,7 @@
 #ifndef SLOPE_H
 #define SLOPE_H
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -22,13 +22,13 @@ using namespace reconstruction;
 /// Construct the piecewise linear slopes for an input state q
 ///
 /// @param q               Real[nslp] giving q_{i-2} through q_{i+2}, used in the reconstruction
-/// @param flatn           flattening coefficient
+/// @param flatcoef           flattening coefficient
 /// @param bnd_lo_reflect  true if a symmetry boundary is just to the left of this zone
 /// @param bnd_hi_reflect  true if a symmetry boundary is just to the right of this zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
-uslope(const Real* q, const Real flatn,
+uslope(const Real* q, const Real flatcoef,
        bool bnd_lo_reflect, bool bnd_hi_reflect) {
 
   Real dq;
@@ -51,7 +51,7 @@ uslope(const Real* q, const Real flatn,
       Real slop = amrex::min(std::abs(dlft), std::abs(drgt));
       Real dlim = dlft*drgt >= 0.0_rt ? slop : 0.0_rt;
 
-      dq = flatn * dsgn * amrex::min(dlim, std::abs(dcen));
+      dq = flatcoef * dsgn * amrex::min(dlim, std::abs(dcen));
 
     } else {
       // the 4th order MC limiter
@@ -105,7 +105,7 @@ uslope(const Real* q, const Real flatn,
       dlim = dlft*drgt >= 0.0_rt ? slop : 0.0_rt;
 
       Real dq1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(dfp1 + dfm1);
-      dq = flatn * dsgn * amrex::min(dlim, std::abs(dq1));
+      dq = flatcoef * dsgn * amrex::min(dlim, std::abs(dq1));
     }
   }
 
@@ -120,13 +120,13 @@ uslope(const Real* q, const Real flatn,
 /// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
 /// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
 ///                    i-2, i-1, i, i+1, i+2
-/// @param flatn       flattening coefficient
+/// @param flatcoef       flattening coefficient
 /// @param lo_bc_test  true if a physical boundary is just to the left of this zone
 /// @param hi_bc_test  true if a physical boundary is just to the right of this zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
+pslope(const Real* rho, const Real* p, const Real* src, const Real flatcoef,
        bool lo_bc_test, bool hi_bc_test,
        const Real dx, Real& dp) {
 
@@ -236,7 +236,7 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
     dlim = dlft*drgt >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(dlft), std::abs(drgt)) : 0.0_rt;
 
     Real dp1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(dfp1 + dfm1);
-    dp = flatn * dsgn*amrex::min(dlim, std::abs(dp1));
+    dp = flatcoef * dsgn*amrex::min(dlim, std::abs(dp1));
 
     dp += rho[i0] * src[i0] * dx;
   }

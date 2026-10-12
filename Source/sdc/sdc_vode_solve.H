@@ -77,11 +77,11 @@ sdc_vode_solve(const Real dt_m,
     burn_state.ydot_a[SEDEN] = C[UEDEN];
     burn_state.ydot_a[SEINT] = C[UEINT];
     for (int n = 0; n < NumSpec; n++) {
-        burn_state.ydot_a[SFS+n] = C[UFS+n];
+        burn_state.ydot_a[SFS+n] = C[USPEC+n];
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        burn_state.ydot_a[SFX+n] = C[UFX+n];
+        burn_state.ydot_a[SFX+n] = C[UAUXV+n];
     }
 #endif
 
@@ -99,11 +99,11 @@ sdc_vode_solve(const Real dt_m,
     U_new[UEDEN] = burn_state.y[SEDEN];
     U_new[UEINT] = burn_state.y[SEINT];
     for (int n = 0; n < NumSpec; n++) {
-        U_new[UFS+n] = burn_state.y[SFS+n];
+        U_new[USPEC+n] = burn_state.y[SFS+n];
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        U_new[UFX+n] = burn_state.y[SFX+n];
+        U_new[UAUXV+n] = burn_state.y[SFX+n];
     }
 #endif
 

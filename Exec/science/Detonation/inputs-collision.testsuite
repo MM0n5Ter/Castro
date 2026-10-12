@@ -8,31 +8,31 @@ geometry.prob_lo     = -1.6384e9
 geometry.prob_hi     =  1.6384e9
 amr.n_cell           = 256
 
-castro.use_retry = 1
-castro.max_subcycles = 128
+hydrosim.use_retry = 1
+hydrosim.max_subcycles = 128
 
-castro.add_ext_src = 1
+hydrosim.add_ext_src = 1
 
-castro.fill_ambient_bc = 1
+hydrosim.fill_ambient_bc = 1
 
-castro.lo_bc = 2
-castro.hi_bc = 2
+hydrosim.lo_bc = 2
+hydrosim.hi_bc = 2
 
-castro.do_hydro = 1
-castro.do_react = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
 
-castro.cfl            = 0.5
-castro.init_shrink    = 0.1
-castro.change_max     = 1.25
-castro.dtnuc_e        = 1.e200
-castro.dtnuc_X        = 1.e200
+hydrosim.cfl            = 0.5
+hydrosim.init_shrink    = 0.1
+hydrosim.change_max     = 1.25
+hydrosim.dtnuc_e        = 1.e200
+hydrosim.dtnuc_X        = 1.e200
 
-castro.disable_shock_burning = 1
+hydrosim.disable_shock_burning = 1
 
-castro.small_temp     = 1.e5
+hydrosim.small_temp     = 1.e5
 
-castro.sum_interval   = 0
-castro.v              = 1
+hydrosim.sum_interval   = 0
+hydrosim.v              = 1
 amr.v                 = 1
 
 amr.max_level       = 1
@@ -57,7 +57,7 @@ amr.refine.dxnucerr.max_level = 14
 amr.refine.dxnucerr.value_greater = 1.e-16
 amr.refine.dxnucerr.field_name = t_sound_t_enuc
 
-castro.use_post_step_regrid = 1
+hydrosim.use_post_step_regrid = 1
 
 amr.check_file       = det_x_chk
 amr.check_per        = 0.1
@@ -72,12 +72,12 @@ amr.derive_small_plot_vars = pressure soundspeed x_velocity t_sound_t_enuc
 amr.plotfile_on_restart = 0
 amr.checkpoint_on_restart = 0
 amr.write_plotfile_with_checkpoint = 0
-castro.plot_per_is_exact = 1
-castro.small_plot_per_is_exact = 1
-castro.output_at_completion = 1
+hydrosim.plot_per_is_exact = 1
+hydrosim.small_plot_per_is_exact = 1
+hydrosim.output_at_completion = 1
 
-castro.stopping_criterion_field = Temp
-castro.stopping_criterion_value = 4.e9
+hydrosim.stopping_criterion_field = Temp
+hydrosim.stopping_criterion_value = 4.e9
 
 # problem initialization
 

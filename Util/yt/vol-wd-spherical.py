@@ -86,7 +86,7 @@ def doit(plotfile):
 
     pid = plotfile.split("plt")[1]
     sc.render()
-    sc.save("wdmerger_{}_spherical.png".format(pid), sigma_clip=6.0)
+    sc.save("binarywd_{}_spherical.png".format(pid), sigma_clip=6.0)
 
 if __name__ == "__main__":
 

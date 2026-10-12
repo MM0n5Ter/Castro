@@ -17,11 +17,11 @@ copy_cons_to_burn_type(const int i, const int j, const int k,
     burn_state.y[SEDEN] = U_cell[UEDEN];
     burn_state.y[SEINT] = U_cell[UEINT];
     amrex::constexpr_for<0, NumSpec>([&] (auto n) {
-        burn_state.y[SFS+n] = U_cell[UFS+n];
+        burn_state.y[SFS+n] = U_cell[USPEC+n];
     });
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        burn_state.y[SFX+n] = state(i,j,k,UFX+n);
+        burn_state.y[SFX+n] = state(i,j,k,UAUXV+n);
     }
 #endif
 
@@ -42,11 +42,11 @@ copy_cons_to_burn_type(GpuArray<Real, NUM_STATE> const& state,
     burn_state.y[SEDEN] = state[UEDEN];
     burn_state.y[SEINT] = state[UEINT];
     for (int n = 0; n < NumSpec; n++) {
-        burn_state.y[SFS+n] = state[UFS+n];
+        burn_state.y[SFS+n] = state[USPEC+n];
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        burn_state.y[SFX+n] = state[UFX+n];
+        burn_state.y[SFX+n] = state[UAUXV+n];
     }
 #endif
 

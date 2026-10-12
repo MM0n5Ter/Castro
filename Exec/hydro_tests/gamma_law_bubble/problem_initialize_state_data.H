@@ -39,7 +39,7 @@ void problem_initialize_state_data (int i, int j, int k,
     Real dens = interpolate(height, model::idens);
     Real pres = interpolate(height, model::ipres);
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = interpolate(height, model::ispec+n);
+        state(i,j,k,USPEC+n) = interpolate(height, model::ispec+n);
     }
 
     // add an isobaric perturbation
@@ -63,7 +63,7 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.rho = dens;
     eos_state.p = pres;
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n);
+        eos_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
     eos(eos_input_tp, eos_state);
@@ -73,7 +73,7 @@ void problem_initialize_state_data (int i, int j, int k,
 
     // make state conservative
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = eos_state.rho * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = eos_state.rho * state(i,j,k,USPEC+n);
     }
 
     // assumes ke=0

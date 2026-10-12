@@ -28,4 +28,4 @@ PROBLEM_DIR ?= ./
 Blocs = $(PROBLEM_DIR)
 Bpack = $(PROBLEM_DIR)/Make.package
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

@@ -3,14 +3,14 @@ solver.  This does the "relaxation to thermal equilibrium" test as
 described in Swesty and Myra (2009) (originally described in Turner
 and Stone, 2001).
 
-The gas energy equation as solved in Castro takes the form:
+The gas energy equation as solved in HydroSim takes the form:
 
 d(rho E)/dt + div . (rho U E + U p) = - kappa_p c (E_r - a T^4)
 
 (see Howell and Greenough, 2003, Eq. 7.  We use the substitution
 4 sigma = a c)
 
-Swesty and Myra write e to be gas energy density (in Castro, we
+Swesty and Myra write e to be gas energy density (in HydroSim, we
 would write this as rho*e, where e is the specific energy).
 
 There is no hydrodynamics, but the matter and radiation are coupled

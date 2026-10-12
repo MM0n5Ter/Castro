@@ -61,36 +61,36 @@ amr.v = 1
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3    2    0
-castro.hi_bc       =  2    2    0
+hydrosim.lo_bc       =  3    2    0
+hydrosim.hi_bc       =  2    2    0
 
 # WHICH PHYSICS
-castro.do_grav        = 0
-castro.do_hydro       = 1
-castro.do_radiation   = 1
-castro.do_reflux      = 1       # 1 => do refluxing
-castro.do_react       = 0       # reactions?
+hydrosim.do_grav        = 0
+hydrosim.do_hydro       = 1
+hydrosim.do_radiation   = 1
+hydrosim.do_reflux      = 1       # 1 => do refluxing
+hydrosim.do_react       = 0       # reactions?
 
 # hydro cutoff parameters
-# castro.small_dens     = 1.e-20
-castro.small_temp = 1.0e1
-castro.small_dens =1.0e-7 
+# hydrosim.small_dens     = 1.e-20
+hydrosim.small_temp = 1.0e1
+hydrosim.small_dens =1.0e-7 
 
 
 
-castro.grav_source_type = 4
+hydrosim.grav_coupling_type = 4
 
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.05 #1.0e-9 
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.05 #1.0e-9 
 
-castro.fixed_dt       = 1.3e-4
+hydrosim.fixed_dt       = 1.3e-4
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v = 1
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v = 1
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
@@ -149,8 +149,8 @@ radiation.hi_bcval = 0.0   2.99      0.0
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use HypreDiffOp, support symmetric matrices only
+# solver flag values >= 100 use HypreMultiDiffOp, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
@@ -175,7 +175,7 @@ radsolve.maxiter    = 200     # linear solver iteration limit
 
 radsolve.v = 1      # verbosity
 
-hmabec.verbose = 2  # verbosity for HypreMultiABec solvers
-habec.verbose  = 2  # verbosity for HypreABec solvers
+hmdop.verbose = 2  # verbosity for HypreMultiDiffOp solvers
+hdop.verbose  = 2  # verbosity for HypreDiffOp solvers
 
 

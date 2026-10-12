@@ -1,5 +1,5 @@
-#ifndef CASTRO_RADSOLVE_H
-#define CASTRO_RADSOLVE_H
+#ifndef HYDROSIM_RADSOLVE_H
+#define HYDROSIM_RADSOLVE_H
 
 #include <AMReX_Amr.H>
 
@@ -8,9 +8,9 @@
 #include <RadBndry.H>
 #include <MGRadBndry.H>
 
-#include <HypreABec.H>
-#include <HypreMultiABec.H>
-#include <HypreExtMultiABec.H>
+#include <HypreDiffOp.H>
+#include <HypreMultiDiffOp.H>
+#include <HypreExtMultiDiffOp.H>
 
 #include <radsolve_params.H>
 
@@ -293,9 +293,9 @@ protected:
 
     amrex::Amr* parent;
 
-    std::unique_ptr<HypreABec> hd;
-    std::unique_ptr<HypreMultiABec> hm;
-    std::unique_ptr<HypreExtMultiABec> hem;
+    std::unique_ptr<HypreDiffOp> hd;
+    std::unique_ptr<HypreMultiDiffOp> hm;
+    std::unique_ptr<HypreExtMultiDiffOp> hem;
 
 
 };

@@ -46,7 +46,7 @@ namespace newton {
 
         for (int n = 1; n <= NumSpec; ++n) {
             f(n) = -burn_state.y[SFS-1+n] +
-                dt_m * R_full[UFS-1+n] + burn_state.ydot_a[SFS-1+n];
+                dt_m * R_full[USPEC-1+n] + burn_state.ydot_a[SFS-1+n];
         }
         f(NumSpec+1) = -burn_state.y[SEINT] +
             dt_m * R_full[UEINT] + burn_state.ydot_a[SEINT];
@@ -129,7 +129,7 @@ namespace newton {
         // we'll store this in the burn_t ydot_a[]
 
         for (int n = 0; n < NumSpec; ++n) {
-            burn_state.ydot_a[SFS + n] = U_old[UFS + n] + dt_m * C[UFS + n];
+            burn_state.ydot_a[SFS + n] = U_old[USPEC + n] + dt_m * C[USPEC + n];
         }
         burn_state.ydot_a[SEINT] = U_old[UEINT] + dt_m * C[UEINT];
 
@@ -213,7 +213,7 @@ namespace newton {
         // update the full U_new
 
         for (int n = 0; n < NumSpec; ++n) {
-            U_new[UFS+n] = burn_state.y[SFS+n];
+            U_new[USPEC+n] = burn_state.y[SFS+n];
         }
 
         U_new[UEINT] = burn_state.y[SEINT];
@@ -278,11 +278,11 @@ namespace newton {
                 // normalize species -- we are working with rho X_k here
                 Real sum_rhoX = 0.0_rt;
                 for (int n = 0; n < NumSpec; ++n) {
-                    U_begin[UFS + n] = amrex::max(U_begin[URHO] * network_rp::small_x, U_begin[UFS + n]);
-                    sum_rhoX += U_begin[UFS + n];
+                    U_begin[USPEC + n] = amrex::max(U_begin[URHO] * network_rp::small_x, U_begin[USPEC + n]);
+                    sum_rhoX += U_begin[USPEC + n];
                 }
                 for (int n = 0; n < NumSpec; ++n) {
-                    U_begin[UFS + n] *= U_begin[URHO] / sum_rhoX;
+                    U_begin[USPEC + n] *= U_begin[URHO] / sum_rhoX;
                 }
 
                 sdc_newton_solve(dt_sub, U_begin, U_new, C, sdc_iteration, err_out, ierr);
@@ -290,8 +290,8 @@ namespace newton {
                 // our solve may have resulted in mass fractions outside
                 // of [0, 1] -- reject if this is the case
                 for (int n = 0; n < NumSpec; ++n) {
-                    if (U_new[UFS+n] < -species_failure_tolerance * U_new[URHO] ||
-                        U_new[UFS+n] > (1.0_rt + species_failure_tolerance) * U_new[URHO]) {
+                    if (U_new[USPEC+n] < -species_failure_tolerance * U_new[URHO] ||
+                        U_new[USPEC+n] > (1.0_rt + species_failure_tolerance) * U_new[URHO]) {
                         ierr = newton_status::bad_mass_fractions;
                     }
                 }

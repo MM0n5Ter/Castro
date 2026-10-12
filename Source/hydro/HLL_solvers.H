@@ -38,20 +38,20 @@ namespace HLL {
         U[UMZ]  = hllc_factor*S_c;
       }
 
-      U[UEDEN] = hllc_factor*(qstate[QREINT]/qstate[QRHO] +
+      U[UEDEN] = hllc_factor*(qstate[QRHOEI]/qstate[QRHO] +
                               0.5_rt*(qstate[QU]*qstate[QU] + qstate[QV]*qstate[QV] + qstate[QW]*qstate[QW]) +
                               (S_c - u_k)*(S_c + qstate[QPRES]/(qstate[QRHO]*(S_k - u_k))));
-      U[UEINT] = hllc_factor*qstate[QREINT]/qstate[QRHO];
+      U[UEINT] = hllc_factor*qstate[QRHOEI]/qstate[QRHO];
 
       U[UTEMP] = 0.0; // we don't evolve T
 
     #ifdef SHOCK_VAR
-      U[USHK] = 0.0;
+      U[USHOCK] = 0.0;
     #endif
 
     #ifdef NSE_NET
-      U[UMUP] = 0.0;
-      U[UMUN] = 0.0;
+      U[UMU_P] = 0.0;
+      U[UMU_N] = 0.0;
     #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
@@ -97,12 +97,12 @@ namespace HLL {
       F[UTEMP] = 0.0;
 
     #ifdef SHOCK_VAR
-      F[USHK] = 0.0;
+      F[USHOCK] = 0.0;
     #endif
 
     #ifdef NSE_NET
-      F[UMUP] = 0.0;
-      F[UMUN] = 0.0;
+      F[UMU_P] = 0.0;
+      F[UMU_N] = 0.0;
     #endif
 
       for (int ipassive=0; ipassive < npassive; ipassive++) {
@@ -126,20 +126,20 @@ namespace HLL {
       U[UMY]  = qstate[QRHO]*qstate[QV];
       U[UMZ]  = qstate[QRHO]*qstate[QW];
 
-      U[UEDEN] = qstate[QREINT] + 0.5_rt*qstate[QRHO]*(qstate[QU]*qstate[QU] + qstate[QV]*qstate[QV] + qstate[QW]*qstate[QW]);
-      U[UEINT] = qstate[QREINT];
+      U[UEDEN] = qstate[QRHOEI] + 0.5_rt*qstate[QRHO]*(qstate[QU]*qstate[QU] + qstate[QV]*qstate[QV] + qstate[QW]*qstate[QW]);
+      U[UEINT] = qstate[QRHOEI];
 
       // we don't care about T here, but initialize it to make NaN
       // checking happy
       U[UTEMP] = 0.0;
 
     #ifdef SHOCK_VAR
-      U[USHK] = 0.0;
+      U[USHOCK] = 0.0;
     #endif
 
     #ifdef NSE_NET
-      U[UMUP] = 0.0;
-      U[UMUN] = 0.0;
+      U[UMU_P] = 0.0;
+      U[UMU_N] = 0.0;
     #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
@@ -282,20 +282,20 @@ namespace HLL {
       flux_hll[imomtt] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[iveltt] - ql[QRHO]*ql[iveltt]);
 
       // total energy flux
-      Real rhoEl = ql[QREINT] + 0.5_rt*ql[QRHO]*(ql[ivel]*ql[ivel] + ql[ivelt]*ql[ivelt] + ql[iveltt]*ql[iveltt]);
+      Real rhoEl = ql[QRHOEI] + 0.5_rt*ql[QRHO]*(ql[ivel]*ql[ivel] + ql[ivelt]*ql[ivelt] + ql[iveltt]*ql[iveltt]);
       fl_tmp = ql[ivel]*(rhoEl + ql[QPRES]);
 
-      Real rhoEr = qr[QREINT] + 0.5_rt*qr[QRHO]*(qr[ivel]*qr[ivel] + qr[ivelt]*qr[ivelt] + qr[iveltt]*qr[iveltt]);
+      Real rhoEr = qr[QRHOEI] + 0.5_rt*qr[QRHO]*(qr[ivel]*qr[ivel] + qr[ivelt]*qr[ivelt] + qr[iveltt]*qr[iveltt]);
       fr_tmp = qr[ivel]*(rhoEr + qr[QPRES]);
 
       flux_hll[UEDEN] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(rhoEr - rhoEl);
 
 
       // eint flux
-      fl_tmp = ql[QREINT]*ql[ivel];
-      fr_tmp = qr[QREINT]*qr[ivel];
+      fl_tmp = ql[QRHOEI]*ql[ivel];
+      fr_tmp = qr[QRHOEI]*qr[ivel];
 
-      flux_hll[UEINT] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QREINT] - ql[QREINT]);
+      flux_hll[UEINT] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHOEI] - ql[QRHOEI]);
 
 
       // passively-advected scalar fluxes
@@ -328,7 +328,7 @@ namespace HLL {
          Array4<Real const> const& qr,
          Array4<Real const> const& qaux_arr,
          Array4<Real> const& uflx,
-         Array4<Real> const& qgdnv, const bool store_full_state,
+         Array4<Real> const& qface, const bool store_full_state,
          const GeometryData& geom,
          const bool special_bnd_lo, const bool special_bnd_hi,
          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -410,13 +410,13 @@ namespace HLL {
         Real csmall = amrex::max(small, small * qaux_arr(i,j,k,QC), small * qaux_arr(i-sx,j-sy,k-sz,QC));
         Real cavg = 0.5_rt*(qaux_arr(i,j,k,QC) + qaux_arr(i-sx,j-sy,k-sz,QC));
 
-        Real gamcl = qaux_arr(i-sx,j-sy,k-sz,QGAMC);
-        Real gamcr = qaux_arr(i,j,k,QGAMC);
+        Real gamcl = qaux_arr(i-sx,j-sy,k-sz,QGAM1);
+        Real gamcr = qaux_arr(i,j,k,QGAM1);
 
     #ifdef TRUE_SDC
         if (use_reconstructed_gamma1 == 1) {
-            gamcl = ql(i,j,k,QGC);
-            gamcr = qr(i,j,k,QGC);
+            gamcl = ql(i,j,k,QGAM1P);
+            gamcr = qr(i,j,k,QGAM1P);
         }
     #endif
 
@@ -571,18 +571,18 @@ namespace HLL {
         if (store_full_state) {
 
             for (int n = 0; n < NQ; n++) {
-                qgdnv(i,j,k,n) = qint[n];
+                qface(i,j,k,n) = qint[n];
             }
 
         } else {
 
     #ifdef HYBRID_MOMENTUM
-            qgdnv(i,j,k,GDRHO) = qint[QRHO];
+            qface(i,j,k,IFCRHO) = qint[QRHO];
     #endif
-            qgdnv(i,j,k,GDU) = qint[QU];
-            qgdnv(i,j,k,GDV) = qint[QV];
-            qgdnv(i,j,k,GDW) = qint[QW];
-            qgdnv(i,j,k,GDPRES) = qint[QPRES];
+            qface(i,j,k,IFCU) = qint[QU];
+            qface(i,j,k,IFCV) = qint[QV];
+            qface(i,j,k,IFCW) = qint[QW];
+            qface(i,j,k,IFCPRES) = qint[QPRES];
 
         }
 

@@ -4,9 +4,9 @@
 #include <numbers>
 
 #include <AMReX_Array.H>
-#include <Castro_math.H>
-#include <Castro_util.H>
-#include <castro_params.H>
+#include <HydroSim_math.H>
+#include <HydroSim_util.H>
+#include <hydrosim_params.H>
 
 ///
 /// Return the magnitude of omega along the rotating axis.
@@ -19,8 +19,8 @@ Real get_omega()
     // If rotational_period is less than zero, that means rotation is disabled, and so we should effectively
     // shut off the source term by setting omega = 0.
 
-    if (castro::rotational_period > 0.0_rt) {
-        omega = 2.0_rt * std::numbers::pi / castro::rotational_period;
+    if (hydrosim::rotational_period > 0.0_rt) {
+        omega = 2.0_rt * std::numbers::pi / hydrosim::rotational_period;
     }
 
     return omega;
@@ -45,15 +45,15 @@ GpuArray<Real, 3> get_omega_vec(const GeometryData& geomdata,
     // then we convert back to r and theta direction.
     if (coord == 2) {
         Real theta;
-        if (castro::fixed_rotational_latitude >= 0.0_rt) {
-            theta = castro::fixed_rotational_latitude;
+        if (hydrosim::fixed_rotational_latitude >= 0.0_rt) {
+            theta = hydrosim::fixed_rotational_latitude;
         } else {
             theta = problo + (static_cast<Real>(j) + 0.5_rt) * dtheta;
         }
         omega_vec[0] = std::cos(theta) * omega;
         omega_vec[1] = -std::sin(theta) * omega;
     } else {
-        omega_vec[castro::rot_axis - 1] = omega;
+        omega_vec[hydrosim::rot_axis - 1] = omega;
     }
 
     return omega_vec;
@@ -95,9 +95,9 @@ rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
   // on the basis that the true equilibrium state will have zero
   // velocity anyway).
 
-  bool c1 = (castro::rotation_include_centrifugal == 1) ? true : false;
+  bool c1 = (hydrosim::rotation_include_centrifugal == 1) ? true : false;
 
-  bool c2 = (castro::rotation_include_coriolis == 1 && coriolis) ? true : false;
+  bool c2 = (hydrosim::rotation_include_coriolis == 1 && coriolis) ? true : false;
 
   auto r_vec = r;
 
@@ -146,7 +146,7 @@ rotational_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega,
       r_vec[2] = 0.0_rt;
   }
 
-  if (castro::rotation_include_centrifugal == 1) {
+  if (hydrosim::rotation_include_centrifugal == 1) {
 
       GpuArray<Real, 3> omega_cross_r;
       cross_product(omega, r_vec, omega_cross_r);
@@ -244,7 +244,7 @@ GpuArray<Real, 3> inertial_rotation(const GpuArray<Real, 3>& vec,
     Array1D<Real, 0, 2> theta{};
     Array2D<Real, 0, 2, 0, 2> rot_matrix{};
 
-    if (castro::do_rotation == 1) {
+    if (hydrosim::do_rotation == 1) {
         for (int n = 0; n < 3; ++n) {
             theta(n) = omega[n] * time;
         }
@@ -288,7 +288,7 @@ void fill_dt_omega_matrix(const Real dt, const GpuArray<Real, 3>& omega,
 
     // Don't do anything here if we've got the Coriolis force disabled.
 
-    if (castro::rotation_include_coriolis == 1) {
+    if (hydrosim::rotation_include_coriolis == 1) {
 
         for (int idir = 0; idir < 3; idir++) {
           dt_omega[idir] = dt * omega[idir];

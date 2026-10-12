@@ -112,8 +112,8 @@ void problem_initialize_state_data (int i, int j, int k,
     }
 
 #ifdef NSE_NET
-    state(i,j,k,UMUP) = burn_state.mu_p;
-    state(i,j,k,UMUN) = burn_state.mu_n;
+    state(i,j,k,UMU_P) = burn_state.mu_p;
+    state(i,j,k,UMU_N) = burn_state.mu_n;
 #endif
 
 #ifdef AUX_THERMO
@@ -134,12 +134,12 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEINT) = burn_state.rho * burn_state.e;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * burn_state.xn[n];
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * burn_state.xn[n];
     }
 
 #ifdef AUX_THERMO
     for (int n = 0; n < NumAux; n++) {
-        state(i,j,k,UFX+n) = state(i,j,k,URHO) * burn_state.aux[n];
+        state(i,j,k,UAUXV+n) = state(i,j,k,URHO) * burn_state.aux[n];
     }
 #endif
 

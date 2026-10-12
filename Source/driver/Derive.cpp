@@ -1,7 +1,7 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef DIFFUSION
 #include <diffusion_util.H>
@@ -17,7 +17,7 @@ extern "C"
     // These routines are called in an MFIter loop, so we do not
     // need to explicitly synchronize after GPU kernels.
 
-    void ca_derpres(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derpres(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -36,11 +36,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -50,7 +50,7 @@ extern "C"
       });
     }
 
-    void ca_dereint1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dereint1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -72,7 +72,7 @@ extern "C"
       });
     }
 
-    void ca_dereint2(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dereint2(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -88,7 +88,7 @@ extern "C"
       });
     }
 
-    void ca_derlogden(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derlogden(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -103,7 +103,7 @@ extern "C"
       });
     }
 
-    void ca_deruplusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_deruplusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -123,11 +123,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -138,7 +138,7 @@ extern "C"
       });
     }
 
-    void ca_deruminusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_deruminusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -158,11 +158,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -173,7 +173,7 @@ extern "C"
       });
     }
 
-    void ca_dersoundspeed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dersoundspeed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -193,11 +193,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -209,7 +209,7 @@ extern "C"
     }
 
 
-    void ca_dergamma1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dergamma1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -229,11 +229,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -244,7 +244,7 @@ extern "C"
       });
     }
 
-    void ca_dermachnumber(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dermachnumber(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -264,11 +264,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -282,7 +282,7 @@ extern "C"
       });
     }
 
-    void ca_derentropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derentropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -302,11 +302,11 @@ extern "C"
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
         for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
         }
 #endif
 
@@ -317,7 +317,7 @@ extern "C"
     }
 
 #ifdef DIFFUSION
-    void ca_dercond(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dercond(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -329,7 +329,7 @@ extern "C"
 
     }
 
-    void ca_derdiffcoeff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derdiffcoeff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -341,7 +341,7 @@ extern "C"
 
     }
 
-    void ca_derdiffterm(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derdiffterm(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                         const FArrayBox& datfab, const Geometry& geom,
                         Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -434,7 +434,7 @@ extern "C"
 #endif
 
 #ifdef REACTIONS
-    void ca_derenuctimescale(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derenuctimescale(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                              const FArrayBox& datfab, const Geometry& geom,
                              Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -474,11 +474,11 @@ extern "C"
           eos_state.T = dat(i,j,k,UTEMP);
           eos_state.e = dat(i,j,k,UEINT) * rhoInv;
           for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
           }
 #if NAUX_NET > 0
           for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+            eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
           }
 #endif
 
@@ -496,7 +496,7 @@ extern "C"
       });
     }
 
-    void ca_derenuc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derenuc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -514,7 +514,7 @@ extern "C"
     }
 #endif
 
-    void ca_dervel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dervel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -530,7 +530,7 @@ extern "C"
     }
 
 
-    void ca_dermagvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dermagvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -551,7 +551,7 @@ extern "C"
     }
 
 
-    void ca_dermaggrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dermaggrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -570,7 +570,7 @@ extern "C"
       });
     }
 
-    void ca_derradialvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_derradialvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -622,7 +622,7 @@ extern "C"
     }
 
 
-    void ca_dercircvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void hs_dercircvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& geom,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -685,7 +685,7 @@ extern "C"
     }
 
 
-  void ca_dermagmom(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_dermagmom(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -704,7 +704,7 @@ extern "C"
                        });
   }
 
-  void ca_derangmomx (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derangmomx (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -756,7 +756,7 @@ extern "C"
 
   }
 
-  void ca_derangmomy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derangmomy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -804,7 +804,7 @@ extern "C"
 
   }
 
-  void ca_derangmomz (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derangmomz (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -853,7 +853,7 @@ extern "C"
 
   }
 
-  void ca_derkineng (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derkineng (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -871,7 +871,7 @@ extern "C"
 
   }
 
-  void ca_dernull(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
+  void hs_dernull(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
                   const Real* /*data*/, const int* /*data_lo*/, const int* /*data_hi*/, const int* /*ncomp*/,
                   const int* /*lo*/, const int* /*hi*/,
                   const int* /*domain_lo*/, const int* /*domain_hi*/,
@@ -884,7 +884,7 @@ extern "C"
 
   }
 
-  void ca_derspec(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derspec(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -900,7 +900,7 @@ extern "C"
     }
 
 
-  void ca_derye(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derye(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                 const FArrayBox& datfab, const Geometry& /*geom*/,
                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -922,7 +922,7 @@ extern "C"
       });
     }
 
-  void ca_derabar(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derabar(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -944,7 +944,7 @@ extern "C"
       });
     }
 
-  void ca_dermagvort(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_dermagvort(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& geom,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1074,7 +1074,7 @@ extern "C"
       });
     }
 
-  void ca_derdivu(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derdivu(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1147,7 +1147,7 @@ extern "C"
       });
   }
 
-  void ca_derstate(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derstate(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1173,7 +1173,7 @@ extern "C"
   }
 
 #ifdef MHD
-  void ca_dermagcenx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_dermagcenx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1189,7 +1189,7 @@ extern "C"
 
   }
 
-  void ca_dermagceny(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_dermagceny(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1205,7 +1205,7 @@ extern "C"
 
   }
 
-  void ca_dermagcenz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_dermagcenz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1221,7 +1221,7 @@ extern "C"
 
   }
 
-  void ca_derdivb(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derdivb(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& geom,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {

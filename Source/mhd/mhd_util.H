@@ -1,7 +1,7 @@
-#ifndef CASTRO_MHD_SOUND_SPEED_H
-#define CASTRO_MHD_SOUND_SPEED_H
+#ifndef HYDROSIM_MHD_SOUND_SPEED_H
+#define HYDROSIM_MHD_SOUND_SPEED_H
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 #include <mhd_sizes.H>
 
 using namespace amrex;
@@ -38,7 +38,7 @@ qflux(Real* qflx, const Real* flx, const Real* q_zone) {
   qflx[QW] = (flx[UMZ] - flx[URHO] * q_zone[QW]) / q_zone[QRHO];
 
   for (int n = 0; n < NumSpec; n++) {
-    qflx[QFS+n] = (flx[UFS+n] - flx[URHO] * q_zone[QFS+n]) / q_zone[QRHO];
+    qflx[QSPEC+n] = (flx[USPEC+n] - flx[URHO] * q_zone[QSPEC+n]) / q_zone[QRHO];
   }
 
   eos_t eos_state;
@@ -46,11 +46,11 @@ qflux(Real* qflx, const Real* flx, const Real* q_zone) {
   eos_state.p = q_zone[QPRES];
   eos_state.T = 100.0_rt; // dummy initial guess
   for (int n = 0; n < NumSpec; n++) {
-    eos_state.xn[n] = q_zone[QFS+n];
+    eos_state.xn[n] = q_zone[QSPEC+n];
   }
 #if NAUX_NET > 0
   for (int n = 0; n < NumAux; n++) {
-    eos_state.aux[n] = q_zone[QFX+n];
+    eos_state.aux[n] = q_zone[QAUXV+n];
   }
 #endif
 
@@ -110,7 +110,7 @@ ConsToPrim(Real* q_zone, const Real* U_zone) {
   q_zone[QU] = U_zone[UMX] / q_zone[QRHO];
   q_zone[QV] = U_zone[UMY] / q_zone[QRHO];
   q_zone[QW] = U_zone[UMZ] / q_zone[QRHO];
-  q_zone[QREINT] = U_zone[UEDEN] -
+  q_zone[QRHOEI] = U_zone[UEDEN] -
     0.5_rt * q_zone[QRHO] * (q_zone[QU] * q_zone[QU] +
                              q_zone[QV] * q_zone[QV] +
                              q_zone[QW] * q_zone[QW]) -
@@ -121,19 +121,19 @@ ConsToPrim(Real* q_zone, const Real* U_zone) {
   // species
 
   for (int n = 0; n < NumSpec; n++) {
-    q_zone[QFS+n] = U_zone[UFS+n] / U_zone[URHO];
+    q_zone[QSPEC+n] = U_zone[USPEC+n] / U_zone[URHO];
   }
 
   eos_t eos_state;
 
   eos_state.rho = q_zone[QRHO];
-  eos_state.e = q_zone[QREINT] / eos_state.rho;
+  eos_state.e = q_zone[QRHOEI] / eos_state.rho;
   for (int n = 0; n < NumSpec; n++) {
-    eos_state.xn[n] = q_zone[QFS+n];
+    eos_state.xn[n] = q_zone[QSPEC+n];
   }
 #if NAUX_NET > 0
   for (int n = 0; n < NumAux; n++) {
-    eos_state.aux[n] = q_zone[QFX+n];
+    eos_state.aux[n] = q_zone[QAUXV+n];
   }
 #endif
   eos_state.T = 100.0_rt; // initial guess
@@ -167,11 +167,11 @@ PToC(Array1D<Real, 0, NQ-1>& q,
   eos_state.rho = q(QRHO);
   eos_state.p = q(QPRES);
   for (int n = 0; n < NumSpec; n++) {
-    eos_state.xn[n] = q(QFS+n);
+    eos_state.xn[n] = q(QSPEC+n);
   }
 #if NAUX_NET > 0
   for (int n = 0; n < NumAux; n++) {
-    eos_state.aux[n] = q(QFX+n);
+    eos_state.aux[n] = q(QAUXV+n);
   }
 #endif
   eos_state.T = 100.0;  // dummy initial guess
@@ -189,7 +189,7 @@ PToC(Array1D<Real, 0, NQ-1>& q,
   U(UMAGZ) = q(QMAGZ);
 
   for (int n = 0; n < NumSpec; n++) {
-    U(UFS+n) = U(URHO) * q(QFS+n);
+    U(USPEC+n) = U(URHO) * q(QSPEC+n);
   }
 
   U(UTEMP) = eos_state.T;

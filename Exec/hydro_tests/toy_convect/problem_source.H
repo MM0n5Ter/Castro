@@ -23,12 +23,12 @@ void problem_source (int i, int j, int k,
     auto T613 = std::pow(T6, 1.0_rt/3.0_rt);
 
     // CNO abundance
-    auto X_CNO = (state(i,j,k,UFS-1+Species::C12) +
-                    state(i,j,k,UFS-1+Species::N14) +
-                    state(i,j,k,UFS-1+Species::O16)) / rho;
+    auto X_CNO = (state(i,j,k,USPEC-1+Species::C12) +
+                    state(i,j,k,USPEC-1+Species::N14) +
+                    state(i,j,k,USPEC-1+Species::O16)) / rho;
 
     // H abundance
-    auto X_1 = state(i,j,k,UFS-1+Species::H1) / rho;
+    auto X_1 = state(i,j,k,USPEC-1+Species::H1) / rho;
 
     // CNO heating from Kippenhahn & Weigert, Eq. 18.65
     auto g14 = 1.0_rt + 2.7e-3_rt*T613 - 7.78e-3_rt*T613*T613 - 1.49e-4_rt*T6;

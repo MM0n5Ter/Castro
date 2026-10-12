@@ -594,24 +594,24 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
 
     if (ParallelDescriptor::IOProcessor()) {
 
-      std::ifstream oldCastroHeaderFile;
+      std::ifstream oldHydroSimHeaderFile;
 
-      std::string oldCastroHeaderName = inFileName + "/CastroHeader";
-      oldCastroHeaderFile.open(oldCastroHeaderName.c_str(), std::ios::binary);
+      std::string oldHydroSimHeaderName = inFileName + "/HydroSimHeader";
+      oldHydroSimHeaderFile.open(oldHydroSimHeaderName.c_str(), std::ios::binary);
 
-      if (oldCastroHeaderFile.good()) {
+      if (oldHydroSimHeaderFile.good()) {
 
-        std::ofstream newCastroHeaderFile;
+        std::ofstream newHydroSimHeaderFile;
 
-        std::string newCastroHeaderName = outFileName + "/CastroHeader";
-        newCastroHeaderFile.open(newCastroHeaderName.c_str(), std::ios::binary);
+        std::string newHydroSimHeaderName = outFileName + "/HydroSimHeader";
+        newHydroSimHeaderFile.open(newHydroSimHeaderName.c_str(), std::ios::binary);
 
-        if (newCastroHeaderFile.good()) {
-          newCastroHeaderFile << oldCastroHeaderFile.rdbuf();
-          newCastroHeaderFile.close();
+        if (newHydroSimHeaderFile.good()) {
+          newHydroSimHeaderFile << oldHydroSimHeaderFile.rdbuf();
+          newHydroSimHeaderFile.close();
         }
 
-        oldCastroHeaderFile.close();
+        oldHydroSimHeaderFile.close();
 
       }
 
@@ -1092,7 +1092,7 @@ static void ConvertData() {
 static void ExtendThetaDomain() {
     /// Extend level 0 domain only. Finer levels are left untounched.
     /// Except the domain metadata are updated.
-    /// We expect finer levels are handled internally via Castro
+    /// We expect finer levels are handled internally via HydroSim
     /// by regridding them on restart via amr.regrid_on_restart=1
 
     int max_level = fakeAmr.finest_level;
@@ -1162,7 +1162,7 @@ static void ExtendThetaDomain() {
 
             // Now change the size so that each Box spans over the entire theta
             // this is convenient so that we have access to data along the old theta boundary
-            // Once castro restart the simulation, it will resize based on amr.max_grid_size
+            // Once hydrosim restart the simulation, it will resize based on amr.max_grid_size
             // new_ba.maxSize(IntVect(max_grid_size, theta_cells_new_lev));
             new_ba.maxSize(IntVect(max_grid_size, max_grid_size));
             DistributionMapping new_dm(new_ba);
@@ -1193,7 +1193,7 @@ static void ExtendThetaDomain() {
                     // and destination component = 0 to ncomp. This only copies data
                     // for regions of intersection.
                     // We keep new cells with initial values equal to 0.
-                    // Once castro restarts with the new checkpoint file
+                    // Once hydrosim restarts with the new checkpoint file
                     // the new cells with be filled using problem_initialize_state_data
 
                     new_mf->ParallelCopy(*old_mf, 0, 0, ncomp);
@@ -1281,7 +1281,7 @@ int main(int argc, char *argv[]) {
         ExtendThetaDomain();
         if (ParallelDescriptor::IOProcessor()) {
             cout << "Remember to update `amr.n_cell` and `geometry.prob_hi` to the new values "
-                 << " also use `amr.regrid_on_restart=1` and set `castro.old_theta_ncell` to the number of cells "
+                 << " also use `amr.regrid_on_restart=1` and set `hydrosim.old_theta_ncell` to the number of cells "
                  << " along the theta-dir in the original domain when restarting from new chkfile!!" << endl;
         }
     }

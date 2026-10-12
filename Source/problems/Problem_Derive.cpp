@@ -1,7 +1,7 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 

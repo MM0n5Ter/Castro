@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <Gravity.H>
 
@@ -12,11 +12,11 @@
 
 using namespace amrex;
 
-void Castro::problem_post_init()
+void HydroSim::problem_post_init()
 {
     BL_ASSERT(level == 0);
 
-    gravity->multilevel_solve_for_new_phi(0, parent->finestLevel());
+    gravity->solve_new_phi_all_levels(0, parent->finestLevel());
 
     const int norm_power = 2;
 

@@ -136,13 +136,13 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMX)  = dens * velx;
     state(i,j,k,UMY)  = dens * vely;
     state(i,j,k,UMZ)  = dens * velz;
-    state(i,j,k,UFA)  = dye;
+    state(i,j,k,UADV)  = dye;
 
     // Establish the thermodynamic quantities
     eos_t eos_state;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 1.0_rt / static_cast<Real>(NumSpec);
+        state(i,j,k,USPEC+n) = 1.0_rt / static_cast<Real>(NumSpec);
         eos_state.xn[n] = 1.0_rt / static_cast<Real>(NumSpec);
     }
 
@@ -158,7 +158,7 @@ void problem_initialize_state_data (int i, int j, int k,
         0.5_rt * dens * (velx * velx + vely * vely + velz * velz);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 }
 #endif

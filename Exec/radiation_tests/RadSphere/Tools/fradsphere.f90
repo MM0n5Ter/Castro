@@ -1,5 +1,5 @@
 ! Print out the radiation quantities at a specified distance from the
-! origin, for a 1-d CASTRO run.  This is geared toward the radiating
+! origin, for a 1-d HYDROSIM run.  This is geared toward the radiating
 ! sphere problem.
 
 program fradsphere
@@ -89,7 +89,7 @@ program fradsphere
      print *, "./fradsphere [-r radius -g groupfile] plotfile"
      print *, " "
      print *, "Here groupfile is the file containing the group structure information"
-     print *, "as output by Castro (usually group_structure.dat)."
+     print *, "as output by HydroSim (usually group_structure.dat)."
      stop
   end if
 

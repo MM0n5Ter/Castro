@@ -12,7 +12,7 @@
 
 export OMP_NUM_THREADS=1
 
-export CASTRO_EXEC=./Castro2d.intel.haswell.MPI.ex
+export HYDROSIM_EXEC=./HydroSim2d.intel.haswell.MPI.ex
 
 
 function find_chk_file {
@@ -59,5 +59,5 @@ fi
 
 slack_job_start.py "starting flame_wave problem @ NERSC; ${restartFile}" @michael
 
-srun ${CASTRO_EXEC} inputs.boost_10_10 ${restartString}
+srun ${HYDROSIM_EXEC} inputs.boost_10_10 ${restartString}
 

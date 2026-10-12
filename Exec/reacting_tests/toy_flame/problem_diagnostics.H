@@ -3,7 +3,7 @@
 
 AMREX_INLINE
 void
-Castro::problem_diagnostics ()
+HydroSim::problem_diagnostics ()
 {
     int finest_level = parent->finestLevel();
     Real time        = state[State_Type].curTime();
@@ -19,15 +19,15 @@ Castro::problem_diagnostics ()
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
-        Castro& ca_lev = getLevel(lev);
+        HydroSim& hs_lev = getLevel(lev);
 
-        ca_lev.flame_width_properties(time, T_max, T_min, grad_T_max);
+        hs_lev.flame_width_properties(time, T_max, T_min, grad_T_max);
 
         // For now we only do the flame speed calculation on the coarse grid since
         // it doesn't share the same timestep as the fine grids.
 
         if (lev == 0)
-            ca_lev.flame_speed_properties(time, rho_fuel_dot);
+            hs_lev.flame_speed_properties(time, rho_fuel_dot);
     }
 
     ParallelDescriptor::ReduceRealMax(T_max);
@@ -51,7 +51,7 @@ Castro::problem_diagnostics ()
             std::cout << "TIME= " << time << " FLAME SPEED = "   << flame_speed << '\n';
         }
 
-        std::ostream& datalog = *Castro::problem_data_logs[0];
+        std::ostream& datalog = *HydroSim::problem_data_logs[0];
 
         if (time == 0.0) {
             datalog << std::setw(14) <<  "      time    ";

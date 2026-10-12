@@ -16,8 +16,8 @@ amr.n_cell         = 128 256
 
 amr.max_level      = 2       # maximum level number allowed
 
-castro.lo_bc       =  3 2
-castro.hi_bc       =  2 2
+hydrosim.lo_bc       =  3 2
+hydrosim.hi_bc       =  2 2
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -25,29 +25,29 @@ castro.hi_bc       =  2 2
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.do_hydro = 1
-castro.do_grav  = 1
-castro.do_react = 0
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_grav  = 1
+hydrosim.do_react = 0
+hydrosim.do_sponge = 1
 
-castro.ppm_type = 1
-castro.ppm_temp_fix = 0
+hydrosim.ppm_type = 1
+hydrosim.ppm_temp_fix = 0
 
-castro.use_flattening = 1
+hydrosim.use_flattening = 1
 
-castro.riemann_solver = 1
+hydrosim.riemann_solver = 1
 
-gravity.gravity_type = MonopoleGrav
-gravity.drdxfac = 2
+gravity.gravity_type = SphericalMonopole
+gravity.radial_bins_per_dx = 2
 
-castro.cfl            = 0.9     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep by this factor
-castro.change_max     = 1.05    # factor by which dt is allowed to change each timestep
-castro.sum_interval   = 0       # timesteps between computing and printing volume averages
+hydrosim.cfl            = 0.9     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep by this factor
+hydrosim.change_max     = 1.05    # factor by which dt is allowed to change each timestep
+hydrosim.sum_interval   = 0       # timesteps between computing and printing volume averages
 
-castro.sponge_upper_density = 1.e4
-castro.sponge_lower_density = 1.e2
-castro.sponge_timescale     = 1.e-3
+hydrosim.sponge_upper_density = 1.e4
+hydrosim.sponge_lower_density = 1.e2
+hydrosim.sponge_timescale     = 1.e-3
 
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 10000   # how often to regrid
@@ -69,7 +69,7 @@ amr.max_grid_size   = 128       # maximum grid size allowed -- used to control p
 amr.blocking_factor = 32       # block factor in grid generation
 
 amr.v               = 1       # control verbosity in Amr.cpp
-castro.v            = 0       # control verbosity in Castro.cpp
+hydrosim.v            = 0       # control verbosity in HydroSim.cpp
 
 amr.derive_plot_vars = ALL
 

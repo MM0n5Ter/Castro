@@ -35,15 +35,15 @@ void problem_initialize ()
         problem::xloc_vortices[i] = (static_cast<Real>(i) + 0.5_rt) * offset + problo[0];
     }
 
-    // Set up Castro data logs for this problem
+    // Set up HydroSim data logs for this problem
 
-    if (castro::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
+    if (hydrosim::sum_interval > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 
-        Castro::problem_data_logs.resize(1);
+        HydroSim::problem_data_logs.resize(1);
 
-        Castro::problem_data_logs[0].reset(new std::fstream);
-        Castro::problem_data_logs[0]->open("problem_diag.out", std::ios::out | std::ios::app);
-        if (!Castro::problem_data_logs[0]->good()) {
+        HydroSim::problem_data_logs[0].reset(new std::fstream);
+        HydroSim::problem_data_logs[0]->open("problem_diag.out", std::ios::out | std::ios::app);
+        if (!HydroSim::problem_data_logs[0]->good()) {
             amrex::FileOpenFailed("problem_diag.out");
         }
 

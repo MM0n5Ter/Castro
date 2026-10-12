@@ -15,43 +15,43 @@ amr.n_cell           = 64 64 64
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   0   1
-castro.hi_bc       =  0   0   2
+hydrosim.lo_bc       =  0   0   1
+hydrosim.hi_bc       =  0   0   2
 
-castro.zl_ext_bc_type = 1
+hydrosim.zl_ext_bc_type = 1
 
-castro.hse_interp_temp = 1
-castro.hse_reflect_vels = 1
+hydrosim.hse_interp_temp = 1
+hydrosim.hse_reflect_vels = 1
 
-castro.fill_ambient_bc = 1
-castro.ambient_fill_dir = 2
-castro.ambient_outflow_vel = 1
+hydrosim.fill_ambient_bc = 1
+hydrosim.ambient_fill_dir = 2
+hydrosim.ambient_outflow_vel = 1
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
-castro.do_grav = 1
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
+hydrosim.do_grav = 1
+hydrosim.do_sponge = 1
 
-castro.ppm_type = 1
-castro.use_flattening = 1
+hydrosim.ppm_type = 1
+hydrosim.use_flattening = 1
 
-gravity.gravity_type = ConstantGrav
+gravity.gravity_type = UniformField
 gravity.const_grav   = -1.5e10
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
 # SPONGE
-castro.sponge_upper_density = 1.e6
-castro.sponge_lower_density = 1.e4
-castro.sponge_timescale     = 1.e-5
+hydrosim.sponge_upper_density = 1.e6
+hydrosim.sponge_lower_density = 1.e4
+hydrosim.sponge_timescale     = 1.e-5
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING

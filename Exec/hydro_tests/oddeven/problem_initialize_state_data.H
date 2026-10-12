@@ -73,7 +73,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEINT) = dens * eos_state.e;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = dens * X[n];
+        state(i,j,k,USPEC+n) = dens * X[n];
     }
 }
 

@@ -70,13 +70,13 @@ def doit(plotfile):
 
     pid = plotfile.split("plt")[1]
     sc.render()
-    sc.save("wdmerger_{}_new.png".format(pid), sigma_clip=6.0)
-    sc.save_annotated("wdmerger_annotated_{}_new.png".format(pid),
+    sc.save("binarywd_{}_new.png".format(pid), sigma_clip=6.0)
+    sc.save_annotated("binarywd_annotated_{}_new.png".format(pid),
                       text_annotate=[[(0.05, 0.05),
                                       "t = {:.3f} s".format(float(ds.current_time.d)),
                                       dict(horizontalalignment="left")],
                                      [(0.5,0.95),
-                                      "Castro simulation of merging white dwarfs (0.6 $M_\odot$ + 0.9 $M_\odot$)",
+                                      "HydroSim simulation of merging white dwarfs (0.6 $M_\odot$ + 0.9 $M_\odot$)",
                                       dict(color="y", fontsize="22",
                                            horizontalalignment="center")],
                                      [(0.95,0.05),

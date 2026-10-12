@@ -70,7 +70,7 @@ void problem_initialize_state_data (int i, int j, int k,
     xn_zone[0] = 1.0_rt;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * xn_zone[n];
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * xn_zone[n];
     }
 }
 

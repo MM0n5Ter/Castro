@@ -10,7 +10,7 @@
 #include <network.H>
 #include <model_parser_data.H>
 #include <AMReX_Print.H>
-#include <castro_params.H>
+#include <hydrosim_params.H>
 #include <eos.H>
 #include <ambient.H>
 
@@ -252,7 +252,7 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
     // Check to make sure the initial temperature makes sense.
 
-    if (temperature < castro::small_temp) {
+    if (temperature < hydrosim::small_temp) {
         amrex::Error("Error: WD central temperature is less than small_temp. Aborting.");
     }
 

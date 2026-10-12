@@ -38,7 +38,7 @@ void problem_initialize_state_data (int i, int j, int k,
         zone_state.T   = ambient::ambient_state[UTEMP];
         zone_state.e   = ambient::ambient_state[UEINT] / ambient::ambient_state[URHO];
         for (int n = 0; n < NumSpec; ++n) {
-            zone_state.xn[n] = ambient::ambient_state[UFS+n] / ambient::ambient_state[URHO];
+            zone_state.xn[n] = ambient::ambient_state[USPEC+n] / ambient::ambient_state[URHO];
         }
     }
 
@@ -51,7 +51,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = zone_state.e * zone_state.rho +
                          0.5_rt * state(i,j,k,URHO) * problem::wd_speed * problem::wd_speed;
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = zone_state.rho * zone_state.xn[n];
+        state(i,j,k,USPEC+n) = zone_state.rho * zone_state.xn[n];
     }
 }
 

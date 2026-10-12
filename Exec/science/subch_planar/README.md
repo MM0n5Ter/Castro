@@ -12,10 +12,10 @@ https://github.com/AMReX-Astro/initial_models in the `toy_atm/` directory.
 
 To disable burning in shocks:
 
-* in the inputs file, set `castro.disable_shock_burning = 1`
+* in the inputs file, set `hydrosim.disable_shock_burning = 1`
 
 * to change the detection threshold from the default 2/3, use
-  `castro.shock_detection_threshold = #`, where # is the new
+  `hydrosim.shock_detection_threshold = #`, where # is the new
   desired threshold.
 
 

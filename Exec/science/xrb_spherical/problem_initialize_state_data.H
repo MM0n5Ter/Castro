@@ -44,7 +44,7 @@ void problem_initialize_state_data (int i, int j, int k,
          (1.0_rt - f) * interpolate(r, model::ipres, 0);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = f * interpolate(r, model::ispec+n, 1) +
+        state(i,j,k,USPEC+n) = f * interpolate(r, model::ispec+n, 1) +
                   (1.0_rt - f) * interpolate(r, model::ispec+n, 0);
     }
 
@@ -53,7 +53,7 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.T = state(i,j,k,UTEMP);
     eos_state.p = temppres;
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n);
+        eos_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
     eos(eos_input_rp, eos_state);
@@ -71,7 +71,7 @@ void problem_initialize_state_data (int i, int j, int k,
     // convert to partial densities
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 }
 

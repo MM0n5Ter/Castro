@@ -19,7 +19,7 @@ module constants_module
   ! specify the energy groups.  Ultimately we will work in terms of
   ! frequency, but we set the limits in terms of energy.
 
-  ! note: E_min and E_max MUST match the parameters used in CASTRO
+  ! note: E_min and E_max MUST match the parameters used in HYDROSIM
   ! to define the group structure.
   integer, parameter :: ngroups_derive = 128          ! number of groups to compute
   real(rt), parameter :: E_min = 0.5e0_rt*ev2erg ! min group energy (erg)

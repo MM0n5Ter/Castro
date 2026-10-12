@@ -1,5 +1,5 @@
-#include <Castro.H>
-#include <Castro_util.H>
+#include <HydroSim.H>
+#include <HydroSim_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -15,7 +15,7 @@ using namespace amrex;
 using namespace reconstruction;
 
 void
-Castro::trace_plm(const Box& bx, const int idir,
+HydroSim::trace_plm(const Box& bx, const int idir,
                   Array4<Real const> const& U_arr,
                   Array4<Real const> const& rho_inv_arr,
                   Array4<Real const> const& q_arr,
@@ -78,21 +78,21 @@ Castro::trace_plm(const Box& bx, const int idir,
   Real lsmall_dens = small_dens;
   Real lsmall_pres = small_pres;
 
-  constexpr int NEIGN = 6;
-  constexpr int IEIGN_RHO = 0;
-  constexpr int IEIGN_UN = 1;
-  constexpr int IEIGN_UT = 2;
-  constexpr int IEIGN_UTT = 3;
-  constexpr int IEIGN_P = 4;
-  constexpr int IEIGN_RE = 5;
+  constexpr int NEVEC = 6;
+  constexpr int IEVEC_RHO = 0;
+  constexpr int IEVEC_UN = 1;
+  constexpr int IEVEC_UT = 2;
+  constexpr int IEVEC_UTT = 3;
+  constexpr int IEVEC_P = 4;
+  constexpr int IEVEC_RE = 5;
 
-  int cvars[NEIGN];
-  cvars[IEIGN_RHO] = QRHO;
-  cvars[IEIGN_UN] = QUN;
-  cvars[IEIGN_UT] = QUT;
-  cvars[IEIGN_UTT] = QUTT;
-  cvars[IEIGN_P] = QPRES;
-  cvars[IEIGN_RE] = QREINT;
+  int cvars[NEVEC];
+  cvars[IEVEC_RHO] = QRHO;
+  cvars[IEVEC_UN] = QUN;
+  cvars[IEVEC_UT] = QUT;
+  cvars[IEVEC_UTT] = QUTT;
+  cvars[IEVEC_P] = QPRES;
+  cvars[IEVEC_RE] = QRHOEI;
 
   // Compute left and right traced states
 
@@ -127,22 +127,22 @@ Castro::trace_plm(const Box& bx, const int idir,
     Real utt = q_arr(i,j,k,QUTT);
 
     Real p = q_arr(i,j,k,QPRES);
-    Real rhoe = q_arr(i,j,k,QREINT);
+    Real rhoe = q_arr(i,j,k,QRHOEI);
     Real enth = (rhoe+p)/(rho*csq);
 
-    Real dq[NEIGN];
+    Real dq[NEVEC];
     Real s[nslp];
 
     Real flat = 1.0;
 
-    if (castro::first_order_hydro) {
+    if (hydrosim::first_order_hydro) {
         flat = 0.0;
     }
-    else if (castro::use_flattening) {
+    else if (hydrosim::use_flattening) {
         flat = hydro::flatten(i, j, k, q_arr, QPRES);
 
 #ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, q_arr, QPTOT);
+        flat *= hydro::flatten(i, j, k, q_arr, QPTOTAL);
 
         if (radiation::flatten_pp_threshold > 0.0) {
             Real vel_sum_m = q_arr(i-1,j,k,QU);
@@ -156,7 +156,7 @@ Castro::trace_plm(const Box& bx, const int idir,
             vel_sum_p += q_arr(i,j,k+1,QW);
 #endif
             if (vel_sum_m > vel_sum_p) {
-                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOT)) {
+                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOTAL)) {
                     flat = 0.0;
                 }
             }
@@ -164,7 +164,7 @@ Castro::trace_plm(const Box& bx, const int idir,
 #endif
     }
 
-    for (int n = 0; n < NEIGN; n++) {
+    for (int n = 0; n < NEVEC; n++) {
       int v = cvars[n];
 
       load_stencil(q_arr, idir, i, j, k, v, s);
@@ -183,18 +183,18 @@ Castro::trace_plm(const Box& bx, const int idir,
       load_stencil(q_arr, idir, i, j, k, QRHO, trho);
       load_stencil(srcQ, idir, i, j, k, QUN, src);
 
-      Real dp = dq[IEIGN_P];
+      Real dp = dq[IEVEC_P];
       pslope(trho, s, src, flat, lo_bc_test, hi_bc_test, dL, dp);
-      dq[IEIGN_P] = dp;
+      dq[IEVEC_P] = dp;
 
     }
 
-    Real alpham = 0.5_rt*(dq[IEIGN_P]/(rho*cc) - dq[IEIGN_UN])*(rho/cc);
-    Real alphap = 0.5_rt*(dq[IEIGN_P]/(rho*cc) + dq[IEIGN_UN])*(rho/cc);
-    Real alpha0r = dq[IEIGN_RHO] - dq[IEIGN_P]/csq;
-    Real alpha0e = dq[IEIGN_RE] - dq[IEIGN_P]*enth;
-    Real alpha0ut = dq[IEIGN_UT];
-    Real alpha0utt = dq[IEIGN_UTT];
+    Real alpham = 0.5_rt*(dq[IEVEC_P]/(rho*cc) - dq[IEVEC_UN])*(rho/cc);
+    Real alphap = 0.5_rt*(dq[IEVEC_P]/(rho*cc) + dq[IEVEC_UN])*(rho/cc);
+    Real alpha0r = dq[IEVEC_RHO] - dq[IEVEC_P]/csq;
+    Real alpha0e = dq[IEVEC_RE] - dq[IEVEC_P]*enth;
+    Real alpha0ut = dq[IEVEC_UT];
+    Real alpha0utt = dq[IEVEC_UTT];
 
     Real e[3];
     e[0] = un - cc;
@@ -204,12 +204,12 @@ Castro::trace_plm(const Box& bx, const int idir,
     // construct the right state on the i interface
 
     Real ref_fac = 0.5_rt*(1.0_rt + dtdL*amrex::min(e[0], 0.0_rt));
-    Real rho_ref = rho - ref_fac*dq[IEIGN_RHO];
-    Real un_ref = un - ref_fac*dq[IEIGN_UN];
-    Real ut_ref = ut - ref_fac*dq[IEIGN_UT];
-    Real utt_ref = utt - ref_fac*dq[IEIGN_UTT];
-    Real p_ref = p - ref_fac*dq[IEIGN_P];
-    Real rhoe_ref = rhoe - ref_fac*dq[IEIGN_RE];
+    Real rho_ref = rho - ref_fac*dq[IEVEC_RHO];
+    Real un_ref = un - ref_fac*dq[IEVEC_UN];
+    Real ut_ref = ut - ref_fac*dq[IEVEC_UT];
+    Real utt_ref = utt - ref_fac*dq[IEVEC_UTT];
+    Real p_ref = p - ref_fac*dq[IEVEC_P];
+    Real rhoe_ref = rhoe - ref_fac*dq[IEVEC_RE];
 
     // this is -(1/2) ( 1 + dt/dx lambda) (l . dq) r
     Real trace_fac0 = 0.0_rt; //  FOURTH*dtdx*(e(1) - e(1))*(1.0_rt - sign(1.0_rt, e(1)))
@@ -233,7 +233,7 @@ Castro::trace_plm(const Box& bx, const int idir,
       qp(i,j,k,QUT) = ut_ref + azut1rght;
       qp(i,j,k,QUTT) = utt_ref + azutt1rght;
       qp(i,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (apright + amright)*csq);
-      qp(i,j,k,QREINT) = rhoe_ref + (apright + amright)*enth*csq + azeright;
+      qp(i,j,k,QRHOEI) = rhoe_ref + (apright + amright)*enth*csq + azeright;
 
       // add the source terms
       qp(i,j,k,QRHO  ) += 0.5_rt*dt*srcQ(i,j,k,QRHO);
@@ -241,7 +241,7 @@ Castro::trace_plm(const Box& bx, const int idir,
       qp(i,j,k,QUN   ) += 0.5_rt*dt*srcQ(i,j,k,QUN);
       qp(i,j,k,QUT   ) += 0.5_rt*dt*srcQ(i,j,k,QUT);
       qp(i,j,k,QUTT  ) += 0.5_rt*dt*srcQ(i,j,k,QUTT);
-      qp(i,j,k,QREINT) += 0.5_rt*dt*srcQ(i,j,k,QREINT);
+      qp(i,j,k,QRHOEI) += 0.5_rt*dt*srcQ(i,j,k,QRHOEI);
       qp(i,j,k,QPRES ) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     }
@@ -249,12 +249,12 @@ Castro::trace_plm(const Box& bx, const int idir,
     // now construct the left state on the i+1 interface
 
     ref_fac = 0.5_rt*(1.0_rt - dtdL*amrex::max(e[2], 0.0_rt));
-    rho_ref = rho + ref_fac*dq[IEIGN_RHO];
-    un_ref = un + ref_fac*dq[IEIGN_UN];
-    ut_ref = ut + ref_fac*dq[IEIGN_UT];
-    utt_ref = utt + ref_fac*dq[IEIGN_UTT];
-    p_ref = p + ref_fac*dq[IEIGN_P];
-    rhoe_ref = rhoe + ref_fac*dq[IEIGN_RE];
+    rho_ref = rho + ref_fac*dq[IEVEC_RHO];
+    un_ref = un + ref_fac*dq[IEVEC_UN];
+    ut_ref = ut + ref_fac*dq[IEVEC_UT];
+    utt_ref = utt + ref_fac*dq[IEVEC_UTT];
+    p_ref = p + ref_fac*dq[IEVEC_P];
+    rhoe_ref = rhoe + ref_fac*dq[IEVEC_RE];
 
     trace_fac0 = 0.25_rt*dtdL*(e[2] - e[0])*(1.0_rt + std::copysign(1.0_rt, e[0]));
     trace_fac1 = 0.25_rt*dtdL*(e[2] - e[1])*(1.0_rt + std::copysign(1.0_rt, e[1]));
@@ -274,14 +274,14 @@ Castro::trace_plm(const Box& bx, const int idir,
       qm(i+1,j,k,QUT) = ut_ref + azut1left;
       qm(i+1,j,k,QUTT) = utt_ref + azutt1left;
       qm(i+1,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i+1,j,k,QREINT) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i+1,j,k,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
 
       // add the source terms
       qm(i+1,j,k,QRHO) = amrex::max(lsmall_dens, qm(i+1,j,k,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
       qm(i+1,j,k,QUN) += 0.5_rt*dt*srcQ(i,j,k,QUN);
       qm(i+1,j,k,QUT) += 0.5_rt*dt*srcQ(i,j,k,QUT);
       qm(i+1,j,k,QUTT) += 0.5_rt*dt*srcQ(i,j,k,QUTT);
-      qm(i+1,j,k,QREINT) += 0.5_rt*dt*srcQ(i,j,k,QREINT);
+      qm(i+1,j,k,QRHOEI) += 0.5_rt*dt*srcQ(i,j,k,QRHOEI);
       qm(i+1,j,k,QPRES) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     } else if (idir == 1 && j <= vhi[1]) {
@@ -290,14 +290,14 @@ Castro::trace_plm(const Box& bx, const int idir,
       qm(i,j+1,k,QUT) = ut_ref + azut1left;
       qm(i,j+1,k,QUTT) = utt_ref + azutt1left;
       qm(i,j+1,k,QPRES) = max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i,j+1,k,QREINT) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i,j+1,k,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
 
       // add the source terms
       qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, qm(i,j+1,k,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
       qm(i,j+1,k,QUN) += 0.5_rt*dt*srcQ(i,j,k,QUN);
       qm(i,j+1,k,QUT) += 0.5_rt*dt*srcQ(i,j,k,QUT);
       qm(i,j+1,k,QUTT) += 0.5_rt*dt*srcQ(i,j,k,QUTT);
-      qm(i,j+1,k,QREINT) += 0.5_rt*dt*srcQ(i,j,k,QREINT);
+      qm(i,j+1,k,QRHOEI) += 0.5_rt*dt*srcQ(i,j,k,QRHOEI);
       qm(i,j+1,k,QPRES) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     } else if (idir == 2 && k <= vhi[2]) {
@@ -306,14 +306,14 @@ Castro::trace_plm(const Box& bx, const int idir,
       qm(i,j,k+1,QUT) = ut_ref + azut1left;
       qm(i,j,k+1,QUTT) = utt_ref + azutt1left;
       qm(i,j,k+1,QPRES) = amrex::max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i,j,k+1,QREINT) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i,j,k+1,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
 
       // add the source terms
       qm(i,j,k+1,QRHO) = amrex::max(lsmall_dens, qm(i,j,k+1,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
       qm(i,j,k+1,QUN) += 0.5_rt*dt*srcQ(i,j,k,QUN);
       qm(i,j,k+1,QUT) += 0.5_rt*dt*srcQ(i,j,k,QUT);
       qm(i,j,k+1,QUTT) += 0.5_rt*dt*srcQ(i,j,k,QUTT);
-      qm(i,j,k+1,QREINT) += 0.5_rt*dt*srcQ(i,j,k,QREINT);
+      qm(i,j,k+1,QRHOEI) += 0.5_rt*dt*srcQ(i,j,k,QRHOEI);
       qm(i,j,k+1,QPRES) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     }
@@ -335,14 +335,14 @@ Castro::trace_plm(const Box& bx, const int idir,
         qm(i+1,j,k,QRHO) += sourcr;
         qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), lsmall_dens);
         qm(i+1,j,k,QPRES) += sourcp;
-        qm(i+1,j,k,QREINT) += source;
+        qm(i+1,j,k,QRHOEI) += source;
       }
 
       if (idir == 1 && j <= vhi[1]) {
         qm(i,j+1,k,QRHO) += sourcr;
         qm(i,j+1,k,QRHO) = amrex::max(qm(i,j+1,k,QRHO), lsmall_dens);
         qm(i,j+1,k,QPRES) += sourcp;
-        qm(i,j+1,k,QREINT) += source;
+        qm(i,j+1,k,QRHOEI) += source;
       }
 
       if ((idir == 0 && i >= vlo[0]) ||
@@ -350,7 +350,7 @@ Castro::trace_plm(const Box& bx, const int idir,
         qp(i,j,k,QRHO) += sourcr;
         qp(i,j,k,QRHO) = amrex::max(qp(i,j,k,QRHO), lsmall_dens);
         qp(i,j,k,QPRES) += sourcp;
-        qp(i,j,k,QREINT) += source;
+        qp(i,j,k,QRHOEI) += source;
       }
 
     }

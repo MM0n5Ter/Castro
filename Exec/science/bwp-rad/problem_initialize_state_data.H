@@ -35,14 +35,14 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UTEMP) = interpolate(dist, model::itemp);
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = interpolate(dist, model::ispec+n);
+        state(i,j,k,USPEC+n) = interpolate(dist, model::ispec+n);
     }
 
     eos_t eos_state;
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n);
+        eos_state.xn[n] = state(i,j,k,USPEC+n);
     }
 
     eos(eos_input_rt, eos_state);
@@ -51,7 +51,7 @@ void problem_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = state(i,j,k,URHO) * eos_state.e;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) * state(i,j,k,USPEC+n);
     }
 
     // Initial velocities = 0

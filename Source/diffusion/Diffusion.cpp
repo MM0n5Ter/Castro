@@ -1,11 +1,11 @@
 #include <AMReX_ParmParse.H>
 #include <Diffusion.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
 #include <MGutils.H>
 
-#include <castro_limits.H>
+#include <hydrosim_limits.H>
 
 using namespace amrex;
 
@@ -20,7 +20,7 @@ Diffusion::Diffusion(Amr* Parent, BCRec* _phys_bc)
 {
     AMREX_ALWAYS_ASSERT(parent->maxLevel() < MAX_LEV);
 
-    make_mg_bc();
+    set_solver_bc_types();
 }
 
 
@@ -32,7 +32,7 @@ Diffusion::output_job_info_params(std::ostream& jobInfoFile)
 
 
 void
-Diffusion::install_level (int                   level,
+Diffusion::register_level (int                   level,
                           AmrLevel*             level_data,
                           MultiFab&             _volume,
                           MultiFab*             _area)
@@ -61,7 +61,7 @@ Diffusion::applyop (int level, MultiFab& Temperature,
 
 
 void
-Diffusion::make_mg_bc ()
+Diffusion::set_solver_bc_types ()
 {
     const Geometry& geom = parent->Geom(0);
 

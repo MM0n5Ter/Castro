@@ -18,7 +18,7 @@ problem.t     = 1.e-6
 
 problem.npts  = 128
 
-castro.T_guess = 1.e5
+hydrosim.T_guess = 1.e5
 
 eos.eos_file = LS220_240r_140t_50y_analmu_20120628_SVNr28.h5
 

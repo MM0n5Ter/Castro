@@ -46,7 +46,7 @@ module constants_module
   real(rt), parameter :: rhoe_i = 1.e9_rt  ! erg / cm**3
   !real(rt), parameter :: rhoe_i = 1.e2_rt  ! erg / cm**3
 
-  ! we will specify the opacity as a constant kappa.  In Castro lingo,
+  ! we will specify the opacity as a constant kappa.  In HydroSim lingo,
   ! this is the Planck mean opacity, which appears in the source term.
   real(rt), parameter :: kappa_p = 4.e-8_rt
 

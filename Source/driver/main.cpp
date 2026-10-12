@@ -22,8 +22,8 @@
 
 #include <ctime>
 
-#include <Castro.H>
-#include <Castro_io.H>
+#include <HydroSim.H>
+#include <HydroSim_io.H>
 
 #include <global.H>
 
@@ -69,7 +69,7 @@ main (int   argc,
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
             if (std::string(argv[i]) == "--describe") {
-                Castro::writeBuildInfo();
+                HydroSim::writeBuildInfo();
                 return 0;
             }
         }
@@ -175,12 +175,12 @@ main (int   argc,
     }
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-    Castro::problem_post_simulation(amrptr->getAmrLevels());
+    HydroSim::problem_post_simulation(amrptr->getAmrLevels());
 #endif
 
     // Write final checkpoint and plotfile
 
-    if (Castro::get_output_at_completion() == 1) {
+    if (HydroSim::get_output_at_completion() == 1) {
 
         if (amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0)) {
             amrptr->checkPoint();
@@ -201,7 +201,7 @@ main (int   argc,
     // object because we need to scale it by the number of zones on the coarse grid.
 
     long numPtsCoarseGrid = amrptr->getLevel(0).boxArray().numPts();
-    Real fom = Castro::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
+    Real fom = HydroSim::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
 
     time(&time_type);
 

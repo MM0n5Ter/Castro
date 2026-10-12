@@ -73,7 +73,7 @@ void problem_initialize_state_data (int i, int j, int k,
         state(i,j,k,UEINT) = rho_ash * e_ash;
         state(i,j,k,UTEMP) = T_ash;
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = rho_ash * xn_ash[n];
+            state(i,j,k,USPEC+n) = rho_ash * xn_ash[n];
         }
 
     } else if (xx > x_int && xx < x_int + pert_width) {
@@ -94,7 +94,7 @@ void problem_initialize_state_data (int i, int j, int k,
         state(i,j,k,UEINT) = eos_state.rho * eos_state.e;
         state(i,j,k,UTEMP) = eos_state.T;
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = eos_state.rho * eos_state.xn[n];
+            state(i,j,k,USPEC+n) = eos_state.rho * eos_state.xn[n];
         }
 
     } else {
@@ -106,7 +106,7 @@ void problem_initialize_state_data (int i, int j, int k,
         state(i,j,k,UEINT) = problem::rho_fuel * e_fuel;
         state(i,j,k,UTEMP) = problem::T_fuel;
         for (int n = 0; n < NumSpec; n++) {
-            state(i,j,k,UFS+n) = problem::rho_fuel * xn_fuel[n];
+            state(i,j,k,USPEC+n) = problem::rho_fuel * xn_fuel[n];
         }
 
     }

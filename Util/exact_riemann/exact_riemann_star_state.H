@@ -28,7 +28,7 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn_l[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -42,7 +42,7 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn_r[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -106,7 +106,7 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     bool converged = false;
 
     int iter = 1;
-    while (! converged && iter < castro::riemann_shock_maxiter) {
+    while (! converged && iter < hydrosim::riemann_shock_maxiter) {
 
         // compute Z_l, W_l and Z_r, W_r -- the form of these depend
         // on whether the wave is a shock or a rarefaction

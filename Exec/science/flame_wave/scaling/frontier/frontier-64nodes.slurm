@@ -11,7 +11,7 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=closest
 
-EXEC=./Castro3d.hip.x86-trento.TPROF.MPI.HIP.ex
+EXEC=./HydroSim3d.hip.x86-trento.TPROF.MPI.HIP.ex
 INPUTS=inputs.He.25cm.static.1000Hz
 
 module load cpe

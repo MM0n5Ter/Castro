@@ -4,11 +4,11 @@
 set -x
 
 DIM=3
-EXEC=./Castro${DIM}d.gnu.MPI.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.ex
 
 RUNPARAMS="
-castro.ppm_type=1
-castro.time_integration_method=0
+hydrosim.ppm_type=1
+hydrosim.time_integration_method=0
 problem.init_as_1d=1
 geometry.prob_hi=1 0.125 0.125"
 
@@ -23,8 +23,8 @@ RichardsonConvergenceTest${DIM}d.gnu.ex coarFile=acoustic_pulse_64_ppm_plt00081 
 #RichardsonConvergenceTest${DIM}d.gnu.ex coarFile=acoustic_pulse_128_ppm_plt00161 mediFile=acoustic_pulse_256_ppm_plt00321 fineFile=acoustic_pulse_512_ppm_plt00641 > convergence.${DIM}d.hi.ppm.out
 
 RUNPARAMS="
-castro.ppm_type=1
-castro.time_integration_method=0
+hydrosim.ppm_type=1
+hydrosim.time_integration_method=0
 problem.init_as_1d=2
 geometry.prob_hi=0.125 1 0.125"
 
@@ -40,8 +40,8 @@ RichardsonConvergenceTest${DIM}d.gnu.ex coarFile=acoustic_pulse_64_ppm_plt00081 
 
 
 RUNPARAMS="
-castro.ppm_type=1
-castro.time_integration_method=0
+hydrosim.ppm_type=1
+hydrosim.time_integration_method=0
 problem.init_as_1d=3
 geometry.prob_hi=0.125 0.125 1"
 

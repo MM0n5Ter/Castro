@@ -3,7 +3,7 @@
 
 AMREX_INLINE
 void
-Castro::problem_diagnostics ()
+HydroSim::problem_diagnostics ()
 {
     int finest_level = parent->finestLevel();
     Real time        = state[State_Type].curTime();
@@ -16,20 +16,20 @@ Castro::problem_diagnostics ()
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
-        Castro& ca_lev = getLevel(lev);
+        HydroSim& hs_lev = getLevel(lev);
 
-        mass     += ca_lev.volWgtSum("density", time);
+        mass     += hs_lev.volWgtSum("density", time);
 
-        rho_E    += ca_lev.volWgtSum("rho_E", time);
+        rho_E    += hs_lev.volWgtSum("rho_E", time);
 
-        auto temp_mf = ca_lev.derive("Temp", time, 0);
+        auto temp_mf = hs_lev.derive("Temp", time, 0);
         Tmax_level = temp_mf->max(0, 0);
         if (Tmax_level > Tmax)
         {
             Tmax = Tmax_level;
         }
 
-        auto mach_mf = ca_lev.derive("MachNumber", time, 0);
+        auto mach_mf = hs_lev.derive("MachNumber", time, 0);
         MachMax_level = mach_mf->max(0, 0);
         if (MachMax_level > MachMax)
         {
@@ -46,7 +46,7 @@ Castro::problem_diagnostics ()
         std::cout << "TIME= " << time << " RHO*E = "   << rho_E     << '\n';
 
         // get output files
-        std::ostream& data_log1 = *Castro::problem_data_logs[0];
+        std::ostream& data_log1 = *HydroSim::problem_data_logs[0];
 
         if (time == 0.0) {
            data_log1 << std::setw(14) <<  "#     time    ";

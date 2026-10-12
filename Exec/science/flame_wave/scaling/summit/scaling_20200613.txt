@@ -5,7 +5,7 @@
 # NETWORK: /ccs/home/zingale/Microphysics/networks/iso7
 # CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
 #
-# Castro       git describe: 20.06-22-gbd8a54175
+# HydroSim       git describe: 20.06-22-gbd8a54175
 # AMReX        git describe: 20.06-49-gc69e431ed
 # Microphysics git describe: 20.06
 #

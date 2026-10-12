@@ -9,7 +9,7 @@
 
 cd $LS_SUBCWD
 
-CASTRO=./Castro2d.gnu.MPI.CUDA.ex
+HYDROSIM=./HydroSim2d.gnu.MPI.CUDA.ex
 INPUTS=inputs_2d.nse
 
 # number of nodes * 6 gpu per node
@@ -67,5 +67,5 @@ fi
 
 export OMP_NUM_THREADS=$n_omp
 
-jsrun -n $n_mpi -r $n_rs_per_node -c $n_cores -a 1 -g $n_gpu $CASTRO $INPUTS ${restartString}
+jsrun -n $n_mpi -r $n_rs_per_node -c $n_cores -a 1 -g $n_gpu $HYDROSIM $INPUTS ${restartString}
 

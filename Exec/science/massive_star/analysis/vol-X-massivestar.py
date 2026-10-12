@@ -24,10 +24,10 @@ def doit(plotfile, species):
     zoom = 1.5
 
     t_drive = 0.0
-    if "[*] castro.drive_initial_convection_tmax" in ds.parameters:
-        t_drive = ds.parameters["[*] castro.drive_initial_convection_tmax"]
-    elif "castro.drive_initial_convection_tmax" in ds.parameters:
-        t_drive = ds.parameters["castro.drive_initial_convection_tmax"]
+    if "[*] hydrosim.drive_initial_convection_tmax" in ds.parameters:
+        t_drive = ds.parameters["[*] hydrosim.drive_initial_convection_tmax"]
+    elif "hydrosim.drive_initial_convection_tmax" in ds.parameters:
+        t_drive = ds.parameters["hydrosim.drive_initial_convection_tmax"]
     print(t_drive)
 
     sc = Scene()

@@ -20,7 +20,7 @@ void problem_fill_ambient(int i, int j, int k,
     state(i,j,k,URHO) = problem::ambient_dens;
 
     for (int n = 0; n < NumSpec; ++n) {
-        state(i,j,k,UFS+n) = problem::ambient_dens * problem::ambient_comp[n];
+        state(i,j,k,USPEC+n) = problem::ambient_dens * problem::ambient_comp[n];
     }
 
     if (x < c_T) {
@@ -56,7 +56,7 @@ void problem_bc_fill(int i, int j, int k,
     // don't want to do this for interior/periodic boundaries
     // or for reflecting boundaries.
 
-    if (castro::fill_ambient_bc == 1) {
+    if (hydrosim::fill_ambient_bc == 1) {
 
         const int* domlo = geomdata.Domain().loVect();
         const int* domhi = geomdata.Domain().hiVect();

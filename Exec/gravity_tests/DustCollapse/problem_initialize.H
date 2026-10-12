@@ -55,7 +55,7 @@ void problem_initialize ()
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = problem::X_0[n];
     }
-    eos_state.T = castro::small_temp; // Initial guess for the EOS
+    eos_state.T = hydrosim::small_temp; // Initial guess for the EOS
 
     eos(eos_input_rp, eos_state);
 

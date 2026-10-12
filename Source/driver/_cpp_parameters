@@ -4,7 +4,7 @@
 # in the inputs file, b is the variable name in the C++ class.
 
 
-@namespace: castro
+@namespace: hydrosim
 
 #-----------------------------------------------------------------------------
 # category: AMR
@@ -27,7 +27,7 @@ do_reflux                    bool          1
 # drivers
 update_sources_after_reflux  bool          1
 
-# Castro was originally written assuming dx = dy = dz.  This assumption is
+# HydroSim was originally written assuming dx = dy = dz.  This assumption is
 # enforced at runtime.  Setting allow_non_unit_aspect_zones = 1 opts out.
 allow_non_unit_aspect_zones  bool          0
 
@@ -456,7 +456,7 @@ diffuse_cutoff_density_hi    Real          -1.e200             DIFFUSION
 diffuse_cond_scale_fac       Real           1.0                DIFFUSION
 
 # evaluate diffusion source term using amrex built-in solver or
-# evaluate within castro
+# evaluate within hydrosim
 diffuse_use_amrex_mlmg       bool           1                  DIFFUSION
 
 #-----------------------------------------------------------------------------
@@ -471,7 +471,7 @@ moving_center                bool           0
 
 # determines how the gravitational source term is added to the momentum and
 # energy state variables.
-grav_source_type             int           4
+grav_coupling_type             int           4
 
 # permits rotation calculation to be turned on and off
 do_rotation                  bool          true
@@ -519,7 +519,7 @@ point_mass_fix_solution      bool           0                  GRAVITY
 
 # Distance (in kpc) used for calculation of the gravitational wave amplitude
 # (this will be calculated along all three coordinate axes). Only relevant if
-# castro.sum_interval > 0 and if set to a positive number. A standard value
+# hydrosim.sum_interval > 0 and if set to a positive number. A standard value
 # in the literature is 10.0 (kpc).
 gw_dist                      Real          0.0                GRAVITY
 
@@ -660,7 +660,7 @@ sum_per                      Real          -1.0e0
 
 # a string describing the simulation that will be copied into the
 # plotfile's ``job_info`` file
-job_name                     string        "Castro"
+job_name                     string        "HydroSim"
 
 # write a final plotfile and checkpoint upon completion
 output_at_completion         bool           1
@@ -749,11 +749,11 @@ const_grav                   Real          0.0
 direct_sum_bcs               bool           0
 
 # ratio of dr for monopole gravity binning to grid resolution
-drdxfac                     int            1
+radial_bins_per_dx                     int            1
 
 # the maximum mulitpole order to use for multipole BCs when doing
 # Poisson gravity
-(max_multipole_order, lnum) int            0
+(max_multipole_order, l_max_used) int            0
 
 # the level of verbosity for the gravity solve (higher number means more
 # output on the status of the solve / multigrid

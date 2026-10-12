@@ -1,10 +1,10 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef ROTATION
 #include <Rotation.H>
 #endif
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 #include <advection_util.H>
 
 #ifdef HYBRID_MOMENTUM
@@ -23,7 +23,7 @@ using namespace amrex;
 
 
 void
-Castro::ctoprim(const Box& bx,
+HydroSim::ctoprim(const Box& bx,
                 const Real time,
                 Array4<Real const> const& uin,
 #ifdef MHD
@@ -59,7 +59,7 @@ Castro::ctoprim(const Box& bx,
 
 
 void
-Castro::shock(const Box& bx,
+HydroSim::shock(const Box& bx,
               Array4<Real const> const& q_arr,
               Array4<Real const> const& U_src_arr,
               Array4<Real> const& shk) {
@@ -190,7 +190,7 @@ Castro::shock(const Box& bx,
     }
     gradPdx_over_P /= q_arr(i,j,k,QPRES);
 
-    if (gradPdx_over_P > castro::shock_detection_threshold && div_u < 0.0_rt) {
+    if (gradPdx_over_P > hydrosim::shock_detection_threshold && div_u < 0.0_rt) {
       shk(i,j,k) = 1.0_rt;
     } else {
       shk(i,j,k) = 0.0_rt;
@@ -201,7 +201,7 @@ Castro::shock(const Box& bx,
 
 
 void
-Castro::divu(const Box& bx,
+HydroSim::divu(const Box& bx,
              Array4<Real const> const& q_arr,
              Array4<Real> const& div) {
   // this computes the *node-centered* divergence
@@ -352,7 +352,7 @@ Castro::divu(const Box& bx,
 
 
 void
-Castro::apply_av(const Box& bx,
+HydroSim::apply_av(const Box& bx,
                  const int idir,
                  Array4<Real const> const& div,
                  Array4<Real const> const& uin,
@@ -393,12 +393,12 @@ Castro::apply_av(const Box& bx,
               continue;
           }
 #ifdef SHOCK_VAR
-          if (n == USHK) {
+          if (n == USHOCK) {
               continue;
           }
 #endif
 #ifdef NSE_NET
-          if (n == UMUP || n == UMUN) {
+          if (n == UMU_P || n == UMU_N) {
               continue;
           }
 #endif
@@ -421,7 +421,7 @@ Castro::apply_av(const Box& bx,
 
 #ifdef RADIATION
 void
-Castro::apply_av_rad(const Box& bx,
+HydroSim::apply_av_rad(const Box& bx,
                      const int idir,
                      Array4<Real const> const& div,
                      Array4<Real const> const& Erin,
@@ -471,7 +471,7 @@ Castro::apply_av_rad(const Box& bx,
 
 
 void
-Castro::normalize_species_fluxes(const Box& bx,
+HydroSim::normalize_species_fluxes(const Box& bx,
                                  Array4<Real> const& flux) {
 
   // Normalize the fluxes of the mass fractions so that
@@ -484,7 +484,7 @@ Castro::normalize_species_fluxes(const Box& bx,
 
     Real sum = 0.0_rt;
 
-    for (int n = UFS; n < UFS+NumSpec; n++) {
+    for (int n = USPEC; n < USPEC+NumSpec; n++) {
       sum += flux(i,j,k,n);
     }
 
@@ -502,7 +502,7 @@ Castro::normalize_species_fluxes(const Box& bx,
       fac = flux(i,j,k,URHO) / sum;
     }
 
-    for (int n = UFS; n < UFS+NumSpec; n++) {
+    for (int n = USPEC; n < USPEC+NumSpec; n++) {
       flux(i,j,k,n) = flux(i,j,k,n) * fac;
     }
   });
@@ -510,7 +510,7 @@ Castro::normalize_species_fluxes(const Box& bx,
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-Castro::scale_flux(const Box& bx,
+HydroSim::scale_flux(const Box& bx,
                    Array4<Real> const& flux,
                    Array4<Real const> const& area_arr,
                    const Real dt) {
@@ -525,7 +525,7 @@ Castro::scale_flux(const Box& bx,
 
 #ifdef RADIATION
 void
-Castro::scale_rad_flux(const Box& bx,
+HydroSim::scale_rad_flux(const Box& bx,
                        Array4<Real> const& rflux,
                        Array4<Real const> const& area_arr,
                        const Real dt) {
@@ -541,7 +541,7 @@ Castro::scale_rad_flux(const Box& bx,
 
 #ifndef MHD
 void
-Castro::limit_hydro_fluxes_on_small_dens(const Box& bx,
+HydroSim::limit_hydro_fluxes_on_small_dens(const Box& bx,
                                          int idir,
                                          Array4<Real const> const& u,
                                          Array4<Real const> const& vol,
@@ -647,7 +647,7 @@ Castro::limit_hydro_fluxes_on_small_dens(const Box& bx,
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-Castro::do_enforce_minimum_density(const Box& bx,
+HydroSim::do_enforce_minimum_density(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const int verbose_warnings) {
 
@@ -665,7 +665,7 @@ Castro::do_enforce_minimum_density(const Box& bx,
 
 #ifndef AMREX_USE_GPU
       if (verbose_warnings > 1 ||
-          (verbose_warnings > 0 && state_arr(i,j,k,URHO) > castro::retry_small_density_cutoff)) {
+          (verbose_warnings > 0 && state_arr(i,j,k,URHO) > hydrosim::retry_small_density_cutoff)) {
         std::cout << " " << std::endl;
         if (state_arr(i,j,k,URHO) < 0.0_rt) {
           std::cout << ">>> RESETTING NEG.  DENSITY AT " << i << ", " << j << ", " << k << std::endl;
@@ -695,11 +695,11 @@ Castro::do_enforce_minimum_density(const Box& bx,
       eos_state.rho = small_dens;
       eos_state.T = small_temp;
       for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state_arr(i,j,k,UFS+n) / small_dens;
+        eos_state.xn[n] = state_arr(i,j,k,USPEC+n) / small_dens;
       }
 #if NAUX_NET > 0
       for (int n = 0; n < NumAux; n++) {
-        eos_state.aux[n] = state_arr(i,j,k,UFX+n) / small_dens;
+        eos_state.aux[n] = state_arr(i,j,k,UAUXV+n) / small_dens;
       }
 #endif
 
@@ -744,7 +744,7 @@ Castro::do_enforce_minimum_density(const Box& bx,
 
 
 void
-Castro::enforce_reflect_states(const Box& bx, const int idir,
+HydroSim::enforce_reflect_states(const Box& bx, const int idir,
                                Array4<Real> const& qm,
                                Array4<Real> const& qp) {
 

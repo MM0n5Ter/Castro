@@ -31,7 +31,7 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
     state(i,j,k,UEDEN) = 1.0_rt;
 
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) / static_cast<Real>(NumSpec);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) / static_cast<Real>(NumSpec);
     }
 }
 

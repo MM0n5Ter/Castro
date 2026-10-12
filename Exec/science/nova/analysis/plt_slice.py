@@ -28,7 +28,7 @@ def doit(field, basename, is_small_plotfiles):
 
 
     for pfile in ts_04:
-        ds = yt.load(str(pfile), hint="castro")
+        ds = yt.load(str(pfile), hint="hydrosim")
 
         sp = yt.SlicePlot(ds, 'z', field,
                           buff_size=(7680, 3840),

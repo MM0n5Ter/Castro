@@ -45,7 +45,7 @@ public:
 /// @param volume
 /// @param area
 ///
-  void install_level (int                   level,
+  void register_level (int                   level,
                       amrex::AmrLevel*             level_data,
                       amrex::MultiFab&             volume,
                       amrex::MultiFab*             area);
@@ -61,7 +61,7 @@ public:
   void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
                amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
 
-  void make_mg_bc();
+  void set_solver_bc_types();
 
 protected:
 

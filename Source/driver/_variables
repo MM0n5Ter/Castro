@@ -1,4 +1,4 @@
-# this is the list of variables indices that Castro will use for
+# this is the list of variables indices that HydroSim will use for
 # accessing various state arrays.  We will keep them in the order that
 # they are specified here.
 
@@ -16,12 +16,12 @@
    energy-density         UEDEN     NSRC                                  1                 None
    internal-energy        UEINT     NSRC                                  1                 None
    temperature            UTEMP     NSRC                                  1                 None
-   advected               UFA       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumAdv            None
-   species                UFS       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumSpec           None
-   auxiliary              UFX       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumAux            None
-   shock                  USHK      None                                  1                 SHOCK_VAR
-   mu_p                   UMUP      None                                  1                 NSE_NET
-   mu_n                   UMUN      None                                  1                 NSE_NET
+   advected               UADV       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumAdv            None
+   species                USPEC       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumSpec           None
+   auxiliary              UAUXV       [(NSRC, CONS_SPECIES_HAVE_SOURCES)]   NumAux            None
+   shock                  USHOCK      None                                  1                 SHOCK_VAR
+   mu_p                   UMU_P      None                                  1                 NSE_NET
+   mu_n                   UMU_N      None                                  1                 NSE_NET
 
 # the primitive variable state
 @set: primitive NQ
@@ -29,39 +29,39 @@
    x-velocity             QU        [NQTHERM, NQSRC]                        1                 None
    y-velocity             QV        [NQTHERM, NQSRC]                        1                 None
    z-velocity             QW        [NQTHERM, NQSRC]                        1                 None
-   gamma_c                QGC       [NQTHERM, NQSRC]                        1                 TRUE_SDC
+   gamma_c                QGAM1P       [NQTHERM, NQSRC]                        1                 TRUE_SDC
    pressure               QPRES     [NQTHERM, NQSRC]                        1                 None
-   rho-e                  QREINT    [NQTHERM, NQSRC]                        1                 None
+   rho-e                  QRHOEI    [NQTHERM, NQSRC]                        1                 None
    B-x                    QMAGX     [NQTHERM, NQSRC]                        1                 MHD
    B-y                    QMAGY     [NQTHERM, NQSRC]                        1                 MHD
    B-z                    QMAGZ     [NQTHERM, NQSRC]                        1                 MHD
    temperature            QTEMP     [NQTHERM, NQSRC]                        1                 None
-   total-pressure         QPTOT     NQTHERM                                 1                 RADIATION
-   total-pressure         QPTOT     NQTHERM                                 1                 MHD
-   total-reint            QREITOT   NQTHERM                                 1                 RADIATION
-   radiation              QRAD      NQTHERM                                 NGROUPS           RADIATION
-   advected               QFA       None                                    NumAdv            None
-   species                QFS       None                                    NumSpec           None
-   auxiliary              QFX       None                                    NumAux            None
+   total-pressure         QPTOTAL     NQTHERM                                 1                 RADIATION
+   total-pressure         QPTOTAL     NQTHERM                                 1                 MHD
+   total-reint            QRHOEITOT   NQTHERM                                 1                 RADIATION
+   radiation              QERAD      NQTHERM                                 NGROUPS           RADIATION
+   advected               QADV       None                                    NumAdv            None
+   species                QSPEC       None                                    NumSpec           None
+   auxiliary              QAUXV       None                                    NumAux            None
 
 
 # the auxiliary quantities
 @set: auxiliary NQAUX
-   gamma_c                QGAMC     None            1                   None
+   gamma_c                QGAM1     None            1                   None
    sound-speed            QC        None            1                   None
-   gamma_c-gas            QGAMCG    None            1                   RADIATION
-   sound-speed-gas        QCG       None            1                   RADIATION
-   flux-limiter           QLAMS     None            NGROUPS             RADIATION
+   gamma_c-gas            QGAM1GAS    None            1                   RADIATION
+   sound-speed-gas        QCSNDGAS       None            1                   RADIATION
+   flux-limiter           QFLXLIM     None            NGROUPS             RADIATION
 
 
 # godunov interface states
-@set: godunov NGDNV
-   x-velocity             GDU       None            1                   None
-   y-velocity             GDV       None            1                   None
-   z-velocity             GDW       None            1                   None
-   pressure               GDPRES    None            1                   None
-   density                GDRHO     None            1                   HYBRID_MOMENTUM
-   flux-limiter           GDLAMS    None            NGROUPS             RADIATION
-   radiation              GDERADS   None            NGROUPS             RADIATION
+@set: godunov NIFC
+   x-velocity             IFCU       None            1                   None
+   y-velocity             IFCV       None            1                   None
+   z-velocity             IFCW       None            1                   None
+   pressure               IFCPRES    None            1                   None
+   density                IFCRHO     None            1                   HYBRID_MOMENTUM
+   flux-limiter           IFCFLXLIM    None            NGROUPS             RADIATION
+   radiation              IFCERAD   None            NGROUPS             RADIATION
 
 

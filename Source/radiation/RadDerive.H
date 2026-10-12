@@ -1,5 +1,5 @@
-#ifndef CASTRO_RADDERIVE_H
-#define CASTRO_RADDERIVE_H
+#ifndef HYDROSIM_RADDERIVE_H
+#define HYDROSIM_RADDERIVE_H
 
 #include <AMReX_BLFort.H>
 #include <AMReX_FArrayBox.H>
@@ -10,7 +10,7 @@ extern "C"
 {
 #endif
 
-  void ca_derertot(const amrex::Box& bx, amrex::FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void hs_derertot(const amrex::Box& bx, amrex::FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const amrex::FArrayBox& datfab, const amrex::Geometry& /*geomdata*/,
                    amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 

@@ -14,11 +14,11 @@ geometry.prob_lo     = 0   0
 geometry.prob_hi     = 2.0 2.0
 amr.n_cell           = 512 512
 
-castro.ppm_type = 1
+hydrosim.ppm_type = 1
 
-castro.riemann_solver = 1
+hydrosim.riemann_solver = 1
 
-castro.use_flattening = 1
+hydrosim.use_flattening = 1
 
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
@@ -26,30 +26,30 @@ castro.use_flattening = 1
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   1
-castro.hi_bc       =  0   1
+hydrosim.lo_bc       =  0   1
+hydrosim.hi_bc       =  0   1
 
-castro.yl_ext_bc_type = 1
-castro.yr_ext_bc_type = 1
-castro.hse_interp_temp = 1
+hydrosim.yl_ext_bc_type = 1
+hydrosim.yr_ext_bc_type = 1
+hydrosim.hse_interp_temp = 1
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.do_grav  = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.do_grav  = 1
 
-gravity.gravity_type = ConstantGrav
+gravity.gravity_type = UniformField
 gravity.const_grav   = -1.e9
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING 

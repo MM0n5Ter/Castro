@@ -1,5 +1,5 @@
 #include <AMReX_BLFort.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <runtime_parameters.H>
 #include <ext_bc_types.H>
 
@@ -57,12 +57,12 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                 Real temp_above = adv(domlo[0],j,k,UTEMP);
                 Real X_zone[NumSpec];
                 for (int n = 0; n < NumSpec; n++) {
-                    X_zone[n] = adv(domlo[0],j,k,UFS+n) / dens_above;
+                    X_zone[n] = adv(domlo[0],j,k,USPEC+n) / dens_above;
                 }
 #if NAUX_NET > 0
                 Real aux_zone[NumAux];
                 for (int n = 0; n < NumAux; n++) {
-                    aux_zone[n] = adv(domlo[0],j,k,UFX+n) / dens_above;
+                    aux_zone[n] = adv(domlo[0],j,k,UAUXV+n) / dens_above;
                 }
 #endif
 
@@ -213,11 +213,11 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                                  adv(ii,j,k,UMZ) * adv(ii,j,k,UMZ)) / dens_zone;
                    adv(ii,j,k,UTEMP) = temp_zone;
                    for (int n = 0; n < NumSpec; n++) {
-                       adv(ii,j,k,UFS+n) = dens_zone * X_zone[n];
+                       adv(ii,j,k,USPEC+n) = dens_zone * X_zone[n];
                    }
 #if NAUX_NET > 0
                    for (int n = 0; n < NumAux; n++) {
-                       adv(ii,j,k,UFX+n) = dens_zone * aux_zone[n];
+                       adv(ii,j,k,UAUXV+n) = dens_zone * aux_zone[n];
                    }
 #endif
 
@@ -253,12 +253,12 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                 Real temp_below = adv(domhi[0],j,k,UTEMP);
                 Real X_zone[NumSpec];
                 for (int n = 0; n < NumSpec; n++) {
-                    X_zone[n] = adv(domhi[0],j,k,UFS+n) / dens_below;
+                    X_zone[n] = adv(domhi[0],j,k,USPEC+n) / dens_below;
                 }
 #if NAUX_NET > 0
                 Real aux_zone[NumAux];
                 for (int n = 0; n < NumAux; n++) {
-                    aux_zone[n] = adv(domhi[0],j,k,UFX+n) / dens_below;
+                    aux_zone[n] = adv(domhi[0],j,k,UAUXV+n) / dens_below;
                 }
 #endif
 
@@ -404,11 +404,11 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                                  adv(ii,j,k,UMZ) * adv(ii,j,k,UMZ)) / dens_zone;
                    adv(ii,j,k,UTEMP) = temp_zone;
                    for (int n = 0; n < NumSpec; n++) {
-                       adv(ii,j,k,UFS+n) = dens_zone * X_zone[n];
+                       adv(ii,j,k,USPEC+n) = dens_zone * X_zone[n];
                    }
 #if NAUX_NET > 0
                    for (int n = 0; n < NumAux; n++) {
-                       adv(ii,j,k,UFX+n) = dens_zone * aux_zone[n];
+                       adv(ii,j,k,UAUXV+n) = dens_zone * aux_zone[n];
                    }
 #endif
 
@@ -449,12 +449,12 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                 Real temp_above = adv(i,domlo[1],k,UTEMP);
                 Real X_zone[NumSpec];
                 for (int n = 0; n < NumSpec; n++) {
-                    X_zone[n] = adv(i,domlo[1],k,UFS+n) / dens_above;
+                    X_zone[n] = adv(i,domlo[1],k,USPEC+n) / dens_above;
                 }
 #if NAUX_NET > 0
                 Real aux_zone[NumAux];
                 for (int n = 0; n < NumAux; n++) {
-                    aux_zone[n] = adv(i,domlo[1],k,UFX+n) / dens_above;
+                    aux_zone[n] = adv(i,domlo[1],k,UAUXV+n) / dens_above;
                 }
 #endif
 
@@ -602,11 +602,11 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                                  adv(i,jj,k,UMZ) * adv(i,jj,k,UMZ)) / dens_zone;
                    adv(i,jj,k,UTEMP) = temp_zone;
                    for (int n = 0; n < NumSpec; n++) {
-                       adv(i,jj,k,UFS+n) = dens_zone * X_zone[n];
+                       adv(i,jj,k,USPEC+n) = dens_zone * X_zone[n];
                    }
 #if NAUX_NET > 0
                    for (int n = 0; n < NumAux; n++) {
-                       adv(i,jj,k,UFX+n) = dens_zone * aux_zone[n];
+                       adv(i,jj,k,UAUXV+n) = dens_zone * aux_zone[n];
                    }
 #endif
 
@@ -643,12 +643,12 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                 Real temp_below = adv(i,domhi[1],k,UTEMP);
                 Real X_zone[NumSpec];
                 for (int n = 0; n < NumSpec; n++) {
-                    X_zone[n] = adv(i,domhi[1],k,UFS+n) / dens_below;
+                    X_zone[n] = adv(i,domhi[1],k,USPEC+n) / dens_below;
                 }
 #if NAUX_NET > 0
                 Real aux_zone[NumAux];
                 for (int n = 0; n < NumAux; n++) {
-                    aux_zone[n] = adv(i,domhi[1],k,UFX+n) / dens_below;
+                    aux_zone[n] = adv(i,domhi[1],k,UAUXV+n) / dens_below;
                 }
 #endif
 
@@ -794,11 +794,11 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                                  adv(i,jj,k,UMZ) * adv(i,jj,k,UMZ)) / dens_zone;
                    adv(i,jj,k,UTEMP) = temp_zone;
                    for (int n = 0; n < NumSpec; n++) {
-                       adv(i,jj,k,UFS+n) = dens_zone * X_zone[n];
+                       adv(i,jj,k,USPEC+n) = dens_zone * X_zone[n];
                    }
 #if NAUX_NET > 0
                    for (int n = 0; n < NumAux; n++) {
-                       adv(i,jj,k,UFX+n) = dens_zone * aux_zone[n];
+                       adv(i,jj,k,UAUXV+n) = dens_zone * aux_zone[n];
                    }
 #endif
 
@@ -838,12 +838,12 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                 Real temp_above = adv(i,j,domlo[2],UTEMP);
                 Real X_zone[NumSpec];
                 for (int n = 0; n < NumSpec; n++) {
-                    X_zone[n] = adv(i,j,domlo[2],UFS+n) / dens_above;
+                    X_zone[n] = adv(i,j,domlo[2],USPEC+n) / dens_above;
                 }
 #if NAUX_NET > 0
                 Real aux_zone[NumAux];
                 for (int n = 0; n < NumAux; n++) {
-                    aux_zone[n] = adv(i,j,domlo[2],UFX+n) / dens_above;
+                    aux_zone[n] = adv(i,j,domlo[2],UAUXV+n) / dens_above;
                 }
 #endif
 
@@ -991,11 +991,11 @@ hse_fill(const Box& bx, Array4<Real> const& adv,
                                  adv(i,j,kk,UMZ) * adv(i,j,kk,UMZ)) / dens_zone;
                    adv(i,j,kk,UTEMP) = temp_zone;
                    for (int n = 0; n < NumSpec; n++) {
-                       adv(i,j,kk,UFS+n) = dens_zone * X_zone[n];
+                       adv(i,j,kk,USPEC+n) = dens_zone * X_zone[n];
                    }
 #if NAUX_NET > 0
                    for (int n = 0; n < NumAux; n++) {
-                       adv(i,j,kk,UFX+n) = dens_zone * aux_zone[n];
+                       adv(i,j,kk,UAUXV+n) = dens_zone * aux_zone[n];
                    }
 #endif
 

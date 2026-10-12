@@ -15,33 +15,33 @@ amr.n_cell           = 256
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3
-castro.hi_bc       =  2
+hydrosim.lo_bc       =  3
+hydrosim.hi_bc       =  2
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
 
-castro.small_temp = 1.e6
-castro.small_dens = 1.e-5
+hydrosim.small_temp = 1.e6
+hydrosim.small_dens = 1.e-5
 
-castro.ppm_type = 1
+hydrosim.ppm_type = 1
 
-castro.diffuse_temp = 1
-castro.diffuse_cutoff_density = 1.e-2
-castro.diffuse_cond_scale_fac = 10.0
+hydrosim.diffuse_temp = 1
+hydrosim.diffuse_cutoff_density = 1.e-2
+hydrosim.diffuse_cond_scale_fac = 10.0
 
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
-castro.use_retry      = 1
+hydrosim.use_retry      = 1
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_interval   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING

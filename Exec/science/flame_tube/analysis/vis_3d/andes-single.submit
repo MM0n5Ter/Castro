@@ -28,7 +28,7 @@ done
 
 export OMP_NUM_THREADS=16
 if [[ ${#todo[@]} -gt 0 ]]; then
-  srun --cpu-bind=no python ~/dev/Castro/Exec/science/flame_tube/analysis/vis_3d/vol-xrb.py "${todo[@]}"
+  srun --cpu-bind=no python ~/dev/HydroSim/Exec/science/flame_tube/analysis/vis_3d/vol-xrb.py "${todo[@]}"
 fi
 
 echo "done!"

@@ -1,10 +1,10 @@
-#include <Castro.H>
+#include <HydroSim.H>
 #include <fourth_center_average.H>
 
 using namespace amrex;
 
 void
-Castro::make_cell_center(const Box& bx,
+HydroSim::make_cell_center(const Box& bx,
                          Array4<Real const> const& U,
                          Array4<Real> const& U_cc,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -48,7 +48,7 @@ Castro::make_cell_center(const Box& bx,
 }
 
 void
-Castro::make_cell_center_in_place(const Box& bx,
+HydroSim::make_cell_center_in_place(const Box& bx,
                                   Array4<Real> const& U,
                                   Array4<Real> const& tmp,
                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -88,7 +88,7 @@ Castro::make_cell_center_in_place(const Box& bx,
 
 
 void
-Castro::compute_lap_term(const Box& bx,
+HydroSim::compute_lap_term(const Box& bx,
                          Array4<Real const> const& U,
                          Array4<Real> const& lap, const int ncomp,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -118,7 +118,7 @@ Castro::compute_lap_term(const Box& bx,
 
 
 void
-Castro::make_fourth_average(const Box& bx,
+HydroSim::make_fourth_average(const Box& bx,
                             Array4<Real> const& q_arr,
                             Array4<Real const> const& q_bar_arr,
                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -149,7 +149,7 @@ Castro::make_fourth_average(const Box& bx,
 
 
 void
-Castro::make_fourth_in_place(const Box& bx,
+HydroSim::make_fourth_in_place(const Box& bx,
                              Array4<Real> const& q_arr,
                              Array4<Real> const& tmp,
                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -165,7 +165,7 @@ Castro::make_fourth_in_place(const Box& bx,
 
 
 void
-Castro::make_fourth_in_place_n(const Box& bx,
+HydroSim::make_fourth_in_place_n(const Box& bx,
                                Array4<Real> const& q_arr, const int ncomp,
                                Array4<Real> const& tmp,
                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {

@@ -4,10 +4,10 @@
 CEXE_sources += Gravity.cpp
 CEXE_headers += Gravity.H
 CEXE_headers += Gravity_util.H
-CEXE_headers += Castro_gravity.H
+CEXE_headers += HydroSim_gravity.H
 
-CEXE_sources += Castro_gravity.cpp
+CEXE_sources += HydroSim_gravity.cpp
 
 CEXE_headers += binary.H
 
-CEXE_sources += Castro_pointmass.cpp
+CEXE_sources += HydroSim_pointmass.cpp

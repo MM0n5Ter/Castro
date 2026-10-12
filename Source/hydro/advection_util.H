@@ -1,7 +1,7 @@
 #ifndef advection_util_H
 #define advection_util_H
 
-#include <Castro_util.H>
+#include <HydroSim_util.H>
 
 #ifdef HYBRID_MOMENTUM
 #include <hybrid.H>
@@ -55,13 +55,13 @@ void src_to_prim(int i, int j, int k, const Real dt,
     eos_rep_t eos_state;
     eos_state.T = q_arr(i,j,k,QTEMP);
     eos_state.rho = q_arr(i,j,k,QRHO);
-    eos_state.e = q_arr(i,j,k,QREINT) * rhoinv;
+    eos_state.e = q_arr(i,j,k,QRHOEI) * rhoinv;
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n]  = U_arr(i,j,k,UFS+n) * rhoinv;
+      eos_state.xn[n]  = U_arr(i,j,k,USPEC+n) * rhoinv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = U_arr(i,j,k,UFX+n) * rhoinv;
+      eos_state.aux[n] = U_arr(i,j,k,UAUXV+n) * rhoinv;
     }
 #endif
 
@@ -71,9 +71,9 @@ void src_to_prim(int i, int j, int k, const Real dt,
     srcQ(i,j,k,QU) = (srcU[UMX] - q_arr(i,j,k,QU) * srcQ(i,j,k,QRHO)) * rhoinv;
     srcQ(i,j,k,QV) = (srcU[UMY] - q_arr(i,j,k,QV) * srcQ(i,j,k,QRHO)) * rhoinv;
     srcQ(i,j,k,QW) = (srcU[UMZ] - q_arr(i,j,k,QW) * srcQ(i,j,k,QRHO)) * rhoinv;
-    srcQ(i,j,k,QREINT) = srcU[UEINT];
+    srcQ(i,j,k,QRHOEI) = srcU[UEINT];
     srcQ(i,j,k,QPRES ) = eos_state.dpde *
-      (srcQ(i,j,k,QREINT) - q_arr(i,j,k,QREINT) * srcQ(i,j,k,QRHO)*rhoinv) *
+      (srcQ(i,j,k,QRHOEI) - q_arr(i,j,k,QRHOEI) * srcQ(i,j,k,QRHO)*rhoinv) *
       rhoinv + eos_state.dpdr_e * srcQ(i,j,k,QRHO);
 
 }
@@ -116,7 +116,7 @@ void conservative_to_primitive(int i, int j, int k,
         std::cout << ">>> Error: conservative_to_primitive " << i << " " << j << " " << k << std::endl;
         std::cout << ">>> ... negative density " << uin(i,j,k,URHO) << std::endl;
         amrex::Error("Error:: hydro::conservative_to_primitive()");
-    } else if (uin(i,j,k,URHO) < castro::small_dens) {
+    } else if (uin(i,j,k,URHO) < hydrosim::small_dens) {
         std::cout << std::endl;
         std::cout << ">>> Error: conservative_to_primitive " << i << " " << j << " " << k << std::endl;
         std::cout << ">>> ... small density " << uin(i,j,k,URHO) << std::endl;
@@ -147,16 +147,16 @@ void conservative_to_primitive(int i, int j, int k,
 
     Real kineng = 0.5_rt * q(QRHO) * (q(QU) * q(QU) + q(QV) * q(QV) + q(QW) * q(QW));
 
-    if ((uin(i,j,k,UEDEN) - kineng) > castro::dual_energy_eta1*uin(i,j,k,UEDEN)) {
-        q(QREINT) = (uin(i,j,k,UEDEN) - kineng) * rhoinv;
+    if ((uin(i,j,k,UEDEN) - kineng) > hydrosim::dual_energy_eta1*uin(i,j,k,UEDEN)) {
+        q(QRHOEI) = (uin(i,j,k,UEDEN) - kineng) * rhoinv;
     } else {
-        q(QREINT) = uin(i,j,k,UEINT) * rhoinv;
+        q(QRHOEI) = uin(i,j,k,UEINT) * rhoinv;
     }
 
     q(QTEMP) = uin(i,j,k,UTEMP);
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
-        q(QRAD+g) = Erin(i,j,k,g);
+        q(QERAD+g) = Erin(i,j,k,g);
     }
 #endif
 
@@ -173,35 +173,35 @@ void conservative_to_primitive(int i, int j, int k,
     eos_rep_t eos_state;
     eos_state.T = q(QTEMP);
     eos_state.rho = q(QRHO);
-    eos_state.e = q(QREINT);
+    eos_state.e = q(QRHOEI);
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n]  = uin(i,j,k,UFS+n) * rhoinv;
+      eos_state.xn[n]  = uin(i,j,k,USPEC+n) * rhoinv;
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-        eos_state.aux[n] = uin(i,j,k,UFX+n) * rhoinv;
+        eos_state.aux[n] = uin(i,j,k,UAUXV+n) * rhoinv;
     }
 #endif
 
     eos(eos_input_re, eos_state);
 
     q(QTEMP) = eos_state.T;
-    q(QREINT) = eos_state.e * q(QRHO);
+    q(QRHOEI) = eos_state.e * q(QRHO);
     q(QPRES) = eos_state.p;
 #ifdef TRUE_SDC
-    q(QGC) = eos_state.gam1;
+    q(QGAM1P) = eos_state.gam1;
 #endif
 
 #ifdef MHD
-    q(QPTOT) = q(QPRES) +
+    q(QPTOTAL) = q(QPRES) +
                0.5_rt * (q(QMAGX) * q(QMAGX) +
                          q(QMAGY) * q(QMAGY) +
                          q(QMAGZ) * q(QMAGZ));
 #endif
 
 #ifdef RADIATION
-    qaux(QGAMCG) = eos_state.gam1;
-    qaux(QCG) = eos_state.cs;
+    qaux(QGAM1GAS) = eos_state.gam1;
+    qaux(QCSNDGAS) = eos_state.cs;
 
     Real lams[NGROUPS];
     for (int g = 0; g < NGROUPS; g++) {
@@ -215,21 +215,21 @@ void conservative_to_primitive(int i, int j, int k,
     Real ctot;
     Real gamc_tot;
     compute_ptot_ctot(lams, qs,
-                      qaux(QCG),
+                      qaux(QCSNDGAS),
                       ptot, ctot, gamc_tot);
 
-    q(QPTOT) = ptot;
+    q(QPTOTAL) = ptot;
 
     qaux(QC) = ctot;
-    qaux(QGAMC) = gamc_tot;
+    qaux(QGAM1) = gamc_tot;
 
-    q(QREITOT) = q(QREINT);
+    q(QRHOEITOT) = q(QRHOEI);
     for (int g = 0; g < NGROUPS; g++) {
-        qaux(QLAMS+g) = lam(i,j,k,g);
-        q(QREITOT) += q(QRAD+g);
+        qaux(QFLXLIM+g) = lam(i,j,k,g);
+        q(QRHOEITOT) += q(QERAD+g);
     }
 #else
-    qaux(QGAMC) = eos_state.gam1;
+    qaux(QGAM1) = eos_state.gam1;
     qaux(QC) = eos_state.cs;
 #endif
 }

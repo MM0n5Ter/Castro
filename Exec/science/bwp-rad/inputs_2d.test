@@ -16,8 +16,8 @@ amr.n_cell         = 256 512
 
 amr.max_level      = 2       #  maximum level number allowed
 
-castro.lo_bc       =  3 2
-castro.hi_bc       =  2 2
+hydrosim.lo_bc       =  3 2
+hydrosim.hi_bc       =  2 2
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -25,42 +25,42 @@ castro.hi_bc       =  2 2
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.do_hydro = 1
-castro.do_grav  = 1
-castro.do_react = 0
-castro.do_sponge = 1
-castro.do_radiation = 1
+hydrosim.do_hydro = 1
+hydrosim.do_grav  = 1
+hydrosim.do_react = 0
+hydrosim.do_sponge = 1
+hydrosim.do_radiation = 1
 
-castro.small_temp = 1.e3
-castro.small_dens = 1.e-6
-castro.small_pres = 1.e0
-
-
-castro.sponge_implicit = 1
-castro.sponge_upper_density = 1.0e-3
-castro.sponge_lower_density = 1.0e-6
-castro.sponge_timescale     = 2.0e1
+hydrosim.small_temp = 1.e3
+hydrosim.small_dens = 1.e-6
+hydrosim.small_pres = 1.e0
 
 
-castro.ppm_type = 1
-castro.ppm_temp_fix = 0
-
-castro.transverse_reset_rhoe = 1
-
-castro.use_flattening = 1
-
-castro.riemann_solver = 0
-
-gravity.gravity_type = MonopoleGrav
-gravity.drdxfac = 2
-
-castro.grav_source_type = 4
+hydrosim.sponge_implicit = 1
+hydrosim.sponge_upper_density = 1.0e-3
+hydrosim.sponge_lower_density = 1.0e-6
+hydrosim.sponge_timescale     = 2.0e1
 
 
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep by this factor
-castro.change_max     = 1.05    # factor by which dt is allowed to change each timestep
-castro.sum_interval   = 0       # timesteps between computing and printing volume averages
+hydrosim.ppm_type = 1
+hydrosim.ppm_temp_fix = 0
+
+hydrosim.transverse_reset_rhoe = 1
+
+hydrosim.use_flattening = 1
+
+hydrosim.riemann_solver = 0
+
+gravity.gravity_type = SphericalMonopole
+gravity.radial_bins_per_dx = 2
+
+hydrosim.grav_coupling_type = 4
+
+
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_shrink    = 0.1     # scale back initial timestep by this factor
+hydrosim.change_max     = 1.05    # factor by which dt is allowed to change each timestep
+hydrosim.sum_interval   = 0       # timesteps between computing and printing volume averages
 
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 10000   # how often to regrid
@@ -77,7 +77,7 @@ amr.max_grid_size   = 128      # maximum grid size allowed -- used to control pa
 amr.blocking_factor = 32       # block factor in grid generation
 
 amr.v               = 1       # control verbosity in Amr.cpp
-castro.v            = 0       # control verbosity in Castro.cpp
+hydrosim.v            = 0       # control verbosity in HydroSim.cpp
 
 amr.derive_plot_vars = ALL
 
@@ -153,8 +153,8 @@ radiation.hi_bcval = 5.3e9 0.0  0.0
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use HypreDiffOp, support symmetric matrices only
+# solver flag values >= 100 use HypreMultiDiffOp, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
@@ -179,5 +179,5 @@ radsolve.maxiter    = 200     # linear solver iteration limit
 
 radsolve.v = 1      # verbosity
 
-hmabec.verbose = 2  # verbosity for HypreMultiABec solvers
-habec.verbose  = 2  # verbosity for HypreABec solvers
+hmdop.verbose = 2  # verbosity for HypreMultiDiffOp solvers
+hdop.verbose  = 2  # verbosity for HypreDiffOp solvers

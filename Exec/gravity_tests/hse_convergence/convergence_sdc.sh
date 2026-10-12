@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-EXEC=./Castro1d.gnu.MPI.TRUESDC.ex
+EXEC=./HydroSim1d.gnu.MPI.TRUESDC.ex
 
 
 ## sdc-2 + reflect
@@ -9,14 +9,14 @@ EXEC=./Castro1d.gnu.MPI.TRUESDC.ex
 ofile=sdc2-reflect.converge.out
 
 RUNPARAMS="
-castro.time_integration_method=2
-castro.sdc_order=2
-castro.ppm_type=0
-castro.use_pslope=1
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
-castro.lo_bc=3
-castro.hi_bc=3
+hydrosim.time_integration_method=2
+hydrosim.sdc_order=2
+hydrosim.ppm_type=0
+hydrosim.use_pslope=1
+hydrosim.limit_fourth_order=1
+hydrosim.use_reconstructed_gamma1=1
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -41,13 +41,13 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=sdc2-ppm-reflect.converge.out
 
 RUNPARAMS="
-castro.time_integration_method=2
-castro.sdc_order=2
-castro.ppm_type=1
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
-castro.lo_bc=3
-castro.hi_bc=3
+hydrosim.time_integration_method=2
+hydrosim.sdc_order=2
+hydrosim.ppm_type=1
+hydrosim.limit_fourth_order=1
+hydrosim.use_reconstructed_gamma1=1
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -72,12 +72,12 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=sdc2.converge.out
 
 RUNPARAMS="
-castro.time_integration_method=2
-castro.sdc_order=2
-castro.ppm_type=0
-castro.use_pslope=1
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
+hydrosim.time_integration_method=2
+hydrosim.sdc_order=2
+hydrosim.ppm_type=0
+hydrosim.use_pslope=1
+hydrosim.limit_fourth_order=1
+hydrosim.use_reconstructed_gamma1=1
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -102,11 +102,11 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=sdc2-ppm.converge.out
 
 RUNPARAMS="
-castro.time_integration_method=2
-castro.sdc_order=2
-castro.ppm_type=1
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
+hydrosim.time_integration_method=2
+hydrosim.sdc_order=2
+hydrosim.ppm_type=1
+hydrosim.limit_fourth_order=1
+hydrosim.use_reconstructed_gamma1=1
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -131,12 +131,12 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=sdc4-reflect.converge.out
 
 RUNPARAMS="
-castro.time_integration_method=2
-castro.sdc_order=4
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
-castro.lo_bc=3
-castro.hi_bc=3
+hydrosim.time_integration_method=2
+hydrosim.sdc_order=4
+hydrosim.limit_fourth_order=1
+hydrosim.use_reconstructed_gamma1=1
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out

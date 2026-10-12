@@ -63,7 +63,7 @@ void problem_initialize ()
     // Set ambient state composition.
 
     for (int n = 0; n < NumSpec; ++n) {
-        ambient::ambient_state[UFS+n] = ambient::ambient_state[URHO] * envelope_comp[n];
+        ambient::ambient_state[USPEC+n] = ambient::ambient_state[URHO] * envelope_comp[n];
     }
 }
 

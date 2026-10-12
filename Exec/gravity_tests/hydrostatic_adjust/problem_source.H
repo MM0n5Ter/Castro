@@ -80,7 +80,7 @@ void problem_source (int i, int j, int k,
         auto dist = std::sqrt(x*x + y*y + z*z);
 
         auto Hext = H_0 * std::exp(-((dist - r_0)*(dist - r_0))/(W_0*W_0)) *
-            state(i,j,k,UFS+problem::ifuel) / state(i,j,k,URHO);
+            state(i,j,k,USPEC+problem::ifuel) / state(i,j,k,URHO);
 
         src(i,j,k,UEINT) = state(i,j,k,URHO) * Hext;
         src(i,j,k,UEDEN) = state(i,j,k,URHO) * Hext;

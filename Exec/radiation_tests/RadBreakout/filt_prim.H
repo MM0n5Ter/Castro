@@ -80,8 +80,8 @@ void filt_prim (int i, int j, int k,
 
     if (filtered) {
 
-        Snew(i,j,k,URHO ) = amrex::max(Snew(i,j,k,URHO ), castro::small_dens);
-        Snew(i,j,k,UTEMP) = amrex::max(Snew(i,j,k,UTEMP), castro::small_temp);
+        Snew(i,j,k,URHO ) = amrex::max(Snew(i,j,k,URHO ), hydrosim::small_dens);
+        Snew(i,j,k,UTEMP) = amrex::max(Snew(i,j,k,UTEMP), hydrosim::small_temp);
 
         eos_t eos_state;
 
@@ -90,11 +90,11 @@ void filt_prim (int i, int j, int k,
 
         Real rhotmpInv = 1.0_rt / Stmp(i,j,k,URHO);
         for (int n = 0; n < NumSpec; ++n) {
-            eos_state.xn[n] = Stmp(i,j,k,UFS+n) * rhotmpInv;
+            eos_state.xn[n] = Stmp(i,j,k,USPEC+n) * rhotmpInv;
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; ++n) {
-            eos_state.aux[n] = Stmp(i,j,k,UFX+n) * rhotmpInv;
+            eos_state.aux[n] = Stmp(i,j,k,UAUXV+n) * rhotmpInv;
         }
 #endif
 
@@ -105,14 +105,14 @@ void filt_prim (int i, int j, int k,
                                                 (Snew(i,j,k,UMX) * Snew(i,j,k,UMX)) /
                                                  Snew(i,j,k,URHO);
         for (int n = 0; n < NumAdv; ++n) {
-            Snew(i,j,k,UFA+n) = Stmp(i,j,k,UFA+n) * rhotmpInv * Snew(i,j,k,URHO);
+            Snew(i,j,k,UADV+n) = Stmp(i,j,k,UADV+n) * rhotmpInv * Snew(i,j,k,URHO);
         }
         for (int n = 0; n < NumSpec; ++n) {
-            Snew(i,j,k,UFS+n) = eos_state.xn[n] * Snew(i,j,k,URHO);
+            Snew(i,j,k,USPEC+n) = eos_state.xn[n] * Snew(i,j,k,URHO);
         }
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; ++n) {
-            Snew(i,j,k,UFX+n) = eos_state.aux[n] * Snew(i,j,k,URHO);
+            Snew(i,j,k,UAUXV+n) = eos_state.aux[n] * Snew(i,j,k,URHO);
         }
 #endif
 

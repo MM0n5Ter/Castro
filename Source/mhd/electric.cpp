@@ -1,11 +1,11 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <mhd_util.H>
 
 using namespace amrex;
 
 void
-Castro::electric_edge_x(const Box& bx,
+HydroSim::electric_edge_x(const Box& bx,
                         Array4<Real const> const& q_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxy,
@@ -164,7 +164,7 @@ Castro::electric_edge_x(const Box& bx,
 }
 
 void
-Castro::electric_edge_y(const Box& bx,
+HydroSim::electric_edge_y(const Box& bx,
                         Array4<Real const> const& q_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxx,
@@ -319,7 +319,7 @@ Castro::electric_edge_y(const Box& bx,
 
 
 void
-Castro::electric_edge_z(const Box& bx,
+HydroSim::electric_edge_z(const Box& bx,
                         Array4<Real const> const& q_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxx,

@@ -39,9 +39,9 @@ void problem_initialize_state_data (int i, int j, int k,
                         pert / problem::cw) * problem::rho_0;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    state(i,j,k,UFS) = state(i,j,k,URHO);
+    state(i,j,k,USPEC) = state(i,j,k,URHO);
     for (int n = 1; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = 0.0_rt;
+        state(i,j,k,USPEC+n) = 0.0_rt;
     }
 
     Real pressure = problem::p_0 + problem::rho_0 * problem::c_s * pert;
@@ -53,7 +53,7 @@ void problem_initialize_state_data (int i, int j, int k,
     eos_state.p = pressure;
     eos_state.T = 100.0_rt;  // initial guess
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n) / state(i,j,k,URHO);
+        eos_state.xn[n] = state(i,j,k,USPEC+n) / state(i,j,k,URHO);
     }
 
     eos(eos_input_rp, eos_state);

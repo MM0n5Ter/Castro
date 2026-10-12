@@ -29,9 +29,9 @@ void problem_bc_fill(int i, int j, int k,
         state(i,j,k,UEINT) = problem::rhoe_l;
         state(i,j,k,UTEMP) = problem::T_l;
         for (int n = 0; n < NumSpec; ++n) {
-            state(i,j,k,UFS+n) = 0.0e0_rt;
+            state(i,j,k,USPEC+n) = 0.0e0_rt;
         }
-        state(i,j,k,UFS) = state(i,j,k,URHO);
+        state(i,j,k,USPEC) = state(i,j,k,URHO);
     }
 
 #if AMREX_SPACEDIM >= 2
@@ -65,9 +65,9 @@ void problem_bc_fill(int i, int j, int k,
         }
         state(i,j,k,UMZ) = 0.0e0_rt;
         for (int n = 0; n < NumSpec; ++n) {
-            state(i,j,k,UFS+n) = 0.0e0_rt;
+            state(i,j,k,USPEC+n) = 0.0e0_rt;
         }
-        state(i,j,k,UFS) = state(i,j,k,URHO);
+        state(i,j,k,USPEC) = state(i,j,k,URHO);
     }
 
     // YHI
@@ -123,9 +123,9 @@ void problem_bc_fill(int i, int j, int k,
         }
 
         for (int n = 0; n < NumSpec; ++n) {
-            state(i,j,k,UFS+n) = 0.0e0_rt;
+            state(i,j,k,USPEC+n) = 0.0e0_rt;
         }
-        state(i,j,k,UFS) = state(i,j,k,URHO);
+        state(i,j,k,USPEC) = state(i,j,k,URHO);
         state(i,j,k,UMZ) = 0.0e0_rt;
     }
 #endif

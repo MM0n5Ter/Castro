@@ -19,7 +19,7 @@ void Print_Help() {
             << "\n./fradsphere -p plotfile -r radius -g groupfile -v variable"
             << "\n"
             << "\nHere groupfile is the file containing the group structure information"
-            << "\nas output by Castro (usually group_structure.dat)."
+            << "\nas output by HydroSim (usually group_structure.dat)."
             << "\nvariable should be either rad or rad_analytic_ (to obtain the numerical"
             << "\nand analytic data, respectively.)"
             << "\n\n" << std::endl;

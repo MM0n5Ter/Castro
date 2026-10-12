@@ -16,7 +16,7 @@ okay_to_burn(const int i, const int j, const int k,
     }
 
 #ifdef SHOCK_VAR
-    if (state(i,j,k,USHK) > 0.0_rt && disable_shock_burning == 1) {
+    if (state(i,j,k,USHOCK) > 0.0_rt && disable_shock_burning == 1) {
         return false;
     }
 #endif
@@ -34,7 +34,7 @@ okay_to_burn(GpuArray<Real, NUM_STATE> const& state) {
     }
 
 #ifdef SHOCK_VAR
-    if (state[USHK] > 0.0_rt && disable_shock_burning == 1) {
+    if (state[USHOCK] > 0.0_rt && disable_shock_burning == 1) {
         return false;
     }
 #endif
@@ -88,7 +88,7 @@ single_zone_react_source(burn_t& burn_state,
 
     // species rates come back in terms of molar fractions
     for (int n = 0; n < NumSpec; ++n) {
-        R[UFS+n] = burn_state.rho * aion[n] * ydot(1+n);
+        R[USPEC+n] = burn_state.rho * aion[n] * ydot(1+n);
     }
 
     R[UEDEN] = burn_state.rho * ydot(net_ienuc);

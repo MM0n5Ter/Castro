@@ -4,9 +4,9 @@
 set -x
 
 DIM=2
-EXEC=./Castro${DIM}d.gnu.MPI.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.ex
 
-RUNPARAMS="castro.time_integration_method=0"
+RUNPARAMS="hydrosim.time_integration_method=0"
 
 mpiexec -n 8 ${EXEC} inputs.64 ${RUNPARAMS} &> 64.out
 mpiexec -n 16 ${EXEC} inputs.128 ${RUNPARAMS} &> 128.out

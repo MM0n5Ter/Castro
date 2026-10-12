@@ -27,7 +27,7 @@ W_s_shock(const amrex::Real W_s, const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -63,7 +63,7 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
     bool converged = false;
 
     int iter = 1;
-    while (! converged && iter < castro::riemann_shock_maxiter) {
+    while (! converged && iter < hydrosim::riemann_shock_maxiter) {
 
         amrex::Real rhostar_s, f, fprime;
 
@@ -72,7 +72,7 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
 
         amrex::Real dW = -f / fprime;
 
-        if (std::abs(dW) < castro::riemann_pstar_tol * W_s) {
+        if (std::abs(dW) < hydrosim::riemann_pstar_tol * W_s) {
             converged = true;
         }
 
@@ -116,7 +116,7 @@ shock(const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::T_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -164,7 +164,7 @@ shock(const amrex::Real pstar,
     // now did we converge?
 
     if (! converged) {
-        for (int i = 0; i < castro::riemann_shock_maxiter; ++i) {
+        for (int i = 0; i < hydrosim::riemann_shock_maxiter; ++i) {
             std::cout << i << " " << rhostar_hist[i] << " " << Ws_hist[i] << std::endl;
         }
 

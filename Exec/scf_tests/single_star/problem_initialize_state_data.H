@@ -26,8 +26,8 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
 
     // Establish the initial guess: a uniform density sphere
 
-    if (std::sqrt(xx * xx + yy * yy + zz * zz) < castro::scf_equatorial_radius) {
-        state(i,j,k,URHO) = castro::scf_maximum_density;
+    if (std::sqrt(xx * xx + yy * yy + zz * zz) < hydrosim::scf_equatorial_radius) {
+        state(i,j,k,URHO) = hydrosim::scf_maximum_density;
     } else {
         state(i,j,k,URHO) = problem::ambient_dens;
     }
@@ -38,14 +38,14 @@ void problem_initialize_state_data (int i, int j, int k, Array4<Real> const& sta
 
     state(i,j,k,UTEMP) = 1.0e7_rt;
     for (int n = 0; n < NumSpec; n++) {
-        state(i,j,k,UFS+n) = state(i,j,k,URHO) / static_cast<Real>(NumSpec);
+        state(i,j,k,USPEC+n) = state(i,j,k,URHO) / static_cast<Real>(NumSpec);
     }
 
     eos_t eos_state;
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T = state(i,j,k,UTEMP);
     for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state(i,j,k,UFS+n) / state(i,j,k,URHO);
+        eos_state.xn[n] = state(i,j,k,USPEC+n) / state(i,j,k,URHO);
     }
 
     eos(eos_input_rt, eos_state);

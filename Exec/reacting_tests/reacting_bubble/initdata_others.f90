@@ -1,20 +1,20 @@
-subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
+subroutine hs_initdata_lowmach(lo,hi,LOWMACH_init_type, &
                                state,state_l1,state_l2,state_h1,state_h2, &
-                               dx,dr,xlo,xhi,p0,MAESTRO_npts_model,level)
+                               dx,dr,xlo,xhi,p0,LOWMACH_npts_model,level)
 
   use probdata_module
   use eos_module
-  use meth_params_module, only : NVAR, URHO, UMX, UMY, UEDEN, UEINT, UFS, UTEMP
+  use meth_params_module, only : NVAR, URHO, UMX, UMY, UEDEN, UEINT, USPEC, UTEMP
   use network, only: nspec
   use amrex_error_module, only: amrex_error
   use amrex_fort_module, only : rt => amrex_real
   implicit none
 
-  integer lo(2), hi(2), MAESTRO_init_type, level
-  integer MAESTRO_npts_model
+  integer lo(2), hi(2), LOWMACH_init_type, level
+  integer LOWMACH_npts_model
   integer state_l1,state_l2,state_h1,state_h2
   real(rt)         xlo(2), xhi(2), dx(2), dr
-  real(rt)         p0(0:MAESTRO_npts_model-1)
+  real(rt)         p0(0:LOWMACH_npts_model-1)
   real(rt)         state(state_l1:state_h1,state_l2:state_h2,NVAR)
 
   ! local variables
@@ -25,12 +25,12 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
   type (eos_t) eos_state
 
-  minpres = p0(MAESTRO_npts_model-1)
+  minpres = p0(LOWMACH_npts_model-1)
 
   ! compute p0 and add pi if necessary
   do j = lo(2), hi(2)
      do i = lo(1), hi(1)
-        if (MAESTRO_init_type .eq. 1) then
+        if (LOWMACH_init_type .eq. 1) then
            ! set pressure = p0
            state(i,j,UEDEN) = p0(j)
         else
@@ -41,7 +41,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
      end do
   end do
 
-  if (MAESTRO_init_type .eq. 1 .or. MAESTRO_init_type .eq. 2) then
+  if (LOWMACH_init_type .eq. 1 .or. LOWMACH_init_type .eq. 2) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -53,7 +53,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
            eos_state % p   = pressure
            eos_state % rho = state(i,j,URHO)
            eos_state % T   = state(i,j,UTEMP)
-           eos_state % xn  = state(i,j,UFS:UFS+nspec-1)
+           eos_state % xn  = state(i,j,USPEC:USPEC+nspec-1)
 
            call eos_on_host(eos_input_rp, eos_state)
 
@@ -74,13 +74,13 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
            ! convert X to rhoX
            do n = 1,nspec
-              state(i,j,UFS+n-1) = state(i,j,URHO) * state(i,j,UFS+n-1)
+              state(i,j,USPEC+n-1) = state(i,j,URHO) * state(i,j,USPEC+n-1)
            end do
 
         end do
      end do
 
-  else if (MAESTRO_init_type .eq. 3) then
+  else if (LOWMACH_init_type .eq. 3) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -91,7 +91,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
            ! compute rho and e
            eos_state % T  = state(i,j,UTEMP)
            eos_state % p  = pressure
-           eos_state % xn = state(i,j,UFS:UFS+nspec-1)
+           eos_state % xn = state(i,j,USPEC:USPEC+nspec-1)
 
            call eos_on_host(eos_input_pt, eos_state)
 
@@ -112,13 +112,13 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
            ! convert X to rhoX
            do n = 1,nspec
-              state(i,j,UFS+n-1) = state(i,j,URHO) * state(i,j,UFS+n-1)
+              state(i,j,USPEC+n-1) = state(i,j,URHO) * state(i,j,USPEC+n-1)
            end do
 
         end do
      end do
 
-  else if (MAESTRO_init_type .eq. 4) then
+  else if (LOWMACH_init_type .eq. 4) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -135,7 +135,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
            ! compute rho, T, and e
            eos_state % p  = pressure
            eos_state % s  = entropy
-           eos_state % xn = state(i,j,UFS:UFS+nspec-1)
+           eos_state % xn = state(i,j,USPEC:USPEC+nspec-1)
 
            call eos_on_host(eos_input_ps, eos_state)
 
@@ -154,7 +154,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
            ! convert X to rhoX
            do n = 1,nspec
-              state(i,j,UFS+n-1) = state(i,j,URHO) * state(i,j,UFS+n-1)
+              state(i,j,USPEC+n-1) = state(i,j,URHO) * state(i,j,USPEC+n-1)
            end do
 
         end do
@@ -162,9 +162,9 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
   end if
 
-end subroutine ca_initdata_maestro
+end subroutine hs_initdata_lowmach
 
-subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
+subroutine hs_initdata_makemodel(model,model_size,LOWMACH_npts_model, &
                                  rho0,tempbar,dx,dr,r_model_start)
 
   use network, only: nspec
@@ -173,10 +173,10 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
   use amrex_fort_module, only : rt => amrex_real
   implicit none
 
-  integer model_size,MAESTRO_npts_model
-  real(rt)         model(model_size,0:MAESTRO_npts_model-1)
-  real(rt)         rho0   (0:MAESTRO_npts_model-1)
-  real(rt)         tempbar(0:MAESTRO_npts_model-1)
+  integer model_size,LOWMACH_npts_model
+  real(rt)         model(model_size,0:LOWMACH_npts_model-1)
+  real(rt)         rho0   (0:LOWMACH_npts_model-1)
+  real(rt)         tempbar(0:LOWMACH_npts_model-1)
   real(rt)         dx(2), dr
   integer r_model_start
 
@@ -186,7 +186,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
   real(rt)         TOL
 
-  real(rt)         pres(0:MAESTRO_npts_model-1)
+  real(rt)         pres(0:LOWMACH_npts_model-1)
   real(rt)         entropy_want,entropy
   real(rt)         dens_zone,temp_zone,xn(nspec)
 
@@ -241,7 +241,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
   !---------------------------------------------------------------------------
   ! integrate up
   !---------------------------------------------------------------------------
-  do i=r_model_start+1,MAESTRO_npts_model-1
+  do i=r_model_start+1,LOWMACH_npts_model-1
 
      ! as the initial guess for the temperature and density, use the previous
      ! zone
@@ -421,14 +421,14 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
   end do
 
-end subroutine ca_initdata_makemodel
+end subroutine hs_initdata_makemodel
 
-subroutine ca_initdata_overwrite(lo,hi, &
+subroutine hs_initdata_overwrite(lo,hi, &
                                  state,state_l1,state_l2,state_h1,state_h2, &
-                                 model,model_size,MAESTRO_npts_model,dx,dr, &
+                                 model,model_size,LOWMACH_npts_model,dx,dr, &
                                  xlo,xhi,r_model_start)
 
-  use meth_params_module, only : NVAR, URHO, UMX, UMY, UEDEN, UEINT, UFS, UTEMP
+  use meth_params_module, only : NVAR, URHO, UMX, UMY, UEDEN, UEINT, USPEC, UTEMP
   use network, only: nspec
   use eos_module
 
@@ -436,10 +436,10 @@ subroutine ca_initdata_overwrite(lo,hi, &
   implicit none
 
   integer lo(2), hi(2), r_model_start
-  integer model_size,MAESTRO_npts_model
+  integer model_size,LOWMACH_npts_model
   integer state_l1,state_l2,state_h1,state_h2
   real(rt)         state(state_l1:state_h1,state_l2:state_h2,NVAR)
-  real(rt)         model(model_size,0:MAESTRO_npts_model-1)
+  real(rt)         model(model_size,0:LOWMACH_npts_model-1)
   real(rt)         dx(2), xlo(2), xhi(2), dr
 
   ! local
@@ -460,14 +460,14 @@ subroutine ca_initdata_overwrite(lo,hi, &
            state(i,j,URHO) = model(1,j)
            state(i,j,UTEMP) = model(2,j)
 
-           state(i,j,UFS  ) = 0.3e0_rt
-           state(i,j,UFS+1) = 0.7e0_rt
-           state(i,j,UFS+2) = 0.0e0_rt
+           state(i,j,USPEC  ) = 0.3e0_rt
+           state(i,j,USPEC+1) = 0.7e0_rt
+           state(i,j,USPEC+2) = 0.0e0_rt
 
            ! compute e
            eos_state % rho = state(i,j,URHO)
            eos_state % T   = state(i,j,UTEMP)
-           eos_state % xn  = state(i,j,UFS:UFS+nspec-1)
+           eos_state % xn  = state(i,j,USPEC:USPEC+nspec-1)
 
            call eos_on_host(eos_input_rt, eos_state)
 
@@ -481,7 +481,7 @@ subroutine ca_initdata_overwrite(lo,hi, &
 
            ! convert X to rhoX
            do n = 1,nspec
-              state(i,j,UFS+n-1) = state(i,j,URHO) * state(i,j,UFS+n-1)
+              state(i,j,USPEC+n-1) = state(i,j,URHO) * state(i,j,USPEC+n-1)
            end do
         end do
 
@@ -489,4 +489,4 @@ subroutine ca_initdata_overwrite(lo,hi, &
 
   end do
 
-end subroutine ca_initdata_overwrite
+end subroutine hs_initdata_overwrite

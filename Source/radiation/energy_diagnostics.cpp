@@ -8,13 +8,13 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-#include <Castro.H>
+#include <HydroSim.H>
 #include <Radiation.H>
 
 using namespace amrex;
 
 void
-Castro::do_energy_diagnostics()
+HydroSim::do_energy_diagnostics()
 {
   int finest_level = parent->finestLevel();
 

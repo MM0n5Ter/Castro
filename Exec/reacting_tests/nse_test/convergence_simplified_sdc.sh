@@ -3,7 +3,7 @@
 # echo the commands
 set -x
 
-EXEC=./Castro2d.gnu.MPI.SMPLSDC.ex
+EXEC=./HydroSim2d.gnu.MPI.SMPLSDC.ex
 
 mpiexec -n 8 ${EXEC} inputs.64 >& /dev/null
 mpiexec -n 8 ${EXEC} inputs.128 >& /dev/null
