@@ -40,11 +40,6 @@
 /// @param apply_to_state   whether to apply the source to state_new
 ///
     void handle_old_sources(
-#ifdef MHD
-                        amrex::MultiFab& Bx,
-                        amrex::MultiFab& By,
-                        amrex::MultiFab& Bz,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& state_old, amrex::MultiFab& state_new,
                         amrex::Real time, amrex::Real dt, bool apply_to_state = true);
@@ -86,11 +81,6 @@
 /// @param apply_to_state   whether to apply the source to state_new
 ///
     void handle_new_sources(
-#ifdef MHD
-                        amrex::MultiFab& Bx,
-                        amrex::MultiFab& By,
-                        amrex::MultiFab& Bz,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& state_old, amrex::MultiFab& state_new,
                         amrex::Real time, amrex::Real dt, bool apply_to_state = true);
