@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -A ast106
 #SBATCH -J flame_tube_vr
 #SBATCH -N 1
 #SBATCH -t 4:00:00
@@ -8,7 +7,7 @@ set -u
 
 cd $SLURM_SUBMIT_DIR
 
-source "/ccs/proj/ast106/$USER/mambaforge_$(uname -m)/etc/profile.d/conda.sh"
+source "$USER/mambaforge_$(uname -m)/etc/profile.d/conda.sh"
 conda activate andes_yt_dev
 
 plotfiles=(run_256/flame_tube_25cm_smallplt*)

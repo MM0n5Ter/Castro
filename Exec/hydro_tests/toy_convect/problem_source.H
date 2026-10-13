@@ -30,7 +30,7 @@ void problem_source (int i, int j, int k,
     // H abundance
     auto X_1 = state(i,j,k,USPEC-1+Species::H1) / rho;
 
-    // CNO heating from Kippenhahn & Weigert, Eq. 18.65
+    // CNO heating
     auto g14 = 1.0_rt + 2.7e-3_rt*T613 - 7.78e-3_rt*T613*T613 - 1.49e-4_rt*T6;
     auto eps_CNO = 8.67e27_rt * g14 * X_CNO * X_1 * rho * std::exp(-152.28_rt/T613) / (T613*T613);
 

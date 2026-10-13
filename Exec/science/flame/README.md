@@ -72,15 +72,3 @@ include:
   the flame speed (with uncertainty).  T0 and dT0 can be set via
   runtime parameters, and should be temperatures where the flame
   profile is very steep.  The flame width is also computed.
-
-## Publications
-
-The SDC inputs files were used for a demonstration of a 4th order
-accurate flame in
-
-* *Improved Coupling of Hydrodynamics and Nuclear Reactions via
-  Spectral Deferred Corrections*
-
-  Zingale, M., Katz, M. P., Bell, J. B., Minion, M. L., Nonaka, A. J.,
-  & Zhang, W. 2019, ApJ, 886, 2, p. 105 (DOI:
-  10.3847/1538-4357/ab4e1d)

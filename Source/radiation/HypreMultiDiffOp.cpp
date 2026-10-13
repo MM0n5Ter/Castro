@@ -1295,7 +1295,7 @@ void HypreMultiDiffOp::buildMatrixStructure()
   HYPRE_SStructVectorInitialize(b);
   HYPRE_SStructVectorInitialize(x);
 
-  // According to Rob, the following is necessary in some cases before
+  // the following is necessary in some cases before
   // we call the solver setup routine (and we may do that before loading
   // the vectors with data):
 

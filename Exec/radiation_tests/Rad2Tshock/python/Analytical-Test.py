@@ -31,7 +31,7 @@ def get_x_var(pf, var):
     return time, x_coord, var
 
 
-def OneTShock(P0, gamma, M0):  # Lowrie & Rauenzahn 07
+def OneTShock(P0, gamma, M0):
     def f1_f(T1):
         return 3.*(gamma+1.)*(T1-1.) - P0*gamma*(gamma-1.)*(7.+T1**4)
     def f2_f(T1):
@@ -61,7 +61,6 @@ def OneTShock(P0, gamma, M0):  # Lowrie & Rauenzahn 07
     v1 = M0 / rho1
     return rho1, v1, T1
 
-# references: Lowrie & Edwards 2008,  Lowrie & Rauenzahn 2007
 def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
 
     def peos(rho, T):
@@ -70,15 +69,15 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
         return T/(gamma*(gamma-1.))
 
     Cp = 1./(gamma-1.)
-    M_ISP = 1.0/np.sqrt(gamma)  # Eq. 28
-    Km = 3.*(gamma*M0**2+1.) + gamma*P0 # Eq. 16
+    M_ISP = 1.0/np.sqrt(gamma)
+    Km = 3.*(gamma*M0**2+1.) + gamma*P0
 
-    def rho_f(T, theta, s): # Eq. 17
+    def rho_f(T, theta, s):
         b = Km - gamma*P0*theta**4
         ac4 = 36.*gamma*M0**2*T
         return (b + s*np.sqrt(b**2-ac4))/(6.*T)
 
-    def dTdtheta(T, theta, rho, M, v, s):  # Eq. 54
+    def dTdtheta(T, theta, rho, M, v, s):
         b = Km - gamma*P0*theta**4
         d = np.sqrt(b**2 - 36.*gamma*M0**2*T)
         drhodT = - (rho + s*(3.*gamma*M0**2)/d) / T
@@ -98,21 +97,21 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
         else:
             return (S1 - S2) / (2.*dGdT)
 
-    def thetaprime_f(T, theta, rho, v): # Eq.18
+    def thetaprime_f(T, theta, rho, v):
         return v*(6.*Cp*rho*(T-1.)+3.*rho*(v**2-M0**2)+8.*P0*(theta**4-rho))/(24.*P0*kappa*theta**3)
 
-    def dxTdM(xT, M): # Eq. 37
+    def dxTdM(xT, M):
         T = xT[1]
-        rho = M0 / (M * np.sqrt(T))  # Eq. 40
+        rho = M0 / (M * np.sqrt(T))
         v = M0/rho
-        th4 = (Km-3.*gamma*M0**2/rho-3.*T*rho) / (gamma*P0)  # Eq. 41
-        r = 3.*rho*sigma*(th4-T**4) # Eq. 25
+        th4 = (Km-3.*gamma*M0**2/rho-3.*T*rho) / (gamma*P0)
+        r = 3.*rho*sigma*(th4-T**4)
         theta = th4**0.25
         th3 = th4/theta
         thetaprime = thetaprime_f(T,theta,rho,v)
         foo = 4.*M0*th3*thetaprime
-        ZD = foo + (gamma-1.)/(gamma+1.)*(gamma*M**2+1.)*r  # Eq. 39
-        ZN = foo + (gamma*M**2-1.)*r  # Eq. 24
+        ZD = foo + (gamma-1.)/(gamma+1.)*(gamma*M**2+1.)*r
+        ZN = foo + (gamma*M**2-1.)*r
         dxdM =  -6.*M0*rho*T/((gamma+1.)*P0*M) * (M**2-1.)/ZD
         dTdM = -2.*(gamma-1.)/(gamma+1.) * T/M * ZN/ZD
         return [dxdM, dTdM]
@@ -148,7 +147,7 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
 
     # Step 2b
     x0_eps = 0.0
-    x0 = x0_eps - eps/thetaprime_f(T0_eps, theta0_eps, rho0_eps, v0_eps)  # Eq. 44
+    x0 = x0_eps - eps/thetaprime_f(T0_eps, theta0_eps, rho0_eps, v0_eps)
     print('x0=', x0)
 
     # Step 2c
@@ -158,9 +157,9 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
     xTpre = integrate.odeint(dxTdM, xT0, Mpre, mxstep=100000)
     xpre = xTpre[:,0]
     Tpre = xTpre[:,1]
-    rhopre = M0 / (Mpre * np.sqrt(Tpre))  # Eq. 40
+    rhopre = M0 / (Mpre * np.sqrt(Tpre))
     vpre = M0/rhopre
-    thetapre = ((Km-3.*gamma*M0**2/rhopre-3.*Tpre*rhopre) / (gamma*P0))**0.25  # Eq. 41
+    thetapre = ((Km-3.*gamma*M0**2/rhopre-3.*Tpre*rhopre) / (gamma*P0))**0.25
 
 
     # Step 3a
@@ -188,9 +187,9 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
     xTrel = integrate.odeint(dxTdM, xT0, Mrel, mxstep=100000)
     xrel = xTrel[:,0]
     Trel = xTrel[:,1]
-    rhorel = M0 / (Mrel * np.sqrt(Trel))  # Eq. 40
+    rhorel = M0 / (Mrel * np.sqrt(Trel))
     vrel = M0/rhorel
-    thetarel = ((Km-3.*gamma*M0**2/rhorel-3.*Trel*rhorel) / (gamma*P0))**0.25  # Eq. 41
+    thetarel = ((Km-3.*gamma*M0**2/rhorel-3.*Trel*rhorel) / (gamma*P0))**0.25
     # Reverse the solution
     xrel = xrel[::-1]
     Trel = Trel[::-1]
@@ -234,11 +233,11 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=5):
             es = eeos(Ts)
             Es = es + 0.5*vs**2
 
-            foo = rhop*vp**2 + pp  # Eq. 12b
+            foo = rhop*vp**2 + pp
             bar = rhos*vs**2 + ps
             err1 = abs(foo-bar)/min(foo,bar)
 
-            foo = vp*(rhop*Ep+pp)  # Eq. 12c
+            foo = vp*(rhop*Ep+pp)
             bar = vs*(rhos*Es+ps)
             err2 = abs(foo-bar)/min(foo,bar)
 

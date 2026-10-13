@@ -172,9 +172,6 @@ namespace HLL {
       // This is the HLLE solver.  We should apply it to zone averages
       // (not reconstructed states) at an interface in the presence of
       // shocks to avoid the odd-even decoupling / carbuncle phenomenon.
-      //
-      // See: Einfeldt, B.  et al. 1991, JCP, 92, 273
-      //      Einfeldt, B. 1988, SIAM J NA, 25, 294
 
 
       constexpr Real small_hll = 1.e-10_rt;
@@ -216,21 +213,21 @@ namespace HLL {
       Real rhod = 1.0_rt/(rhol_sqrt + rhor_sqrt);
 
 
-      // compute the average sound speed. This uses an approximation from
-      // E88, eq. 5.6, 5.7 that assumes gamma falls between 1
+      // compute the average sound speed. This uses an approximation
+      // that assumes gamma falls between 1
       // and 5/3
       Real cavg = std::sqrt( (rhol_sqrt*cl*cl + rhor_sqrt*cr*cr)*rhod +
                              0.5_rt*rhol_sqrt*rhor_sqrt*rhod*rhod*std::pow(qr[ivel] - ql[ivel], 2));
 
 
-      // Roe eigenvalues (E91, eq. 5.3b)
+      // Roe eigenvalues
       Real uavg = (rhol_sqrt*ql[ivel] + rhor_sqrt*qr[ivel])*rhod;
 
       Real a1 = uavg - cavg;
       Real a4 = uavg + cavg;
 
 
-      // signal speeds (E91, eq. 4.5)
+      // signal speeds
       Real bl = std::min(a1, ql[ivel] - cl);
       Real br = std::max(a4, qr[ivel] + cr);
 
@@ -247,7 +244,7 @@ namespace HLL {
 
       bd = 1.0_rt/bd;
 
-      // compute the fluxes according to E91, eq. 4.4b -- note that the
+      // compute the fluxes -- note that the
       // min/max above picks the correct flux if we are not in the star
       // region
 
@@ -333,8 +330,8 @@ namespace HLL {
          const bool special_bnd_lo, const bool special_bnd_hi,
          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-        // this is an implementation of the HLLC solver described in Toro's
-        // book.  it uses the simplest estimate of the wave speeds, since
+        // this is an implementation of the HLLC solver.
+        // it uses the simplest estimate of the wave speeds, since
         // those should work for a general EOS.  We also initially do the
         // CGF Riemann construction to get pstar and ustar, since we'll
         // need to know the pressure and velocity on the interface for the
@@ -503,7 +500,7 @@ namespace HLL {
         Real S_l = std::min(ul - std::sqrt(gamcl*pl/rl), ur - std::sqrt(gamcr*pr/rr));
         Real S_r = std::max(ul + std::sqrt(gamcl*pl/rl), ur + std::sqrt(gamcr*pr/rr));
 
-        // estimate of the contact speed -- this is Toro Eq. 10.8
+        // estimate of the contact speed
         Real S_c = (pr - pl + rl*ul*(S_l - ul) - rr*ur*(S_r - ur))/
             (rl*(S_l - ul) - rr*(S_r - ur));
 

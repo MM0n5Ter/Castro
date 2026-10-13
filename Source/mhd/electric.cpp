@@ -19,13 +19,13 @@ HydroSim::electric_edge_x(const Box& bx,
 
     Real q_zone[NQ];
 
-    // Compute Ex(i, j-1/2, k-1/2) using MM Eq. 50
+    // Compute Ex(i, j-1/2, k-1/2)
 
-    // dEx/dy (Eq. 49), located at (i, j-3/4, k-1/2)
+    // dEx/dy, located at (i, j-3/4, k-1/2)
 
-    // first compute dEx/dy_{i,j-3/4,k-1} using MM Eq. 49
+    // first compute dEx/dy_{i,j-3/4,k-1}
     // note that the face value Ex_{i,j-1/2,k-1} = -F_{i,j-1/2,k-1}(Bz)
-    // via Faraday's law (MM Eq. 15)
+    // via Faraday's law
 
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k-1,n);
@@ -86,8 +86,7 @@ HydroSim::electric_edge_x(const Box& bx,
     }
 
     // Calculate the "second derivative" in the y direction for
-    // d^2Ex/dy^2 i, j-1/2, k-1/2 (this is one of the terms in Eq. 50)
-    // note: Stone 08 Eq. 79 has the signs backwards for this term.
+    // d^2Ex/dy^2 i, j-1/2, k-1/2
 
     Real dd1 = 0.125_rt * (d1 - d2);
 
@@ -155,7 +154,7 @@ HydroSim::electric_edge_x(const Box& bx,
 
     Real dd2 = 0.125_rt * (d1 - d2);
 
-    // now the final Ex_{i,j-1/2,k-1/2}, using MM Eq. 50 (shifted to j-1/2, k-1/2)
+    // now the final Ex_{i,j-1/2,k-1/2} (shifted to j-1/2, k-1/2)
 
     E(i,j,k) = 0.25_rt * (-flxy(i,j,k,UMAGZ) - flxy(i,j,k-1,UMAGZ) +
                           flxz(i,j-1,k,UMAGY) + flxz(i,j,k,UMAGY)) + dd1 + dd2;

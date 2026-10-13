@@ -2,9 +2,9 @@
 # it was compiled with USE_SINGLE_PRECISION_JACOBIAN=TRUE
 # ROCm 6.3.1
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/he-burn/cno-he-burn-34am
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/he-burn/cno-he-burn-34am
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 # INTEGRATOR: VODE
 # SCREENING: screen5
 #

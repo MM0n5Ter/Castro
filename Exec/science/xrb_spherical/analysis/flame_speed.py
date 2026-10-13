@@ -189,12 +189,12 @@ if __name__ == "__main__":
     # Conduction Speed (Landau)
     v1 = np.sqrt(D / t_nuc) * 1e-5 # convert to km/s
 
-    # Ageotrophic Speed (Spitkovski 2002)
+    # Ageotrophic Speed
     g = 1.5e14
     L_R = np.sqrt(g * ocean_height) / coriolis_param
     v2 = L_R / t_nuc * 1e-5
 
-    # Conduction + Ageotrophic (Cavecchi 2013)
+    # Conduction + Ageotrophic
     v3 = 2.5 * np.sqrt(D / t_nuc) * L_R / ocean_height * 1e-5
 
     # Plot theoretical speeds

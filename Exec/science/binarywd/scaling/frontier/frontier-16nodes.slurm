@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -A AST106
 #SBATCH -J binarywd_16nodes
 #SBATCH -o %x-%j.out
 #SBATCH -t 01:20:00

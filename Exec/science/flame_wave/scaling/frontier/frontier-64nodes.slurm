@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -A AST106
 #SBATCH -J testing
 #SBATCH -o scaling-%j.out
 #SBATCH -t 00:30:00

@@ -10,9 +10,9 @@
 #
 # build info:
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/iso7
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/iso7
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 # INTEGRATOR: RKC
 # SCREENING: screen5
 #

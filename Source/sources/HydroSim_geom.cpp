@@ -5,7 +5,7 @@ using namespace amrex;
 
 ///
 /// this adds the geometric source terms for non-Cartesian Coordinates
-/// This includes 2D Cylindrical (R-Z) coordinate as described in Bernand-Champmartin
+/// This includes 2D Cylindrical (R-Z) coordinate
 /// and 2D Spherical (R-THETA) coordinate.
 ///
 
@@ -144,7 +144,7 @@ HydroSim::fill_RZ_geom_source (Real time, Real dt, const MultiFab& cons_state, M
 
   // Compute the geometric source for axisymmetric coordinates (R-Z)
   // resulting from taking the divergence of (rho U U) in cylindrical
-  // coordinates.  See the paper by Bernard-Champmartin
+  // coordinates.
 
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);

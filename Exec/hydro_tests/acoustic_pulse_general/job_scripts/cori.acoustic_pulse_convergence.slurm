@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=acoustic_pulse_general
-#SBATCH --account=m3018
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=32
 #SBATCH --qos=regular

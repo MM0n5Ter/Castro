@@ -1,7 +1,7 @@
 # RadFront
 
 This setup is based on the Optically-Thin Streaming of Radiation front
-described on the HydroSim paper II but with some differences:
+but with some differences:
 
 1. Instead of defining the B.C. by Er, I'm using the corresponding value
    for Fr, assuming that for optically thin Fr=-cEr

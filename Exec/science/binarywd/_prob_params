@@ -70,7 +70,7 @@ single_star                     integer               0                        n
 initial_model_dx                real                  6.25e5_rt                y
 
 # Composition properties of initial models.
-# We follow the prescription of Dan et al. 2012 for determining
+# We follow the prescription for determining
 # the composition of the WDs. In this approach, below a certain 
 # mass there are pure He WDs; just above that are hybrid WDs
 # with pure CO cores and a He mantle; above that are pure CO WDs

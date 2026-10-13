@@ -1,4 +1,4 @@
-This is a version of the Maestro xrb_mixed problem.  It models a 2-d
-mixed H/He XRB.  Note: we point to the rprox network in MAESTRO/, so
+This is a version of the xrb_mixed problem.  It models a 2-d
+mixed H/He XRB.  Note: we point to the rprox network, so
 you need to make sure you have that and set your LOWMACH_HOME
 environment variable.

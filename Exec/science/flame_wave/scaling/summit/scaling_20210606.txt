@@ -1,9 +1,9 @@
 #
 # 3-d flame_wave run on Summit
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/iso7
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/iso7
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 #
 # HydroSim       git describe: 21.06-14-g9d5b85cdd
 # AMReX        git describe: 21.06-21-g87e01fe44

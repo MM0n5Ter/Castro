@@ -27,8 +27,6 @@ qflux(Real* qflx, const Real* flx, const Real* q_zone) {
 
   // Calculate the C to P Jacobian applied to the fluxes
 
-  // this is step 10 in the paper, just after Eq. 48
-
   // this implements dW/dU . qflux, where dW/dU is the Jacobian of
   // the primitive quantities (W) with respect to conserved quantities (U)
 

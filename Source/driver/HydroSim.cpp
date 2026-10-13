@@ -2966,8 +2966,8 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
             // Note that the scaling by the area here is corrected for by dividing by the
             // cell volume in the reflux. In this way we get a discrete divergence that
-            // is analogous to the divergence of the flux in the hydrodynamics. See Equation
-            // 37 in the HydroSim I paper. The dimensions of dphi are therefore actually
+            // is analogous to the divergence of the flux in the hydrodynamics.
+            // The dimensions of dphi are therefore actually
             // phi / cm**2, which makes it correct for the RHS of the Poisson equation.
 
             for (int i = 0; i < AMREX_SPACEDIM; ++i) {

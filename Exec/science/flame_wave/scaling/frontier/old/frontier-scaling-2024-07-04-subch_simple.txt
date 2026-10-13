@@ -10,9 +10,9 @@
 #
 # build info:
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/subch_simple
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/subch_simple
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 # INTEGRATOR: VODE
 # SCREENING: screen5
 #

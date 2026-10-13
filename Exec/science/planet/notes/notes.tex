@@ -16,7 +16,7 @@
 
 \section{\hydrosim\ Solver Details}
 
-We are using the gray radiation solver.  Weiqun suggests
+We are using the gray radiation solver.
 \begin{itemize}
 \item {\tt radiation.comoving = 1} ---should be more stable
 \item {\tt radsolve.level\_solver\_flag = 1} ---should be faster than {\tt 0}
@@ -27,7 +27,7 @@ We are using the gray radiation solver.  Weiqun suggests
 
 \section{Opacity}
 
-YM10 suggest the form of the opacity as (Eq.\ 3):
+the form of the opacity as:
 \begin{equation}
   \tilde{\kappa} = \tilde{\kappa}_0 \left (\frac{P}{P_\mathrm{kb}} \right)
 \end{equation}
@@ -44,7 +44,7 @@ reference values for scaling).  We replace the pressure using the EOS:
 \begin{equation}
   P = \frac{\rho k T}{\mu m_p}
 \end{equation}
-where $\mu = 2.34$ as specified in YM10, and $T$ is understood to be
+where $\mu = 2.34$, and $T$ is understood to be
 the gas temperature.  Substituting this in, we have:
 \begin{equation}
   \kappa = \tilde{\kappa}_0 \rho^2 \frac{k T}{\mu m_p P_\mathrm{kb}}
@@ -66,7 +66,7 @@ radiation.kappa_p_exp_n = -1
 \subsection{Boundary Conditions}
 
 The upper boundary of the domain needs to specify the flux coming from
-the parent star.  Weiqun suggested the Sanchez-Pomraning BC, which is
+the parent star.  the Sanchez-Pomraning BC, which is
 a Neumann-like BC that allows for an incoming and outgoing flux.
 
 The form of the flux is $F = cE_r$, where $E_r$ is the radiation
@@ -76,7 +76,7 @@ We evaluate it as
   F = cE_r = c a T_\star^4 = 4\sigma T_\star^4
 \end{equation}
 where $T_\star$ is the effective temperature of the stellar flux at
-the planet---this is how the YM10 paper characterizes the radiation
+the planet---this is how the paper characterizes the radiation
 flux.  Evaluating, we have:
 \begin{equation}
   F = 3.6\times 10^9~\mathrm{erg~cm^{-2}~s^{-1}}

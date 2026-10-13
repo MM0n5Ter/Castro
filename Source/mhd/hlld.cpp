@@ -95,8 +95,7 @@ HydroSim::hlld(const Box& bx,
 
     PToC(qL, uL, gam1_L);
 
-    // Compute the fluxes.  Here use total p not just p_g eq.11 in Miniati
-    // Also note that Miniati has an overall sign error in the B fluxes
+    // Compute the fluxes.  Here use total p not just p_g
     Real BL2 = qL(QMAGX) * qL(QMAGX) + qL(QMAGY) * qL(QMAGY) + qL(QMAGZ) * qL(QMAGZ);
     Real UBL = qL(QMAGX) * qL(QU) + qL(QMAGY) * qL(QV) + qL(QMAGZ) * qL(QW);
     Array1D<Real, 0, NUM_STATE+2> FL;
@@ -139,8 +138,6 @@ HydroSim::hlld(const Box& bx,
     FR(UEINT) = qR(QVELN) * uR(UEINT);
     FR(UTEMP) = 0.0_rt;
 
-    // From Miyoshi and Kusano paper eq.(3)
-
     Real asL = gam1_L * qL(QPRES) / qL(QRHO);
     Real asR = gam1_R * qR(QPRES) / qR(QRHO);
 
@@ -151,13 +148,13 @@ HydroSim::hlld(const Box& bx,
     Real canR = qR(QMAGN) * qR(QMAGN) / qR(QRHO);
 
     // fast waves
-    // cf as in equation (3) of HLLD paper (Miyoshi and Kusano)
+    // cf
 
     Real cfL2 = std::sqrt(0.5_rt * ((asL + caL) + std::sqrt((asL + caL)*(asL + caL) - 4.0_rt * asL * canL)));
     Real cfR = std::sqrt(0.5_rt * ((asR + caR) + std::sqrt((asR + caR)*(asR + caR) - 4.0_rt * asR * canR)));
 
     // Riemann Speeds
-    // sL and sR, eq.(12) (Miyoshi and Kusano)
+    // sL and sR
 
     Real sL = amrex::min(qL(QVELN) - cfL2, qR(QVELN) - cfR);
     Real sR = amrex::max(qL(QVELN) + cfL2, qR(QVELN) + cfR);
@@ -167,14 +164,14 @@ HydroSim::hlld(const Box& bx,
     Real ptL = qL(QPRES) + 0.5_rt * BL2;
     Real ptR = qR(QPRES) + 0.5_rt * BR2;
 
-    // sM -- the entropy wave, eq.(38)
+    // sM -- the entropy wave
 
     Real sM  = ((sR - qR(QVELN)) * qR(QRHO) * qR(QVELN) - (sL - qL(QVELN)) * qL(QRHO) * qL(QVELN) -
            ptR + ptL) /
       ((sR - qR(QVELN)) * qR(QRHO) - (sL - qL(QVELN)) * qL(QRHO));
 
 
-    // pst, eq.(41) (pstar_total)
+    // pst (pstar_total)
 
     Real pst  = (sR - qR(QVELN)) * qR(QRHO) * ptL - (sL - qL(QVELN)) * qL(QRHO) * ptR +
       qL(QRHO) * qR(QRHO) * (sR - qR(QVELN)) * (sL - qL(QVELN)) * (qR(QVELN) - qL(QVELN));
@@ -185,7 +182,7 @@ HydroSim::hlld(const Box& bx,
     Array1D<Real, 0, NUM_STATE+2> UsL;
     Array1D<Real, 0, NUM_STATE+2> UsR;
 
-    // Density eq.(43)
+    // Density
 
     UsL(URHO) = amrex::max(small_dens, qL(QRHO) * ((sL - qL(QVELN)) / (sL - sM)));
     UsR(URHO) = amrex::max(small_dens, qR(QRHO) * ((sR - qR(QVELN)) / (sR - sM)));
@@ -204,13 +201,13 @@ HydroSim::hlld(const Box& bx,
 
     // Vel * states
 
-    // Normal dir (Eq. 39)
+    // Normal dir
 
     UsL(UMN) = sM;
     UsR(UMN) = sM;
 
-    // Perpendicular dir (Eq 44)
-    // Second Perpendicular dir (Eq 46)
+    // Perpendicular dir
+    // Second Perpendicular dir
 
     Real denom_upL = qL(QRHO) * (sL - qL(QVELN)) * (sL - sM) - qL(QMAGN) * qL(QMAGN);
     Real denom_upR = qR(QRHO) * (sR - qR(QVELN)) * (sR - sM) - qR(QMAGN)*qR(QMAGN);
@@ -255,8 +252,8 @@ HydroSim::hlld(const Box& bx,
     UsL(UMAGN) = qL(QMAGN);
     UsR(UMAGN) = qR(QMAGN);
 
-    // Perpendicular dir (Eq. 45)
-    // Second Perpendicular dir (Eq. 47)
+    // Perpendicular dir
+    // Second Perpendicular dir
 
     Real denom_bpL = qL(QRHO) * (sL - qL(QVELN)) * (sL - sM) - qL(QMAGN) * qL(QMAGN);
     Real denom_bpR = qR(QRHO) * (sR - qR(QVELN)) * (sR - sM) - qR(QMAGN) * qR(QMAGN);
@@ -286,7 +283,7 @@ HydroSim::hlld(const Box& bx,
     }
 
 
-    // Energy, eq.(48)
+    // Energy
 
     UsL(UEDEN) = (sL - qL(QVELN)) * uL(UEDEN) - ptL * qL(QVELN) + pst * sM +
       qL(QMAGN) * (UBL - (UsL(UMX) * UsL(UMAGX) + UsL(UMY) * UsL(UMAGY) + UsL(UMZ) * UsL(UMAGZ)) / UsL(URHO));
@@ -299,7 +296,7 @@ HydroSim::hlld(const Box& bx,
     UsL(UTEMP) = 0.0_rt;
     UsR(UTEMP) = 0.0_rt;
 
-    // speeds, eq.(51)
+    // speeds
 
     Real ssL = sM - std::abs(qL(QMAGN)) / std::sqrt(UsL(URHO));
     Real ssR = sM + std::abs(qR(QMAGN)) / std::sqrt(UsR(URHO));
@@ -309,7 +306,7 @@ HydroSim::hlld(const Box& bx,
     Array1D<Real, 0, NUM_STATE+2> UssL;
     Array1D<Real, 0, NUM_STATE+2> UssR;
 
-    // Dens (Eq. 49)
+    // Dens
 
     UssL(URHO) = UsL(URHO);
     UssR(URHO) = UsR(URHO);
@@ -325,12 +322,12 @@ HydroSim::hlld(const Box& bx,
     UssL(UEINT) = UsL(UEINT);
     UssR(UEINT) = UsR(UEINT);
 
-    // Vel in normal direction (Eq. 39)
+    // Vel in normal direction
 
     UssL(UMN) = sM;
     UssR(UMN) = sM;
 
-    // Vel in perpendicular direction, eq.(59)
+    // Vel in perpendicular direction
 
     UssL(UMP1) = (std::sqrt(UsL(URHO)) * UsL(UMP1) / UsL(URHO) +
                   std::sqrt(UsR(URHO)) * UsR(UMP1) / UsR(URHO) +
@@ -338,7 +335,7 @@ HydroSim::hlld(const Box& bx,
       (std::sqrt(UsL(URHO)) + std::sqrt(UsR(URHO)));
     UssR(UMP1) = UssL(UMP1);
 
-    // Vel in second perpendicular direction, eq(60)
+    // Vel in second perpendicular direction
 
     UssL(UMP2) = (std::sqrt(UsL(URHO)) * UsL(UMP2) / UsL(URHO) +
                   std::sqrt(UsR(URHO)) * UsR(UMP2) / UsR(URHO) +
@@ -359,7 +356,7 @@ HydroSim::hlld(const Box& bx,
     UssL(UMAGN) = UsL(UMAGN);
     UssR(UMAGN) = UsR(UMAGN);
 
-    // B in perpendicular direction (Eq 61)
+    // B in perpendicular direction
 
     UssL(UMAGP1) = (std::sqrt(UsL(URHO)) * UsR(UMAGP1) + std::sqrt(UsR(URHO)) * UsL(UMAGP1) +
                     std::sqrt(UsL(URHO) * UsR(URHO)) * (UsR(UMP1) / UsR(URHO) -
@@ -368,7 +365,7 @@ HydroSim::hlld(const Box& bx,
 
     UssR(UMAGP1) = UssL(UMAGP1);
 
-    // B in second perpendicular direction (Eq 62)
+    // B in second perpendicular direction
 
     UssL(UMAGP2) = (std::sqrt(UsL(URHO)) * UsR(UMAGP2) + std::sqrt(UsR(URHO)) * UsL(UMAGP2) +
                     std::sqrt(UsL(URHO) * UsR(URHO)) * (UsR(UMP2) / UsR(URHO) -
@@ -376,7 +373,7 @@ HydroSim::hlld(const Box& bx,
       (std::sqrt(UsL(URHO)) + std::sqrt(UsR(URHO)));
     UssR(UMAGP2) = UssL(UMAGP2);
 
-    // Energy , eq.(63)
+    // Energy
 
     UssL(UEDEN) = UsL(UEDEN) - std::sqrt(UsL(URHO)) *
       ((UsL(UMX) * UsL(UMAGX) + UsL(UMY) * UsL(UMAGY) + UsL(UMZ) * UsL(UMAGZ)) / UsL(URHO) -
@@ -390,7 +387,7 @@ HydroSim::hlld(const Box& bx,
     UssL(UTEMP) = 0.0_rt;
     UssR(UTEMP) = 0.0_rt;
 
-    // fluxes (eq 64 and 65)
+    // fluxes
 
     // Solve the RP
 

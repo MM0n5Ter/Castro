@@ -1,12 +1,11 @@
 #!/bin/bash
-#SBATCH -A ast106
 #SBATCH -J plots
 #SBATCH -N 1
 #SBATCH -t 8:00:00
 
 cd $SLURM_SUBMIT_DIR
 
-source "/ccs/proj/ast106/$USER/mambaforge_$(uname -m)/etc/profile.d/conda.sh"
+source "$USER/mambaforge_$(uname -m)/etc/profile.d/conda.sh"
 conda activate andes_yt_dev
 
 plotfile=run_256_extra_plotfiles/flame_tube_25cm_smallplt0039200

@@ -80,10 +80,8 @@ void problem_source (int i, int j, int k,
         }
     }
 
-    // This is an inspiral driving force that is inspired by Pakmor et al. 2021
-    // (https://academic.oup.com/mnras/article-abstract/503/4/4734/6166776),
-    // where a constant drift velocity is applied (see Equation 1 and 2, and note that the
-    // denominator in Equation 2 is missing a factor of a). Their approach simplifies to
+    // This is an inspiral driving force
+    // where a constant drift velocity is applied. Their approach simplifies to
     // dv/dt = -0.5 * v * (da/dt) / a, so we can achieve a similar effect by choosing as
     // a parameter the ratio [(da/dt) / a], which should be relatively small. To match their
     // method, we choose da/dt to be measured with respect to the initial velocity (relative to

@@ -1,8 +1,8 @@
 # ROCm 6.3.1
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/ase
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/ase
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 # INTEGRATOR: RKC
 # SCREENING: screen5
 #

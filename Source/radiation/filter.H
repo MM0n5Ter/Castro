@@ -1,8 +1,6 @@
 #ifndef filter_H
 #define filter_H
 
-// reference: R. J. Purser (J. of Clim. and Apld. Meteorology, 1987)
-
 namespace filter
 {
     // 3-point filter: T=1, R=S=0

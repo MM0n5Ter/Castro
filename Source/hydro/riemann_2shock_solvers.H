@@ -27,14 +27,12 @@ namespace TwoShock {
 
       // First predict a value of game across the shock
 
-      // CG Eq. 31
       gstar = (pstar-p)*gdot/(pstar+p) + gam;
       gstar = amrex::Clamp(gstar, gmin, gmax);
 
       // Now use that predicted value of game with the R-H jump conditions
       // to compute the wave speed.
 
-      // this is CG Eq. 34
       amrex::Real alpha = pstar - (gstar - 1.0_rt)*p/(gam - 1.0_rt);
       if (alpha == 0.0_rt) {
         alpha = riemann_constants::smlp1*(pstar + p);
@@ -162,7 +160,6 @@ namespace TwoShock {
               RiemannState& qint) {
 
       // this implements the approximate Riemann solver of Colella & Glaz
-      // (1985)
       //
 
       constexpr amrex::Real weakwv = 1.e-3_rt;
@@ -180,7 +177,7 @@ namespace TwoShock {
       amrex::Real clsql = ql.gamc * ql.p * ql.rho;
       amrex::Real clsqr = qr.gamc * qr.p * qr.rho;
 
-      // Note: in the original Colella & Glaz paper, they predicted
+      // Note: in the original Colella & Glaz, they predicted
       // gamma_e to the interfaces using a special (non-hyperbolic)
       // evolution equation.  In HydroSim, we instead bring (rho e)
       // to the edges, so we construct the necessary gamma_e here from
@@ -208,7 +205,7 @@ namespace TwoShock {
       amrex::Real pstar = ql.p + ( (qr.p - ql.p) - wr*(qr.un - ql.un) ) * wl / (wl + wr);
       pstar = amrex::max(pstar, small_pres);
 
-      // get the shock speeds -- this computes W_s from CG Eq. 34
+      // get the shock speeds -- this computes W_s
       amrex::Real gamstar = 0.0;
 
       amrex::Real wlsq = 0.0;
@@ -275,7 +272,7 @@ namespace TwoShock {
               zm = dpditer * wr;
           }
 
-          // the new pstar is found via CG Eq. 18
+          // the new pstar is found
           amrex::Real denom = dpditer / amrex::max(zp + zm, riemann_constants::small * raux.cavg);
           pstar_old = pstar;
           pstar = pstar - denom*(ustar_r - ustar_l);
@@ -541,8 +538,6 @@ namespace TwoShock {
       // estimate the star state: pstar, ustar
 
       amrex::Real wsmall = small_dens * raux.csmall;
-
-      // this is HydroSim I: Eq. 33
 
       amrex::Real wl = amrex::max(wsmall, std::sqrt(std::abs(ql.gamc * ql.p * ql.rho)));
       amrex::Real wr = amrex::max(wsmall, std::sqrt(std::abs(qr.gamc * qr.p * qr.rho)));

@@ -76,8 +76,8 @@ Some important inputs files
   This is also designed to be used with the self-consistent NSE
   solver.
 
-* `inputs-collision` : this is the inputs file used for the 1D
-  collision simulations from Katz & Zingale, 2019, ApJ, 874, 169
+* `inputs-collision` : this is the inputs file used for 1D
+  collision simulations
 
 Inputs files used in the regression test suite:
 
@@ -88,20 +88,4 @@ Inputs files used in the regression test suite:
 * `inputs-det-x.simplified_sdc`
 
 * `inputs-det-x.regrid`
-
-
-## Publications
-
-This problem setup has been used in the following papers:
-
-* *Numerical Stability of Detonations in White Dwarf Simulations*
-
-  Max P. Katz & M. Zingake, 2019, ApJ, 874, 169 (DOI:
-  10.3847/1538-4357/ab0c00)
-
-* *A Framework for Exploring Nuclear Physics Sensitivity in Numerical Simulations*
-
-  Zhi Chen, Eric T. Johnson, Max Katz, Alexander Smith Clark, Brendan
-  Boyd, & Michael Zingale, 2024, Journal of Physics: Conference Series,
-  2742, 1, 012021 (DOI: 10.1088/1742-6596/2742/1/012021)
 

@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=react_conv
-#SBATCH --account=m3018
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=32
 #SBATCH --qos=regular
@@ -12,7 +11,7 @@ echo "starting..."
 export OMP_NUM_THREADS=1
 
 
-slack_job_start.py "starting reacting_convergence problem @ NERSC" @michael
+slack_job_start.py "starting reacting_convergence problem @ NERSC"
 
 export HYDROSIM_EXEC=./HydroSim2d.intel.haswell.MPI.ex
 

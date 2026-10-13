@@ -1,6 +1,6 @@
 # acoustic_pulse
 
-This is the acoustic pulse problem from McCorquodale & Colella 2011.
+This is the acoustic pulse problem.
 We use this to measure convergence.
 
 Note: for DIM > 1, you can still run this in a "1-d" mode by
@@ -11,8 +11,7 @@ do the pulse in that coordinate direction.
 # Convergence testing
 
 Here we detail the procedure used for convergence testing at NERSC and
-processing the results for the pretty table included in the HydroSim SDC
-paper.
+processing the results for the pretty table.
 
   in `HydroSim/Exec/hydro_tests/acoustic_pulse`
     ```

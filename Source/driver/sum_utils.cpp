@@ -346,8 +346,7 @@ HydroSim::gwstrain (Real time,
     // Qtt stores the second time derivative of the quadrupole moment.
     // We calculate it directly rather than computing the quadrupole moment
     // and differentiating it in time, because the latter method is less accurate
-    // and requires the state at other timesteps. See, e.g., Equation 5 of
-    // Loren-Aguilar et al. 2005.
+    // and requires the state at other timesteps.
 
     ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum,
               ReduceOpSum, ReduceOpSum, ReduceOpSum,
@@ -375,7 +374,7 @@ HydroSim::gwstrain (Real time,
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
 
         // Calculate the second time derivative of the quadrupole moment tensor,
-        // according to the formula in Equation 6.5 of Blanchet, Damour and Schafer 1990.
+        // according to the formula.
         // It involves integrating the mass distribution and then taking the symmetric
         // trace-free part of the tensor. We can do the latter operation here since the
         // integral is a linear operator and each part of the domain contributes independently.
@@ -478,7 +477,7 @@ HydroSim::gwstrain (Real time,
             }
 
             // Now take the symmetric trace-free part of the quadrupole moment.
-            // The operator is defined in Equation 6.7 of Blanchet et al. (1990):
+            // The operator is defined:
             // STF(A^{ij}) = 1/2 A^{ij} + 1/2 A^{ji} - 1/3 delta^{ij} sum_{k} A^{kk}.
 
             Array2D<Real, 0, 2, 0, 2> dQ;

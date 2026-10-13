@@ -34,8 +34,7 @@ void problem_initialize_state_data(int i, int j, int k,
     Real yy = problo[1] + dx[1] * (static_cast<Real>(j) + 0.5_rt);
 #endif
 
-    //Now we want to fracture the domain in 4 regions as described in
-    //Liska & Wendroff (2003).
+    //Now we want to fracture the domain in 4 regions.
     //
     //In order to define the regions we use the following convention
     //--------

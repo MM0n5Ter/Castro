@@ -12,8 +12,8 @@ import pandas as pd
 import subprocess
 
 #trying to grab specific particle trajectories
-Timestamps = sorted(glob.glob("/global/project/projectdirs/m3018/XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_*"))
-#Timestamps = ["/global/project/projectdirs/m3018/XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_10","/global/project/projectdirs/m3018/XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_62"]
+Timestamps = sorted(glob.glob("XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_*"))
+#Timestamps = ["XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_10","XRB/flame_wave_particles/fullrun1/particle_dir/Timestamp_62"]
 
 #create a set to track the number of unique particle identifiers
 particles = set()

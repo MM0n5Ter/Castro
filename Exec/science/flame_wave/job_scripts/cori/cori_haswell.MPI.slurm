@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=f3anw-strang
-#SBATCH --account=m3018
 #SBATCH --nodes=20
 #SBATCH --tasks-per-node=32
 #SBATCH --qos=regular
@@ -57,7 +56,7 @@ else
     restartString="amr.restart=${restartFile}"
 fi
 
-slack_job_start.py "starting flame_wave problem @ NERSC; ${restartFile}" @michael
+slack_job_start.py "starting flame_wave problem @ NERSC; ${restartFile}"
 
 srun ${HYDROSIM_EXEC} inputs.boost_10_10 ${restartString}
 

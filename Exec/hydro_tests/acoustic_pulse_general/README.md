@@ -1,14 +1,12 @@
 # acoustic_pulse
 
-This is an alternate version of the acoustic pulse problem from
-McCorquodale & Colella 2011.  In this version, we perturb the pressure
+This is an alternate version of the acoustic pulse problem.  In this version, we perturb the pressure
 and use a constant entropy via the EOS to find the density.
 
 # Convergence testing
 
 Here we detail the procedure used for convergence testing at NERSC and
-processing the results for the pretty table included in the HydroSim SDC
-paper.
+processing the results for the pretty table.
 
   in `HydroSim/Exec/hydro_tests/acoustic_pulse_general`
     ```

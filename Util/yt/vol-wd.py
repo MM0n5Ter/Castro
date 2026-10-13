@@ -78,11 +78,7 @@ def doit(plotfile):
                                      [(0.5,0.95),
                                       "HydroSim simulation of merging white dwarfs (0.6 $M_\odot$ + 0.9 $M_\odot$)",
                                       dict(color="y", fontsize="22",
-                                           horizontalalignment="center")],
-                                     [(0.95,0.05),
-                                      "M. Katz et al.",
-                                      dict(color="w", fontsize="16",
-                                           horizontalalignment="right")]])
+                                           horizontalalignment="center")]])
 
 if __name__ == "__main__":
 

@@ -2,7 +2,6 @@
 #define RADHYDRO_H
 
 // do the advection in frequency space for the radiation energy.
-// see Paper III, section 2.4
 
 constexpr int rk_order = 3;
 constexpr bool use_WENO = false;

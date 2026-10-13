@@ -147,7 +147,7 @@ hydrosim.ppm_temp_fix = 0
 
 # Which Riemann solver to use.
 # 0 = Colella, Glaz, and Ferguson (cheaper, less accurate)
-# 1 = Colella and Glaz 1985 (more expensive, more accurate)
+# 1 = Colella and Glaz (more expensive, more accurate)
 # 2 = HLL
 hydrosim.riemann_solver = 0
 

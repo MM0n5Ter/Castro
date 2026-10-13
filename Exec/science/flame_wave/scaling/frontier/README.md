@@ -1,8 +1,5 @@
 New scaling study done on June 6, 2026.
 
-For the Microphysics repo, I am using this PR:
-https://github.com/AMReX-Astro/Microphysics/pull/1998
-
 Tests were run with several integrators (VODE, Rosenbrock, and RKC) and two
 different inputs files (one for He and one for H/He).
 

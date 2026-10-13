@@ -45,8 +45,6 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
 
     // find the solution as a function of xi = x/t
 
-    // This follows from the discussion around C&G Eq. 15
-
     // compute xi = x/t -- this is the similarity variable for the
     // solution
 
@@ -121,8 +119,7 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
 
     }
 
-    // get the soundspeed via the EOS (C&G suggest getting it from
-    // the jump conditions)
+    // get the soundspeed via the EOS
 
     eos_state.rho = rhostar;
     eos_state.p = pstar;

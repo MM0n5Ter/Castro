@@ -29,10 +29,7 @@ double_bubble:
 Dustcollapse:
 
   A pressureless cloud collapse that is a standard test problem for
-  gravity.  An analytic solution that describes the radius of the
-  sphere as a function of time is found in Colgate and White (1966).
-  This problem is also found in the FLASH User's Guide and Mönchmeyer
-  and Müller (1989).
+  gravity.
 
 
 evrard_collapse:
@@ -41,8 +38,7 @@ evrard_collapse:
 
 gresho_vortex:
 
-  The Gresho vortex problem (see, e.g., Miczek, Roeple, and Edelmann
-  2015).  This is a stationary vortex -- it should remain unchanged
+  The Gresho vortex problem.  This is a stationary vortex -- it should remain unchanged
   with time.  The problem parameters allow you to set the Mach number.
 
 
@@ -53,7 +49,7 @@ HCBubble:
 hydrostatic_adjust:
 
   A 1-d hydrostatic atmosphere that evolves in response to heating.
-  This is used as the reference calculation for the Maestro basestate
+  This is used as the reference calculation for the basestate
   evolution algorithm.
 
 
@@ -75,8 +71,7 @@ oddeven:
 
 reacting_bubble:
 
-  A reacting bubble rise problem that was featured in the Maestro
-  paper III algorithm paper.
+  A reacting bubble rise problem.
 
 
 rotating_torus:
@@ -85,8 +80,7 @@ rotating_torus:
 
 RT:
 
-  A Rayleigh-Taylor instability.  This problem setup was used in
-  the first HydroSim paper.
+  A Rayleigh-Taylor instability.
 
 
 RT_particles:
@@ -97,21 +91,19 @@ RT_particles:
 
 Sedov:
 
-  The standard Sedov-Taylor blast wave problem.  This setup was used
-  in the original HydroSim paper.
+  The standard Sedov-Taylor blast wave problem.
 
 
 Sod:
 
   A one-dimensional shock tube setup, including the classic Sod
-  problem.  This setup was used in the original HydroSim paper.
+  problem.
 
 
 Sod_stellar:
 
   A version of the Sod shock tube for the general stellar equation
-  of state.  This setup and the included inputs files was used in
-  Zingale & Katz (2015).
+  of state.
 
 
 StarGrav:
@@ -122,9 +114,7 @@ StarGrav:
 
 test_convect:
 
-  This is a version of the MAESTRO test_convect problem that was used
-  in MAESTRO paper III, and later in the appendix of the sub-Chandra II
-  MAESTRO paper.
+  This is a version of the test_convect problem.
   
 
 toy_convect:

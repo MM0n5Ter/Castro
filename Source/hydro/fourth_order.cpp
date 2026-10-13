@@ -39,25 +39,25 @@ HydroSim::fourth_interfaces(const Box& bx,
 
       if (i == domlo[0]+1 && lo_bc[0] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the left physical boundary, MC Eq. 22
+        // from the left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i-1,j,k,ncomp) + 13.0_rt*a(i,j,k,ncomp) -
                                          5.0_rt*a(i+1,j,k,ncomp) + a(i+2,j,k,ncomp));
 
       } else if (i == domlo[0] && lo_bc[0] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // left physical boundary MC Eq. 21
+        // left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i,j,k,ncomp) - 23.0_rt*a(i+1,j,k,ncomp) +
                                          13.0_rt*a(i+2,j,k,ncomp) - 3.0_rt*a(i+3,j,k,ncomp));
 
       } else if (i == domhi[0] && hi_bc[0] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the right physical boundary, MC Eq. 22
+        // from the right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i,j,k,ncomp) + 13.0_rt*a(i-1,j,k,ncomp) -
                                          5.0_rt*a(i-2,j,k,ncomp) + a(i-3,j,k,ncomp));
 
       } else if (i == domhi[0]+1 && hi_bc[0] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // right physical boundary MC Eq. 21
+        // right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i-1,j,k,ncomp) - 23.0_rt*a(i-2,j,k,ncomp) +
                                          13.0_rt*a(i-3,j,k,ncomp) - 3.0_rt*a(i-4,j,k,ncomp));
 
@@ -81,25 +81,25 @@ HydroSim::fourth_interfaces(const Box& bx,
 
       if (j == domlo[1]+1 && lo_bc[1] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the left physical boundary, MC Eq. 22
+        // from the left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i,j-1,k,ncomp) + 13.0_rt*a(i,j,k,ncomp) -
                                          5.0_rt*a(i,j+1,k,ncomp) + a(i,j+2,k,ncomp));
 
       } else if (j == domlo[1] && lo_bc[1] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // left physical boundary MC Eq. 21
+        // left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i,j,k,ncomp) - 23.0_rt*a(i,j+1,k,ncomp) +
                                          13.0_rt*a(i,j+2,k,ncomp) - 3.0_rt*a(i,j+3,k,ncomp));
 
       } else if (j == domhi[1] && hi_bc[1] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the right physical boundary, MC Eq. 22
+        // from the right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i,j,k,ncomp) + 13.0_rt*a(i,j-1,k,ncomp) -
                                          5.0_rt*a(i,j-2,k,ncomp) + a(i,j-3,k,ncomp));
 
       } else if (j == domhi[1]+1 && hi_bc[1] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // right physical boundary MC Eq. 21
+        // right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i,j-1,k,ncomp) - 23.0_rt*a(i,j-2,k,ncomp) +
                                          13.0_rt*a(i,j-3,k,ncomp) - 3.0_rt*a(i,j-4,k,ncomp));
 
@@ -125,25 +125,25 @@ HydroSim::fourth_interfaces(const Box& bx,
 
       if (k == domlo[2]+1 && lo_bc[2] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the left physical boundary, MC Eq. 22
+        // from the left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i,j,k-1,ncomp) + 13.0_rt*a(i,j,k,ncomp) -
                                          5.0_rt*a(i,j,k+1,ncomp) + a(i,j,k+2,ncomp));
 
       } else if (k == domlo[2] && lo_bc[2] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // left physical boundary MC Eq. 21
+        // left physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i,j,k,ncomp) - 23.0_rt*a(i,j,k+1,ncomp) +
                                          13.0_rt*a(i,j,k+2,ncomp) - 3.0_rt*a(i,j,k+3,ncomp));
 
       } else if (k == domhi[2] && hi_bc[2] == amrex::PhysBCType::symmetry) {
         // use a stencil for the interface that is one zone
-        // from the right physical boundary, MC Eq. 22
+        // from the right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(3.0_rt*a(i,j,k,ncomp) + 13.0_rt*a(i,j,k-1,ncomp) -
                                          5.0_rt*a(i,j,k-2,ncomp) + a(i,j,k-3,ncomp));
 
       } else if (k == domhi[2]+1 && hi_bc[2] == amrex::PhysBCType::symmetry) {
         // use a stencil for when the interface is on the
-        // right physical boundary MC Eq. 21
+        // right physical boundary
         a_int(i,j,k) = (1.0_rt/12.0_rt)*(25.0_rt*a(i,j,k-1,ncomp) - 23.0_rt*a(i,j,k-2,ncomp) +
                                          13.0_rt*a(i,j,k-3,ncomp) - 3.0_rt*a(i,j,k-4,ncomp));
 
@@ -224,7 +224,7 @@ HydroSim::states(const Box& bx,
         Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i+1,j,k,ncomp) + a(i+2,j,k,ncomp);
         Real d2acp2 = a(i+1,j,k,ncomp) - 2.0_rt*a(i+2,j,k,ncomp) + a(i+3,j,k,ncomp);
 
-        // limit? MC Eq. 24 and 25
+        // limit?
         if (dafm * dafp <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i-2,j,k,ncomp))*(a(i+2,j,k,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
@@ -237,7 +237,6 @@ HydroSim::states(const Box& bx,
           if (s == std::copysign(1.0_rt, d2acm1) &&
               s == std::copysign(1.0_rt, d2acp1) &&
               s == std::copysign(1.0_rt, d2af)) {
-            // MC Eq. 26
             d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
                                      C2*std::abs(d2ac0), C2*std::abs(d2acp1));
           } else {
@@ -251,7 +250,6 @@ HydroSim::states(const Box& bx,
                          std::abs(a(i+2,j,k,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            // MC Eq. 27
             rho = d2a_lim/d2af;
           }
 
@@ -269,14 +267,11 @@ HydroSim::states(const Box& bx,
                 (d3a_max - d3a_min)) {
               // limit
               if (dafm*dafp < 0.0_rt) {
-                // Eqs. 29, 30
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;  // note: typo in Eq 29
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
                 al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + rho*dafp;
               } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                // Eq. 31
                 ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
               } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                // Eq. 32
                 al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
               }
 
@@ -284,7 +279,7 @@ HydroSim::states(const Box& bx,
           }
 
         } else {
-          // if Eqs. 24 or 25 didn't hold we still may need to limit
+          // we still may need to limit
           if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
             ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
           }
@@ -391,7 +386,7 @@ HydroSim::states(const Box& bx,
         Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j+1,k,ncomp) + a(i,j+2,k,ncomp);
         Real d2acp2 = a(i,j+1,k,ncomp) - 2.0_rt*a(i,j+2,k,ncomp) + a(i,j+3,k,ncomp);
 
-        // limit? MC Eq. 24 and 25
+        // limit?
         if (dafm * dafp <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i,j-2,k,ncomp))*(a(i,j+2,k,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
@@ -404,7 +399,6 @@ HydroSim::states(const Box& bx,
           if (s == std::copysign(1.0_rt, d2acm1) &&
               s == std::copysign(1.0_rt, d2acp1) &&
               s == std::copysign(1.0_rt, d2af)) {
-            // MC Eq. 26
             d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
                                      C2*std::abs(d2ac0), C2*std::abs(d2acp1));
           } else {
@@ -418,7 +412,6 @@ HydroSim::states(const Box& bx,
                          std::abs(a(i,j+2,k,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            // MC Eq. 27
             rho = d2a_lim/d2af;
           }
 
@@ -436,14 +429,11 @@ HydroSim::states(const Box& bx,
                 (d3a_max - d3a_min)) {
               // limit
               if (dafm*dafp < 0.0_rt) {
-                // Eqs. 29, 30
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;  // note: typo in Eq 29
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
                 al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + rho*dafp;
               } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                // Eq. 31
                 ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
               } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                // Eq. 32
                 al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
               }
 
@@ -451,7 +441,7 @@ HydroSim::states(const Box& bx,
           }
 
         } else {
-          // if Eqs. 24 or 25 didn't hold we still may need to limit
+          // we still may need to limit
           if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
             ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
           }
@@ -557,7 +547,7 @@ HydroSim::states(const Box& bx,
         Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j,k+1,ncomp) + a(i,j,k+2,ncomp);
         Real d2acp2 = a(i,j,k+1,ncomp) - 2.0_rt*a(i,j,k+2,ncomp) + a(i,j,k+3,ncomp);
 
-        // limit? MC Eq. 24 and 25
+        // limit?
         if (dafm * dafp <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i,j,k-2,ncomp))*(a(i,j,k+2,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
@@ -570,7 +560,6 @@ HydroSim::states(const Box& bx,
           if (s == std::copysign(1.0_rt, d2acm1) &&
               s == std::copysign(1.0_rt, d2acp1) &&
               s == std::copysign(1.0_rt, d2af)) {
-            // MC Eq. 26
             d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
                                      C2*std::abs(d2ac0), C2*std::abs(d2acp1));
           } else {
@@ -584,7 +573,6 @@ HydroSim::states(const Box& bx,
                          std::abs(a(i,j,k+2,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            // MC Eq. 27
             rho = d2a_lim/d2af;
           }
 
@@ -602,14 +590,11 @@ HydroSim::states(const Box& bx,
                 (d3a_max - d3a_min)) {
               // limit
               if (dafm*dafp < 0.0_rt) {
-                // Eqs. 29, 30
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;  // note: typo in Eq 29
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
                 al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + rho*dafp;
               } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                // Eq. 31
                 ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
               } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                // Eq. 32
                 al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
               }
 
@@ -617,7 +602,7 @@ HydroSim::states(const Box& bx,
           }
 
         } else {
-          // if Eqs. 24 or 25 didn't hold we still may need to limit
+          // we still may need to limit
           if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
             ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
           }
@@ -697,7 +682,7 @@ HydroSim::fourth_avisc(const Box& bx,
                      const int idir) {
 
   // this computes the *face-centered* artificial viscosity using the
-  // 4th order expression from McCorquodale & Colella (Eq. 35)
+  // 4th order expression
 
   constexpr Real beta = 0.3_rt;
 
@@ -770,8 +755,6 @@ HydroSim::fourth_avisc(const Box& bx,
       cmin = amrex::min(qaux_arr(i,j,k,QC), qaux_arr(i,j,k-1,QC));
 
     }
-
-    // MC Eq. 36
 
     Real coeff = amrex::min(1.0_rt, (dx[idir] * avis(i,j,k)) * (dx[idir] * avis(i,j,k)) /
                                     (beta * (cmin * cmin)));

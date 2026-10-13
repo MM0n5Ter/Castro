@@ -1,5 +1,4 @@
-// This sets up the Gresho vortex problem as described in
-// Miczek, Roeple, and Edelmann 2015
+// This sets up the Gresho vortex problem
 //
 // By choosing the reference pressure, p0, we can specify the
 // Mach number

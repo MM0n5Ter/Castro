@@ -496,9 +496,8 @@ HydroSim::trace_ppm(const Box& bx,
         (idir == 2 && k >= vlo[2])) {
 
       // Set the reference state
-      // This will be the fastest moving state to the left --
-      // this is the method that Miller & Colella and Colella &
-      // Woodward use. These papers don't include the effect of
+      // This will be the fastest moving state to the left
+      // These papers don't include the effect of
       // the source term in constructing the reference state, but
       // we do because the source term could be large relative to
       // the current state (for example, consider the gravity term
@@ -546,7 +545,7 @@ HydroSim::trace_ppm(const Box& bx,
       // {rho, u, p, (rho e)} eigensystem
 
       // These are analogous to the beta's from the original PPM
-      // paper (except we work with rho instead of tau).  This is
+      // (except we work with rho instead of tau).  This is
       // simply (l . dq), where dq = qref - I(q)
 
       Real alpham = 0.5_rt*(dptotm*rho_ref_inv*cc_ref_inv - dum)*rho_ref*cc_ref_inv;
@@ -622,7 +621,7 @@ HydroSim::trace_ppm(const Box& bx,
       // {rho, u, p, (rho e)} eigensystem
 
       // These are analogous to the beta's from the original PPM
-      // paper (except we work with rho instead of tau).  This is
+      // (except we work with rho instead of tau).  This is
       // simply (l . dq), where dq = qref - I(q)
 
       Real alpham = 0.5_rt*(dptotm*rho_ref_inv*cc_ref_inv - dum)*rho_ref*cc_ref_inv;

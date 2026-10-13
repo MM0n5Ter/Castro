@@ -1,7 +1,7 @@
 # Run with ROCm 6.0 and:
 #
-#  EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-#  NETWORK: /ccs/home/zingale/Microphysics/networks/subch_simple
+#  EOS: Microphysics/EOS/helmholtz
+#  NETWORK: Microphysics/networks/subch_simple
 #  INTEGRATOR: VODE
 #  SCREENING: screen5
 #
