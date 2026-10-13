@@ -16,8 +16,6 @@ constexpr int NUM_GROW{4};
 // don't need the full stencil required for flattening
 #ifdef MHD
 constexpr int NUM_GROW_SRC{6};
-#elif TRUE_SDC
-constexpr int NUM_GROW_SRC{NUM_GROW};
 #else
 constexpr int NUM_GROW_SRC{3};
 #endif

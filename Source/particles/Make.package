@@ -1,4 +1,0 @@
-# sources used with particles
-# included if USE_PARTICLES = TRUE
-
-CEXE_sources += CastroParticles.cpp
