@@ -14,6 +14,9 @@ fill_temp_cond(const Box& bx,
                Array4<Real const> const& U_arr,
                Array4<Real> const& coeff_arr) {
 
+  // Between the two cutoff densities the conductivity is ramped up linearly.
+  const Real cutoff_width = hydrosim::diffuse_cutoff_density_hi - hydrosim::diffuse_cutoff_density;
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
@@ -45,8 +48,7 @@ fill_temp_cond(const Box& bx,
       conductivity(eos_state);
 
       if (eos_state.rho < hydrosim::diffuse_cutoff_density_hi) {
-        Real multiplier = (eos_state.rho - hydrosim::diffuse_cutoff_density) /
-          (hydrosim::diffuse_cutoff_density_hi - hydrosim::diffuse_cutoff_density);
+        Real multiplier = (eos_state.rho - hydrosim::diffuse_cutoff_density) / cutoff_width;
         eos_state.conductivity = eos_state.conductivity * multiplier;
       }
     } else {

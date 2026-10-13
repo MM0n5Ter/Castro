@@ -537,7 +537,7 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
 
 #ifndef TRUE_SDC
 #ifdef REACTIONS
-    status = handle_old_reactions(time, dt);
+    status = handle_split_reactions(time, dt, 0);
 
     if (status.success == false) {
         return status;
@@ -567,11 +567,7 @@ HydroSim::post_advance_operators (Real time, Real dt)  // NOLINT(readability-con
 
 #ifndef TRUE_SDC
 #ifdef REACTIONS
-    status = handle_new_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
+    status = handle_split_reactions(time, dt, 1);
 #endif
 #endif
 

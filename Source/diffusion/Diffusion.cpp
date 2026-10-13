@@ -65,21 +65,20 @@ Diffusion::set_solver_bc_types ()
 {
     const Geometry& geom = parent->Geom(0);
 
+    // Inflow boundaries hold the temperature fixed; every other
+    // non-periodic boundary is treated as insulating.
+    auto solver_bc = [] (int bc)
+    {
+        return bc == amrex::PhysBCType::inflow ? MLLinOp::BCType::Dirichlet : MLLinOp::BCType::Neumann;
+    };
+
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
         if (geom.isPeriodic(idim)) {
             mlmg_lobc[idim] = MLLinOp::BCType::Periodic;
             mlmg_hibc[idim] = MLLinOp::BCType::Periodic;
         } else {
-            if (phys_bc->lo(idim) == amrex::PhysBCType::inflow) {
-                mlmg_lobc[idim] = MLLinOp::BCType::Dirichlet;
-            } else {
-                mlmg_lobc[idim] = MLLinOp::BCType::Neumann;
-            }
-            if (phys_bc->hi(idim) == amrex::PhysBCType::inflow) {
-                mlmg_hibc[idim] = MLLinOp::BCType::Dirichlet;
-            } else {
-                mlmg_hibc[idim] = MLLinOp::BCType::Neumann;
-            }
+            mlmg_lobc[idim] = solver_bc(phys_bc->lo(idim));
+            mlmg_hibc[idim] = solver_bc(phys_bc->hi(idim));
         }
     }
 

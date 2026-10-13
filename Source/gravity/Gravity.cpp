@@ -483,9 +483,9 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
 
     if (fine_level > gravity::max_solve_level) {
         return;
-    } else {
-        fine_level = amrex::min(fine_level, gravity::max_solve_level);
     }
+
+    fine_level = amrex::min(fine_level, gravity::max_solve_level);
 
     BL_ASSERT(parent->finestLevel()>crse_level);
     if (gravity::verbose > 1 && ParallelDescriptor::IOProcessor()) {
@@ -497,6 +497,14 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
     const Box& crse_domain = crse_geom.Domain();
 
     int nlevs = fine_level - crse_level + 1;
+
+    // In the all-periodic case the RHS and delta_phi are corrected to have zero
+    // average. We only do this if we're periodic and the coarse level covers the
+    // whole domain. In principle this could be true for level > 0, so we test on
+    // whether the number of points on the level is equal to the number of points
+    // possible on the level.
+
+    const bool periodic_full_domain = crse_geom.isAllPeriodic() && (grids[crse_level].numPts() == crse_domain.numPts());
 
     // Construct delta(phi) and delta(grad_phi). delta(phi)
     // needs a ghost zone for holding the boundary condition
@@ -566,13 +574,10 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
         g_rhs[lev - crse_level]->mult(FourPiG);
 
     // In the all-periodic case we enforce that the RHS sums to zero.
-    // We only do this if we're periodic and the coarse level covers the whole domain.
-    // In principle this could be true for level > 0, so we'll test on whether the number
-    // of points on the level is equal to the number of points possible on the level.
     // Note that since we did the average-down, we can stick with the data on the coarse
     // level since the averaging down is conservative.
 
-    if (crse_geom.isAllPeriodic() && (grids[crse_level].numPts() == crse_domain.numPts()))
+    if (periodic_full_domain)
     {
 
         // We assume that if we're fully periodic then we're going to be in Cartesian
@@ -600,7 +605,7 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
 
     // In the all-periodic case we enforce that delta_phi averages to zero.
 
-    if (crse_geom.isAllPeriodic() && (grids[crse_level].numPts() == crse_domain.numPts()) ) {
+    if (periodic_full_domain) {
 
         Real local_correction = delta_phi[0]->sum() / static_cast<Real>(grids[crse_level].numPts());
 
@@ -3439,24 +3444,25 @@ Gravity::sanity_check (int level)
 
     const Geometry& geom = parent->Geom(level);
 
-    if (level > 0  && !geom.isAllPeriodic())
+    if (level <= 0 || geom.isAllPeriodic()) {
+        return;
+    }
+
+    Box shrunk_domain(geom.Domain());
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
     {
-        Box shrunk_domain(geom.Domain());
-        for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-        {
-            if (!geom.isPeriodic(dir))
-            {
-                if (phys_bc->lo(dir) != amrex::PhysBCType::symmetry) {
-                    shrunk_domain.growLo(dir,-1);
-                }
-                if (phys_bc->hi(dir) != amrex::PhysBCType::symmetry) {
-                    shrunk_domain.growHi(dir,-1);
-                }
-            }
+        if (geom.isPeriodic(dir)) {
+            continue;
         }
-        if (!shrunk_domain.contains(grids[level].minimalBox())) {
-            amrex::Error("Oops -- don't know how to set boundary conditions for grids at this level that touch the domain boundary!");
+        if (phys_bc->lo(dir) != amrex::PhysBCType::symmetry) {
+            shrunk_domain.growLo(dir,-1);
         }
+        if (phys_bc->hi(dir) != amrex::PhysBCType::symmetry) {
+            shrunk_domain.growHi(dir,-1);
+        }
+    }
+    if (!shrunk_domain.contains(grids[level].minimalBox())) {
+        amrex::Error("Oops -- don't know how to set boundary conditions for grids at this level that touch the domain boundary!");
     }
 }
 

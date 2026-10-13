@@ -54,44 +54,42 @@ sdc_solve(const Real dt_m,
           GpuArray<Real, NUM_STATE> const& C,
           const int sdc_iteration) {
 
+    if (sdc_solver == sdc_solvers::vode) {
+        // Use VODE to do the solution
+        sdc_vode_solve(dt_m, U_old, U_new, C, sdc_iteration);
+        return;
+    }
+
+    if (sdc_solver == sdc_solvers::hybrid_powell) {
+        powell::sdc_powell_solve(dt_m, U_old, U_new, C, sdc_iteration);
+        return;
+    }
+
+    if (sdc_solver != sdc_solvers::newton && sdc_solver != sdc_solvers::vode_and_newton) {
+        amrex::Abort("invalid sdc_solver value");
+    }
+
+    // With vode_and_newton, VODE predicts the solution on the first
+    // iteration and that prediction is the initial guess for the
+    // Newton solve.  Otherwise we assume we already have a good guess
+    // for the solve in U_new and just pass the solve onto the main
+    // Newton solve.
+    if (sdc_solver == sdc_solvers::vode_and_newton && sdc_iteration == 0) {
+        sdc_vode_solve(dt_m, U_old, U_new, C, sdc_iteration);
+    }
+
     int ierr;
     Real err_out;
 
-    if (sdc_solver == sdc_solvers::newton) {
-        // We are going to assume we already have a good guess
-        // for the solve in U_new and just pass the solve onto
-        // the main Newton solve
-        newton::sdc_newton_subdivide(dt_m, U_old, U_new, C, sdc_iteration, err_out, ierr);
+    newton::sdc_newton_subdivide(dt_m, U_old, U_new, C, sdc_iteration, err_out, ierr);
 
-        // failing?
-        if (ierr != newton_status::success) {
+    // failing?
+    if (ierr != newton_status::success) {
+        if (sdc_solver == sdc_solvers::newton) {
             amrex::Abort("Newton subcycling failed in sdc_solve");
-        }
-    } else if (sdc_solver == sdc_solvers::vode) {
-        // Use VODE to do the solution
-        sdc_vode_solve(dt_m, U_old, U_new, C, sdc_iteration);
-
-    } else if (sdc_solver == sdc_solvers::vode_and_newton) {
-        // If it is the first iteration, we will use VODE to
-        // predict the solution. Otherwise, we will use Newton.
-        if (sdc_iteration == 0) {
-            sdc_vode_solve(dt_m, U_old, U_new, C, sdc_iteration);
-        }
-
-        // Now U_new is the update that VODE predicts, so we
-        // will use that as the initial guess to the Newton solve
-        newton::sdc_newton_subdivide(dt_m, U_old, U_new, C, sdc_iteration, err_out, ierr);
-
-        // Failing?
-        if (ierr != newton_status::success) {
+        } else {
             amrex::Abort("Newton failure in sdc_solve");
         }
-
-    } else if (sdc_solver == sdc_solvers::hybrid_powell) {
-        powell::sdc_powell_solve(dt_m, U_old, U_new, C, sdc_iteration);
-
-    } else {
-        amrex::Abort("invalid sdc_solver value");
     }
 }
 

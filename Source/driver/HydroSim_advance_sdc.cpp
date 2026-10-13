@@ -57,6 +57,9 @@ HydroSim::do_advance_sdc (Real time,
 
     bool apply_sources_to_state = false;
 
+    // the last SDC iteration is the one that stores the new-time solution
+    const int last_sdc_iteration = sdc_order + sdc_extra - 1;
+
     // we loop over all nodes, even the last, since we need to compute
     // the advective update source at each node
 
@@ -85,7 +88,7 @@ HydroSim::do_advance_sdc (Real time,
         // to do all of this the first iteration, since that state never
         // changes
         if (!(sdc_iteration > 0 && m == 0) &&
-            !(sdc_iteration == sdc_order+sdc_extra-1 && m == SDC_NODES-1)) {
+            !(sdc_iteration == last_sdc_iteration && m == SDC_NODES-1)) {
 
             // Construct the "old-time" sources from Sborder.  Since we are
             // working from Sborder, this will actually evaluate the sources
@@ -220,7 +223,7 @@ HydroSim::do_advance_sdc (Real time,
     // the final time node.  This means we can still use S_new as
     // "scratch" until we finally set it.
 
-    if (sdc_iteration != sdc_order+sdc_extra-1) {
+    if (sdc_iteration != last_sdc_iteration) {
         // store A_old for the next SDC iteration -- don't need to do n=0,
         // since that is unchanged
         for (int n=1; n < SDC_NODES; n++) {
@@ -242,7 +245,7 @@ HydroSim::do_advance_sdc (Real time,
     }
 #endif
 
-    if (sdc_iteration == sdc_order+sdc_extra-1) {
+    if (sdc_iteration == last_sdc_iteration) {
 
         // store the new solution
         MultiFab::Copy(S_new, *(k_new[SDC_NODES-1]), 0, 0, S_new.nComp(), 0);
@@ -258,15 +261,16 @@ HydroSim::do_advance_sdc (Real time,
         // always require State_Type to have 1 ghost cell?
 
         // TODO: we also need to make these 4th order!
-        clean_state(S_old, prev_time, 0);
-        fill_grown_state(Sborder, prev_time, Sborder.nGrow());
-        handle_sources(source_time::old_time, old_source, Sborder, Sborder, prev_time, dt, apply_sources_to_state);
-        AmrLevel::FillPatch(*this, old_source, old_source.nGrow(), prev_time, Source_Type, 0, NSRC);
+        auto evaluate_sources_at = [&] (MultiFab& S, MultiFab& source, Real t)
+        {
+            clean_state(S, t, 0);
+            fill_grown_state(Sborder, t, Sborder.nGrow());
+            handle_sources(source_time::old_time, source, Sborder, Sborder, t, dt, apply_sources_to_state);
+            AmrLevel::FillPatch(*this, source, source.nGrow(), t, Source_Type, 0, NSRC);
+        };
 
-        clean_state(S_new, cur_time, 0);
-        fill_grown_state(Sborder, cur_time, Sborder.nGrow());
-        handle_sources(source_time::old_time, new_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
-        AmrLevel::FillPatch(*this, new_source, new_source.nGrow(), cur_time, Source_Type, 0, NSRC);
+        evaluate_sources_at(S_old, old_source, prev_time);
+        evaluate_sources_at(S_new, new_source, cur_time);
     }
 
     status = finalize_do_advance(cur_time, dt);

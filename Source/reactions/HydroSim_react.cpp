@@ -12,45 +12,7 @@ using namespace amrex;
 #ifndef TRUE_SDC
 
 advance_status
-HydroSim::handle_old_reactions (Real time, Real dt) {  // NOLINT(readability-convert-member-functions-to-static)
-
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    advance_status status {};
-
-#ifndef SIMPLIFIED_SDC
-    int burn_success{1};
-
-    MultiFab& R_old = get_old_data(Reactions_Type);
-    MultiFab& R_new = get_new_data(Reactions_Type);
-
-    if (time_integration_method != SimplifiedSpectralDeferredCorrections) {
-        // The result of the reactions is added directly to Sborder.
-        burn_success = react_state(Sborder, R_old, time, 0.5 * dt, 0);
-
-        if (burn_success != 1) {
-            status.success = false;
-            status.reason = "burn unsuccessful";
-
-            return status;
-        }
-
-        clean_state(
-#ifdef MHD
-                    Bx_old_tmp, By_old_tmp, Bz_old_tmp,
-#endif
-                    Sborder, time, Sborder.nGrow());
-
-        MultiFab::Copy(R_new, R_old, 0, 0, R_new.nComp(), R_new.nGrow());
-    }
-#endif
-
-    return status;
-}
-
-advance_status
-HydroSim::handle_new_reactions (Real time, Real dt)
+HydroSim::handle_split_reactions (Real time, Real dt, int strang_half)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -59,53 +21,23 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 
     int burn_success{1};
 
+    MultiFab& R_old = get_old_data(Reactions_Type);
     MultiFab& R_new = get_new_data(Reactions_Type);
     MultiFab& S_new = get_new_data(State_Type);
 
 #ifdef SIMPLIFIED_SDC
-    MultiFab& R_old = get_old_data(Reactions_Type);
+    // With simplified SDC there is no old-time half: the full burn is
+    // done once, after the advance.
 
-    if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-
-        if (do_react) {
-
-            // Do the ODE integration to capture the reaction source terms.
-
-            burn_success = react_state(time, dt);
-
-            if (burn_success != 1) {
-                status.success = false;
-                status.reason = "burn unsuccessful";
-
-                return status;
-            }
-
-            clean_state(S_new, time + dt, S_new.nGrow());
-
-            // Check for NaN's.
-
-            check_for_nan(S_new);
-
-        }
-        else {
-
-            // If we're not burning, just initialize the reactions data to zero.
-
-            MultiFab& SDC_react_new = get_new_data(Simplified_SDC_React_Type);
-            SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
-
-            R_old.setVal(0.0, R_old.nGrow());
-            R_new.setVal(0.0, R_new.nGrow());
-
-        }
-
+    if (strang_half == 0 || time_integration_method != SimplifiedSpectralDeferredCorrections) {
+        return status;
     }
 
-#else // SIMPLIFIED_SDC
+    if (do_react) {
 
-    if (time_integration_method != SimplifiedSpectralDeferredCorrections) {
+        // Do the ODE integration to capture the reaction source terms.
 
-        burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, 1);
+        burn_success = react_state(time, dt);
 
         if (burn_success != 1) {
             status.success = false;
@@ -114,12 +46,62 @@ HydroSim::handle_new_reactions (Real time, Real dt)
             return status;
         }
 
+        clean_state(S_new, time + dt, S_new.nGrow());
+
+        // Check for NaN's.
+
+        check_for_nan(S_new);
+
+    }
+    else {
+
+        // If we're not burning, just initialize the reactions data to zero.
+
+        MultiFab& SDC_react_new = get_new_data(Simplified_SDC_React_Type);
+        SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
+
+        R_old.setVal(0.0, R_old.nGrow());
+        R_new.setVal(0.0, R_new.nGrow());
+
+    }
+
+#else // SIMPLIFIED_SDC
+
+    if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        return status;
+    }
+
+    // The first half burns Sborder in place, starting at the old time;
+    // the second half burns the new-time state over the last half of
+    // the timestep.
+
+    if (strang_half == 0) {
+        burn_success = react_state(Sborder, R_old, time, 0.5 * dt, 0);
+    } else {
+        burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, 1);
+    }
+
+    if (burn_success != 1) {
+        status.success = false;
+        status.reason = "burn unsuccessful";
+
+        return status;
+    }
+
+    if (strang_half == 0) {
+        clean_state(
+#ifdef MHD
+                    Bx_old_tmp, By_old_tmp, Bz_old_tmp,
+#endif
+                    Sborder, time, Sborder.nGrow());
+
+        MultiFab::Copy(R_new, R_old, 0, 0, R_new.nComp(), R_new.nGrow());
+    } else {
         clean_state(
 #ifdef MHD
                     Bx_new, By_new, Bz_new,
 #endif
                     S_new, time, S_new.nGrow());
-
     }
 
 #endif // SIMPLIFIED_SDC
@@ -185,6 +167,13 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
 
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;
+
+    // Only zones inside this (rho, T) range are burned.
+
+    const Real rho_min = hydrosim::react_rho_min;
+    const Real rho_max = hydrosim::react_rho_max;
+    const Real T_min = hydrosim::react_T_min;
+    const Real T_max = hydrosim::react_T_max;
 
 #ifdef AMREX_USE_GPU
     Gpu::Buffer<int> d_num_failed({0});
@@ -325,8 +314,8 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
 
             // Don't burn if we're outside of the relevant (rho, T) range.
 
-            if (burn_state.T < hydrosim::react_T_min || burn_state.T > hydrosim::react_T_max ||
-                burn_state.rho < hydrosim::react_rho_min || burn_state.rho > hydrosim::react_rho_max) {
+            if (burn_state.T < T_min || burn_state.T > T_max ||
+                burn_state.rho < rho_min || burn_state.rho > rho_max) {
                 do_burn = false;
             }
 
@@ -518,6 +507,13 @@ HydroSim::react_state(Real time, Real dt)
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;
 
+    // Only zones whose old-time (rho, T) lie inside this range are burned.
+
+    const Real rho_min = hydrosim::react_rho_min;
+    const Real rho_max = hydrosim::react_rho_max;
+    const Real T_min = hydrosim::react_T_min;
+    const Real T_max = hydrosim::react_T_max;
+
     // Start off assuming a successful burn.
 
     int burn_success = 1;
@@ -633,8 +629,8 @@ HydroSim::react_state(Real time, Real dt)
 
             // Don't burn if we're outside of the relevant (rho, T) range.
 
-            if (U_old(i,j,k,UTEMP) < hydrosim::react_T_min || U_old(i,j,k,UTEMP) > hydrosim::react_T_max ||
-                U_old(i,j,k,URHO) < hydrosim::react_rho_min || U_old(i,j,k,URHO) > hydrosim::react_rho_max) {
+            if (U_old(i,j,k,UTEMP) < T_min || U_old(i,j,k,UTEMP) > T_max ||
+                U_old(i,j,k,URHO) < rho_min || U_old(i,j,k,URHO) > rho_max) {
                 do_burn = false;
             }
 
@@ -854,6 +850,27 @@ HydroSim::react_state(Real time, Real dt)
 #endif
 
 
+namespace {
+
+// The reduced limiters hold the density entry first (if we limit on
+// density), followed by the temperature entry (if we limit on T).
+
+void
+unpack_burn_limiters (const amrex::Vector<Real>& limiters, bool limit_rho, bool limit_T,
+                      Real& rho_limit, Real& T_limit)
+{
+    if (limit_rho) {
+        rho_limit = limiters[0];
+        if (limit_T) {
+            T_limit = limiters[1];
+        }
+    } else {
+        T_limit = limiters[0];
+    }
+}
+
+}
+
 bool
 HydroSim::valid_zones_to_burn(const MultiFab& State)
 {
@@ -927,14 +944,7 @@ HydroSim::valid_zones_to_burn(const MultiFab& State)
     if (small_size > 0) {
         amrex::ParallelDescriptor::ReduceRealMin(small_limiters.dataPtr(), small_size);
 
-        if (limit_small_rho) {
-            smalldens = small_limiters[0];
-            if (limit_small_T) {
-                small_T = small_limiters[1];
-            }
-        } else {
-            small_T = small_limiters[0];
-        }
+        unpack_burn_limiters(small_limiters, limit_small_rho, limit_small_T, smalldens, small_T);
     }
 
     int large_size = static_cast<int>(large_limiters.size());
@@ -942,14 +952,7 @@ HydroSim::valid_zones_to_burn(const MultiFab& State)
     if (large_size > 0) {
         amrex::ParallelDescriptor::ReduceRealMax(large_limiters.dataPtr(), large_size);
 
-        if (limit_large_rho) {
-            largedens = large_limiters[0];
-            if (limit_large_T) {
-                large_T = large_limiters[1];
-            }
-        } else {
-            large_T = large_limiters[0];
-        }
+        unpack_burn_limiters(large_limiters, limit_large_rho, limit_large_T, largedens, large_T);
     }
 
     // Finally check on whether min <= rho <= max

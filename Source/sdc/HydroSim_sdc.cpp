@@ -39,72 +39,10 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
     MultiFab& C_source = (sdc_order == 4) ? get_new_data(SDC_Source_Type) : tmp;
 
     if (sdc_order == 4) {
-
-        // for 4th order reacting flow, we need to create the "source" C
-        // as averages and then convert it to cell centers.  The cell-center
-        // version needs to have 2 ghost cells
-        for (MFIter mfi(*k_new[0]); mfi.isValid(); ++mfi) {
-
-            const Box& bx = mfi.tilebox();
-            Array4<Real> const& C_source_arr = C_source.array(mfi);
-
-            Array4<const Real> const& A_new_arr = (A_new[m_start])->array(mfi);
-            Array4<const Real> const& A_old_0_arr = (A_old[0])->array(mfi);
-            Array4<const Real> const& A_old_1_arr = (A_old[1])->array(mfi);
-            Array4<const Real> const& A_old_2_arr = (A_old[2])->array(mfi);
-            Array4<const Real> const& R_old_0_arr = (R_old[0])->array(mfi);
-            Array4<const Real> const& R_old_1_arr = (R_old[1])->array(mfi);
-            Array4<const Real> const& R_old_2_arr = (R_old[2])->array(mfi);
-
-            if (sdc_quadrature == 0) {
-                hs_sdc_compute_C4_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                          A_old_2_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr,
-                                          C_source_arr, m_start);
-
-            } else {
-                Array4<const Real> const& A_old_3_arr = (A_old[3])->array(mfi);
-                Array4<const Real> const& R_old_3_arr = (R_old[3])->array(mfi);
-
-                hs_sdc_compute_C4_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                        A_old_2_arr,
-                                        A_old_3_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr, R_old_3_arr,
-                                        C_source_arr, m_start);
-
-            }
-        }
-
-        // need to construct the time for this stage -- but it is not really
-        // at a single instance in time.  For single level this does not matter,
-        Real time = state[SDC_Source_Type].curTime();
-        AmrLevel::FillPatch(*this, C_source, C_source.nGrow(), time,
-                            SDC_Source_Type, 0, NUM_STATE);
-
-
-        // we'll also construct an initial guess for the nonlinear solve,
-        // and store this in the Sreact MultiFab.  We'll use S_new as the
-        // staging place so we can do a FillPatch
-        MultiFab& S_new = get_new_data(State_Type);
-
-        for (MFIter mfi(S_new); mfi.isValid(); ++mfi) {
-
-            const Box& bx = mfi.tilebox();
-
-            Array4<const Real> const& k_new_m_start_arr = (k_new[m_start])->array(mfi);
-            Array4<const Real> const& k_new_m_end_arr = (k_new[m_end])->array(mfi);
-            Array4<const Real> const& A_old_arr = (A_old[m_start])->array(mfi);
-            Array4<const Real> const& R_old_arr = (R_old[m_start])->array(mfi);
-            Array4<Real> const& S_new_arr = S_new.array(mfi);
-
-            hs_sdc_compute_initial_guess(bx, k_new_m_start_arr, k_new_m_end_arr,
-                                         A_old_arr, R_old_arr, S_new_arr,
-                                         dt_m, sdc_iteration);
-
-        }
-
-        const Real cur_time = state[State_Type].curTime();
-        fill_grown_state(Sreact, cur_time, 2);
-
+        build_fourth_order_sdc_source(m_start, m_end, dt_m, dt);
     }
+
+    auto lsdc_iteration = sdc_iteration;  // avoid capturing this
 #endif
 
     // main update loop -- we are updating k_new[m_start] to
@@ -159,7 +97,6 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             auto R_m_old = (*R_old[m_start]).array(mfi);
             auto C_arr = C2.array();
 
-            auto lsdc_iteration = sdc_iteration;   // avoid capturing this
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
@@ -205,8 +142,6 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             // initialize U_new with our guess for the new state, stored as
             // an average in Sreact
             make_cell_center(bx1, Sreact.array(mfi), U_new_center_arr, domain_lo, domain_hi);
-
-            auto lsdc_iteration = sdc_iteration;  // avoid capturing this
 
             amrex::ParallelFor(bx1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -294,6 +229,79 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
 
 #ifdef REACTIONS
 void
+HydroSim::build_fourth_order_sdc_source(int m_start, int m_end, Real dt_m, Real dt)
+{
+    MultiFab& C_source = get_new_data(SDC_Source_Type);
+
+    // for 4th order reacting flow, we need to create the "source" C
+    // as averages and then convert it to cell centers.  The cell-center
+    // version needs to have 2 ghost cells
+    for (MFIter mfi(*k_new[0]); mfi.isValid(); ++mfi) {
+
+        const Box& bx = mfi.tilebox();
+        Array4<Real> const& C_source_arr = C_source.array(mfi);
+
+        Array4<const Real> const& A_new_arr = (A_new[m_start])->array(mfi);
+        Array4<const Real> const& A_old_0_arr = (A_old[0])->array(mfi);
+        Array4<const Real> const& A_old_1_arr = (A_old[1])->array(mfi);
+        Array4<const Real> const& A_old_2_arr = (A_old[2])->array(mfi);
+        Array4<const Real> const& R_old_0_arr = (R_old[0])->array(mfi);
+        Array4<const Real> const& R_old_1_arr = (R_old[1])->array(mfi);
+        Array4<const Real> const& R_old_2_arr = (R_old[2])->array(mfi);
+
+        if (sdc_quadrature == 0) {
+            hs_sdc_compute_C4_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                      A_old_2_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr,
+                                      C_source_arr, m_start);
+
+        } else {
+            Array4<const Real> const& A_old_3_arr = (A_old[3])->array(mfi);
+            Array4<const Real> const& R_old_3_arr = (R_old[3])->array(mfi);
+
+            hs_sdc_compute_C4_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                    A_old_2_arr,
+                                    A_old_3_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr, R_old_3_arr,
+                                    C_source_arr, m_start);
+
+        }
+    }
+
+    // need to construct the time for this stage -- but it is not really
+    // at a single instance in time.  For single level this does not matter,
+    Real time = state[SDC_Source_Type].curTime();
+    AmrLevel::FillPatch(*this, C_source, C_source.nGrow(), time,
+                        SDC_Source_Type, 0, NUM_STATE);
+
+
+    // we'll also construct an initial guess for the nonlinear solve,
+    // and store this in the Sreact MultiFab.  We'll use S_new as the
+    // staging place so we can do a FillPatch
+    MultiFab& S_new = get_new_data(State_Type);
+
+    for (MFIter mfi(S_new); mfi.isValid(); ++mfi) {
+
+        const Box& bx = mfi.tilebox();
+
+        Array4<const Real> const& k_new_m_start_arr = (k_new[m_start])->array(mfi);
+        Array4<const Real> const& k_new_m_end_arr = (k_new[m_end])->array(mfi);
+        Array4<const Real> const& A_old_arr = (A_old[m_start])->array(mfi);
+        Array4<const Real> const& R_old_arr = (R_old[m_start])->array(mfi);
+        Array4<Real> const& S_new_arr = S_new.array(mfi);
+
+        hs_sdc_compute_initial_guess(bx, k_new_m_start_arr, k_new_m_end_arr,
+                                     A_old_arr, R_old_arr, S_new_arr,
+                                     dt_m, sdc_iteration);
+
+    }
+
+    const Real cur_time = state[State_Type].curTime();
+    fill_grown_state(Sreact, cur_time, 2);
+}
+#endif
+
+
+#ifdef REACTIONS
+void
 HydroSim::assemble_old_react_source(MultiFab& U_state,
                                    MultiFab& R_source,
                                    const bool input_is_average)
@@ -308,62 +316,7 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
     auto domain_lo = geom.Domain().loVect3d();
     auto domain_hi = geom.Domain().hiVect3d();
 
-    if (sdc_order == 4 && input_is_average)
-    {
-        // we have cell-averages
-        // Note: we cannot tile these operations
-
-        FArrayBox U_center(The_Async_Arena());
-        FArrayBox R_center(The_Async_Arena());
-        FArrayBox tmp(The_Async_Arena());
-
-        for (MFIter mfi(U_state); mfi.isValid(); ++mfi)
-        {
-
-            const Box& bx = mfi.tilebox();
-            const Box& obx = mfi.growntilebox(1);
-
-            // Convert to centers
-            U_center.resize(obx, NUM_STATE);
-            auto const U_center_arr = U_center.array();
-
-            make_cell_center(obx, U_state.array(mfi), U_center_arr, domain_lo, domain_hi);
-
-            // sometimes the Laplacian can make the species go
-            // negative near discontinuities
-            amrex::ParallelFor(obx,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-            {
-                normalize_species_sdc(i, j, k, U_center_arr);
-            });
-
-            // burn, including one ghost cell
-            R_center.resize(obx, NUM_STATE);
-            auto const R_center_arr = R_center.array();
-
-            amrex::ParallelFor(obx,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-            {
-                instantaneous_react(i, j, k, U_center_arr, R_center_arr);
-            });
-
-            // at this point, we have the reaction term on centers,
-            // including a ghost cell.  Save this into Sreact so we can
-            // use it later for the plotfile filling
-            Sreact[mfi].copy(R_center, obx, 0, obx, 0, NUM_STATE);
-
-            // convert R to averages (in place)
-
-            tmp.resize(bx, 1);
-            auto const tmp_arr = tmp.array();
-
-            make_fourth_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
-
-            // copy this to the center
-            R_source[mfi].copy(R_center, bx, 0, bx, 0, NUM_STATE);
-        }
-
-    } else {
+    if (sdc_order != 4 || !input_is_average) {
         // we are cell-centers
 
         for (MFIter mfi(U_state); mfi.isValid(); ++mfi) {
@@ -380,6 +333,61 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
                 instantaneous_react(i, j, k, U_state_arr, R_source_arr);
             });
         }
+
+        return;
+    }
+
+    // we have cell-averages
+    // Note: we cannot tile these operations
+
+    FArrayBox U_center(The_Async_Arena());
+    FArrayBox R_center(The_Async_Arena());
+    FArrayBox tmp(The_Async_Arena());
+
+    for (MFIter mfi(U_state); mfi.isValid(); ++mfi)
+    {
+
+        const Box& bx = mfi.tilebox();
+        const Box& obx = mfi.growntilebox(1);
+
+        // Convert to centers
+        U_center.resize(obx, NUM_STATE);
+        auto const U_center_arr = U_center.array();
+
+        make_cell_center(obx, U_state.array(mfi), U_center_arr, domain_lo, domain_hi);
+
+        // sometimes the Laplacian can make the species go
+        // negative near discontinuities
+        amrex::ParallelFor(obx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            normalize_species_sdc(i, j, k, U_center_arr);
+        });
+
+        // burn, including one ghost cell
+        R_center.resize(obx, NUM_STATE);
+        auto const R_center_arr = R_center.array();
+
+        amrex::ParallelFor(obx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            instantaneous_react(i, j, k, U_center_arr, R_center_arr);
+        });
+
+        // at this point, we have the reaction term on centers,
+        // including a ghost cell.  Save this into Sreact so we can
+        // use it later for the plotfile filling
+        Sreact[mfi].copy(R_center, obx, 0, obx, 0, NUM_STATE);
+
+        // convert R to averages (in place)
+
+        tmp.resize(bx, 1);
+        auto const tmp_arr = tmp.array();
+
+        make_fourth_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
+
+        // copy this to the center
+        R_source[mfi].copy(R_center, bx, 0, bx, 0, NUM_STATE);
     }
 }
 #endif

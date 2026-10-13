@@ -2,14 +2,14 @@
 #define HYDROSIM_REACT_H
 
 ///
-/// Perform any old-time reactions.
+/// Perform the reactions for one half of the split update.
 ///
-    advance_status handle_old_reactions (Real time, Real dt);
-
+/// @param time         current time
+/// @param dt           timestep
+/// @param strang_half  0 for the old-time half (before the advance),
+///                     1 for the new-time half (after the advance)
 ///
-/// Perform any new-time reactions.
-///
-    advance_status handle_new_reactions (Real time, Real dt);
+    advance_status handle_split_reactions (Real time, Real dt, int strang_half);
 
 ///
 /// React state through a single reaction timestep, saving reaction source terms to ``reactions`` MultiFab. This is the CTU version.

@@ -9,6 +9,19 @@
 
 using namespace amrex;
 
+namespace {
+
+// The (composite - level) correction is kept only for levels that have a
+// finer level above them and are within the levels the Poisson solver handles.
+
+bool
+composite_correction_applies (int lev, int finest_level)
+{
+    return Gravity::ApplyCompositeCorrection() && lev < finest_level && lev <= Gravity::get_max_solve_level();
+}
+
+}
+
 void
 HydroSim::assemble_old_gravity (Real time)
 {
@@ -55,7 +68,7 @@ HydroSim::assemble_old_gravity (Real time)
         MultiFab comp_phi;
         Vector<std::unique_ptr<MultiFab> > comp_gphi(AMREX_SPACEDIM);
 
-        if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+        if (composite_correction_applies(level, parent->finestLevel())) {
 
             comp_phi.define(phi_old.boxArray(), phi_old.DistributionMap(), phi_old.nComp(), phi_old.nGrow());
             MultiFab::Copy(comp_phi, phi_old, 0, 0, phi_old.nComp(), phi_old.nGrow());
@@ -82,7 +95,7 @@ HydroSim::assemble_old_gravity (Real time)
                                amrex::GetVecOfPtrs(gravity->get_grad_phi_prev(level)),
                                is_new);
 
-        if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+        if (composite_correction_applies(level, parent->finestLevel())) {
 
             // Subtract the level solve from the composite solution.
 
@@ -180,7 +193,7 @@ HydroSim::assemble_new_gravity (Real time)
             // Subtract off the (composite - level) contribution for the purposes
             // of the level solve. We'll add it back later.
 
-            if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+            if (composite_correction_applies(level, parent->finestLevel())) {
                 phi_new.minus(composite_level_phi_diff, 0, 1, 0);
             }
 
@@ -292,6 +305,8 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
     AMREX_ALWAYS_ASSERT(hydrosim::grav_coupling_type >= 1 && hydrosim::grav_coupling_type <= 4);
 
+    const int coupling_type = hydrosim::grav_coupling_type;
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -364,18 +379,18 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             Real SrE{};
 
-            if (hydrosim::grav_coupling_type == 1 || hydrosim::grav_coupling_type == 2) {  // NOLINT(bugprone-branch-clone)
+            if (coupling_type == 1 || coupling_type == 2) {  // NOLINT(bugprone-branch-clone)
 
                 // Src = rho u dot g, evaluated with all quantities at t^n
 
                 SrE = (uold(i,j,k,UMX) * Sr[0] + uold(i,j,k,UMY) * Sr[1] + uold(i,j,k,UMZ) * Sr[2]) * rhoInv;
 
-            } else if (hydrosim::grav_coupling_type == 3) {
+            } else if (coupling_type == 3) {
 
                 Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
                 SrE = new_ke - old_ke;
 
-            } else if (hydrosim::grav_coupling_type == 4) {
+            } else if (coupling_type == 4) {
 
                 // The conservative energy formulation does not strictly require
                 // any energy source-term here, because it depends only on the
@@ -440,6 +455,10 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
 
     AMREX_ALWAYS_ASSERT(hydrosim::grav_coupling_type >= 1 && hydrosim::grav_coupling_type <= 4);
 
+    const int coupling_type = hydrosim::grav_coupling_type;
+
+    Real hdtInv = 0.5_rt / dt;
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -462,8 +481,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 GpuArray<Real, NSRC> src{};
-
-                Real hdtInv = 0.5_rt / dt;
 
                 // Gravitational source options for how to add the work to (rho E):
                 // grav_coupling_type =
@@ -550,13 +567,13 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
 
                 Real SrEcorr{};
 
-                if (hydrosim::grav_coupling_type == 1) {
+                if (coupling_type == 1) {
 
                     // If grav_coupling_type == 1, then we calculated SrEcorr before updating the velocities.
 
                     SrEcorr = 0.5_rt * (SrE_new - SrE_old);
 
-                } else if (hydrosim::grav_coupling_type == 2) {
+                } else if (coupling_type == 2) {
 
                     // For this source type, we first update the momenta
                     // before we calculate the energy source term.
@@ -568,7 +585,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
 
                     SrEcorr = 0.5_rt * (SrE_new - SrE_old);
 
-                } else if (hydrosim::grav_coupling_type == 3) {
+                } else if (coupling_type == 3) {
 
                     // Instead of calculating the energy source term explicitly,
                     // we simply update the kinetic energy.
@@ -576,7 +593,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
                     Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoninv;
                     SrEcorr = new_ke - old_ke;
 
-                } else if (hydrosim::grav_coupling_type == 4) {
+                } else if (coupling_type == 4) {
 
                     // First, subtract the predictor step we applied earlier.
 

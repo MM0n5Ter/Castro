@@ -304,6 +304,19 @@
 
 
 ///
+/// Add ``mult_factor`` times the geometry source evaluated from ``state`` to ``source``
+///
+/// @param source       MultiFab to add the source to
+/// @param state        state to evaluate the source with
+/// @param time         time of ``state``
+/// @param dt           timestep
+/// @param mult_factor  weight of the source
+///
+    void add_geom_source(amrex::MultiFab& source, const amrex::MultiFab& state,
+                         amrex::Real time, amrex::Real dt, amrex::Real mult_factor);
+
+
+///
 /// Fill ``ext_src`` with 2D cylindrical R-Z geometry sources
 ///
 /// @param time     current time

@@ -59,27 +59,24 @@ HydroSim::assemble_new_thermo_source(MultiFab& source, const MultiFab& state_old
 
   MultiFab thermo_src(grids, dmap, source.nComp(), 0);
 
-  thermo_src.setVal(0.0);
+  auto add_thermo_source = [&] (const MultiFab& state, Real mult_factor)
+  {
+      thermo_src.setVal(0.0);
 
-  fill_thermo_source(state_old, thermo_src);
+      fill_thermo_source(state, thermo_src);
 
-  Real mult_factor = -0.5;
+      MultiFab::Saxpy(source, mult_factor, thermo_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  };
 
-  MultiFab::Saxpy(source, mult_factor, thermo_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  add_thermo_source(state_old, -0.5);
 
   //Time center with the new data
-
-  thermo_src.setVal(0.0);
-
-  mult_factor = 0.5;
 
   //state_new needs ghost cell
   FillPatchIterator fpi(*this, state_new, 1, time, State_Type, 0, NUM_STATE);
   MultiFab& grown_state = fpi.get_mf();
 
-  fill_thermo_source(grown_state, thermo_src);
-
-  MultiFab::Saxpy(source, mult_factor, thermo_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  add_thermo_source(grown_state, 0.5);
 
   if (verbose > 1) {
     print_stage_time("HydroSim::assemble_new_thermo_source()", strt_time);

@@ -28,6 +28,18 @@ void do_sdc_update(int m_start, int m_end, amrex::Real dt);
 void assemble_old_react_source(amrex::MultiFab& U_state,
                                 amrex::MultiFab& R_source,
                                 const bool input_is_average);
+
+/// For fourth-order reacting SDC: build the source C for the update
+/// from node m_start to node m_end (as averages, with its ghost cells
+/// filled) and store an initial guess for the new node state in Sreact.
+///
+/// @param m_start  starting time node
+/// @param m_end    ending time node
+/// @param dt_m     timestep between the two nodes
+/// @param dt       full timestep
+///
+void build_fourth_order_sdc_source(int m_start, int m_end,
+                                   amrex::Real dt_m, amrex::Real dt);
 #endif
 
 static

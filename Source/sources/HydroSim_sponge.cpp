@@ -71,6 +71,15 @@ HydroSim::apply_sponge(const Box& bx,
   auto problo = geom.ProbLoArray();
   auto geomdata = geom.data();
 
+  // Radial distance between upper and lower boundaries.
+  Real delta_r = sponge_upper_radius - sponge_lower_radius;
+
+  // Density difference between upper and lower cutoffs.
+  Real delta_rho = sponge_lower_density - sponge_upper_density;
+
+  // Pressure difference between upper and lower cutoffs.
+  Real delta_p = sponge_lower_pressure - sponge_upper_pressure;
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
@@ -97,16 +106,6 @@ HydroSim::apply_sponge(const Box& bx,
     Real rhoInv = 1.0_rt / rho;
 
     // compute the update factor
-
-    // Radial distance between upper and lower boundaries.
-    Real delta_r = sponge_upper_radius - sponge_lower_radius;
-
-    // Density difference between upper and lower cutoffs.
-    Real delta_rho = sponge_lower_density - sponge_upper_density;
-
-    // Pressure difference between upper and lower cutoffs.
-    Real delta_p = sponge_lower_pressure - sponge_upper_pressure;
-
 
     // Apply radial sponge. By default sponge_lower_radius will be zero
     // so this sponge is applied only if set by the user.

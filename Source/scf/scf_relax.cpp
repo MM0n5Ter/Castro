@@ -82,10 +82,12 @@ void HydroSim::scf_relaxation() {
 
     do_hscf_solve();
 
+    const int finest_level = parent->finestLevel();
+
     // Update the gravitational field. Since we don't need this
     // during the iterations, we only do it once at the end.
 
-    for (int lev = 0; lev <= parent->finestLevel(); ++lev)
+    for (int lev = 0; lev <= finest_level; ++lev)
     {
         MultiFab& grav_new = getLevel(lev).get_new_data(Gravity_Type);
         gravity->get_grav_vector(lev, grav_new, getLevel(lev).state[Gravity_Type].curTime(), 1);
@@ -93,7 +95,7 @@ void HydroSim::scf_relaxation() {
 
     // Perform a final pass to ensure we're consistent with AMR.
 
-    for (int lev = parent->finestLevel()-1; lev >= 0; --lev) {
+    for (int lev = finest_level-1; lev >= 0; --lev) {
         getLevel(lev).avgDown();
     }
 

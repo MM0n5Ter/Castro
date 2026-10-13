@@ -64,6 +64,10 @@ HydroSim::fill_hybrid_hydro_source(MultiFab& sources, const MultiFab& state_in, 
 
     GeometryData geomdata = geom.data();
 
+    // The source depends on the cylindrical radius measured from the center.
+    const Real x_center = problem::center[0];
+    const Real y_center = problem::center[1];
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -81,8 +85,8 @@ HydroSim::fill_hybrid_hydro_source(MultiFab& sources, const MultiFab& state_in, 
 
             position(i, j, k, geomdata, loc);
 
-            loc[0] -= problem::center[0];
-            loc[1] -= problem::center[1];
+            loc[0] -= x_center;
+            loc[1] -= y_center;
 
             Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
                                 std::numeric_limits<Real>::min());

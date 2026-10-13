@@ -14,6 +14,8 @@ HydroSim::rsrc(const Box& bx,
   GeometryData geomdata = geom.data();
   const auto coord = geomdata.Coord();
 
+  const int source_type = rot_source_type;
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
@@ -88,18 +90,18 @@ HydroSim::rsrc(const Box& bx,
 
     Real SrE;
 
-    if (rot_source_type == 1 || rot_source_type == 2) {  // NOLINT(bugprone-branch-clone)
+    if (source_type == 1 || source_type == 2) {  // NOLINT(bugprone-branch-clone)
 
       SrE = uold(i,j,k,UMX) * rhoInv * Sr[0] +
             uold(i,j,k,UMY) * rhoInv * Sr[1] +
             uold(i,j,k,UMZ) * rhoInv * Sr[2];
 
-    } else if (rot_source_type == 3) {
+    } else if (source_type == 3) {
 
       Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
       SrE = new_ke - old_ke;
 
-    } else if (rot_source_type == 4) {
+    } else if (source_type == 4) {
 
       // The conservative energy formulation does not strictly require
       // any energy source-term here, because it depends only on the
@@ -171,6 +173,9 @@ HydroSim::corrrsrc(const Box& bx,
   const auto coord = geomdata.Coord();
 
   Real hdtInv = 0.5_rt / dt;
+
+  const int source_type = rot_source_type;
+  const bool implicit_update = implicit_rotation_update == 1;
 
   GpuArray<Real, 3> dx;
   for (int i = 0; i < AMREX_SPACEDIM; ++i) {
@@ -256,7 +261,7 @@ HydroSim::corrrsrc(const Box& bx,
       Srcorr[n] = 0.5_rt * (Sr_new[n] - Sr_old[n]);
     }
 
-    if (implicit_rotation_update == 1) {
+    if (implicit_update) {
 
       // Coupled/implicit momentum update
 
@@ -339,13 +344,13 @@ HydroSim::corrrsrc(const Box& bx,
 
     Real SrEcorr;
 
-    if (rot_source_type == 1) {
+    if (source_type == 1) {
 
       // If rot_source_type == 1, then we calculated SrEcorr before updating the velocities.
 
       SrEcorr = 0.5_rt * (SrE_new - SrE_old);
 
-    } else if (rot_source_type == 2) {
+    } else if (source_type == 2) {
 
       // For this source type, we first update the momenta
       // before we calculate the energy source term.
@@ -366,7 +371,7 @@ HydroSim::corrrsrc(const Box& bx,
 
       SrEcorr = 0.5_rt * (SrE_new - SrE_old);
 
-    } else if (rot_source_type == 3) {
+    } else if (source_type == 3) {
 
       // Instead of calculating the energy source term explicitly,
       // we simply update the kinetic energy.
@@ -374,7 +379,7 @@ HydroSim::corrrsrc(const Box& bx,
       Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoninv;
       SrEcorr = new_ke - old_ke;
 
-    } else if (rot_source_type == 4) {
+    } else if (source_type == 4) {
 
       // Conservative energy update
 

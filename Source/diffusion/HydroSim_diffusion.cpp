@@ -59,16 +59,43 @@ HydroSim::add_temp_diffusion_to_source (MultiFab& ext_src, MultiFab& state_in, M
 
     // Define an explicit temperature update.
     DiffTerm.setVal(0.);
-    if (diffuse_temp == 1) {
-        getTempDiffusionTerm(t, state_in, DiffTerm);
+
+    if (diffuse_temp != 1) {
+        return;
     }
 
-    if (diffuse_temp == 1) {
-       MultiFab::Saxpy(ext_src,mult_factor,DiffTerm,0,UEDEN,1,0);  // NOLINT(readability-suspicious-call-argument)
-       MultiFab::Saxpy(ext_src,mult_factor,DiffTerm,0,UEINT,1,0);  // NOLINT(readability-suspicious-call-argument)
-    }
+    getTempDiffusionTerm(t, state_in, DiffTerm);
+
+    MultiFab::Saxpy(ext_src,mult_factor,DiffTerm,0,UEDEN,1,0);  // NOLINT(readability-suspicious-call-argument)
+    MultiFab::Saxpy(ext_src,mult_factor,DiffTerm,0,UEINT,1,0);  // NOLINT(readability-suspicious-call-argument)
 }
 
+
+namespace {
+
+// Average the cell-centered conductivity onto the idir faces of bx.
+
+void
+average_cond_to_faces (const Box& bx, int idir,
+                       Array4<Real const> const& coeff_arr,
+                       Array4<Real> const& edge_coeff_arr)
+{
+    const Box& nbx = amrex::surroundingNodes(bx, idir);
+
+    amrex::ParallelFor(nbx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        if (idir == 0) {
+            edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i-1,j,k));
+        } else if (idir == 1) {
+            edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j-1,k));
+        } else {
+            edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j,k-1));
+        }
+    });
+}
+
+}
 
 void
 HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDiffTerm)
@@ -113,22 +140,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
                fill_temp_cond(obx, U_arr, coeff_arr);
 
                for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-                   const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-                   Array4<Real> const edge_coeff_arr = (*coeffs[idir]).array(mfi);
-
-                   amrex::ParallelFor(nbx,
-                   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                   {
-                       if (idir == 0) {
-                           edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i-1,j,k));
-                       } else if (idir == 1) {
-                           edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j-1,k));
-                       } else {
-                           edge_coeff_arr(i,j,k) = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j,k-1));
-                       }
-                   });
+                   average_cond_to_faces(bx, idir, coeff_arr, (*coeffs[idir]).array(mfi));
                }
            }
        }
@@ -152,16 +164,16 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
 
    } else {
        // Evaluates ∇ ⋅(k_th ∇T) without using AMReX
+       const auto dx = geom.CellSizeArray();
+       const auto dxinv = geom.InvCellSizeArray();
+       const auto problo = geom.ProbLoArray();
+       const int coord = geom.Coord();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
        for (MFIter mfi(Temperature, TilingIfNotGPU()); mfi.isValid(); ++mfi)
        {
-           const auto dx = geom.CellSizeArray();
-           const auto dxinv = geom.InvCellSizeArray();
-           const auto problo = geom.ProbLoArray();
-           const int coord = geom.Coord();
-
            const Box& bx = mfi.tilebox();
            Array4<Real const> const& Temp_array = Temperature.array(mfi);
            Array4<Real> const & TempDiff_array = TempDiffTerm.array(mfi);

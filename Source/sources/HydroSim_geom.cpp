@@ -29,19 +29,7 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
 #if AMREX_SPACEDIM <= 2
   const Real strt_time = ParallelDescriptor::second();
 
-  MultiFab geom_src(grids, dmap, source.nComp(), 0);
-
-  geom_src.setVal(0.0);
-
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(time, dt, state_in, geom_src);
-  } else {
-      fill_RTheta_geom_source(time, dt, state_in, geom_src);
-  }
-
-  Real mult_factor = 1.0;
-
-  MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  add_geom_source(source, state_in, time, dt, 1.0);
 
   if (verbose > 1) {
     print_stage_time("HydroSim::assemble_old_geom_source()", strt_time);
@@ -74,42 +62,42 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
 #if AMREX_SPACEDIM <= 2
   const Real strt_time = ParallelDescriptor::second();
 
-  MultiFab geom_src(grids, dmap, source.nComp(), 0);
-
-  geom_src.setVal(0.0);
-
   // Subtract off the old-time value first
   Real old_time = time - dt;
 
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(old_time, dt, state_old, geom_src);
-  } else {
-      fill_RTheta_geom_source(old_time, dt, state_old, geom_src);
-  }
-
-  Real mult_factor = -0.5;
-
-  MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
+  add_geom_source(source, state_old, old_time, dt, -0.5);
 
   // Time center with the new data
 
-  geom_src.setVal(0.0);
-
-  mult_factor = 0.5;
-
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(time, dt, state_new, geom_src);
-  } else {
-      fill_RTheta_geom_source(time, dt, state_new, geom_src);
-  }
-
-  MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
+  add_geom_source(source, state_new, time, dt, 0.5);
 
   if (verbose > 1) {
     print_stage_time("HydroSim::assemble_new_geom_source()", strt_time);
   }
 
 #endif
+}
+
+
+
+void
+HydroSim::add_geom_source (MultiFab& source, const MultiFab& state, Real time, Real dt, Real mult_factor)
+{
+
+  // Evaluate the geometric source for this coordinate system into a
+  // temporary and add mult_factor times it to source.
+
+  MultiFab geom_src(grids, dmap, source.nComp(), 0);
+
+  geom_src.setVal(0.0);
+
+  if (geom.Coord() == 1) {
+      fill_RZ_geom_source(time, dt, state, geom_src);
+  } else {
+      fill_RTheta_geom_source(time, dt, state, geom_src);
+  }
+
+  MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 }
 
 
