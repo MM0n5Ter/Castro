@@ -1,1 +1,0 @@
-../flame_wave/initial_model.H

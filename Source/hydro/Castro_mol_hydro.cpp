@@ -1,9 +1,6 @@
 #include <Castro.H>
 #include <Castro_util.H>
 
-#ifdef DIFFUSION
-#include <diffusion_util.H>
-#endif
 
 #include <advection_util.H>
 
@@ -24,9 +21,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
     amrex::ignore_unused(time);
 
-#ifdef RADIATION
-  amrex::Abort("Error: radiation not supported for the MOL hydro source term");
-#else
 
   BL_PROFILE("Castro::construct_mol_hydro_source()");
 
@@ -51,9 +45,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
   GpuArray<int, 3> domain_hi = geom.Domain().hiVect3d();
 #endif
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -284,18 +275,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             }
 
-#ifdef DIFFUSION
-            // add diffusive flux to F(<q>) if needed
-            // Note: this can act even if do_hydro = 0
-            // operate on ibx[idir]
-            if (diffuse_temp == 1) {
-              bool is_avg = true;
-              fourth_add_diffusive_flux(ibx[idir],
-                                        q_arr, QTEMP,
-                                        q_avg_arr, f_avg_arr,
-                                        idir, is_avg);
-            }
-#endif
 
             // we now have the face-average interface states and
             // fluxes evaluated with these
@@ -355,16 +334,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             }
 
 
-#ifdef DIFFUSION
-            if (diffuse_temp == 1) {
-              // add the diffusive flux to F(q_fc) if needed
-              bool is_avg = false;
-              fourth_add_diffusive_flux(nbx,
-                                        T_cc.array(mfi), 0,
-                                        q_fc_arr, flux[idir].array(),
-                                        idir, is_avg);
-            }
-#endif
 
 
             // compute the final fluxes
@@ -409,10 +378,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
                       flux_arr(i,j,k,n) = 0.0;
 #ifdef SHOCK_VAR
                   } else if (n == USHK) {
-                      flux_arr(i,j,k,n) = 0.0;
-#endif
-#ifdef NSE_NET
-                  } else if (n == UMUP || n == UMUN) {
                       flux_arr(i,j,k,n) = 0.0;
 #endif
                   } else {
@@ -513,10 +478,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 #ifdef SHOCK_VAR
                   flux_arr(i,j,k,USHK) = 0.e0;
 #endif
-#ifdef NSE_NET
-                  flux_arr(i,j,k,UMUP) = 0.e0;
-                  flux_arr(i,j,k,UMUN) = 0.e0;
-#endif
               });
 
               // apply artificial viscosity
@@ -545,19 +506,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             } // end do_hydro
 
-#ifdef DIFFUSION
-            // add a diffusive flux
-            cond.resize(obx, 1);
-            auto cond_arr = cond.array();
-
-            fill_temp_cond(obx, Sborder.array(mfi), cond_arr);
-
-            const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-            mol_diffusive_flux(nbx, idir,
-                               uin_arr, cond_arr,
-                               flux[idir].array());
-#endif
 
           } // end idir loop
 
@@ -621,29 +569,6 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
                    volume.array(mfi));
 
 
-#ifdef HYBRID_MOMENTUM
-        auto dx_arr = geom.CellSizeArray();
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-
-          GpuArray<Real, 3> loc;
-
-          position(i, j, k, geomdata, loc);
-
-          for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-            loc[dir] -= problem::center[dir];
-
-          Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                              std::numeric_limits<Real>::min());
-          Real RInv = 1.0_rt / R;
-
-          source_out_arr(i,j,k,UMR) -= ((loc[0] * RInv) * (qx_arr(i+1,j,k,GDPRES) - qx_arr(i,j,k,GDPRES)) / dx_arr[0] +
-                                        (loc[1] * RInv) * (qy_arr(i,j+1,k,GDPRES) - qy_arr(i,j,k,GDPRES)) / dx_arr[1]);
-
-        });
-#endif
 
         // scale the fluxes
 #if AMREX_SPACEDIM <= 2
@@ -744,5 +669,4 @@ Castro::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 #endif
     }
 
-#endif // radiation
 }

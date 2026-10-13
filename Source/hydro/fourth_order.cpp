@@ -1,8 +1,5 @@
 #include <Castro.H>
 
-#ifdef DIFFUSION
-#include <conductivity.H>
-#endif
 
 void
 Castro::fourth_interfaces(const Box& bx,
@@ -787,86 +784,3 @@ Castro::fourth_avisc(const Box& bx,
 }
 
 
-#ifdef DIFFUSION
-void
-Castro::fourth_add_diffusive_flux(const Box& bx,
-                                  Array4<Real const> const& q_arr,
-                                  const int temp_comp,
-                                  Array4<Real const> const& qint,
-                                  Array4<Real> const& F,
-                                  const int idir, const bool is_avg) {
-
-  // add the diffusive flux to the energy fluxes
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-    eos_t eos_state;
-
-    eos_state.rho = qint(i,j,k,QRHO);
-    eos_state.T = q_arr(i,j,k,temp_comp);  // initial guess
-    eos_state.e = qint(i,j,k,QREINT) / qint(i,j,k,QRHO);
-    for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = qint(i,j,k,QFS+n);
-    }
-#if NAUX_NET > 0
-    for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = qint(i,j,k,QFX+n);
-    }
-#endif
-
-    eos(eos_input_re, eos_state);
-    conductivity(eos_state);
-
-    Real dTdx;
-
-    if (idir == 0) {
-
-      if (is_avg) {
-        // we are working with the cell-average state
-        dTdx = (-q_arr(i+1,j,k,temp_comp) + 15*q_arr(i,j,k,temp_comp) -
-                15*q_arr(i-1,j,k,temp_comp) + q_arr(i-2,j,k,temp_comp)) / (12.0_rt * dx[0]);
-
-      } else {
-        // we are working with the cell-center state
-        dTdx = (-q_arr(i+1,j,k,temp_comp) + 27*q_arr(i,j,k,temp_comp) -
-                27*q_arr(i-1,j,k,temp_comp) + q_arr(i-2,j,k,temp_comp)) / (24.0_rt * dx[0]);
-      }
-
-    } else if (idir == 1) {
-
-      if (is_avg) {
-        // we are working with the cell-average state
-        dTdx = (-q_arr(i,j+1,k,temp_comp) + 15*q_arr(i,j,k,temp_comp) -
-                15*q_arr(i,j-1,k,temp_comp) + q_arr(i,j-2,k,temp_comp)) / (12.0_rt * dx[1]);
-
-      } else {
-        // we are working with the cell-center state
-        dTdx = (-q_arr(i,j+1,k,temp_comp) + 27*q_arr(i,j,k,temp_comp) -
-                27*q_arr(i,j-1,k,temp_comp) + q_arr(i,j-2,k,temp_comp)) / (24.0_rt * dx[1]);
-      }
-
-    } else {
-
-      if (is_avg) {
-        // we are working with the cell-average state
-        dTdx = (-q_arr(i,j,k+1,temp_comp) + 15*q_arr(i,j,k,temp_comp) -
-                15*q_arr(i,j,k-1,temp_comp) + q_arr(i,j,k-2,temp_comp)) / (12.0_rt * dx[2]);
-
-      } else {
-        // we are working with the cell-center state
-        dTdx = (-q_arr(i,j,k+1,temp_comp) + 27*q_arr(i,j,k,temp_comp) -
-                27*q_arr(i,j,k-1,temp_comp) + q_arr(i,j,k-2,temp_comp)) / (24.0_rt * dx[2]);
-      }
-
-    }
-
-    F(i,j,k,UEINT) -= eos_state.conductivity * dTdx;
-    F(i,j,k,UEDEN) -= eos_state.conductivity * dTdx;
-
-  });
-}
-#endif
