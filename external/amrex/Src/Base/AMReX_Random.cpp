@@ -1,0 +1,410 @@
+#include <AMReX_Arena.H>
+#include <AMReX_BLFort.H>
+#include <AMReX_Print.H>
+#include <AMReX_Random.H>
+#include <AMReX_Gpu.H>
+#include <AMReX_OpenMP.H>
+
+#include <iterator>
+#include <limits>
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <random>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+#include <set>
+
+namespace
+{
+    int nthreads;
+    amrex::Vector<std::mt19937> generators;
+}
+
+#ifdef AMREX_USE_GPU
+namespace amrex {
+#ifdef AMREX_USE_SYCL
+    sycl_rng_descr* rand_engine_descr = nullptr;
+#else
+    amrex::randState_t* gpu_rand_state = nullptr;
+#endif
+}
+
+namespace {
+#ifdef AMREX_USE_SYCL
+    oneapi::mkl::rng::philox4x32x10* gpu_rand_generator = nullptr;
+#else
+    amrex::randGenerator_t gpu_rand_generator = nullptr;
+#endif
+}
+#endif
+
+#ifdef AMREX_USE_GPU
+namespace {
+void ResizeRandomSeed (amrex::ULong gpu_seed)
+{
+    BL_PROFILE("ResizeRandomSeed");
+
+    using namespace amrex;
+
+    DeallocateRandomSeedDevArray();
+
+    const int N = Gpu::Device::maxBlocksPerLaunch() * AMREX_GPU_MAX_THREADS;
+
+#ifdef AMREX_USE_SYCL
+
+    // oneMKL initializes engine id of an engine_descriptor as
+    // Engine{seed, id*offset}.  With an offset of 1, all N engines would be
+    // the same philox4x32x10 stream shifted by one element per engine, so the
+    // k-th draw of work-item t would equal the (k-1)-th draw of work-item t+1,
+    // and random fields would be correlated across neighboring work-items and
+    // successive kernels.  Give every engine its own window of the stream
+    // instead, in the spirit of the distinct curand/hiprand subsequences
+    // below.  Philox skip-ahead is counter arithmetic, so the size of the
+    // offset does not matter for the cost of initialization.
+    constexpr ULong elements_per_engine = ULong(1) << 36;
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE
+        (static_cast<ULong>(N) <= std::numeric_limits<ULong>::max() / elements_per_engine,
+         "ResizeRandomSeed: too many RNG engines for the per-engine offset");
+    rand_engine_descr = new sycl_rng_descr
+        (Gpu::Device::streamQueue(), sycl::range<1>(N), gpu_seed, elements_per_engine);
+
+    gpu_rand_generator = new std::remove_pointer_t<decltype(gpu_rand_generator)>
+        (Gpu::Device::streamQueue(), gpu_seed+1234ULL);
+
+#elif defined(AMREX_USE_CUDA) || defined(AMREX_USE_HIP)
+
+    gpu_rand_state =  static_cast<randState_t*>(The_Arena()->alloc(N*sizeof(randState_t)));
+    randState_t* gpu_rand_state_local = gpu_rand_state;
+    amrex::ParallelFor(N, [=] AMREX_GPU_DEVICE (int idx) noexcept
+    {
+        ULong seqstart = static_cast<ULong>(idx) + 10 * static_cast<ULong>(idx);
+        AMREX_HIP_OR_CUDA( hiprand_init(gpu_seed, seqstart, 0, &gpu_rand_state_local[idx]);,
+                            curand_init(gpu_seed, seqstart, 0, &gpu_rand_state_local[idx]); )
+    });
+
+#if defined(AMREX_USE_CUDA)
+    AMREX_CURAND_SAFE_CALL(curandCreateGenerator
+                           (&gpu_rand_generator, CURAND_RNG_PSEUDO_DEFAULT));
+    AMREX_CURAND_SAFE_CALL(curandSetPseudoRandomGeneratorSeed
+                           (gpu_rand_generator, gpu_seed+1234ULL));
+#else
+    AMREX_HIPRAND_SAFE_CALL(hiprandCreateGenerator
+                            (&gpu_rand_generator, HIPRAND_RNG_PSEUDO_DEFAULT));
+    AMREX_HIPRAND_SAFE_CALL(hiprandSetPseudoRandomGeneratorSeed
+                            (gpu_rand_generator, gpu_seed+1234ULL));
+#endif
+
+#endif
+
+    Gpu::synchronize();
+}
+}
+#endif
+
+namespace amrex {
+
+void
+InitRandom (ULong cpu_seed, int nprocs, ULong gpu_seed)
+{
+    nthreads = OpenMP::get_max_threads();
+    generators.resize(nthreads);
+
+#ifdef AMREX_USE_OMP
+    if (omp_in_parallel()) {
+        amrex::Abort("It is not safe to call amrex::InitRandom inside a threaded region.");
+    }
+#endif
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+    {
+        int tid = OpenMP::get_thread_num();
+        ULong init_seed = cpu_seed + tid*nprocs;
+        generators[tid].seed(init_seed);
+    }
+
+#ifdef AMREX_USE_GPU
+    ResizeRandomSeed(gpu_seed);
+#else
+    ignore_unused(gpu_seed);
+#endif
+}
+
+Real RandomNormal (Real mean, Real stddev)
+{
+    std::normal_distribution<Real> distribution(mean, stddev);
+    int tid = OpenMP::get_thread_num();
+    return distribution(generators[tid]);
+}
+
+// std::uniform_real_distribution is specified as [0,1), but that bound is not
+// something to depend on: it is built on std::generate_canonical, whose C++20
+// specification is defective -- LWG 2524 -- in that the quotient it forms can
+// round up to exactly 1.0f in single precision. Implementations are free to clamp
+// and the ones AMReX currently supports do, including MSVC (fixed
+// P0952R2 in 2024 via microsoft/STL#1074).  Since this is a C++20 defect, we
+// clamp rather than trust it: that makes the interval of
+// Random() a property of AMReX instead of a property of whichever standard
+// library happens to be in use.
+Real Random ()
+{
+    std::uniform_real_distribution<Real> distribution(0.0, 1.0);
+    int tid = OpenMP::get_thread_num();
+    return random_util::clamp_below_one(distribution(generators[tid]));
+}
+
+Real RandomPositive ()
+{
+    // Relocating the zero endpoint converts [0,1) to (0,1] with no arithmetic.
+    // Note this needs no clamp: unlike Random(), it stays correct even when the
+    // distribution reaches 1.0 as described above, because 1.0 is in range here.
+    std::uniform_real_distribution<Real> distribution(0.0, 1.0);
+    int tid = OpenMP::get_thread_num();
+    return random_util::zero_to_one(distribution(generators[tid]));
+}
+
+unsigned int RandomPoisson (Real lambda)
+{
+    std::poisson_distribution<unsigned int> distribution(lambda);
+    int tid = OpenMP::get_thread_num();
+    return distribution(generators[tid]);
+}
+
+Real RandomGamma (Real alpha, Real beta)
+{
+    std::gamma_distribution<Real> distribution(alpha, beta);
+    int tid = OpenMP::get_thread_num();
+    return distribution(generators[tid]);
+}
+
+unsigned int Random_int (unsigned int n)
+{
+    if (n == 0) {return 0;}
+    std::uniform_int_distribution<unsigned int> distribution(0, n-1);
+    int tid = OpenMP::get_thread_num();
+    return distribution(generators[tid]);
+}
+
+ULong Random_long (ULong n)
+{
+    if (n == 0) {return 0;}
+    std::uniform_int_distribution<ULong> distribution(0, n-1);
+    int tid = OpenMP::get_thread_num();
+    return distribution(generators[tid]);
+}
+
+void
+SaveRandomState (std::ostream& os)
+{
+    for (int i = 0; i < nthreads; i++) {
+        os << generators[i] << "\n";
+    }
+}
+
+void
+RestoreRandomState (std::istream& is, int nthreads_old, int nstep_old)
+{
+    int N = std::min(nthreads, nthreads_old);
+    for (int i = 0; i < N; i++) {
+        is >> generators[i];
+    }
+    std::mt19937 discarded;
+    for (int i = N; i < nthreads_old; i++) { // consume what SaveRandomState wrote
+        is >> discarded;
+    }
+    if (nthreads > nthreads_old) {
+        const int NProcs = ParallelDescriptor::NProcs();
+        const int MyProc = ParallelDescriptor::MyProc();
+        for (int i = nthreads_old; i < nthreads; i++) {
+            ULong seed = static_cast<ULong>(MyProc+1)
+                       + static_cast<ULong>(i)*static_cast<ULong>(NProcs);
+            if (std::numeric_limits<ULong>::max()/static_cast<ULong>(nstep_old+1)
+                > static_cast<ULong>(nthreads)*static_cast<ULong>(NProcs)) // avoid overflow
+            {
+                seed += static_cast<ULong>(nstep_old)
+                      * static_cast<ULong>(nthreads)
+                      * static_cast<ULong>(NProcs);
+            }
+
+            generators[i].seed(seed);
+        }
+    }
+}
+
+void
+UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
+                    bool printSet)
+{
+  if(setSize > poolSize) {
+    Abort("**** Error in UniqueRandomSubset:  setSize > poolSize.");
+  }
+  std::set<int> copySet;
+  uSet.clear();
+  while(std::ssize(copySet) < setSize) {
+    int r = static_cast<int>(Random_int(poolSize));
+    if(!copySet.contains(r)) {
+      copySet.insert(r);
+      uSet.push_back(r);
+    }
+  }
+  if(printSet) {
+    for(int i(0); i < uSet.size(); ++i) {
+        AllPrint() << "uSet[" << i << "]  = " << uSet[i] << '\n';
+    }
+  }
+}
+
+void ResetRandomSeed (ULong cpu_seed, ULong gpu_seed)
+{
+    InitRandom(cpu_seed, ParallelDescriptor::NProcs(), gpu_seed);
+}
+
+void
+DeallocateRandomSeedDevArray ()
+{
+#ifdef AMREX_USE_GPU
+#ifdef AMREX_USE_SYCL
+    if (rand_engine_descr) {
+        delete rand_engine_descr;
+        Gpu::streamSynchronize();
+        rand_engine_descr = nullptr;
+    }
+    if (gpu_rand_generator != nullptr) {
+        delete gpu_rand_generator;
+        Gpu::streamSynchronize();
+        gpu_rand_generator = nullptr;
+    }
+#else
+    if (gpu_rand_state != nullptr)
+    {
+        The_Arena()->free(gpu_rand_state);
+        gpu_rand_state = nullptr;
+    }
+    if (gpu_rand_generator != nullptr)
+    {
+#if defined(AMREX_USE_CUDA)
+        AMREX_CURAND_SAFE_CALL(curandDestroyGenerator(gpu_rand_generator));
+#else
+        AMREX_HIPRAND_SAFE_CALL(hiprandDestroyGenerator(gpu_rand_generator));
+#endif
+        gpu_rand_generator = nullptr;
+    }
+#endif
+#endif
+}
+
+void FillRandom (Real* p, Long N)
+{
+    if (N <= 0) { return; }
+
+#ifdef AMREX_USE_CUDA
+
+#  ifdef BL_USE_FLOAT
+    AMREX_CURAND_SAFE_CALL(curandGenerateUniform(gpu_rand_generator, p, N));
+#  else
+    AMREX_CURAND_SAFE_CALL(curandGenerateUniformDouble(gpu_rand_generator, p, N));
+#  endif
+    Gpu::synchronize();
+
+#elif defined(AMREX_USE_HIP)
+
+#  ifdef BL_USE_FLOAT
+    AMREX_HIPRAND_SAFE_CALL(hiprandGenerateUniform(gpu_rand_generator, p, N));
+#  else
+    AMREX_HIPRAND_SAFE_CALL(hiprandGenerateUniformDouble(gpu_rand_generator, p, N));
+#  endif
+    Gpu::synchronize();
+
+#elif defined(AMREX_USE_SYCL)
+
+    oneapi::mkl::rng::uniform<Real> distr;
+    auto event = oneapi::mkl::rng::generate(distr, *gpu_rand_generator, N, p);
+    event.wait();
+
+#else
+    // clamped for the same reason as Random(): std::uniform_real_distribution
+    // may reach its upper bound (LWG 2524), so [0,1) is not free here either
+    std::uniform_real_distribution<Real> distribution(Real(0.0), Real(1.0));
+    auto& gen = generators[OpenMP::get_thread_num()];
+    for (Long i = 0; i < N; ++i) {
+        p[i] = random_util::clamp_below_one(distribution(gen));
+    }
+#endif
+}
+
+void FillRandomNormal (Real* p, Long N, Real mean, Real stddev)
+{
+    if (N <= 0) { return; }
+
+#if defined(AMREX_USE_CUDA) || defined(AMREX_USE_HIP)
+    if (N == 1) {
+        auto r = amrex::RandomNormal(mean, stddev);
+        Gpu::htod_memcpy_async(p, &r, sizeof(Real));
+        Gpu::streamSynchronize();
+        return;
+    }
+    // The length passed to [cu|hip]randGenerateNormal must be even
+    Long Neven =  (N%2 == 0) ? N : N-1;
+#endif
+
+#if defined(AMREX_USE_CUDA)
+
+#  ifdef BL_USE_FLOAT
+    AMREX_CURAND_SAFE_CALL(curandGenerateNormal(gpu_rand_generator, p, Neven, mean, stddev));
+#  else
+    AMREX_CURAND_SAFE_CALL(curandGenerateNormalDouble(gpu_rand_generator, p, Neven, mean, stddev));
+#  endif
+
+#elif defined(AMREX_USE_HIP)
+
+#  ifdef BL_USE_FLOAT
+    AMREX_HIPRAND_SAFE_CALL(hiprandGenerateNormal(gpu_rand_generator, p, Neven, mean, stddev));
+#  else
+    AMREX_HIPRAND_SAFE_CALL(hiprandGenerateNormalDouble(gpu_rand_generator, p, Neven, mean, stddev));
+#  endif
+
+#elif defined(AMREX_USE_SYCL)
+
+    oneapi::mkl::rng::gaussian<Real> distr(mean, stddev);
+    auto event = oneapi::mkl::rng::generate(distr, *gpu_rand_generator, N, p);
+    event.wait();
+
+#else
+
+    std::normal_distribution<Real> distribution(mean, stddev);
+    auto& gen = generators[OpenMP::get_thread_num()];
+    for (Long i = 0; i < N; ++i) {
+        p[i] = distribution(gen);
+    }
+
+#endif
+
+#if defined(AMREX_USE_CUDA) || defined(AMREX_USE_HIP)
+    if (Neven < N) {
+        auto r = amrex::RandomNormal(mean, stddev);
+        Gpu::htod_memcpy_async(p+(N-1), &r, sizeof(Real));
+    }
+    Gpu::synchronize();
+#endif
+}
+
+} // namespace amrex
+
+extern "C" {
+    double amrex_random ()
+    {
+        return amrex::Random();
+    }
+
+    // This is for Fortran, which doesn't have unsigned long.
+    amrex::Long amrex_random_int (amrex::Long n)
+    {
+        return static_cast<amrex::Long>(amrex::Random_long(static_cast<amrex::ULong>(n)));
+    }
+}
