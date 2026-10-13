@@ -1,9 +1,6 @@
 #include <Castro.H>
 #include <Castro_util.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 #include <cmath>
 
@@ -141,27 +138,6 @@ Castro::trace_plm(const Box& bx, const int idir,
     else if (castro::use_flattening) {
         flat = hydro::flatten(i, j, k, q_arr, QPRES);
 
-#ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, q_arr, QPTOT);
-
-        if (radiation::flatten_pp_threshold > 0.0) {
-            Real vel_sum_m = q_arr(i-1,j,k,QU);
-            Real vel_sum_p = q_arr(i+1,j,k,QU);
-#if AMREX_SPACEDIM >= 2
-            vel_sum_m += q_arr(i,j-1,k,QV);
-            vel_sum_p += q_arr(i,j+1,k,QV);
-#endif
-#if AMREX_SPACEDIM == 3
-            vel_sum_m += q_arr(i,j,k-1,QW);
-            vel_sum_p += q_arr(i,j,k+1,QW);
-#endif
-            if (vel_sum_m > vel_sum_p) {
-                if (q_arr(i,j,k,QPRES) < radiation::flatten_pp_threshold * q_arr(i,j,k,QPTOT)) {
-                    flat = 0.0;
-                }
-            }
-        }
-#endif
     }
 
     for (int n = 0; n < NEIGN; n++) {

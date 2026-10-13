@@ -49,10 +49,6 @@ namespace HLL {
       U[USHK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UMUP] = 0.0;
-      U[UMUN] = 0.0;
-    #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
           const int n  = upassmap(ipassive);
@@ -100,10 +96,6 @@ namespace HLL {
       F[USHK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      F[UMUP] = 0.0;
-      F[UMUN] = 0.0;
-    #endif
 
       for (int ipassive=0; ipassive < npassive; ipassive++) {
           const int n = upassmap(ipassive);
@@ -137,10 +129,6 @@ namespace HLL {
       U[USHK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UMUP] = 0.0;
-      U[UMUN] = 0.0;
-    #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
           const int n  = upassmap(ipassive);
@@ -413,12 +401,6 @@ namespace HLL {
         Real gamcl = qaux_arr(i-sx,j-sy,k-sz,QGAMC);
         Real gamcr = qaux_arr(i,j,k,QGAMC);
 
-    #ifdef TRUE_SDC
-        if (use_reconstructed_gamma1 == 1) {
-            gamcl = ql(i,j,k,QGC);
-            gamcr = qr(i,j,k,QGC);
-        }
-    #endif
 
         Real wsmall = small_dens*csmall;
         Real wl = std::max(wsmall, std::sqrt(std::abs(gamcl*pl*rl)));
@@ -576,9 +558,6 @@ namespace HLL {
 
         } else {
 
-    #ifdef HYBRID_MOMENTUM
-            qgdnv(i,j,k,GDRHO) = qint[QRHO];
-    #endif
             qgdnv(i,j,k,GDU) = qint[QU];
             qgdnv(i,j,k,GDV) = qint[QV];
             qgdnv(i,j,k,GDW) = qint[QW];

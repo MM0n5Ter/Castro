@@ -1,9 +1,6 @@
 #include <Castro.H>
 #include <Castro_util.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 using namespace amrex;
 
@@ -157,78 +154,6 @@ Castro::ctu_ppm_states(const Box& bx, const Box& vbx,
 }
 
 
-#ifdef RADIATION
-void
-Castro::ctu_ppm_rad_states(const Box& bx, const Box& vbx,
-                           Array4<Real const> const& U_arr,
-                           Array4<Real const> const& rho_inv_arr,
-                           Array4<Real const> const& q_arr,
-                           Array4<Real const> const& qaux_arr,
-                           Array4<Real const> const& srcQ,
-                           Array4<Real> const& qxm,
-                           Array4<Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                           Array4<Real> const& qym,
-                           Array4<Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                           Array4<Real> const& qzm,
-                           Array4<Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                           Array4<Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                           Array4<Real const> const& dlogaY,
-#endif
-                           const Real dt) {
-
-
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-
-    if (idir == 0) {
-
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qxm, qxp,
-#if AMREX_SPACEDIM <= 2
-                    dlogaX,
-#endif
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 0, qxm, qxp);
-
-#if AMREX_SPACEDIM >= 2
-    } else if (idir == 1) {
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qym, qyp,
-#if AMREX_SPACEDIM <= 2
-                    dlogaY,
-#endif
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 1, qym, qyp);
-#endif
-
-
-#if AMREX_SPACEDIM == 3
-    } else {
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qzm, qzp,
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 2, qzm, qzp);
-
-#endif
-    }
-  }
-}
-#endif
 
 
 void
@@ -266,11 +191,6 @@ Castro::ctu_plm_states(const Box& bx, const Box& vbx,
   //
 
 
-#ifdef RADIATION
-#ifndef AMREX_USE_GPU
-  amrex::Error("ppm_type <=0 is not supported in with radiation");
-#endif
-#endif
 
   // Compute all slopes
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {

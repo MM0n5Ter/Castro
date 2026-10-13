@@ -15,13 +15,6 @@ struct RiemannState
     amrex::Real ut;
     amrex::Real utt;
 
-#ifdef RADIATION
-    amrex::Real lam[NGROUPS];
-    amrex::Real er[NGROUPS];
-    amrex::Real p_g;
-    amrex::Real rhoe_g;
-    amrex::Real gamcg;
-#endif
 
 };
 
@@ -89,15 +82,6 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamc = qaux_arr(i-1,j,k,QGAMC);
         qr.gamc = qaux_arr(i,j,k,QGAMC);
 
-#ifdef RADIATION
-        ql.gamcg = qaux_arr(i-1,j,k,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i-1,j,k,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
-        }
-#endif
 
     } else if (idir == 1) {
         ql.un = qleft_arr(i,j,k,QV);
@@ -115,15 +99,6 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamc = qaux_arr(i,j-1,k,QGAMC);
         qr.gamc = qaux_arr(i,j,k,QGAMC);
 
-#ifdef RADIATION
-        ql.gamcg = qaux_arr(i,j-1,k,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i,j-1,k,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
-        }
-#endif
 
     } else {
         ql.un = qleft_arr(i,j,k,QW);
@@ -141,51 +116,18 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamc = qaux_arr(i,j,k-1,QGAMC);
         qr.gamc = qaux_arr(i,j,k,QGAMC);
 
-#ifdef RADIATION
-        ql.gamcg = qaux_arr(i,j,k-1,QGAMCG);
-        qr.gamcg = qaux_arr(i,j,k,QGAMCG);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qaux_arr(i,j,k-1,QLAMS+g);
-            qr.lam[g] = qaux_arr(i,j,k,QLAMS+g);
-        }
-#endif
 
     }
 
-#ifndef RADIATION
     ql.p = qleft_arr(i,j,k,QPRES);
     qr.p = qright_arr(i,j,k,QPRES);
 
     ql.rhoe = qleft_arr(i,j,k,QREINT);
     qr.rhoe = qright_arr(i,j,k,QREINT);
 
-#else
-    ql.p = qleft_arr(i,j,k,QPTOT);
-    ql.rhoe = qleft_arr(i,j,k,QREITOT);
-    for (int g = 0; g < NGROUPS; g++) {
-      ql.er[g] = qleft_arr(i,j,k,QRAD+g);
-    }
-    ql.p_g = qleft_arr(i,j,k,QPRES);
-    ql.rhoe_g = qleft_arr(i,j,k,QREINT);
-
-    qr.p = qright_arr(i,j,k,QPTOT);
-    qr.rhoe = qright_arr(i,j,k,QREITOT);
-    for (int g = 0; g < NGROUPS; g++) {
-      qr.er[g] = qright_arr(i,j,k,QRAD+g);
-    }
-    qr.p_g = qright_arr(i,j,k,QPRES);
-    qr.rhoe_g = qright_arr(i,j,k,QREINT);
-#endif
 
     // cleaning
 
-#ifdef TRUE_SDC
-    if (use_reconstructed_gamma1 == 1) {
-        ql.gamc = qleft_arr(i,j,k,QGC);
-        qr.gamc = qright_arr(i,j,k,QGC);
-    }
-#endif
 
     // sometime we come in here with negative energy or pressure
     // note: reset both in either case, to remain thermo

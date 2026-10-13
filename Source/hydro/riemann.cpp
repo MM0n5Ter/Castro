@@ -3,9 +3,6 @@
 #include <riemann_solvers.H>
 #include <HLL_solvers.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 #include <cmath>
 
@@ -17,9 +14,6 @@ Castro::cmpflx_plus_godunov(const Box& bx,
                             Array4<Real> const& qm,
                             Array4<Real> const& qp,
                             Array4<Real> const& flx,
-#ifdef RADIATION
-                            Array4<Real> const& rflx,
-#endif
                             Array4<Real> const& qgdnv,
                             Array4<Real const> const& qaux_arr,
                             Array4<Real const> const& shk,
@@ -42,11 +36,6 @@ Castro::cmpflx_plus_godunov(const Box& bx,
     // NGDNV do, we only support store_full_state = false for
     // Radiation
 
-#ifdef RADIATION
-    if (store_full_state == true) {
-        amrex::Error("cannot store full interface state with radiation");
-    }
-#endif
 
     const int* lo_bc = phys_bc.lo();
     const int* hi_bc = phys_bc.hi();
@@ -93,9 +82,6 @@ Castro::cmpflx_plus_godunov(const Box& bx,
             compute_flux_q(i, j, k, idir,
                            geomdata,
                            qint, flx,
-#ifdef RADIATION
-                           rflx,
-#endif
                            qgdnv, store_full_state);
 
             // now do the passives -- we didn't include them in qint, qgdnv, or flux above

@@ -1,21 +1,10 @@
 #include <Castro.H>
 
-#ifdef ROTATION
-#include <Rotation.H>
-#endif
 
 #include <Castro_util.H>
 #include <advection_util.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
-#ifdef RADIATION
-#include <Radiation.H>
-#include <fluxlimiter.H>
-#include <rad_util.H>
-#endif
 
 #include <eos.H>
 
@@ -26,15 +15,6 @@ void
 Castro::ctoprim(const Box& bx,
                 const Real time,
                 Array4<Real const> const& uin,
-#ifdef MHD
-                Array4<Real const> const& Bx,
-                Array4<Real const> const& By,
-                Array4<Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                Array4<Real const> const& Erin,
-                Array4<Real const> const& lam,
-#endif
                 Array4<Real> const& q_arr,
                 Array4<Real> const& qaux_arr) {
 
@@ -47,12 +27,6 @@ Castro::ctoprim(const Box& bx,
       auto qaux = [&] (int n) -> Real& { return qaux_arr(i,j,k,n); };
 
       hydro::conservative_to_primitive(i, j, k, uin,
-#ifdef MHD
-                                       Bx, By, Bz,
-#endif
-#ifdef RADIATION
-                                       Erin, lam,
-#endif
                                        q, qaux, q_arr.nComp() == NQ);
   });
 }
@@ -397,11 +371,6 @@ Castro::apply_av(const Box& bx,
               continue;
           }
 #endif
-#ifdef NSE_NET
-          if (n == UMUP || n == UMUN) {
-              continue;
-          }
-#endif
 
           Real div_var{};
 
@@ -419,55 +388,6 @@ Castro::apply_av(const Box& bx,
 }
 
 
-#ifdef RADIATION
-void
-Castro::apply_av_rad(const Box& bx,
-                     const int idir,
-                     Array4<Real const> const& div,
-                     Array4<Real const> const& Erin,
-                     Array4<Real> const& radflux) {
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::Real diff_coeff = difmag;
-
-  int ngroups = Radiation::nGroups;
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-      Real div1;
-      if (idir == 0) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
-                            div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
-      } else if (idir == 1) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dg2) + div(i+1,j,k+dg2));
-      } else {
-          div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dg1,k) + div(i+1,j+dg1,k));
-      }
-
-      div1 = diff_coeff * std::min(0.0_rt, div1);
-
-      for (int n = 0; n < ngroups; ++n) {
-
-          Real div_var{};
-
-          if (idir == 0) {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i-1,j,k,n));
-          } else if (idir == 1) {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j-dg1,k,n));
-          } else {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j,k-dg2,n));
-          }
-
-          radflux(i,j,k,n) += dx[idir] * div_var;
-      }
-  });
-}
-#endif
 
 
 void
@@ -523,23 +443,8 @@ Castro::scale_flux(const Box& bx,
 }
 
 
-#ifdef RADIATION
-void
-Castro::scale_rad_flux(const Box& bx,
-                       Array4<Real> const& rflux,
-                       Array4<Real const> const& area_arr,
-                       const Real dt) {
-
-  amrex::ParallelFor(bx, Radiation::nGroups,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int g) noexcept
-  {
-    rflux(i,j,k,g) = dt * rflux(i,j,k,g) * area_arr(i,j,k);
-  });
-}
-#endif
 
 
-#ifndef MHD
 void
 Castro::limit_hydro_fluxes_on_small_dens(const Box& bx,
                                          int idir,
@@ -643,7 +548,6 @@ Castro::limit_hydro_fluxes_on_small_dens(const Box& bx,
 
     });
 }
-#endif
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -651,9 +555,6 @@ Castro::do_enforce_minimum_density(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const int verbose_warnings) {
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ignore_unused(verbose_warnings);
 
@@ -715,29 +616,6 @@ Castro::do_enforce_minimum_density(const Box& bx,
       state_arr(i,j,k,UEINT) = eos_state.rho * eos_state.e;
       state_arr(i,j,k,UEDEN) = state_arr(i,j,k,UEINT);
 
-#ifdef HYBRID_MOMENTUM
-      GpuArray<Real, 3> loc;
-
-      position(i, j, k, geomdata, loc);
-
-      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        loc[dir] -= problem::center[dir];
-      }
-
-      GpuArray<Real, 3> linear_mom;
-
-      for (int dir = 0; dir < 3; ++dir) {
-        linear_mom[dir] = state_arr(i,j,k,UMX+dir);
-      }
-
-      GpuArray<Real, 3> hybrid_mom;
-
-      linear_to_hybrid(loc, linear_mom, hybrid_mom);
-
-      for (int dir = 0; dir < 3; ++dir) {
-        state_arr(i,j,k,UMR+dir) = hybrid_mom[dir];
-      }
-#endif
     }
   });
 }

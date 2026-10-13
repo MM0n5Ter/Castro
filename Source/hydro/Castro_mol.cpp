@@ -1,16 +1,7 @@
 #include <Castro.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef GRAVITY
-#include <Gravity.H>
-#endif
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
 #include <ppm.H>
 #include <slope.H>
@@ -381,9 +372,6 @@ Castro::compute_flux_from_q(const Box& bx,
     im3 = UMY;
   }
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -415,10 +403,6 @@ Castro::compute_flux_from_q(const Box& bx,
     F(i,j,k,USHK) = 0.0;
 #endif
 
-#ifdef NSE_NET
-    F(i,j,k,UMUP) = 0.0;
-    F(i,j,k,UMUN) = 0.0;
-#endif
     // passively advected quantities
     for (int ipassive = 0; ipassive < npassive; ipassive++) {
       int n  = upassmap(ipassive);
@@ -427,32 +411,12 @@ Castro::compute_flux_from_q(const Box& bx,
       F(i,j,k,n) = F(i,j,k,URHO)*qint(i,j,k,nqp);
     }
 
-#ifdef HYBRID_MOMENTUM
-    // the hybrid routine uses the Godunov indices, not the full NQ state
-    GpuArray<Real, NGDNV> qgdnv_zone;
-    qgdnv_zone[GDRHO] = qint(i,j,k,QRHO);
-    qgdnv_zone[GDU] = qint(i,j,k,QU);
-    qgdnv_zone[GDV] = qint(i,j,k,QV);
-    qgdnv_zone[GDW] = qint(i,j,k,QW);
-    qgdnv_zone[GDPRES] = qint(i,j,k,QPRES);
-    GpuArray<Real, NUM_STATE> F_zone;
-    for (int n = 0; n < NUM_STATE; n++) {
-        F_zone[n] = F(i,j,k,n);
-    }
-    compute_hybrid_flux(qgdnv_zone, geomdata, idir, i, j, k, F_zone);
-    for (int n = 0; n < NUM_STATE; n++) {
-        F(i,j,k,n) = F_zone[n];
-    }
-#endif
   });
 }
 
 void
 Castro::store_godunov_state(const Box& bx,
                             Array4<Real const> const& qint,
-#ifdef RADIATION
-                            Array4<Real const> const& lambda,
-#endif
                             Array4<Real> const& qgdnv) {
 
   // this copies the full interface state (NQ -- one for each primitive
@@ -464,18 +428,9 @@ Castro::store_godunov_state(const Box& bx,
   {
 
 
-#ifdef HYBRID_MOMENTUM
-    qgdnv(i,j,k,GDRHO) = qint(i,j,k,QRHO);
-#endif
     qgdnv(i,j,k,GDU) = qint(i,j,k,QU);
     qgdnv(i,j,k,GDV) = qint(i,j,k,QV);
     qgdnv(i,j,k,GDW) = qint(i,j,k,QW);
     qgdnv(i,j,k,GDPRES) = qint(i,j,k,QPRES);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-      qgdnv(i,j,k,GDLAMS+g) = lambda(i,j,k,g);
-      qgdnv(i,j,k,GDERADS+g) = qint(i,j,k,QRAD+g);
-    }
-#endif
   });
 }

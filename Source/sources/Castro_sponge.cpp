@@ -3,9 +3,6 @@
 #ifdef SPONGE
 #include <Castro.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
 using namespace amrex;
 
@@ -242,13 +239,6 @@ Castro::apply_sponge(const Box& bx,
 
     src[UEDEN] = SrE;
 
-#ifdef HYBRID_MOMENTUM
-    GpuArray<Real, 3> Sr_hybrid;
-    set_hybrid_momentum_source(r, Sr, Sr_hybrid);
-    for (int n = 0; n < 3; n++) {
-      src[UMR+n] = Sr_hybrid[n];
-    }
-#endif
 
     // Add terms to the source array.
     for (int n = 0; n < NSRC; n++) {
