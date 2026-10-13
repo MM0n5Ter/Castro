@@ -22,7 +22,7 @@ HydroSim::assemble_old_gravity (Real time)
     // Always set phi to zero initially since some gravity modes
     // don't use it and we want to have valid data.
 
-    if (gravity->get_gravity_type() != "FullPoisson") {
+    if (!gravity->uses_poisson_solve()) {
         phi_old.setVal(0.0);
     }
 
@@ -48,7 +48,7 @@ HydroSim::assemble_old_gravity (Real time)
         do_old_solve = false;
     }
 
-    if (gravity->get_gravity_type() == "FullPoisson" && do_old_solve)
+    if (gravity->uses_poisson_solve() && do_old_solve)
     {
         // Create a copy of the current (composite) data on this level.
 
@@ -118,7 +118,7 @@ HydroSim::assemble_old_gravity (Real time)
 
     // Define the old gravity vector.
 
-    gravity->get_old_grav_vector(level, grav_old, time);
+    gravity->get_grav_vector(level, grav_old, time, 0);
 
     if (verbose > 0) {
         print_stage_time("HydroSim::assemble_old_gravity()", strt_time, true);
@@ -138,7 +138,7 @@ HydroSim::assemble_new_gravity (Real time)
     // Always set phi to zero initially since some gravity modes
     // don't use it and we want to have valid data.
 
-    if (gravity->get_gravity_type() != "FullPoisson") {
+    if (!gravity->uses_poisson_solve()) {
         phi_new.setVal(0.0);
     }
 
@@ -152,7 +152,7 @@ HydroSim::assemble_new_gravity (Real time)
 
     // If we're doing Poisson gravity, do the new-time level or composite solve here.
 
-    if (gravity->get_gravity_type() == "FullPoisson")
+    if (gravity->uses_poisson_solve())
     {
         if (level == 0 && parent->subcyclingMode() == "None") {
             if (hydrosim::verbose > 0) {
@@ -235,9 +235,9 @@ HydroSim::assemble_new_gravity (Real time)
 
     // Define new gravity vector.
 
-    gravity->get_new_grav_vector(level, grav_new, time);
+    gravity->get_grav_vector(level, grav_new, time, 1);
 
-    if (gravity->get_gravity_type() == "FullPoisson" && level <= gravity->get_max_solve_level() && parent->subcyclingMode() != "None") {
+    if (gravity->uses_poisson_solve() && level <= gravity->get_max_solve_level() && parent->subcyclingMode() != "None") {
 
         if (gravity->ApplyCompositeCorrection() == 1 && level < parent->finestLevel()) {
 

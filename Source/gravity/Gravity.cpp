@@ -333,6 +333,11 @@ std::string Gravity::get_gravity_type()
   return gravity::gravity_type;
 }
 
+bool Gravity::uses_poisson_solve()
+{
+  return gravity::gravity_type == "FullPoisson";
+}
+
 int Gravity::get_max_solve_level()
 {
   return gravity::max_solve_level;
@@ -384,11 +389,13 @@ Gravity::swapTimeLevels (int level)
 {
     BL_PROFILE("Gravity::swapTimeLevels()");
 
-    if (gravity::gravity_type == "FullPoisson") {
-        for (int n=0; n < AMREX_SPACEDIM; n++) {
-            std::swap(grad_phi_prev[level][n], grad_phi_curr[level][n]);
-            grad_phi_curr[level][n]->setVal(1.e50);
-        }
+    if (!uses_poisson_solve()) {
+        return;
+    }
+
+    for (int n=0; n < AMREX_SPACEDIM; n++) {
+        std::swap(grad_phi_prev[level][n], grad_phi_curr[level][n]);
+        grad_phi_curr[level][n]->setVal(1.e50);
     }
 }
 
@@ -614,8 +621,8 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
             grad_phi_curr[lev][n]->plus(*ec_gdPhi[lev - crse_level][n], 0, 1, 0);
         }
 
-        get_new_grav_vector(lev, LevelData[lev]->get_new_data(Gravity_Type),
-                            LevelData[lev]->get_state_data(State_Type).curTime());
+        get_grav_vector(lev, LevelData[lev]->get_new_data(Gravity_Type),
+                        LevelData[lev]->get_state_data(State_Type).curTime(), 1);
 
     }
 
@@ -851,9 +858,9 @@ Gravity::run_multilevel_solve (int crse_level, int finest_level_in,
 }
 
 void
-Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
+Gravity::get_grav_vector(int level, MultiFab& grav_vector, Real time, int is_new)
 {
-    BL_PROFILE("Gravity::get_old_grav_vector()");
+    BL_PROFILE("Gravity::get_grav_vector()");
 
     int ng = grav_vector.nGrow();
 
@@ -889,15 +896,23 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     } else if (gravity::gravity_type == "SphericalMonopole") {
 
-       const Real prev_time = LevelData[level]->get_state_data(State_Type).prevTime();
-       build_radial_gravity(level,prev_time,radial_grav_old[level]);
-       map_radial_gravity_to_grid(level,radial_grav_old[level],grav);
+        // We always fill radial_grav_new (at every level)
+        const StateData& state = LevelData[level]->get_state_data(State_Type);
+        const Real profile_time = is_new ? state.curTime() : state.prevTime();
+        RealVector& radial_grav = is_new ? radial_grav_new[level] : radial_grav_old[level];
+
+        build_radial_gravity(level,profile_time,radial_grav);
+        map_radial_gravity_to_grid(level,radial_grav,grav);
 
     } else if (gravity::gravity_type == "FullPoisson") {
 
-       amrex::average_face_to_cellcenter(grav, amrex::GetVecOfConstPtrs(grad_phi_prev[level]), geom);
-       grav.mult(-1.0, ng); // g = - grad(phi)
+        const auto& grad_phi = is_new ? grad_phi_curr[level] : grad_phi_prev[level];
 
+        amrex::average_face_to_cellcenter(grav, amrex::GetVecOfConstPtrs(grad_phi), geom);
+        grav.mult(-1.0, ng); // g = - grad(phi)
+
+    } else if (is_new) {
+       amrex::Abort("Unknown gravity_type in get_new_grav_vector");
     } else {
        amrex::Abort("Unknown gravity_type in get_old_grav_vector");
     }
@@ -913,7 +928,7 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
     }
 
 #if (AMREX_SPACEDIM > 1)
-    if (gravity::gravity_type != "UniformField") {
+    if (gravity::gravity_type != "UniformField" && (!is_new || ng>0)) {
         // Fill ghost cells
         AmrLevel* amrlev = &parent->getLevel(level) ;
         AmrLevel::FillPatch(*amrlev,grav_vector,ng,time,Gravity_Type,0,AMREX_SPACEDIM);
@@ -922,84 +937,8 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
     if (cs->using_point_mass()) {
-        MultiFab& phi = LevelData[level]->get_old_data(Potential_Type);
-        add_point_mass_field(level,phi,grav_vector);
-    }
-}
-
-void
-Gravity::get_new_grav_vector(int level, MultiFab& grav_vector, Real time)
-{
-    BL_PROFILE("Gravity::get_new_grav_vector()");
-
-    int ng = grav_vector.nGrow();
-
-    // Fill data from the level below if we're not doing a solve on this level.
-
-    if (level > gravity::max_solve_level) {
-
-        LevelData[level]->FillCoarsePatch(grav_vector,0,time,Gravity_Type,0,3,ng);
-
-        return;
-
-    }
-
-    // Note that grav_vector coming into this routine always has three components.
-    // So we'll define a temporary MultiFab with AMREX_SPACEDIM dimensions.
-    // Then at the end we'll copy in all AMREX_SPACEDIM dimensions from this into
-    // the outgoing grav_vector, leaving any higher dimensions unchanged.
-
-    MultiFab grav(grids[level],dmap[level],AMREX_SPACEDIM,ng);
-    grav.setVal(0.0,ng);
-    const Geometry& geom = parent->Geom(level);
-
-    if (gravity::gravity_type == "UniformField") {
-
-        if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            // 2D spherical r-theta, we want g in the radial direction
-            grav.setVal(gravity::const_grav, 0, 1, ng);
-        } else {
-            // Set to constant value in the AMREX_SPACEDIM direction
-            grav.setVal(gravity::const_grav, AMREX_SPACEDIM-1, 1, ng);
-        }
-
-    } else if (gravity::gravity_type == "SphericalMonopole") {
-
-        // We always fill radial_grav_new (at every level)
-        const Real cur_time = LevelData[level]->get_state_data(State_Type).curTime();
-        build_radial_gravity(level,cur_time,radial_grav_new[level]);
-        map_radial_gravity_to_grid(level,radial_grav_new[level],grav);
-
-    } else if (gravity::gravity_type == "FullPoisson") {
-
-        amrex::average_face_to_cellcenter(grav, amrex::GetVecOfConstPtrs(grad_phi_curr[level]), geom);
-        grav.mult(-1.0, ng); // g = - grad(phi)
-
-    } else {
-       amrex::Abort("Unknown gravity_type in get_new_grav_vector");
-    }
-
-    // Do the copy to the output vector.
-
-    for (int dir = 0; dir < 3; dir++) {
-        if (dir < AMREX_SPACEDIM) {
-            MultiFab::Copy(grav_vector, grav, dir, dir, 1, ng);
-        } else {
-            grav_vector.setVal(0.,dir,1,ng);
-        }
-    }
-
-#if (AMREX_SPACEDIM > 1)
-    if (gravity::gravity_type != "UniformField" && ng>0) {
-        // Fill ghost cells
-        AmrLevel* amrlev = &parent->getLevel(level) ;
-        AmrLevel::FillPatch(*amrlev,grav_vector,ng,time,Gravity_Type,0,AMREX_SPACEDIM);
-    }
-#endif
-
-    auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
-    if (cs->using_point_mass()) {
-        MultiFab& phi = LevelData[level]->get_new_data(Potential_Type);
+        MultiFab& phi = is_new ? LevelData[level]->get_new_data(Potential_Type)
+                               : LevelData[level]->get_old_data(Potential_Type);
         add_point_mass_field(level,phi,grav_vector);
     }
 }

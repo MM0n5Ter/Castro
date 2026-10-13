@@ -927,7 +927,7 @@ HydroSim::initMFs()
 #endif
 
 #ifdef GRAVITY
-        if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0) {
+        if (do_grav && gravity->uses_poisson_solve() && gravity->SkipSync() == 0) {
             phi_reg.define(grids, dmap, crse_ratio, level, 1);
             phi_reg.setVal(0.0);
         }
@@ -1573,6 +1573,58 @@ HydroSim::initialTimeStep ()
     return init_dt;
 }
 
+namespace {
+
+    // Index label printed with the location that constrains a timestep, e.g. "(i,j,k)".
+
+    std::string zone_index_label ()
+    {
+        std::string idx_str = "(i";
+#if AMREX_SPACEDIM >= 2
+        idx_str += ",j";
+#endif
+#if AMREX_SPACEDIM == 3
+        idx_str += ",k";
+#endif
+        idx_str += ")";
+
+        return idx_str;
+    }
+
+    // Set the timestep on each level from the coarse timestep dt_0,
+    // dividing by the number of subcycles taken down to that level.
+
+    void set_level_dts (Real dt_0, int finest_level, const Vector<int>& n_cycle, Vector<Real>& dt_level)
+    {
+        int n_factor = 1;
+        for (int i = 0; i <= finest_level; i++)
+        {
+            n_factor *= n_cycle[i];
+            dt_level[i] = dt_0/n_factor;
+        }
+    }
+
+    // Decide whether the integrated quantities are due, either every
+    // sum_interval coarse steps or every time a multiple of sum_per is crossed.
+
+    bool integrated_sums_due (int nstep, Real cumtime, Real dtlev)
+    {
+        if (sum_interval > 0 && nstep%sum_interval == 0) {
+            return true;
+        }
+
+        if (sum_per <= 0.0) {
+            return false;
+        }
+
+        const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
+        const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
+
+        return num_per_old != num_per_new;
+    }
+
+}
+
 Real
 HydroSim::estTimeStep (int is_new)
 {
@@ -1642,16 +1694,7 @@ HydroSim::estTimeStep (int is_new)
           estdt_hydro = amrex::min(estdt_hydro, hydro_dt.value) * cfl;
           if (verbose) {
               amrex::Print() << "...estimated hydro-limited timestep at level " << level << ": " << estdt_hydro << std::endl;
-              std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-              idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-              idx_str += ",k";
-#endif
-              idx_str += ")";
-
-              amrex::Print() << "...hydro-limited CFL timestep constrained at " << idx_str << " = " << hydro_dt.index << std::endl;
+              amrex::Print() << "...hydro-limited CFL timestep constrained at " << zone_index_label() << " = " << hydro_dt.index << std::endl;
           }
 
 #ifdef RADIATION
@@ -1683,16 +1726,7 @@ HydroSim::estTimeStep (int is_new)
 
         if (verbose) {
             amrex::Print() << "...estimated diffusion-limited timestep at level " << level << ": " << estdt_diffusion << std::endl;
-            std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-            idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            idx_str += ",k";
-#endif
-            idx_str += ")";
-
-            amrex::Print() << "...diffusion-limited timestep constrained at " << idx_str << " = " << diffuse_dt.index << std::endl;
+            amrex::Print() << "...diffusion-limited timestep constrained at " << zone_index_label() << " = " << diffuse_dt.index << std::endl;
 
         }
     }
@@ -1720,16 +1754,7 @@ HydroSim::estTimeStep (int is_new)
 
         if (verbose) {
             amrex::Print() << "...estimated burning-limited timestep at level " << level << ": " << estdt_burn << std::endl;
-            std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-            idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            idx_str += ",k";
-#endif
-            idx_str += ")";
-
-            amrex::Print() << "...burning-limited timestep constrained at " << idx_str << " = " << burn_dt.index << std::endl;
+            amrex::Print() << "...burning-limited timestep constrained at " << zone_index_label() << " = " << burn_dt.index << std::endl;
         }
 
         // Determine if this is more restrictive than the hydro limiting
@@ -1839,87 +1864,56 @@ HydroSim::computeNewDt (int                    finest_level,
     // Optionally, limit dt's by the value of
     // plot_per or small_plot_per.
     //
-    if (plot_per_is_exact) {
-
-        const Real plot_per = parent->plotPer();
-
-        if (plot_per > 0.0) {
-
-            const Real cur_time = state[State_Type].curTime();
-
-            // Calculate the new dt by comparing to the dt needed to get
-            // to the next multiple of plot_per.
-
-            const Real dtMod = std::fmod(cur_time, plot_per);
-
-            Real newPlotDt;
-
-            // Note that if we are just about exactly on a multiple of plot_per,
-            // then we need to be careful to avoid floating point issues.
-
-            if (std::abs(dtMod - plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                newPlotDt = plot_per + (plot_per - dtMod);
-            }
-            else {
-                newPlotDt = plot_per - dtMod;
-            }
-
-            if (newPlotDt < dt_0) {
-                lastDtPlotLimited = 1;
-                lastDtBeforePlotLimiting = dt_0;
-                dt_0 = newPlotDt;
-
-                // Avoid taking timesteps that are so small that
-                // they may cause problems in the hydrodynamics.
-
-                const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
-                dt_0 = std::max(dt_0, epsDt);
-
-                if (verbose) {
-                  amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next plot interval.\n";
-                }
-            }
-
+    auto limit_dt_to_output_interval = [&] (Real output_per, const std::string& output_name)
+    {
+        if (output_per <= 0.0) {
+            return;
         }
 
+        const Real cur_time = state[State_Type].curTime();
+
+        // Calculate the new dt by comparing to the dt needed to get
+        // to the next multiple of the output period.
+
+        const Real dtMod = std::fmod(cur_time, output_per);
+
+        Real newOutputDt;
+
+        // Note that if we are just about exactly on a multiple of the output period,
+        // then we need to be careful to avoid floating point issues.
+
+        if (std::abs(dtMod - output_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
+            newOutputDt = output_per + (output_per - dtMod);
+        }
+        else {
+            newOutputDt = output_per - dtMod;
+        }
+
+        if (newOutputDt >= dt_0) {
+            return;
+        }
+
+        lastDtPlotLimited = 1;
+        lastDtBeforePlotLimiting = dt_0;
+        dt_0 = newOutputDt;
+
+        // Avoid taking timesteps that are so small that
+        // they may cause problems in the hydrodynamics.
+
+        const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
+        dt_0 = std::max(dt_0, epsDt);
+
+        if (verbose) {
+            amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next " << output_name << " interval.\n";
+        }
+    };
+
+    if (plot_per_is_exact) {
+        limit_dt_to_output_interval(parent->plotPer(), "plot");
     }
 
     if (small_plot_per_is_exact) {
-
-        const Real small_plot_per = parent->smallplotPer();
-
-        if (small_plot_per > 0.0) {
-
-            const Real cur_time = state[State_Type].curTime();
-
-            // Same logic as for plot_per_is_exact.
-
-            const Real dtMod = std::fmod(cur_time, small_plot_per);
-
-            Real newSmallPlotDt;
-
-            if (std::abs(dtMod - small_plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                newSmallPlotDt = small_plot_per + (small_plot_per - dtMod);
-            }
-            else {
-                newSmallPlotDt = small_plot_per - dtMod;
-            }
-
-            if (newSmallPlotDt < dt_0) {
-                lastDtPlotLimited = 1;
-                lastDtBeforePlotLimiting = dt_0;
-                dt_0 = newSmallPlotDt;
-
-                const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
-                dt_0 = std::max(dt_0, epsDt);
-
-                if (verbose) {
-                    amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next smallplot interval.\n";
-                }
-            }
-
-        }
-
+        limit_dt_to_output_interval(parent->smallplotPer(), "smallplot");
     }
 
     //
@@ -1936,12 +1930,7 @@ HydroSim::computeNewDt (int                    finest_level,
         }
     }
 
-    n_factor = 1;
-    for (int i = 0; i <= finest_level; i++)
-    {
-        n_factor *= n_cycle[i];
-        dt_level[i] = dt_0/n_factor;
-    }
+    set_level_dts(dt_0, finest_level, n_cycle, dt_level);
 }
 
 void
@@ -1978,18 +1967,11 @@ HydroSim::computeInitialDt (int                   finest_level,
     //
     const Real eps = 0.001*dt_0;
     Real cur_time  = state[State_Type].curTime();
-    if (stop_time >= 0.0) {
-        if ((cur_time + dt_0) > (stop_time - eps)) {
-          dt_0 = stop_time - cur_time;
-        }
+    if (stop_time >= 0.0 && (cur_time + dt_0) > (stop_time - eps)) {
+        dt_0 = stop_time - cur_time;
     }
 
-    n_factor = 1;
-    for (i = 0; i <= finest_level; i++)
-    {
-        n_factor *= n_cycle[i];
-        dt_level[i] = dt_0/n_factor;
-    }
+    set_level_dts(dt_0, finest_level, n_cycle, dt_level);
 }
 
 void
@@ -2023,7 +2005,7 @@ HydroSim::post_timestep (int iteration_local)
     // Now do the refluxing. If we're using gravity it
     // will also do the sync solve associated with the reflux.
 
-    if (do_reflux && level < parent->finestLevel()) {
+    if (do_reflux && level < finest_level) {
         if (parent->subcyclingMode() != "None") {
             reflux(level, level+1, true);
         }
@@ -2068,30 +2050,7 @@ HydroSim::post_timestep (int iteration_local)
         Real dtlev = parent->dtLevel(0);
         Real cumtime = parent->cumTime() + dtlev;
 
-        bool sum_int_test = false;
-
-        if (sum_interval > 0) {
-
-          if (nstep%sum_interval == 0) {
-            sum_int_test = true;
-          }
-
-        }
-
-        bool sum_per_test = false;
-
-        if (sum_per > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
-
-          if (num_per_old != num_per_new) {
-            sum_per_test = true;
-          }
-
-        }
-
-        if (sum_int_test || sum_per_test) {
+        if (integrated_sums_due(nstep, cumtime, dtlev)) {
           sum_integrated_quantities();
         }
 
@@ -2133,7 +2092,7 @@ HydroSim::post_timestep (int iteration_local)
     if (!hydrosim::stopping_criterion_field.empty() && level == 0) {
         Real max_field_val = std::numeric_limits<Real>::min();
 
-        for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
             auto mf = getLevel(lev).derive(hydrosim::stopping_criterion_field, state[State_Type].curTime(), 0);
             max_field_val = std::max(max_field_val, mf->max(0));
         }
@@ -2196,7 +2155,9 @@ HydroSim::post_restart ()
 
             gravity->set_radial_npts(numpts_1d);
 
-            for (int lev = 0; lev <= parent->finestLevel(); lev++)
+            const int finest_level = parent->finestLevel();
+
+            for (int lev = 0; lev <= finest_level; lev++)
             {
                 AmrLevel& this_level  = getLevel(lev);
                 HydroSim& cs_level = getLevel(lev);
@@ -2212,13 +2173,13 @@ HydroSim::post_restart ()
 
             gravity->set_mass_offset(cur_time);
 
-            if ( gravity->get_gravity_type() == "FullPoisson")
+            if (gravity->uses_poisson_solve())
             {
                 // Update the maximum density, used in setting the solver tolerance.
 
                 gravity->update_max_rhs();
 
-                gravity->solve_new_phi_all_levels(0, parent->finestLevel());
+                gravity->solve_new_phi_all_levels(0, finest_level);
                 if (gravity->verify_solves() == 1) {
                     gravity->check_composite_phi(level);
                 }
@@ -2289,7 +2250,7 @@ HydroSim::post_regrid (int lbase,
     if (do_grav)
     {
 
-        if (use_post_step_regrid && getLevel(lbase).post_step_regrid && gravity->get_gravity_type() == "FullPoisson") {
+        if (use_post_step_regrid && getLevel(lbase).post_step_regrid && gravity->uses_poisson_solve()) {
 
            if (level > lbase) {
 
@@ -2327,23 +2288,15 @@ HydroSim::post_regrid (int lbase,
 
            }
 
-       } else {
+       } else if (level == lbase && state[State_Type].curTime() > 0. && gravity->uses_poisson_solve()) {
 
-            const Real cur_time = state[State_Type].curTime();
-            if ( (level == lbase) && cur_time > 0.)
-            {
-                if (gravity->get_gravity_type() == "FullPoisson") {
-                    // Update the maximum density, used in setting the solver tolerance.
+            // Update the maximum density, used in setting the solver tolerance.
 
-                    if (level == 0) {
-                      gravity->update_max_rhs();
-                    }
-
-                    gravity->solve_new_phi_all_levels(level, new_finest);
-
-                }
-
+            if (level == 0) {
+              gravity->update_max_rhs();
             }
+
+            gravity->solve_new_phi_all_levels(level, new_finest);
 
         }
 
@@ -2408,7 +2361,7 @@ HydroSim::post_init (Real /*stop_time*/)
 
        Real cur_time = state[State_Type].curTime();
 
-       if (gravity->get_gravity_type() == "FullPoisson") {
+       if (gravity->uses_poisson_solve()) {
 
           // Update the maximum density, used in setting the solver tolerance.
 
@@ -2424,11 +2377,11 @@ HydroSim::post_init (Real /*stop_time*/)
        }
 
        // Make this call just to fill the initial state data.
-       for (int k = 0; k <= parent->finestLevel(); k++)
+       for (int k = 0; k <= finest_level; k++)
        {
           BoxArray ba = getLevel(k).boxArray();
           MultiFab& grav_new = getLevel(k).get_new_data(Gravity_Type);
-          gravity->get_new_grav_vector(k,grav_new,cur_time);
+          gravity->get_grav_vector(k,grav_new,cur_time,1);
        }
     }
 #endif
@@ -2472,38 +2425,16 @@ HydroSim::post_init (Real /*stop_time*/)
 #endif
 #endif
 
-        int nstep = parent->levelSteps(0);
-        Real dtlev = parent->dtLevel(0);
-        Real cumtime = parent->cumTime();
-        if (cumtime != 0.0) {
-            cumtime += dtlev;
-        }
+    int nstep = parent->levelSteps(0);
+    Real dtlev = parent->dtLevel(0);
+    Real cumtime = parent->cumTime();
+    if (cumtime != 0.0) {
+        cumtime += dtlev;
+    }
 
-        bool sum_int_test = false;
-
-        if (sum_interval > 0) {
-
-          if (nstep%sum_interval == 0) {
-            sum_int_test = true;
-          }
-        }
-
-        bool sum_per_test = false;
-
-        if (sum_per > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
-
-          if (num_per_old != num_per_new) {
-            sum_per_test = true;
-          }
-
-        }
-
-        if (sum_int_test || sum_per_test) {
-          sum_integrated_quantities();
-        }
+    if (integrated_sums_due(nstep, cumtime, dtlev)) {
+        sum_integrated_quantities();
+    }
 
 #ifdef GRAVITY
     if (level == 0 && moving_center == 1) {
@@ -2527,7 +2458,7 @@ HydroSim::post_grown_restart ()
         int finest_level = parent->finestLevel();
         Real cur_time = state[State_Type].curTime();
 
-        if (gravity->get_gravity_type() == "FullPoisson") {
+        if (gravity->uses_poisson_solve()) {
 
           // Update the maximum density, used in setting the solver tolerance.
 
@@ -2546,7 +2477,7 @@ HydroSim::post_grown_restart ()
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
           MultiFab& grav_new = getLevel(k).get_new_data(Gravity_Type);
-          gravity->get_new_grav_vector(k,grav_new,cur_time);
+          gravity->get_grav_vector(k,grav_new,cur_time,1);
        }
     }
 #endif
@@ -2609,9 +2540,14 @@ HydroSim::FluxRegCrseInit() {
 
     HydroSim& fine_level = getLevel(level+1);
 
-    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      fine_level.flux_reg.CrseInit(*fluxes[i], i, 0, 0, NUM_STATE, flux_crse_scale);
-    }
+    auto crse_init_faces = [this] (FluxRegister& reg, const Vector<std::unique_ptr<MultiFab> >& face_fluxes, int ncomp)
+    {
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+          reg.CrseInit(*face_fluxes[i], i, 0, 0, ncomp, flux_crse_scale);
+        }
+    };
+
+    crse_init_faces(fine_level.flux_reg, fluxes, NUM_STATE);
 
 #if (AMREX_SPACEDIM <= 2)
     if (!Geom().IsCartesian()) {
@@ -2621,9 +2557,7 @@ HydroSim::FluxRegCrseInit() {
 
 #ifdef RADIATION
     if (Radiation::rad_hydro_combined) {
-      for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        fine_level.rad_flux_reg.CrseInit(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_crse_scale);
-      }
+      crse_init_faces(fine_level.rad_flux_reg, rad_fluxes, Radiation::nGroups);
     }
 #endif
 
@@ -2639,9 +2573,14 @@ HydroSim::FluxRegFineAdd() {
       return;
     }
 
-    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      flux_reg.FineAdd(*fluxes[i], i, 0, 0, NUM_STATE, flux_fine_scale);
-    }
+    const auto fine_add_faces = [this] (FluxRegister& reg, const Vector<std::unique_ptr<MultiFab> >& face_fluxes, int ncomp)
+    {
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+          reg.FineAdd(*face_fluxes[i], i, 0, 0, ncomp, flux_fine_scale);
+        }
+    };
+
+    fine_add_faces(flux_reg, fluxes, NUM_STATE);
 
 #if (AMREX_SPACEDIM <= 2)
     if (!Geom().IsCartesian()) {
@@ -2651,9 +2590,7 @@ HydroSim::FluxRegFineAdd() {
 
 #ifdef RADIATION
     if (Radiation::rad_hydro_combined) {
-      for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        getLevel(level).rad_flux_reg.FineAdd(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_fine_scale);
-      }
+      fine_add_faces(getLevel(level).rad_flux_reg, rad_fluxes, Radiation::nGroups);
     }
 #endif
 
@@ -2692,295 +2629,33 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
     const Real strt = ParallelDescriptor::second();
 
 #ifdef GRAVITY
+    const bool do_gravity_sync = do_grav && gravity->uses_poisson_solve() && gravity->SkipSync() == 0 && in_post_timestep;
+
     int nlevs = fine_level - crse_level + 1;
 
     Vector<std::unique_ptr<MultiFab> > drho(nlevs);
     Vector<std::unique_ptr<MultiFab> > dphi(nlevs);
 
-    if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep)  {
-
-        for (int lev = crse_level; lev <= fine_level; ++lev) {
-
-            const auto& amrlevel = getLevel(lev);
-            const auto& ba = amrlevel.boxArray();
-            const auto& dm = amrlevel.DistributionMap();
-
-            drho[lev - crse_level] = std::make_unique<MultiFab>(ba, dm, 1, 0);
-            dphi[lev - crse_level] = std::make_unique<MultiFab>(ba, dm, 1, 0);
-
-            drho[lev - crse_level]->setVal(0.0);
-            dphi[lev - crse_level]->setVal(0.0);
-
-        }
-
+    if (do_gravity_sync) {
+        define_gravity_sync_data(crse_level, fine_level, drho, dphi);
     }
 #endif
 
-    FluxRegister* reg = nullptr;
-
     for (int lev = fine_level; lev > crse_level; --lev) {
 
-        reg = &getLevel(lev).flux_reg;
-
-        HydroSim& crse_lev = getLevel(lev-1);
-#ifdef GRAVITY
-        HydroSim& fine_lev = getLevel(lev);
-#endif
-
-        MultiFab& crse_state = crse_lev.get_new_data(State_Type);
-
-        // Get a version of this state with one ghost zone.
-
-        MultiFab expanded_crse_state(crse_state.boxArray(), crse_state.DistributionMap(), crse_state.nComp(), 1);
-
-        crse_lev.fill_grown_state(expanded_crse_state, crse_lev.state[State_Type].curTime(), 1);
-
-        // Clear out the data that's not on coarse-fine boundaries so that this register only
-        // modifies the fluxes on coarse-fine interfaces.
-
-        reg->ClearInternalBorders(crse_lev.geom);
-
-        // The reflux operation can cause a small or negative density (for the same reason this
-        // can happen during the level advance). We want to avoid this scenario because our
-        // only recourse will be a density reset, which is disruptive. So before we apply the reflux,
-        // we need to clean up the flux register to limit any fluxes that would do this.
-        // This is nonconservative, since we do not go back and retroactively apply any
-        // correction on the fine grid. (Of course, a density reset would also be nonconservative.)
-        // We assume that the amount of fluid material lost this way is small since refluxes
-        // causing a small density should only happen around ambient material.
-
-        // The simplest way to do this is make a copy of the flux register to a MultiFab,
-        // then loop through the data and calculate what the reflux operation would be,
-        // limiting the flux if it would result in a negative density. Then we overwrite
-        // the flux register with the updated data. This is more straightforward than operating
-        // on the flux register data directly, and we will anyway need this copy of the flux
-        // data in MultiFab form later.
-
-        // We also apply a similar check to ensure that 0 < X < 1 after the reflux.
-
-        MultiFab temp_fluxes[AMREX_SPACEDIM];
-
-        for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-            temp_fluxes[idir].define(crse_lev.fluxes[idir]->boxArray(),
-                                     crse_lev.fluxes[idir]->DistributionMap(),
-                                     crse_lev.fluxes[idir]->nComp(), crse_lev.fluxes[idir]->nGrow());
-
-            temp_fluxes[idir].setVal(0.0);
-
-            // Start with a MultiFab version of the flux register.
-
-            for (OrientationIter fi; fi.isValid(); ++fi) {
-                const FabSet& fs = (*reg)[fi()];
-                if (fi().coordDir() == idir) {
-                    fs.copyTo(temp_fluxes[idir], 0, 0, 0, temp_fluxes[idir].nComp());
-                }
-            }
-
-        }
-
-        // Now zero out any problematic flux corrections.
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-        for (MFIter mfi(crse_state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-            const Box& bx = mfi.tilebox();
-
-            auto U = expanded_crse_state[mfi].array();
-            auto V = crse_lev.volume[mfi].array();
-
-            // Limit fluxes that would cause a small/negative density.
-            // Also check to see whether the flux would cause invalid X. We use a
-            // safety factor of AMREX_SPACEDIM since multiple fluxes touching the
-            // same zone could be conspiring in the same direction. If we do detect
-            // a case where X would be invalid, we set that flux to zero.
-
-            for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-                const Box& nbx = amrex::surroundingNodes(bx, idir);
-                auto F = temp_fluxes[idir][mfi].array();
-#ifndef MHD
-                auto A = crse_lev.area[idir][mfi].array();
-                Real dt = parent->dtLevel(crse_level);
-
-                bool scale_by_dAdt = false;
-                crse_lev.limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, dt, scale_by_dAdt);
-#endif
-                amrex::ParallelFor(nbx,
-                [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                {
-                    bool zero_fluxes = false;
-
-                    Real rho = U(i,j,k,URHO);
-                    Real drhoV = F(i,j,k,URHO) / V(i,j,k);
-                    Real rhoInvNew = 1.0_rt / (rho + drhoV);
-
-                    for (int n = 0; n < NumSpec; ++n) {
-                        Real rhoX = U(i,j,k,USPEC+n);
-                        Real drhoX = F(i,j,k,USPEC+n) / V(i,j,k);
-                        Real XNew = (rhoX + AMREX_SPACEDIM * drhoX) * rhoInvNew;
-
-                        if (XNew < -hydrosim::abundance_failure_tolerance ||
-                            XNew > 1.0_rt + hydrosim::abundance_failure_tolerance) {
-                            zero_fluxes = true;
-                            break;
-                        }
-                    }
-
-                    if (zero_fluxes) {
-                        for (int n = 0; n < NUM_STATE; ++n) {
-                            F(i,j,k,n) = 0.0;
-                        }
-                    }
-                });
-            }
-        }
-
-        for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-            // Update the flux register now that we may have modified some of the flux corrections.
-
-            for (OrientationIter fi; fi.isValid(); ++fi) {
-                if (fi().coordDir() == idir) {
-                    FabSet& fs = (*reg)[fi()];
-                    fs.copyFrom(temp_fluxes[idir], 0, 0, 0, temp_fluxes[idir].nComp());
-                }
-            }
-
-            // Update the coarse fluxes MultiFabs using the reflux data. This should only make
-            // a difference if we re-evaluate the source terms later.
-
-            if (update_sources_after_reflux || !in_post_timestep) {
-
-                MultiFab::Add(*crse_lev.fluxes[idir], temp_fluxes[idir], 0, 0, crse_lev.fluxes[idir]->nComp(), 0);
-
-                // The gravity and rotation source terms depend on the mass fluxes.
-
-                MultiFab::Add(*crse_lev.mass_fluxes[idir], temp_fluxes[idir], URHO, 0, 1, 0);
-            }
-
-        }
-
-        // Trigger the actual reflux on the coarse level now.
-
-        reg->Reflux(crse_state, crse_lev.volume, 1.0, 0, 0, NUM_STATE, crse_lev.geom);
-
-        // Store the density change, for the gravity sync.
+        MultiFab* drho_crse = nullptr;
 
 #ifdef GRAVITY
-        int ilev = lev - crse_level - 1;
-
-        if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep) {
-            reg->Reflux(*drho[ilev], crse_lev.volume, 1.0, 0, URHO, 1, crse_lev.geom);
-            amrex::average_down(*drho[ilev + 1], *drho[ilev], 0, 1, getLevel(lev).crse_ratio);
+        if (do_gravity_sync) {
+            drho_crse = drho[lev - crse_level - 1].get();
         }
 #endif
 
-
-        // We no longer need the flux register data, so clear it out.
-
-        reg->setVal(0.0);
-
-#if (AMREX_SPACEDIM <= 2)
-        if (!Geom().IsCartesian()) {
-
-            reg = &getLevel(lev).pres_reg;
-
-            MultiFab dr(crse_lev.grids, crse_lev.dmap, 1, 0);
-            dr.setVal(crse_lev.geom.CellSize(0));
-
-            reg->ClearInternalBorders(crse_lev.geom);
-
-            reg->Reflux(crse_state, dr, 1.0, 0, UMX, 1, crse_lev.geom);
-
-            if (update_sources_after_reflux || !in_post_timestep) {
-
-                MultiFab tmp_fluxes(crse_lev.P_radial.boxArray(),
-                                    crse_lev.P_radial.DistributionMap(),
-                                    crse_lev.P_radial.nComp(), crse_lev.P_radial.nGrow());
-
-                tmp_fluxes.setVal(0.0);
-
-                for (OrientationIter fi; fi.isValid(); ++fi)
-                {
-                    const FabSet& fs = (*reg)[fi()];
-                    if (fi().coordDir() == 0) {
-                        fs.copyTo(tmp_fluxes, 0, 0, 0, tmp_fluxes.nComp());
-                    }
-                }
-
-                MultiFab::Add(crse_lev.P_radial, tmp_fluxes, 0, 0, crse_lev.P_radial.nComp(), 0);
-
-            }
-
-            reg->setVal(0.0);
-
-        }
-#endif
-
-#ifdef RADIATION
-
-        // This follows the same logic as the pure hydro fluxes; see above for details.
-
-        if (Radiation::rad_hydro_combined) {
-
-            reg = &getLevel(lev).rad_flux_reg;
-
-            reg->ClearInternalBorders(crse_lev.geom);
-
-            reg->Reflux(crse_lev.get_new_data(Rad_Type), crse_lev.volume, 1.0, 0, 0, Radiation::nGroups, crse_lev.geom);
-
-            if (update_sources_after_reflux || !in_post_timestep) {
-
-                for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-                    MultiFab temp_fluxes(crse_lev.rad_fluxes[idir]->boxArray(),
-                                         crse_lev.rad_fluxes[idir]->DistributionMap(),
-                                         crse_lev.rad_fluxes[idir]->nComp(), crse_lev.rad_fluxes[idir]->nGrow());
-
-                    temp_fluxes.setVal(0.0);
-
-                    for (OrientationIter fi; fi.isValid(); ++fi) {
-                        const FabSet& fs = (*reg)[fi()];
-                        if (fi().coordDir() == idir) {
-                            fs.copyTo(temp_fluxes, 0, 0, 0, temp_fluxes.nComp());
-                        }
-                    }
-
-                    MultiFab::Add(*crse_lev.rad_fluxes[idir], temp_fluxes, 0, 0, crse_lev.rad_fluxes[idir]->nComp(), 0);
-
-                }
-
-            }
-
-            reg->setVal(0.0);
-
-        }
-
-#endif
+        reflux_level_registers(lev, crse_level, in_post_timestep, drho_crse);
 
 #ifdef GRAVITY
-        if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep)  {
-
-            reg = &getLevel(lev).phi_reg;
-
-            // Note that the scaling by the area here is corrected for by dividing by the
-            // cell volume in the reflux. In this way we get a discrete divergence that
-            // is analogous to the divergence of the flux in the hydrodynamics.
-            // The dimensions of dphi are therefore actually
-            // phi / cm**2, which makes it correct for the RHS of the Poisson equation.
-
-            for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-                reg->CrseInit(*(gravity->get_grad_phi_curr(lev-1)[i]), crse_lev.area[i], i, 0, 0, 1, -1.0);
-                reg->FineAdd(*(gravity->get_grad_phi_curr(lev)[i]), fine_lev.area[i], i, 0, 0, 1, 1.0);
-            }
-
-            reg->Reflux(*dphi[ilev], crse_lev.volume, 1.0, 0, 0, 1, crse_lev.geom);
-
-            amrex::average_down(*dphi[ilev + 1], *dphi[ilev], 0, 1, getLevel(lev).crse_ratio);
-
-            reg->setVal(0.0);
-
+        if (do_gravity_sync) {
+            add_gravity_sync_terms(lev, crse_level, drho, dphi);
         }
 #endif
 
@@ -2989,7 +2664,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
     // Do the sync solve across all levels.
 
 #ifdef GRAVITY
-    if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep) {
+    if (do_gravity_sync) {
       gravity->gravity_sync(crse_level, fine_level, amrex::GetVecOfPtrs(drho), amrex::GetVecOfPtrs(dphi));
     }
 #endif
@@ -3005,101 +2680,8 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
     // ghost zone fills like diffusion depend on the data in the
     // coarser levels.
 
-    if (update_sources_after_reflux && in_post_timestep &&
-        (time_integration_method == CornerTransportUpwind ||
-         time_integration_method == SimplifiedSpectralDeferredCorrections)) {
-
-        for (int lev = fine_level; lev >= crse_level; --lev) {
-
-            MultiFab& S_old = getLevel(lev).get_old_data(State_Type);
-
-            MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
-#ifdef MHD
-            MultiFab& Bx_new = getLevel(lev).get_new_data(Mag_Type_x);
-            MultiFab& By_new = getLevel(lev).get_new_data(Mag_Type_y);
-            MultiFab& Bz_new = getLevel(lev).get_new_data(Mag_Type_z);
-#endif
-            MultiFab& source = getLevel(lev).get_new_data(Source_Type);
-            Real time = getLevel(lev).state[State_Type].curTime();
-            Real dt_advance_local = getLevel(lev).dt_advance; // Note that this may be shorter than the full timestep due to subcycling.
-            Real dt_amr = parent->dtLevel(lev); // The full timestep expected by the Amr class.
-
-            if (getLevel(lev).apply_sources()) {
-
-                getLevel(lev).apply_source_to_state(S_new, source, -dt_advance_local, 0);
-                getLevel(lev).clean_state(
-#ifdef MHD
-                                          Bx_new, By_new, Bz_new,
-#endif
-                                          S_new, time, 0);
-
-            }
-
-            // Temporarily restore the last iteration's old data for the purposes of recalculating the corrector.
-            // This is only necessary if we've done subcycles on that level.
-
-            if (use_retry && dt_advance_local < dt_amr && getLevel(lev).keep_prev_state) {
-
-                for (int k = 0; k < num_state_type; k++) {
-
-                    if (getLevel(lev).prev_state[k]->hasOldData()) {
-
-                        // Use the new-time data as a temporary buffer. Ideally this would be done
-                        // as a pointer swap, but we cannot assume that the distribution mapping
-                        // is the same between the current state and the original state, due to
-                        // possible regrids that have occurred in between.
-
-                        MultiFab& old = getLevel(lev).get_old_data(k);
-                        MultiFab::Copy(getLevel(lev).prev_state[k]->newData(), old, 0, 0, old.nComp(), old.nGrow());
-                        MultiFab::Copy(old, getLevel(lev).prev_state[k]->oldData(), 0, 0, old.nComp(), old.nGrow());
-
-                        getLevel(lev).state[k].setTimeLevel(time, dt_advance_local, 0.0);
-                        getLevel(lev).prev_state[k]->setTimeLevel(time, dt_amr, 0.0);
-
-                    }
-
-                }
-
-            }
-
-            if (getLevel(lev).apply_sources()) {
-                bool apply_sources_to_state = true;
-                getLevel(lev).handle_sources(source_time::new_time,
-#ifdef MHD
-                                Bx_new, By_new, Bz_new,
-#endif
-                                source, S_old, S_new, time, dt_advance_local, apply_sources_to_state);
-            }
-
-            if (use_retry && dt_advance_local < dt_amr && getLevel(lev).keep_prev_state) {
-
-                for (int k = 0; k < num_state_type; k++) {
-
-                    if (getLevel(lev).prev_state[k]->hasOldData()) {
-
-                        // Now retrieve the original old time data.
-
-                        MultiFab& old = getLevel(lev).get_old_data(k);
-                        MultiFab::Copy(old, getLevel(lev).prev_state[k]->newData(), 0, 0, old.nComp(), old.nGrow());
-
-                        getLevel(lev).state[k].setTimeLevel(time, dt_amr, 0.0);
-                        getLevel(lev).prev_state[k]->setTimeLevel(time, dt_advance_local, 0.0);
-
-                    }
-
-                }
-
-                // Now deallocate the old data, it is no longer needed.
-
-                if (lev == 0 || lev > level) {
-                    amrex::FillNull(getLevel(lev).prev_state);
-                    getLevel(lev).keep_prev_state = false;
-                }
-
-            }
-
-        }
-
+    if (in_post_timestep) {
+        redo_sources_after_reflux(crse_level, fine_level);
     }
 
     if (verbose)
@@ -3119,6 +2701,409 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 #ifdef BL_LAZY
         });
 #endif
+    }
+}
+
+void
+HydroSim::reflux_level_registers (int lev, int crse_level, bool in_post_timestep, MultiFab* drho)
+{
+    FluxRegister* reg = &getLevel(lev).flux_reg;
+
+    HydroSim& crse_lev = getLevel(lev-1);
+
+    MultiFab& crse_state = crse_lev.get_new_data(State_Type);
+
+    // The coarse fluxes only need to see the correction if the sources
+    // will be re-evaluated with them.
+
+    const bool update_crse_fluxes = update_sources_after_reflux || !in_post_timestep;
+
+    // Get a version of this state with one ghost zone.
+
+    MultiFab expanded_crse_state(crse_state.boxArray(), crse_state.DistributionMap(), crse_state.nComp(), 1);
+
+    crse_lev.fill_grown_state(expanded_crse_state, crse_lev.state[State_Type].curTime(), 1);
+
+    // Clear out the data that's not on coarse-fine boundaries so that this register only
+    // modifies the fluxes on coarse-fine interfaces.
+
+    reg->ClearInternalBorders(crse_lev.geom);
+
+    // The reflux operation can cause a small or negative density (for the same reason this
+    // can happen during the level advance). We want to avoid this scenario because our
+    // only recourse will be a density reset, which is disruptive. So before we apply the reflux,
+    // we need to clean up the flux register to limit any fluxes that would do this.
+    // This is nonconservative, since we do not go back and retroactively apply any
+    // correction on the fine grid. (Of course, a density reset would also be nonconservative.)
+    // We assume that the amount of fluid material lost this way is small since refluxes
+    // causing a small density should only happen around ambient material.
+
+    // The simplest way to do this is make a copy of the flux register to a MultiFab,
+    // then loop through the data and calculate what the reflux operation would be,
+    // limiting the flux if it would result in a negative density. Then we overwrite
+    // the flux register with the updated data. This is more straightforward than operating
+    // on the flux register data directly, and we will anyway need this copy of the flux
+    // data in MultiFab form later.
+
+    // We also apply a similar check to ensure that 0 < X < 1 after the reflux.
+
+    MultiFab temp_fluxes[AMREX_SPACEDIM];
+
+    for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+
+        temp_fluxes[idir].define(crse_lev.fluxes[idir]->boxArray(),
+                                 crse_lev.fluxes[idir]->DistributionMap(),
+                                 crse_lev.fluxes[idir]->nComp(), crse_lev.fluxes[idir]->nGrow());
+
+        temp_fluxes[idir].setVal(0.0);
+
+        // Start with a MultiFab version of the flux register.
+
+        for (OrientationIter fi; fi.isValid(); ++fi) {
+            const FabSet& fs = (*reg)[fi()];
+            if (fi().coordDir() == idir) {
+                fs.copyTo(temp_fluxes[idir], 0, 0, 0, temp_fluxes[idir].nComp());
+            }
+        }
+
+    }
+
+    // Now zero out any problematic flux corrections.
+
+#ifndef MHD
+    Real dt = parent->dtLevel(crse_level);
+#endif
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(crse_state, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+
+        auto U = expanded_crse_state[mfi].array();
+        auto V = crse_lev.volume[mfi].array();
+
+        // Limit fluxes that would cause a small/negative density.
+        // Also check to see whether the flux would cause invalid X. We use a
+        // safety factor of AMREX_SPACEDIM since multiple fluxes touching the
+        // same zone could be conspiring in the same direction. If we do detect
+        // a case where X would be invalid, we set that flux to zero.
+
+        for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+            const Box& nbx = amrex::surroundingNodes(bx, idir);
+            auto F = temp_fluxes[idir][mfi].array();
+#ifndef MHD
+            auto A = crse_lev.area[idir][mfi].array();
+
+            bool scale_by_dAdt = false;
+            crse_lev.limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, dt, scale_by_dAdt);
+#endif
+            amrex::ParallelFor(nbx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+                bool zero_fluxes = false;
+
+                Real rho = U(i,j,k,URHO);
+                Real drhoV = F(i,j,k,URHO) / V(i,j,k);
+                Real rhoInvNew = 1.0_rt / (rho + drhoV);
+
+                for (int n = 0; n < NumSpec; ++n) {
+                    Real rhoX = U(i,j,k,USPEC+n);
+                    Real drhoX = F(i,j,k,USPEC+n) / V(i,j,k);
+                    Real XNew = (rhoX + AMREX_SPACEDIM * drhoX) * rhoInvNew;
+
+                    if (XNew < -hydrosim::abundance_failure_tolerance ||
+                        XNew > 1.0_rt + hydrosim::abundance_failure_tolerance) {
+                        zero_fluxes = true;
+                        break;
+                    }
+                }
+
+                if (zero_fluxes) {
+                    for (int n = 0; n < NUM_STATE; ++n) {
+                        F(i,j,k,n) = 0.0;
+                    }
+                }
+            });
+        }
+    }
+
+    for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+
+        // Update the flux register now that we may have modified some of the flux corrections.
+
+        for (OrientationIter fi; fi.isValid(); ++fi) {
+            if (fi().coordDir() == idir) {
+                FabSet& fs = (*reg)[fi()];
+                fs.copyFrom(temp_fluxes[idir], 0, 0, 0, temp_fluxes[idir].nComp());
+            }
+        }
+
+        // Update the coarse fluxes MultiFabs using the reflux data. This should only make
+        // a difference if we re-evaluate the source terms later.
+
+        if (update_crse_fluxes) {
+
+            MultiFab::Add(*crse_lev.fluxes[idir], temp_fluxes[idir], 0, 0, crse_lev.fluxes[idir]->nComp(), 0);
+
+            // The gravity and rotation source terms depend on the mass fluxes.
+
+            MultiFab::Add(*crse_lev.mass_fluxes[idir], temp_fluxes[idir], URHO, 0, 1, 0);
+        }
+
+    }
+
+    // Trigger the actual reflux on the coarse level now.
+
+    reg->Reflux(crse_state, crse_lev.volume, 1.0, 0, 0, NUM_STATE, crse_lev.geom);
+
+    // Store the density change, for the gravity sync.
+
+    if (drho != nullptr) {
+        reg->Reflux(*drho, crse_lev.volume, 1.0, 0, URHO, 1, crse_lev.geom);
+    }
+
+    // We no longer need the flux register data, so clear it out.
+
+    reg->setVal(0.0);
+
+#if (AMREX_SPACEDIM <= 2)
+    if (!Geom().IsCartesian()) {
+
+        reg = &getLevel(lev).pres_reg;
+
+        MultiFab dr(crse_lev.grids, crse_lev.dmap, 1, 0);
+        dr.setVal(crse_lev.geom.CellSize(0));
+
+        reg->ClearInternalBorders(crse_lev.geom);
+
+        reg->Reflux(crse_state, dr, 1.0, 0, UMX, 1, crse_lev.geom);
+
+        if (update_crse_fluxes) {
+
+            MultiFab tmp_fluxes(crse_lev.P_radial.boxArray(),
+                                crse_lev.P_radial.DistributionMap(),
+                                crse_lev.P_radial.nComp(), crse_lev.P_radial.nGrow());
+
+            tmp_fluxes.setVal(0.0);
+
+            for (OrientationIter fi; fi.isValid(); ++fi)
+            {
+                const FabSet& fs = (*reg)[fi()];
+                if (fi().coordDir() == 0) {
+                    fs.copyTo(tmp_fluxes, 0, 0, 0, tmp_fluxes.nComp());
+                }
+            }
+
+            MultiFab::Add(crse_lev.P_radial, tmp_fluxes, 0, 0, crse_lev.P_radial.nComp(), 0);
+
+        }
+
+        reg->setVal(0.0);
+
+    }
+#endif
+
+#ifdef RADIATION
+
+    // This follows the same logic as the pure hydro fluxes; see above for details.
+
+    if (Radiation::rad_hydro_combined) {
+
+        reg = &getLevel(lev).rad_flux_reg;
+
+        reg->ClearInternalBorders(crse_lev.geom);
+
+        reg->Reflux(crse_lev.get_new_data(Rad_Type), crse_lev.volume, 1.0, 0, 0, Radiation::nGroups, crse_lev.geom);
+
+        if (update_crse_fluxes) {
+
+            for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+
+                MultiFab temp_fluxes(crse_lev.rad_fluxes[idir]->boxArray(),
+                                     crse_lev.rad_fluxes[idir]->DistributionMap(),
+                                     crse_lev.rad_fluxes[idir]->nComp(), crse_lev.rad_fluxes[idir]->nGrow());
+
+                temp_fluxes.setVal(0.0);
+
+                for (OrientationIter fi; fi.isValid(); ++fi) {
+                    const FabSet& fs = (*reg)[fi()];
+                    if (fi().coordDir() == idir) {
+                        fs.copyTo(temp_fluxes, 0, 0, 0, temp_fluxes.nComp());
+                    }
+                }
+
+                MultiFab::Add(*crse_lev.rad_fluxes[idir], temp_fluxes, 0, 0, crse_lev.rad_fluxes[idir]->nComp(), 0);
+
+            }
+
+        }
+
+        reg->setVal(0.0);
+
+    }
+
+#endif
+}
+
+#ifdef GRAVITY
+void
+HydroSim::define_gravity_sync_data (int crse_level, int fine_level,
+                                    Vector<std::unique_ptr<MultiFab> >& drho,
+                                    Vector<std::unique_ptr<MultiFab> >& dphi)
+{
+    for (int lev = crse_level; lev <= fine_level; ++lev) {
+
+        const auto& amrlevel = getLevel(lev);
+        const auto& ba = amrlevel.boxArray();
+        const auto& dm = amrlevel.DistributionMap();
+
+        drho[lev - crse_level] = std::make_unique<MultiFab>(ba, dm, 1, 0);
+        dphi[lev - crse_level] = std::make_unique<MultiFab>(ba, dm, 1, 0);
+
+        drho[lev - crse_level]->setVal(0.0);
+        dphi[lev - crse_level]->setVal(0.0);
+
+    }
+}
+
+void
+HydroSim::add_gravity_sync_terms (int lev, int crse_level,
+                                  Vector<std::unique_ptr<MultiFab> >& drho,
+                                  Vector<std::unique_ptr<MultiFab> >& dphi)
+{
+    HydroSim& crse_lev = getLevel(lev-1);
+    HydroSim& fine_lev = getLevel(lev);
+
+    int ilev = lev - crse_level - 1;
+
+    // The density change on the coarse level was stored by the reflux;
+    // bring in the change on the finer level.
+
+    amrex::average_down(*drho[ilev + 1], *drho[ilev], 0, 1, fine_lev.crse_ratio);
+
+    FluxRegister* reg = &fine_lev.phi_reg;
+
+    // Note that the scaling by the area here is corrected for by dividing by the
+    // cell volume in the reflux. In this way we get a discrete divergence that
+    // is analogous to the divergence of the flux in the hydrodynamics.
+    // The dimensions of dphi are therefore actually
+    // phi / cm**2, which makes it correct for the RHS of the Poisson equation.
+
+    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+        reg->CrseInit(*(gravity->get_grad_phi_curr(lev-1)[i]), crse_lev.area[i], i, 0, 0, 1, -1.0);
+        reg->FineAdd(*(gravity->get_grad_phi_curr(lev)[i]), fine_lev.area[i], i, 0, 0, 1, 1.0);
+    }
+
+    reg->Reflux(*dphi[ilev], crse_lev.volume, 1.0, 0, 0, 1, crse_lev.geom);
+
+    amrex::average_down(*dphi[ilev + 1], *dphi[ilev], 0, 1, fine_lev.crse_ratio);
+
+    reg->setVal(0.0);
+}
+#endif
+
+void
+HydroSim::redo_sources_after_reflux (int crse_level, int fine_level)
+{
+    if (!update_sources_after_reflux) {
+        return;
+    }
+
+    if (time_integration_method != CornerTransportUpwind &&
+        time_integration_method != SimplifiedSpectralDeferredCorrections) {
+        return;
+    }
+
+    for (int lev = fine_level; lev >= crse_level; --lev) {
+
+        MultiFab& S_old = getLevel(lev).get_old_data(State_Type);
+
+        MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
+#ifdef MHD
+        MultiFab& Bx_new = getLevel(lev).get_new_data(Mag_Type_x);
+        MultiFab& By_new = getLevel(lev).get_new_data(Mag_Type_y);
+        MultiFab& Bz_new = getLevel(lev).get_new_data(Mag_Type_z);
+#endif
+        MultiFab& source = getLevel(lev).get_new_data(Source_Type);
+        Real time = getLevel(lev).state[State_Type].curTime();
+        Real dt_advance_local = getLevel(lev).dt_advance; // Note that this may be shorter than the full timestep due to subcycling.
+        Real dt_amr = parent->dtLevel(lev); // The full timestep expected by the Amr class.
+
+        if (getLevel(lev).apply_sources()) {
+
+            getLevel(lev).apply_source_to_state(S_new, source, -dt_advance_local, 0);
+            getLevel(lev).clean_state(
+#ifdef MHD
+                                      Bx_new, By_new, Bz_new,
+#endif
+                                      S_new, time, 0);
+
+        }
+
+        // Temporarily restore the last iteration's old data for the purposes of recalculating the corrector.
+        // This is only necessary if we've done subcycles on that level.
+
+        if (use_retry && dt_advance_local < dt_amr && getLevel(lev).keep_prev_state) {
+
+            for (int k = 0; k < num_state_type; k++) {
+
+                if (getLevel(lev).prev_state[k]->hasOldData()) {
+
+                    // Use the new-time data as a temporary buffer. Ideally this would be done
+                    // as a pointer swap, but we cannot assume that the distribution mapping
+                    // is the same between the current state and the original state, due to
+                    // possible regrids that have occurred in between.
+
+                    MultiFab& old = getLevel(lev).get_old_data(k);
+                    MultiFab::Copy(getLevel(lev).prev_state[k]->newData(), old, 0, 0, old.nComp(), old.nGrow());
+                    MultiFab::Copy(old, getLevel(lev).prev_state[k]->oldData(), 0, 0, old.nComp(), old.nGrow());
+
+                    getLevel(lev).state[k].setTimeLevel(time, dt_advance_local, 0.0);
+                    getLevel(lev).prev_state[k]->setTimeLevel(time, dt_amr, 0.0);
+
+                }
+
+            }
+
+        }
+
+        if (getLevel(lev).apply_sources()) {
+            bool apply_sources_to_state = true;
+            getLevel(lev).handle_sources(source_time::new_time,
+#ifdef MHD
+                            Bx_new, By_new, Bz_new,
+#endif
+                            source, S_old, S_new, time, dt_advance_local, apply_sources_to_state);
+        }
+
+        if (use_retry && dt_advance_local < dt_amr && getLevel(lev).keep_prev_state) {
+
+            for (int k = 0; k < num_state_type; k++) {
+
+                if (getLevel(lev).prev_state[k]->hasOldData()) {
+
+                    // Now retrieve the original old time data.
+
+                    MultiFab& old = getLevel(lev).get_old_data(k);
+                    MultiFab::Copy(old, getLevel(lev).prev_state[k]->newData(), 0, 0, old.nComp(), old.nGrow());
+
+                    getLevel(lev).state[k].setTimeLevel(time, dt_amr, 0.0);
+                    getLevel(lev).prev_state[k]->setTimeLevel(time, dt_advance_local, 0.0);
+
+                }
+
+            }
+
+            // Now deallocate the old data, it is no longer needed.
+
+            if (lev == 0 || lev > level) {
+                amrex::FillNull(getLevel(lev).prev_state);
+                getLevel(lev).keep_prev_state = false;
+            }
+
+        }
+
     }
 }
 
@@ -3587,7 +3572,7 @@ HydroSim::apply_tagging_restrictions(TagBoxArray& tags, [[maybe_unused]] Real ti
     // added as padding around tagged zones.
 
 #ifdef GRAVITY
-    if (gravity::gravity_type == "FullPoisson") {
+    if (Gravity::uses_poisson_solve()) {
 
         int lev = level;
 

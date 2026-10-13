@@ -381,7 +381,7 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
     // for setting the tolerances. This will be used in all level solves to follow.
     // This must be done before the swap because it relies on the new data.
 
-    if (level == 0 && do_grav == 1 && gravity->get_gravity_type() == "FullPoisson") {
+    if (level == 0 && do_grav == 1 && gravity->uses_poisson_solve()) {
         gravity->update_max_rhs();
     }
 #endif

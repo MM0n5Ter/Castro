@@ -1064,6 +1064,51 @@ public:
 ///
     void reflux (int crse_level, int fine_level, bool in_post_timestep);
 
+///
+/// Apply the flux register corrections of level lev to the coarser level lev-1
+///
+/// @param lev                fine AMR level index
+/// @param crse_level         coarsest AMR level of the reflux
+/// @param in_post_timestep   true if called from post_timestep()
+/// @param drho               if not null, receives the density change on lev-1
+///
+    void reflux_level_registers (int lev, int crse_level, bool in_post_timestep, amrex::MultiFab* drho);
+
+#ifdef GRAVITY
+///
+/// Allocate the density and potential changes used by the gravity sync solve
+///
+/// @param crse_level   coarse AMR level index
+/// @param fine_level   fine AMR level index
+/// @param drho         density change, one per level
+/// @param dphi         potential change, one per level
+///
+    void define_gravity_sync_data (int crse_level, int fine_level,
+                                   amrex::Vector<std::unique_ptr<amrex::MultiFab> >& drho,
+                                   amrex::Vector<std::unique_ptr<amrex::MultiFab> >& dphi);
+
+///
+/// Add the contribution of level lev to the right hand side of the gravity sync solve
+///
+/// @param lev          fine AMR level index
+/// @param crse_level   coarsest AMR level of the reflux
+/// @param drho         density change, one per level
+/// @param dphi         potential change, one per level
+///
+    void add_gravity_sync_terms (int lev, int crse_level,
+                                 amrex::Vector<std::unique_ptr<amrex::MultiFab> >& drho,
+                                 amrex::Vector<std::unique_ptr<amrex::MultiFab> >& dphi);
+#endif
+
+///
+/// Recompute the new-time sources on levels crse_level to fine_level
+/// after their state has been refluxed
+///
+/// @param crse_level   coarse AMR level index
+/// @param fine_level   fine AMR level index
+///
+    void redo_sources_after_reflux (int crse_level, int fine_level);
+
 
 ///
 /// Normalize species fractions so they sum to 1

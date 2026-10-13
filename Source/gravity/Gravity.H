@@ -101,6 +101,11 @@ public:
   static std::string get_gravity_type ();
 
 ///
+/// Returns true if ``gravity_type`` is solved with the Poisson equation
+///
+  static bool uses_poisson_solve ();
+
+///
 /// Returns ``max_solve_level``
 ///
   static int get_max_solve_level();
@@ -268,22 +273,14 @@ public:
 
 
 ///
-/// Get old gravity vector
+/// Get the gravity vector at the old or new time
 ///
 /// @param level        Level index
 /// @param grav_vector  MultiFab containing gravity vector
 /// @param time         Current time
+/// @param is_new       1 for the new-time vector, 0 for the old-time vector
 ///
-  void get_old_grav_vector(int level, amrex::MultiFab& grav_vector, amrex::Real time);
-
-///
-/// Get new gravity vector
-///
-/// @param level        Level index
-/// @param grav_vector  MultiFab containing gravity vector
-/// @param time         Current time
-///
-  void get_new_grav_vector(int level, amrex::MultiFab& grav_vector, amrex::Real time);
+  void get_grav_vector(int level, amrex::MultiFab& grav_vector, amrex::Real time, int is_new);
 
 ///
 /// Test whether using the edge-based gradients
