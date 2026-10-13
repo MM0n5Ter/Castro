@@ -109,7 +109,7 @@ HydroSim::do_advance_sdc (Real time,
                     }
 
                     // we pass in the stage time here
-                    handle_old_sources(old_source, Sreact, Sreact, node_time, dt, apply_sources_to_state);
+                    handle_sources(source_time::old_time, old_source, Sreact, Sreact, node_time, dt, apply_sources_to_state);
 
                     // fill the ghost cells for the sources -- note since we have
                     // not defined the new_source yet, we either need to copy this
@@ -134,7 +134,7 @@ HydroSim::do_advance_sdc (Real time,
                 } else {
                     // there is a ghost cell fill hidden in diffusion, so we need
                     // to pass in the time associate with Sborder
-                    handle_old_sources(old_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
+                    handle_sources(source_time::old_time, old_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
                 }
 
                 // note: we don't need a FillPatch on the sources, since they
@@ -250,8 +250,8 @@ HydroSim::do_advance_sdc (Real time,
         // We need to make source_old and source_new be the source terms at
         // the old and new time.  we never actually evaluated the sources
         // using the new time state (since we just constructed it).  Note:
-        // we always use handle_old_sources here, since we want the actual
-        // source and not a correction.
+        // we always construct the old-time sources here, since we want the
+        // actual source and not a correction.
 
         // note: we need to have ghost cells here cause some sources (in
         // particular pdivU) need them.  Perhaps it would be easier to just
@@ -260,12 +260,12 @@ HydroSim::do_advance_sdc (Real time,
         // TODO: we also need to make these 4th order!
         clean_state(S_old, prev_time, 0);
         fill_grown_state(Sborder, prev_time, Sborder.nGrow());
-        handle_old_sources(old_source, Sborder, Sborder, prev_time, dt, apply_sources_to_state);
+        handle_sources(source_time::old_time, old_source, Sborder, Sborder, prev_time, dt, apply_sources_to_state);
         AmrLevel::FillPatch(*this, old_source, old_source.nGrow(), prev_time, Source_Type, 0, NSRC);
 
         clean_state(S_new, cur_time, 0);
         fill_grown_state(Sborder, cur_time, Sborder.nGrow());
-        handle_old_sources(new_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
+        handle_sources(source_time::old_time, new_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
         AmrLevel::FillPatch(*this, new_source, new_source.nGrow(), cur_time, Source_Type, 0, NSRC);
     }
 

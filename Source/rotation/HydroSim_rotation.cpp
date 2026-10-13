@@ -31,22 +31,8 @@ HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Rea
 
     }
 
-    if (verbose > 1)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_rotation_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_old_rotation_source()", strt_time, true);
     }
 }
 
@@ -87,19 +73,7 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& state_old, Mu
         }
     }
 
-    if (verbose > 1)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        Real      run_time = ParallelDescriptor::second() - strt_time;
-        Real llevel = level;
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_rotation_source() time = " << run_time << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_rotation_source()", strt_time, true);
     }
 }

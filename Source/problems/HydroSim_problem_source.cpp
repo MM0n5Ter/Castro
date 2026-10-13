@@ -22,20 +22,8 @@ HydroSim::assemble_old_ext_source(MultiFab& source, const MultiFab& state_in, Re
 
     MultiFab::Saxpy(source, mult_factor, ext_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_ext_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_old_ext_source()", strt_time);
     }
 }
 
@@ -93,20 +81,8 @@ HydroSim::assemble_new_ext_source(MultiFab& source, const MultiFab& state_old, c
 
     MultiFab::Saxpy(source, mult_factor, ext_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_ext_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_ext_source()", strt_time);
     }
 }
 

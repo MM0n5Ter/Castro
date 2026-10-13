@@ -53,11 +53,7 @@ HydroSim::advance (Real time,
 
     Real dt_new = dt;
 
-    int max_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    const int max_level_to_advance = finest_level_to_advance();
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
         getLevel(lev).initialize_advance(time, dt, amr_iteration);
@@ -111,6 +107,20 @@ HydroSim::advance (Real time,
     }
 
     return dt_new;
+}
+
+
+int
+HydroSim::finest_level_to_advance () const
+{
+    // Without subcycling, the advance on level 0 takes every level
+    // through the timestep at once.
+
+    if (parent->subcyclingMode() == "None" && level == 0) {
+        return parent->finestLevel();
+    }
+
+    return level;
 }
 
 
@@ -219,6 +229,10 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     // the point where we can bail out later in the advance, so let's just
     // go directly into a retry now if we're too far away from the needed dt.
 
+    if (!hydrosim::check_dt_before_advance) {
+        return status;
+    }
+
     bool is_first_step_on_this_level = true;
 
     for (int lev = level; lev >= 0; --lev) {
@@ -228,25 +242,37 @@ HydroSim::initialize_do_advance (Real time, Real dt)
         }
     }
 
-    if (hydrosim::check_dt_before_advance && !is_first_step_on_this_level) {
-        int is_new = 0;
+    if (is_first_step_on_this_level) {
+        return status;
+    }
 
-        // We only display the estTimeStep output if the validity check fails
-        std::string estTimeStep_output;
+    int is_new = 0;
 
-        Real old_dt;
+    return check_timestep_validity(is_new, dt, "pre-advance timestep validity check failed");
+}
 
-        {
-            CoutRedirection redirection;
-            old_dt = estTimeStep(is_new);
-            estTimeStep_output = redirection.getCapturedOutput();
-        }
 
-        if (hydrosim::change_max * old_dt < dt) {
-            status.success = false;
-            std::cout << estTimeStep_output;
-            status.reason = "pre-advance timestep validity check failed";
-        }
+
+advance_status
+HydroSim::check_timestep_validity (int is_new, Real dt, const std::string& failure_reason)
+{
+    advance_status status {};
+
+    // We only display the estTimeStep output if the validity check fails
+    std::string estTimeStep_output;
+
+    Real estimated_dt;
+
+    {
+        CoutRedirection redirection;
+        estimated_dt = estTimeStep(is_new);
+        estTimeStep_output = redirection.getCapturedOutput();
+    }
+
+    if (hydrosim::change_max * estimated_dt < dt) {
+        status.success = false;
+        std::cout << estTimeStep_output;
+        status.reason = failure_reason;
     }
 
     return status;
@@ -272,41 +298,22 @@ HydroSim::finalize_do_advance (Real time, Real dt)
     // whereas in computeNewDt change_max prevents the timestep from growing
     // too much. The same reasoning applies for the other timestep limiters.
 
-    if (hydrosim::time_integration_method == CornerTransportUpwind ||
-        hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        if (hydrosim::check_dt_after_advance) {
+    const bool ctu_advance = hydrosim::time_integration_method == CornerTransportUpwind ||
+                             hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections;
 
-            // But don't do this check if we're using simplified SDC and we're not yet
-            // on the final SDC iteration, since we're not yet at the final advance.
+    // The check is skipped if we're using simplified SDC and we're not yet
+    // on the final SDC iteration, since we're not yet at the final advance.
 
-            bool do_validity_check = true;
+    const bool sdc_iterations_remain = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
+                                       sdc_iteration < sdc_iters - 1;
 
-            if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
-                sdc_iteration < sdc_iters - 1) {
-                do_validity_check = false;
-            }
+    if (ctu_advance && hydrosim::check_dt_after_advance && !sdc_iterations_remain) {
+        int is_new = 1;
 
-            if (do_validity_check) {
-                int is_new = 1;
+        status = check_timestep_validity(is_new, dt, "post-advance timestep validity check failed");
 
-                // We only display the estTimeStep output if the validity check fails
-                std::string estTimeStep_output;
-
-                Real new_dt;
-
-                {
-                    CoutRedirection redirection;
-                    new_dt = estTimeStep(is_new);
-                    estTimeStep_output = redirection.getCapturedOutput();
-                }
-
-                if (hydrosim::change_max * new_dt < dt) {
-                    status.success = false;
-                    std::cout << estTimeStep_output;
-                    status.reason = "post-advance timestep validity check failed";
-                    return status;
-                }
-            }
+        if (!status.success) {
+            return status;
         }
     }
 
@@ -346,19 +353,14 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
     in_retry = 0;
     num_subcycles_taken = 1;
 
-    if (use_post_step_regrid == 1 && level > 0) {
+    // If the level below this just triggered a special regrid,
+    // the coarse contribution to this level's FluxRegister
+    // is no longer valid because the grids have, in general, changed.
+    // Zero it out, and add them back using the saved copy of the fluxes.
 
-        if (getLevel(level-1).post_step_regrid == 1 && amr_iteration == 1) {
-
-            // If the level below this just triggered a special regrid,
-            // the coarse contribution to this level's FluxRegister
-            // is no longer valid because the grids have, in general, changed.
-            // Zero it out, and add them back using the saved copy of the fluxes.
-
-            getLevel(level-1).FluxRegCrseInit();
-
-        }
-
+    if (use_post_step_regrid == 1 && level > 0 &&
+        getLevel(level-1).post_step_regrid == 1 && amr_iteration == 1) {
+        getLevel(level-1).FluxRegCrseInit();
     }
 
     // The option of whether to do a multilevel initialization is
@@ -436,6 +438,8 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
           amrex::Print() << "<<<<< drive initial convection reset >>>>" << std::endl;
 
+            const auto geomdata = geom.data();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -444,7 +448,6 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
                 const Box& box = mfi.tilebox();
 
                 auto s = S_old[mfi].array();
-                auto geomdata = geom.data();
 
 #ifdef RNG_STATE_INIT
                 amrex::Error("drive initial convection not yet supported for random initialization");
@@ -656,6 +659,10 @@ HydroSim::finalize_advance()
 
     // For the per-advance timing report, count all levels advanced together.
 
+    if (verbose < 1) {
+        return;
+    }
+
     int max_level_to_advance = level;
 
     if (parent->subcyclingMode() == "None") {
@@ -672,16 +679,37 @@ HydroSim::finalize_advance()
 
     Real fom_advance = static_cast<Real>(num_pts_advanced) / wall_time / 1.e6;
 
-    if (verbose >= 1) {
-        if (max_level_to_advance > 0) {
-            if (level == 0) {
-                amrex::Print() << "  Zones advanced per microsecond from level " << level << " to level "
-                               << max_level_to_advance << ": " << fom_advance << std::endl << std::endl;
-            }
-        }
-        else {
-            amrex::Print() << "  Zones advanced per microsecond at this level: "
-                           << fom_advance << std::endl << std::endl;
-        }
+    if (max_level_to_advance == 0) {
+        amrex::Print() << "  Zones advanced per microsecond at this level: "
+                       << fom_advance << std::endl << std::endl;
     }
+    else if (level == 0) {
+        amrex::Print() << "  Zones advanced per microsecond from level " << level << " to level "
+                       << max_level_to_advance << ": " << fom_advance << std::endl << std::endl;
+    }
+}
+
+
+
+void
+HydroSim::print_stage_time (const std::string& stage, Real strt_time, bool show_level) const
+{
+    const int IOProc = ParallelDescriptor::IOProcessorNumber();
+    Real run_time = ParallelDescriptor::second() - strt_time;
+    Real llevel = level;
+
+#ifdef BL_LAZY
+    Lazy::QueueReduction( [=] () mutable {
+#endif
+    ParallelDescriptor::ReduceRealMax(run_time, IOProc);
+
+    if (show_level) {
+        amrex::Print() << stage << " time = " << run_time << " on level " << llevel << "\n" << "\n";
+    }
+    else {
+        amrex::Print() << stage << " time = " << run_time << "\n" << "\n";
+    }
+#ifdef BL_LAZY
+    });
+#endif
 }

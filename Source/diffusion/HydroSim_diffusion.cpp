@@ -20,21 +20,8 @@ HydroSim::assemble_old_diff_source(MultiFab& source, MultiFab& state_in, Real ti
 
     add_temp_diffusion_to_source(source, state_in, TempDiffTerm, time);
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_diff_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_old_diff_source()", strt_time, true);
     }
 }
 
@@ -58,22 +45,8 @@ HydroSim::assemble_new_diff_source(MultiFab& source, MultiFab& state_old, MultiF
 
     add_temp_diffusion_to_source(source, state_old, TempDiffTerm, old_time, mult_factor);
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_diff_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_diff_source()", strt_time, true);
     }
 }
 

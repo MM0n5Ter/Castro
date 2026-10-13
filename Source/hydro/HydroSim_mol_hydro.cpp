@@ -727,21 +727,8 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
       evaluate_and_print_source_change(A_update, dt, "hydro source");
     }
 
-    if (verbose > 0)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        if (ParallelDescriptor::IOProcessor())
-          std::cout << "HydroSim::construct_mol_hydro_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 0) {
+        print_stage_time("HydroSim::construct_mol_hydro_source()", strt_time);
     }
 
 #endif // radiation

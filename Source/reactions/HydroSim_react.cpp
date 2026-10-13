@@ -447,22 +447,8 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
         amrex::Print() << "... Leaving burner on level " << level << " after completing half-timestep of burning." << std::endl << std::endl;
     }
 
-    if (verbose > 0)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::react_state() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 0) {
+        print_stage_time("HydroSim::react_state()", strt_time, true);
     }
 
     return burn_success;
@@ -858,20 +844,7 @@ HydroSim::react_state(Real time, Real dt)
 
         amrex::Print() << "... Leaving burner on level " << level << " after completing full timestep of burning." << std::endl << std::endl;
 
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time, IOProc);
-
-        amrex::Print() << "HydroSim::react_state() time = " << run_time
-                       << " on level " << llevel << std::endl << std::endl;
-#ifdef BL_LAZY
-        });
-#endif
+        print_stage_time("HydroSim::react_state()", strt_time, true);
 
     }
 

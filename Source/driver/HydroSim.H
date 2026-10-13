@@ -99,6 +99,13 @@ enum sources : std::uint8_t {
                geom_src,
                num_src };
 
+// Time level at which a set of source terms is constructed.
+
+enum class source_time : std::uint8_t {
+    old_time = 0,
+    new_time
+};
+
 
 // time integration method
 
@@ -435,6 +442,33 @@ public:
 ///
     advance_status do_advance_ctu (amrex::Real time, amrex::Real dt);
 
+///
+/// The finest level that is advanced together with this one. When level 0
+/// advances without subcycling, it takes all levels through the timestep;
+/// otherwise each level advances on its own.
+///
+    int finest_level_to_advance () const;
+
+///
+/// First half of the CTU advance on this level: initialization, the
+/// pre-advance operators, the old-time sources and the hydro update.
+///
+/// @param time         the time passed to ::do_advance_ctu
+/// @param prev_time    the old time of the advance
+/// @param dt           the timestep to advance
+///
+    advance_status ctu_predictor_stage (amrex::Real time, amrex::Real prev_time, amrex::Real dt);
+
+///
+/// Second half of the CTU advance on this level, after the hydro update
+/// (and the reflux, if any): the new-time sources, the post-advance
+/// operators and the finalization of the step.
+///
+/// @param cur_time     the new time of the advance
+/// @param dt           the timestep to advance
+///
+    advance_status ctu_corrector_stage (amrex::Real cur_time, amrex::Real dt);
+
 
 #ifndef AMREX_USE_GPU
     amrex::Real do_advance_sdc (amrex::Real time,
@@ -518,12 +552,34 @@ public:
     advance_status finalize_do_advance (amrex::Real time, amrex::Real dt);
 
 ///
+/// Estimate the timestep from the old (``is_new`` = 0) or the new
+/// (``is_new`` = 1) state and report a failed advance if ``dt`` is larger
+/// than ``change_max`` times that estimate. The output of the estimate
+/// is only shown when the check fails.
+///
+/// @param is_new           use the new-time state for the estimate?
+/// @param dt               the timestep that was (or will be) taken
+/// @param failure_reason   reason stored in the returned status on failure
+///
+    advance_status check_timestep_validity (int is_new, amrex::Real dt, const std::string& failure_reason);
+
+///
 /// Check for NaNs in the given MultiFab
 ///
 /// @param state        MultiFab to check
 /// @param check_ghost  do we check the ghost cells?
 ///
     static void check_for_nan(const amrex::MultiFab& state, int check_ghost=0);
+
+///
+/// Print the wall-clock time spent in one stage of the advance
+/// (the maximum over all processors)
+///
+/// @param stage        name of the stage, printed in front of the time
+/// @param strt_time    wall-clock time at which the stage started
+/// @param show_level   whether to report the level as well
+///
+    void print_stage_time (const std::string& stage, amrex::Real strt_time, bool show_level = false) const;
 
 
 #include <HydroSim_sources.H>

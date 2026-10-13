@@ -3064,7 +3064,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
             if (getLevel(lev).apply_sources()) {
                 bool apply_sources_to_state = true;
-                getLevel(lev).handle_new_sources(
+                getLevel(lev).handle_sources(source_time::new_time,
 #ifdef MHD
                                 Bx_new, By_new, Bz_new,
 #endif

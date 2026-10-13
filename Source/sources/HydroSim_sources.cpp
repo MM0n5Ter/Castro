@@ -108,27 +108,39 @@ HydroSim::source_flag(int src)
 }
 
 void
-HydroSim::handle_old_sources(
+HydroSim::handle_sources(source_time when,
 #ifdef MHD
                 MultiFab& Bx, MultiFab& By, MultiFab& Bz,
 #endif
                 MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, bool apply_to_state)
 {
 
-    BL_PROFILE("HydroSim::handle_old_sources()");
+    BL_PROFILE("HydroSim::handle_sources()");
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Construct the old-time sources.
+    const bool is_new = when == source_time::new_time;
 
-    source.setVal(0.0, source.nGrow());
+    if (is_new) {
+        source.setVal(0.0, NUM_GROW_SRC);
+    } else {
+        source.setVal(0.0, source.nGrow());
+    }
 
     if (!apply_sources()) {
         return;
     }
 
-    for (int n = 0; n < num_src; ++n) {
-        assemble_old_source(n, source, state_old, time, dt);
+    // Construct the old-time or new-time sources.
+
+    if (is_new) {
+        for (int n = 0; n < num_src; ++n) {
+            assemble_new_source(n, source, state_old, state_new, time, dt);
+        }
+    } else {
+        for (int n = 0; n < num_src; ++n) {
+            assemble_old_source(n, source, state_old, time, dt);
+        }
     }
 
     if (apply_to_state) {
@@ -140,147 +152,54 @@ HydroSim::handle_old_sources(
                      state_new, time, 0);
     }
 
-    // Fill the ghost cells (but only for CTU; the time would not be correct for true SDC, so
-    // the FillPatch is handled separately in the SDC advance).
+    // Fill the ghost cells of the old-time sources (but only for CTU; the time would
+    // not be correct for true SDC, so the FillPatch is handled separately in the SDC advance).
 
-    if (hydrosim::time_integration_method == CornerTransportUpwind ||
-        hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+    if (!is_new &&
+        (hydrosim::time_integration_method == CornerTransportUpwind ||
+         hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections)) {
         AmrLevel::FillPatch(*this, source, source.nGrow(), time, Source_Type, 0, NSRC);
     }
 
     // Optionally print out diagnostic information about how much
-    // these source terms changed the state.
+    // these source terms changed the state. Old-time sources are
+    // only reported when they were applied to the state.
 
-    if (apply_to_state && print_update_diagnostics) {
-      bool is_new = false;
+    if (print_update_diagnostics && (is_new || apply_to_state)) {
       print_all_source_changes(dt, is_new);
     }
 
-    if (verbose > 0)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::handle_old_sources() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 0) {
+        print_stage_time(is_new ? "HydroSim::handle_new_sources()" : "HydroSim::handle_old_sources()",
+                         strt_time, true);
     }
 }
 
 advance_status
-HydroSim::handle_old_sources (Real time, Real dt, bool apply_to_state)
+HydroSim::handle_sources (source_time when, Real time, Real dt, bool apply_to_state)
 {
     advance_status status {};
 
+    auto level_data = [&] (int state_type) -> MultiFab& {
+        return when == source_time::new_time ? get_new_data(state_type) : get_old_data(state_type);
+    };
+
     MultiFab& S_new = get_new_data(State_Type);
 
-    MultiFab& old_source = get_old_data(Source_Type);
+    MultiFab& source = level_data(Source_Type);
 
 #ifdef MHD
-    MultiFab& Bx_old = get_old_data(Mag_Type_x);
-    MultiFab& By_old = get_old_data(Mag_Type_y);
-    MultiFab& Bz_old = get_old_data(Mag_Type_z);
+    MultiFab& Bx = level_data(Mag_Type_x);
+    MultiFab& By = level_data(Mag_Type_y);
+    MultiFab& Bz = level_data(Mag_Type_z);
 #endif
 
-    handle_old_sources(
+    handle_sources(when,
 #ifdef MHD
-                   Bx_old, By_old, Bz_old,
+                   Bx, By, Bz,
 #endif
-                   old_source, Sborder, S_new, time, dt,
+                   source, Sborder, S_new, time, dt,
                    apply_to_state);
-
-    return status;
-}
-
-void
-HydroSim::handle_new_sources(
-#ifdef MHD
-                MultiFab& Bx, MultiFab& By, MultiFab& Bz,
-#endif
-                MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, bool apply_to_state)
-{
-
-    BL_PROFILE("HydroSim::handle_new_sources()");
-
-    const Real strt_time = ParallelDescriptor::second();
-
-    source.setVal(0.0, NUM_GROW_SRC);
-
-    if (!apply_sources()) {
-        return;
-    }
-
-    // Construct the new-time source terms.
-
-    for (int n = 0; n < num_src; ++n) {
-        assemble_new_source(n, source, state_old, state_new, time, dt);
-    }
-
-    if (apply_to_state) {
-        apply_source_to_state(state_new, source, dt, 0);
-        clean_state(
-#ifdef MHD
-                     Bx, By, Bz,
-#endif
-                     state_new, time, 0);
-    }
-
-
-    // Optionally print out diagnostic information about how much
-    // these source terms changed the state.
-
-    if (print_update_diagnostics) {
-      bool is_new = true;
-      print_all_source_changes(dt, is_new);
-    }
-
-    if (verbose > 0)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::handle_new_sources() time = " << run_time << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
-    }
-
-}
-
-advance_status
-HydroSim::handle_new_sources (Real time, Real dt)
-{
-    advance_status status {};
-
-    MultiFab& S_new = get_new_data(State_Type);
-
-    MultiFab& new_source = get_new_data(Source_Type);
-
-#ifdef MHD
-    MultiFab& Bx_new = get_new_data(Mag_Type_x);
-    MultiFab& By_new = get_new_data(Mag_Type_y);
-    MultiFab& Bz_new = get_new_data(Mag_Type_z);
-#endif
-
-    handle_new_sources(
-#ifdef MHD
-                   Bx_new, By_new, Bz_new,
-#endif
-                   new_source, Sborder, S_new, time, dt);
 
     return status;
 }
@@ -522,26 +441,10 @@ HydroSim::print_all_source_changes(Real dt, bool is_new)
     evaluate_and_print_source_change(source, dt, source_name);
 }
 
-// Perform all operations that occur prior to computing the predictor sources
-// and the hydro advance.
-
-advance_status
-HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    advance_status status {};
-
-    // If we are using gravity, solve for the potential and
-    // gravitational field.  note: since reactions don't change
-    // density, we can do this before or after the burn.
-
-#ifdef GRAVITY
-    assemble_old_gravity(time);
-#endif
-
 #ifdef SHOCK_VAR
+void
+HydroSim::fill_shock_flag (Real time, Real dt)
+{
     // we want to compute the shock flag that will be used
     // (optionally) in disabling reactions in shocks.  We compute this
     // only once per timestep using the time-level n data.
@@ -551,7 +454,7 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
     // only for evaluating the shock flag.
 
     const bool apply_to_state{false};
-    handle_old_sources(time, dt, apply_to_state);
+    handle_sources(source_time::old_time, time, dt, apply_to_state);
 
     MultiFab& S_old = get_old_data(State_Type);
     MultiFab& old_source = get_old_data(Source_Type);
@@ -604,7 +507,30 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
     if (Sborder.nGrow() > 0) {
       AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, USHOCK, 1, USHOCK);
     }
+}
+#endif
 
+// Perform all operations that occur prior to computing the predictor sources
+// and the hydro advance.
+
+advance_status
+HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    advance_status status {};
+
+    // If we are using gravity, solve for the potential and
+    // gravitational field.  note: since reactions don't change
+    // density, we can do this before or after the burn.
+
+#ifdef GRAVITY
+    assemble_old_gravity(time);
+#endif
+
+#ifdef SHOCK_VAR
+    fill_shock_flag(time, dt);
 #endif
 
     // If we are Strang splitting the reactions, do the old-time contribution now.
@@ -625,49 +551,6 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
     MultiFab& S_new = get_new_data(State_Type);
 
     MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, S_new.nGrow());
-
-    return status;
-}
-
-// Perform all operations that occur after computing the predictor sources
-// but before the hydro advance.
-
-advance_status
-HydroSim::pre_hydro_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    advance_status status {};
-
-#ifdef REACTIONS
-    // The SDC reactive source ghost cells on coarse levels might not
-    // be in sync due to any average down done, so fill them here.
-
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        MultiFab& react_src = get_new_data(Simplified_SDC_React_Type);
-
-        AmrLevel::FillPatch(*this, react_src, react_src.nGrow(), time + dt, Simplified_SDC_React_Type, 0, react_src.nComp());
-    }
-#endif
-
-    return status;
-}
-
-// Perform all operations that occur after the hydro source
-// but before the corrector sources.
-
-advance_status
-HydroSim::post_hydro_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    advance_status status {};
-
-#ifdef GRAVITY
-    assemble_new_gravity(time);
-#endif
 
     return status;
 }

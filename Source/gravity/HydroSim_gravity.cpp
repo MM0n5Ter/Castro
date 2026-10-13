@@ -120,22 +120,8 @@ HydroSim::assemble_old_gravity (Real time)
 
     gravity->get_old_grav_vector(level, grav_old, time);
 
-    if (verbose > 0)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_gravity() time = " << run_time << " on level "
-                       << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 0) {
+        print_stage_time("HydroSim::assemble_old_gravity()", strt_time, true);
     }
 }
 
@@ -278,22 +264,8 @@ HydroSim::assemble_new_gravity (Real time)
 
     }
 
-    if (verbose > 0)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_gravity() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 0) {
+        print_stage_time("HydroSim::assemble_new_gravity()", strt_time, true);
     }
 }
 
@@ -432,22 +404,8 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
     }
 
-    if (hydrosim::verbose > 1)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_gravity_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (hydrosim::verbose > 1) {
+        print_stage_time("HydroSim::assemble_old_gravity_source()", strt_time, true);
     }
 }
 
@@ -669,21 +627,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
         }
     }
 
-    if (hydrosim::verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_gravity_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (hydrosim::verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_gravity_source()", strt_time, true);
     }
 }

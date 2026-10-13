@@ -29,8 +29,11 @@
 
 
 ///
-/// Construct source terms at old time
+/// Construct source terms at the old or the new time and optionally
+/// apply them to ``state_new``. The old-time sources are built from
+/// ``state_old`` alone; the new-time sources see both states.
 ///
+/// @param when     construct the old-time or the new-time sources
 /// @param source   MultiFab to save sources to
 /// @param state_old   Old state
 /// @param state_new   New state
@@ -39,7 +42,7 @@
 ///                    time + dt)
 /// @param apply_to_state   whether to apply the source to state_new
 ///
-    void handle_old_sources(
+    void handle_sources(source_time when,
 #ifdef MHD
                         amrex::MultiFab& Bx,
                         amrex::MultiFab& By,
@@ -51,13 +54,16 @@
 
 
 ///
-/// Construct source terms at old time (convenience wrapper for CTU advance)
+/// Construct source terms at the old or the new time from ``Sborder``
+/// into this level's source data (convenience wrapper for CTU advance)
 ///
+/// @param when     construct the old-time or the new-time sources
 /// @param time     the current simulation time
 /// @param dt       the timestep to advance (e.g., go from time to
 ///                    time + dt)
+/// @param apply_to_state   whether to apply the source to the new-time state
 ///
-    advance_status handle_old_sources (amrex::Real time, amrex::Real dt, bool apply_to_state = true);
+    advance_status handle_sources (source_time when, amrex::Real time, amrex::Real dt, bool apply_to_state = true);
 
 
 ///
@@ -73,38 +79,6 @@
     void assemble_old_source(int src, amrex::MultiFab& source,
                               amrex::MultiFab& state,
                               amrex::Real time, amrex::Real dt);
-
-///
-/// Construct new time sources
-///
-/// @param source   MultiFab to save sources to
-/// @param state_old    Old state
-/// @param state_new    New state
-/// @param time     the current simulation time
-/// @param dt       the timestep to advance (e.g., go from time to
-///                    time + dt)
-/// @param apply_to_state   whether to apply the source to state_new
-///
-    void handle_new_sources(
-#ifdef MHD
-                        amrex::MultiFab& Bx,
-                        amrex::MultiFab& By,
-                        amrex::MultiFab& Bz,
-#endif
-                        amrex::MultiFab& source,
-                        amrex::MultiFab& state_old, amrex::MultiFab& state_new,
-                        amrex::Real time, amrex::Real dt, bool apply_to_state = true);
-
-
-///
-/// Construct new time sources (convenience wrapper for CTU advance)
-///
-/// @param time     the current simulation time
-/// @param dt       the timestep to advance (e.g., go from time to
-///                    time + dt)
-///
-    advance_status handle_new_sources (amrex::Real time, amrex::Real dt);
-
 
 ///
 /// Construct the new-time sources.
@@ -363,27 +337,16 @@
 
     advance_status pre_advance_operators (amrex::Real time, amrex::Real dt);
 
+#ifdef SHOCK_VAR
 ///
-/// Perform all operations that occur after computing the predictor sources
-/// but before the hydro advance.
-///
-/// @param time     current time
-/// @param dt       timestep
-///
-
-    advance_status pre_hydro_operators (amrex::Real time, amrex::Real dt);
-
-
-///
-/// Perform all operations that occur after the hydro source
-/// but before the corrector sources.
+/// Compute the shock flag from the old-time data, store it in the
+/// old state and fill it into the ghost cells of ``Sborder``.
 ///
 /// @param time     current time
 /// @param dt       timestep
 ///
-
-    advance_status post_hydro_operators (amrex::Real time, amrex::Real dt);
-
+    void fill_shock_flag (amrex::Real time, amrex::Real dt);
+#endif
 
 ///
 /// Perform all operations that occur after the corrector sources.

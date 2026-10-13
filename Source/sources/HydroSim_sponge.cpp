@@ -46,22 +46,8 @@ HydroSim::assemble_new_sponge_source(MultiFab& source, const MultiFab& state_old
         apply_sponge(bx, state_new.array(mfi), source.array(mfi), dt);
     }
 
-    if (verbose > 1)
-    {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        Real      run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        if (ParallelDescriptor::IOProcessor()) {
-            std::cout << "HydroSim::assemble_new_sponge_source() time = " << run_time << "\n" << "\n";
-        }
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_sponge_source()", strt_time);
     }
 }
 

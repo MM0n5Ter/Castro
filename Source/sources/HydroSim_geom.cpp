@@ -43,21 +43,9 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
 
   MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 
-  if (verbose > 1)
-  {
-      const int IOProc = ParallelDescriptor::IOProcessorNumber();
-      amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-      Lazy::QueueReduction( [=] () mutable {
-#endif
-      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-      amrex::Print() << "HydroSim::assemble_old_geom_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-      });
-#endif
-    }
+  if (verbose > 1) {
+    print_stage_time("HydroSim::assemble_old_geom_source()", strt_time);
+  }
 
 #endif
 }
@@ -117,21 +105,9 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
 
   MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
 
-  if (verbose > 1)
-  {
-      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-      Real      run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-      Lazy::QueueReduction( [=] () mutable {
-#endif
-      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-      amrex::Print() << "HydroSim::assemble_new_geom_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-      });
-#endif
-    }
+  if (verbose > 1) {
+    print_stage_time("HydroSim::assemble_new_geom_source()", strt_time);
+  }
 
 #endif
 }

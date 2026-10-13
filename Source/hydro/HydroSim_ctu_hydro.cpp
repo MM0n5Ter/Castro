@@ -1472,23 +1472,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       amrex::Print() << "... Leaving construct_ctu_hydro_source() on level " << level << std::endl << std::endl;
   }
 
-  if (verbose > 0)
-    {
-      const int IOProc = ParallelDescriptor::IOProcessorNumber();
-      amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-      amrex::Real llevel = level;
-
-#ifdef BL_LAZY
-      Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::construct_ctu_hydro_source() time = " << run_time
-                       << " on level " << llevel << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
-    }
+  if (verbose > 0) {
+    print_stage_time("HydroSim::construct_ctu_hydro_source()", strt_time, true);
+  }
 
 #endif
 

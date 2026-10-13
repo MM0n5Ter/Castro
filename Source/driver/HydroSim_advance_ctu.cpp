@@ -31,61 +31,13 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     // Advance simultaneously on all levels that are not subcycling
     // relative to this level.
 
-    int max_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    const int max_level_to_advance = finest_level_to_advance();
 
     const Real prev_time = state[State_Type].prevTime();
     const Real  cur_time = state[State_Type].curTime();
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        // Perform initialization steps.
-
-        status = getLevel(lev).initialize_do_advance(time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Perform all pre-advance operations and then initialize
-        // the new-time state with the output of those operators.
-
-        status = getLevel(lev).pre_advance_operators(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Construct the old-time sources from Sborder. This will already
-        // be applied to S_new (with full dt weighting), to be corrected
-        // later. Note that this does not affect the prediction of the
-        // interface state; an explicit source will be traced there as
-        // needed.
-
-        status = getLevel(lev).handle_old_sources(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Perform any operations that occur after the sources but before the hydro.
-
-        status = getLevel(lev).pre_hydro_operators(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Do the hydro update. We build directly off of Sborder, which
-        // is the state that has already seen the burn.
-
-#ifndef MHD
-        status = getLevel(lev).construct_ctu_hydro_source(prev_time, dt);
-#else
-        status = getLevel(lev).construct_ctu_mhd_source(prev_time, dt);
-#endif
+        status = getLevel(lev).ctu_predictor_stage(time, prev_time, dt);
 
         if (status.success == false) {
             return status;
@@ -100,34 +52,7 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     }
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        // Perform any operations that occur after the hydro but before
-        // the corrector sources.
-
-        status = getLevel(lev).post_hydro_operators(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Construct and apply new-time source terms.
-
-        status = getLevel(lev).handle_new_sources(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Do the second half of the reactions for Strang, or the full burn for simplified SDC.
-
-        status = getLevel(lev).post_advance_operators(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Perform finalization steps.
-
-        status = getLevel(lev).finalize_do_advance(cur_time, dt);
+        status = getLevel(lev).ctu_corrector_stage(cur_time, dt);
 
         if (status.success == false) {
             return status;
@@ -142,6 +67,98 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
 
 
 
+#ifndef TRUE_SDC
+
+advance_status
+HydroSim::ctu_predictor_stage (Real time, Real prev_time, Real dt)
+{
+    BL_PROFILE("HydroSim::ctu_predictor_stage()");
+
+    // Perform initialization steps.
+
+    advance_status status = initialize_do_advance(time, dt);
+
+    // Perform all pre-advance operations and then initialize
+    // the new-time state with the output of those operators.
+
+    if (status.success) {
+        status = pre_advance_operators(prev_time, dt);
+    }
+
+    // Construct the old-time sources from Sborder. This will already
+    // be applied to S_new (with full dt weighting), to be corrected
+    // later. Note that this does not affect the prediction of the
+    // interface state; an explicit source will be traced there as
+    // needed.
+
+    if (status.success) {
+        status = handle_sources(source_time::old_time, prev_time, dt);
+    }
+
+    if (!status.success) {
+        return status;
+    }
+
+#ifdef REACTIONS
+    // The SDC reactive source ghost cells on coarse levels might not
+    // be in sync due to any average down done, so fill them here.
+
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        MultiFab& react_src = get_new_data(Simplified_SDC_React_Type);
+
+        AmrLevel::FillPatch(*this, react_src, react_src.nGrow(), prev_time + dt, Simplified_SDC_React_Type, 0, react_src.nComp());
+    }
+#endif
+
+    // Do the hydro update. We build directly off of Sborder, which
+    // is the state that has already seen the burn.
+
+#ifndef MHD
+    return construct_ctu_hydro_source(prev_time, dt);
+#else
+    return construct_ctu_mhd_source(prev_time, dt);
+#endif
+}
+
+
+
+advance_status
+HydroSim::ctu_corrector_stage (Real cur_time, Real dt)
+{
+    BL_PROFILE("HydroSim::ctu_corrector_stage()");
+
+    // The gravitational field at the new time is needed by the
+    // corrector sources.
+
+#ifdef GRAVITY
+    assemble_new_gravity(cur_time);
+#endif
+
+    // Construct and apply new-time source terms.
+
+    advance_status status = handle_sources(source_time::new_time, cur_time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+
+    // Do the second half of the reactions for Strang, or the full burn for simplified SDC.
+
+    status = post_advance_operators(cur_time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+
+    // Perform finalization steps.
+
+    return finalize_do_advance(cur_time, dt);
+}
+
+#endif
+
+
+
 
 
 bool
@@ -149,95 +166,85 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 {
     BL_PROFILE("HydroSim::redo_advance_ctu()");
 
-    bool do_retry = false;
-
-    if (!status.success) {
-        do_retry = true;
+    if (status.success) {
+        return false;
     }
 
-    if (do_retry) {
+    const int max_level_to_advance = finest_level_to_advance();
 
-        int max_level_to_advance = level;
+    for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        if (status.suggested_dt > 0.0_rt && status.suggested_dt < dt) {
+            getLevel(lev).dt_subcycle = status.suggested_dt;
+        } else {
+            getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
+        }
+    }
 
-        if (parent->subcyclingMode() == "None" && level == 0) {
-            max_level_to_advance = parent->finestLevel();
+    if (verbose && ParallelDescriptor::IOProcessor()) {
+        std::cout << std::endl;
+        std::cout << Font::Bold << FGColor::Red;
+        std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
+        std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_subcycle << std::endl;
+        std::cout << ResetDisplay;
+        std::cout << std::endl;
+    }
+
+    // If we are doing a retry and this is the first attempt
+    // at the advance, make a copy of the state data. This will
+    // be useful to us at the end of the timestep when we need
+    // to restore the original old data.
+
+    for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        getLevel(lev).save_data_for_retry();
+
+        // Clear the contribution to the fluxes from this step.
+
+        for (int dir = 0; dir < 3; ++dir) {
+            getLevel(lev).fluxes[dir]->setVal(0.0);
         }
 
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            if (status.suggested_dt > 0.0_rt && status.suggested_dt < dt) {
-                getLevel(lev).dt_subcycle = status.suggested_dt;
-            } else {
-                getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
-            }
+        for (int dir = 0; dir < 3; ++dir) {
+            getLevel(lev).mass_fluxes[dir]->setVal(0.0);
         }
-
-        if (verbose && ParallelDescriptor::IOProcessor()) {
-            std::cout << std::endl;
-            std::cout << Font::Bold << FGColor::Red;
-            std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
-            std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_subcycle << std::endl;
-            std::cout << ResetDisplay;
-            std::cout << std::endl;
-        }
-
-        // If we are doing a retry and this is the first attempt
-        // at the advance, make a copy of the state data. This will
-        // be useful to us at the end of the timestep when we need
-        // to restore the original old data.
-
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            getLevel(lev).save_data_for_retry();
-
-            // Clear the contribution to the fluxes from this step.
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).fluxes[dir]->setVal(0.0);
-            }
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).mass_fluxes[dir]->setVal(0.0);
-            }
 
 #if (AMREX_SPACEDIM <= 2)
-            if (!Geom().IsCartesian()) {
-                getLevel(lev).P_radial.setVal(0.0);
-            }
+        if (!Geom().IsCartesian()) {
+            getLevel(lev).P_radial.setVal(0.0);
+        }
 #endif
 
 #ifdef RADIATION
-            if (Radiation::rad_hydro_combined) {
-                for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                    getLevel(lev).rad_fluxes[dir]->setVal(0.0);
-                }
+        if (Radiation::rad_hydro_combined) {
+            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+                getLevel(lev).rad_fluxes[dir]->setVal(0.0);
             }
+        }
 #endif
 
 #ifdef REACTIONS
-            if (hydrosim::store_burn_weights) {
-                getLevel(lev).burn_weights.setVal(0.0);
-            }
+        if (hydrosim::store_burn_weights) {
+            getLevel(lev).burn_weights.setVal(0.0);
+        }
 #endif
 
-            // For simplified SDC, we'll have garbage data if we
-            // attempt to use the lagged source terms (both reacting
-            // and non-reacting) from the last timestep, since that
-            // advance failed and we don't know if we can trust it.
-            // So we zero out both source term correctors.
+        // For simplified SDC, we'll have garbage data if we
+        // attempt to use the lagged source terms (both reacting
+        // and non-reacting) from the last timestep, since that
+        // advance failed and we don't know if we can trust it.
+        // So we zero out both source term correctors.
 
-            if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-                getLevel(lev).source_corrector.setVal(0.0, getLevel(lev).source_corrector.nGrow());
+        if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+            getLevel(lev).source_corrector.setVal(0.0, getLevel(lev).source_corrector.nGrow());
 
 #ifdef REACTIONS
-                MultiFab& SDC_react_new = getLevel(lev).get_new_data(Simplified_SDC_React_Type);
-                SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
+            MultiFab& SDC_react_new = getLevel(lev).get_new_data(Simplified_SDC_React_Type);
+            SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
 #endif
-            }
-
         }
 
     }
 
-    return do_retry;
+    return true;
 }
 
 
@@ -262,15 +269,13 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     sub_iteration = 0;
 
-    int max_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    const int max_level_to_advance = finest_level_to_advance();
 
     // Subcycle until we've reached the target time.
     // Compare against a slightly smaller number to
     // avoid roundoff concerns.
+
+    const Real target_time = time + dt;
 
     Real eps = 1.0e-14;
 
@@ -278,7 +283,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     Real last_dt_subcycle = 1.e200;
 
-    while (subcycle_time < (1.0 - eps) * (time + dt)) {
+    while (subcycle_time < (1.0 - eps) * target_time) {
 
         // Save the dt_subcycle before modifying it, we will use it later.
 
@@ -297,8 +302,8 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
         AMREX_ASSERT(dt_cutoff > eps);
 
-        if (subcycle_time + dt_subcycle > (1.0 - dt_cutoff) * (time + dt)) {
-          dt_subcycle = (time + dt) - subcycle_time;
+        if (subcycle_time + dt_subcycle > (1.0 - dt_cutoff) * target_time) {
+          dt_subcycle = target_time - subcycle_time;
         }
 
         // Determine whether we're below the cutoff timestep.
@@ -315,7 +320,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
         // Check on whether we are going to take too many subcycles.
 
-        int num_subcycles_remaining = int(round(((time + dt) - subcycle_time) / dt_subcycle));
+        int num_subcycles_remaining = int(round((target_time - subcycle_time) / dt_subcycle));
 
         if (num_subcycles_remaining > max_subcycles) {
             amrex::Print() << std::endl
@@ -497,8 +502,8 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
                 if (getLevel(lev).prev_state[k]->hasOldData()) {
                     getLevel(lev).state[k].replaceOldData(*getLevel(lev).prev_state[k]);
                 }
-                getLevel(lev).state[k].setTimeLevel(time + dt, dt, 0.0);
-                getLevel(lev).prev_state[k]->setTimeLevel(time + dt, dt_subcycle, 0.0);
+                getLevel(lev).state[k].setTimeLevel(target_time, dt, 0.0);
+                getLevel(lev).prev_state[k]->setTimeLevel(target_time, dt_subcycle, 0.0);
             }
         }
 

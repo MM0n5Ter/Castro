@@ -20,21 +20,8 @@ HydroSim::assemble_old_hybrid_source(MultiFab& source, MultiFab& state_old, Real
 
     fill_hybrid_hydro_source(source, state_old, mult_factor);
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        if (ParallelDescriptor::IOProcessor())
-            std::cout << "HydroSim::assemble_old_hybrid_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_old_hybrid_source()", strt_time);
     }
 }
 
@@ -63,21 +50,8 @@ HydroSim::assemble_new_hybrid_source(MultiFab& source, MultiFab& state_old, Mult
 
     fill_hybrid_hydro_source(source, state_new, mult_factor);
 
-    if (verbose > 1)
-    {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        if (ParallelDescriptor::IOProcessor())
-            std::cout << "HydroSim::assemble_new_hybrid_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+    if (verbose > 1) {
+        print_stage_time("HydroSim::assemble_new_hybrid_source()", strt_time);
     }
 }
 
