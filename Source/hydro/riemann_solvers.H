@@ -216,6 +216,31 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
 
 
+///
+/// The normal velocity, and with it the flux, vanishes on a domain
+/// face that is a symmetry plane or a wall.  Return 0 for an interface
+/// on such a face and 1 everywhere else.
+///
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real
+wall_flux_factor(const int i, const int j, const int k, const int idir,
+                 const bool special_bnd_lo, const bool special_bnd_hi,
+                 GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+
+  const int n = idir == 0 ? i : (idir == 1 ? j : k);
+
+  if (n == domlo[idir] && special_bnd_lo) {
+      return 0.0_rt;
+  }
+
+  if (n == domhi[idir]+1 && special_bnd_hi) {
+      return 0.0_rt;
+  }
+
+  return 1.0_rt;
+}
+
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 riemann_state(const int i, const int j, const int k, const int idir,
@@ -296,26 +321,9 @@ riemann_state(const int i, const int j, const int k, const int idir,
                     ql, qr, raux);
 
   // deal with hard walls
-  raux.bnd_fac = 1.0_rt;
-
-  if (idir == 0) {
-      if ((i == domlo[0] && special_bnd_lo) ||
-          (i == domhi[0]+1 && special_bnd_hi)) {
-          raux.bnd_fac = 0.0_rt;
-      }
-
-  } else if (idir == 1) {
-      if ((j == domlo[1] && special_bnd_lo) ||
-          (j == domhi[1]+1 && special_bnd_hi)) {
-          raux.bnd_fac = 0.0_rt;
-      }
-
-  } else {
-      if ((k == domlo[2] && special_bnd_lo) ||
-          (k == domhi[2]+1 && special_bnd_hi)) {
-          raux.bnd_fac = 0.0_rt;
-      }
-  }
+  raux.bnd_fac = wall_flux_factor(i, j, k, idir,
+                                  special_bnd_lo, special_bnd_hi,
+                                  domlo, domhi);
 
 
   // Solve Riemann problem

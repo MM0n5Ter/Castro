@@ -38,6 +38,13 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 
       BL_ASSERT(NUM_GROW == 6);
 
+      // For normal integration we want to add the fluxes from this advance
+      // since we may be subcycling the timestep. But for simplified SDC integration
+      // we want to copy the fluxes since we expect that there will not be
+      // subcycling and we only want the last iteration's fluxes.
+
+      const bool copy_fluxes = time_integration_method == SimplifiedSpectralDeferredCorrections;
+
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -362,12 +369,6 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           // CTU Steps 3, 4, and 5
           // Corner Couple, Correct Conservative vars using Transverse Fluxes
 
-          // X direction
-
-          // affected by Y Flux
-          // [lo(1)-1, lo(2)-2, lo(3)-2] [hi(1)+2, hi(2)+2, hi(2)+2]
-          const Box& ccbx = amrex::grow(nbx, IntVect(1, 2, 2));
-
           qtmp_left.resize(gbx, NQ);
           auto qtmp_left_arr = qtmp_left.array();
           auto elix_qtmp_left = qtmp_left.elixir();
@@ -376,102 +377,74 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto qtmp_right_arr = qtmp_right.array();
           auto elix_qtmp_right = qtmp_right.elixir();
 
-          corner_couple(ccbx,
-                        qtmp_right_arr, qtmp_left_arr,
-                        ux_right_arr, ux_left_arr,
-                        flxy1D_arr, Ex_arr, Ez_arr,
-                        0, 1, 2, dt);
+          // couple the states normal to direction d1 with the 1-D flux in
+          // direction d2 and the edge electric fields, then solve for the
+          // corrected flux F^{d1|d2}
+          auto corner_flux = [&] (const Box& cbx,
+                                  Array4<Real const> const& ur,
+                                  Array4<Real const> const& ul,
+                                  Array4<Real const> const& flxd2,
+                                  Array4<Real const> const& Ed1,
+                                  Array4<Real const> const& Ed3,
+                                  const int d1, const int d2, const int d3,
+                                  Array4<Real> const& flx_out)
+          {
+              corner_couple(cbx,
+                            qtmp_right_arr, qtmp_left_arr,
+                            ur, ul,
+                            flxd2, Ed1, Ed3,
+                            d1, d2, d3, dt);
 
-          // Calculate Flux 2D
-          // F^{x|y}
+              hlld(cbx, qtmp_left_arr, qtmp_right_arr, flx_out, d1);
+          };
+
+          // X direction, affected by the Y and Z fluxes
+          const Box& ccbx = amrex::grow(nbx, IntVect(1, 2, 2));
+
           flx_xy.resize(ccbx, NUM_STATE+3);
           auto flx_xy_arr = flx_xy.array();
           auto elix_flx_xy = flx_xy.elixir();
 
-          hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xy_arr, 0);
-
-          // affected by Z Flux
-          corner_couple(ccbx,
-                        qtmp_right_arr, qtmp_left_arr,
-                        ux_right_arr, ux_left_arr,
-                        flxz1D_arr, Ex_arr, Ey_arr,
-                        0, 2, 1, dt);
-
-          // F^{x|z}
           flx_xz.resize(ccbx, NUM_STATE+3);
           auto flx_xz_arr = flx_xz.array();
           auto elix_flx_xz = flx_xz.elixir();
 
-          hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xz_arr, 0);
+          corner_flux(ccbx, ux_right_arr, ux_left_arr,
+                      flxy1D_arr, Ex_arr, Ez_arr, 0, 1, 2, flx_xy_arr);
+          corner_flux(ccbx, ux_right_arr, ux_left_arr,
+                      flxz1D_arr, Ex_arr, Ey_arr, 0, 2, 1, flx_xz_arr);
 
-
-          // Y direction
-
-          // affected by X Flux
-          // [lo(1)-2, lo(2)-1, lo(3)-2] [hi(1)+2, hi(2)+2, hi(3)+2]
+          // Y direction, affected by the X and Z fluxes
           const Box& ccby = amrex::grow(nby, IntVect(2, 1, 2));
 
-          corner_couple(ccby,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uy_right_arr, uy_left_arr,
-                        flxx1D_arr, Ey_arr, Ez_arr,
-                        1, 0, 2, dt);
-
-          // F^{y|x}
           flx_yx.resize(ccby, NUM_STATE+3);
           auto flx_yx_arr = flx_yx.array();
           auto elix_flx_yx = flx_yx.elixir();
 
-          hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yx_arr, 1);
-
-          // affected by Z Flux
-
-          corner_couple(ccby,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uy_right_arr, uy_left_arr,
-                        flxz1D_arr, Ey_arr, Ex_arr,
-                        1, 2, 0, dt);
-
-          // F^{y|z}
           flx_yz.resize(ccby, NUM_STATE+3);
           auto flx_yz_arr = flx_yz.array();
           auto elix_flx_yz = flx_yz.elixir();
 
-          hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yz_arr, 1);
+          corner_flux(ccby, uy_right_arr, uy_left_arr,
+                      flxx1D_arr, Ey_arr, Ez_arr, 1, 0, 2, flx_yx_arr);
+          corner_flux(ccby, uy_right_arr, uy_left_arr,
+                      flxz1D_arr, Ey_arr, Ex_arr, 1, 2, 0, flx_yz_arr);
 
-          // Z direction
-
-          // affected by X Flux
-          // [lo(1)-2, lo(2)-2, lo(3)-1] [hi(1)+2, hi(2)+2, hi(3)+2]
+          // Z direction, affected by the X and Y fluxes
           const Box& ccbz = amrex::grow(nbz, IntVect(2, 2, 1));
 
-          corner_couple(ccbz,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uz_right_arr, uz_left_arr,
-                        flxx1D_arr, Ez_arr, Ey_arr,
-                        2, 0, 1, dt);
-
-          // F^{z|x}
           flx_zx.resize(ccbz, NUM_STATE+3);
           auto flx_zx_arr = flx_zx.array();
           auto elix_flx_zx = flx_zx.elixir();
 
-          hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zx_arr, 2);
-
-          // affected by Y Flux
-
-          corner_couple(ccbz,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uz_right_arr, uz_left_arr,
-                        flxy1D_arr, Ez_arr, Ex_arr,
-                        2, 1, 0, dt);
-
-          // F^{z|y}
           flx_zy.resize(ccbz, NUM_STATE+3);
           auto flx_zy_arr = flx_zy.array();
           auto elix_flx_zy = flx_zy.elixir();
 
-          hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zy_arr, 2);
+          corner_flux(ccbz, uz_right_arr, uz_left_arr,
+                      flxx1D_arr, Ez_arr, Ey_arr, 2, 0, 1, flx_zx_arr);
+          corner_flux(ccbz, uz_right_arr, uz_left_arr,
+                      flxy1D_arr, Ez_arr, Ex_arr, 2, 1, 0, flx_zy_arr);
 
 
           // CTU Step 6
@@ -681,18 +654,13 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 
           // Store the fluxes from this advance.
 
-          // For normal integration we want to add the fluxes from this advance
-          // since we may be subcycling the timestep. But for simplified SDC integration
-          // we want to copy the fluxes since we expect that there will not be
-          // subcycling and we only want the last iteration's fluxes.
-
           for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
             Array4<Real> const flux_fab = (flux[idir]).array();
             Array4<Real> fluxes_fab = (*fluxes[idir]).array(mfi);
             const int numcomp = NUM_STATE;
 
-            if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+            if (copy_fluxes) {
 
               AMREX_HOST_DEVICE_FOR_4D(mfi.nodaltilebox(idir), numcomp, i, j, k, n,
               {

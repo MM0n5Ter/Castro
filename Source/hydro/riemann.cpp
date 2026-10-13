@@ -12,6 +12,71 @@
 #include <eos.H>
 using namespace amrex;
 
+///
+/// Replace the flux on an interface next to a zone flagged as a shock
+/// by the HLL flux computed from the same left and right states
+///
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+hll_shock_flux(const int i, const int j, const int k, const int idir, const int coord,
+               Array4<Real> const& qm,
+               Array4<Real> const& qp,
+               Array4<Real const> const& qaux_arr,
+               Array4<Real const> const& shk,
+               Array4<Real> const& flx) {
+
+    int is_shock = 0;
+
+    if (idir == 0) {
+        is_shock = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
+    } else if (idir == 1) {
+        is_shock = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
+    } else {
+        is_shock = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
+    }
+
+    if (is_shock < 1) {
+        return;
+    }
+
+    Real cl;
+    Real cr;
+    if (idir == 0) {
+        cl = qaux_arr(i-1,j,k,QC);
+        cr = qaux_arr(i,j,k,QC);
+    } else if (idir == 1) {
+        cl = qaux_arr(i,j-1,k,QC);
+        cr = qaux_arr(i,j,k,QC);
+    } else {
+        cl = qaux_arr(i,j,k-1,QC);
+        cr = qaux_arr(i,j,k,QC);
+    }
+
+    Real ql_zone[NQ];
+    Real qr_zone[NQ];
+    Real flx_zone[NUM_STATE];
+
+    for (int n = 0; n < NQ; n++) {
+        ql_zone[n] = qm(i,j,k,n);
+        qr_zone[n] = qp(i,j,k,n);
+    }
+
+    // pass in the current flux -- the
+    // HLL solver will overwrite this
+    // if necessary
+    for (int n = 0; n < NUM_STATE; n++) {
+        flx_zone[n] = flx(i,j,k,n);
+    }
+
+    HLL::HLL(ql_zone, qr_zone, cl, cr,
+             idir, coord,
+             flx_zone);
+
+    for (int n = 0; n < NUM_STATE; n++) {
+        flx(i,j,k,n) = flx_zone[n];
+    }
+}
+
 void
 HydroSim::riemann_flux_and_state(const Box& bx,
                             Array4<Real> const& qm,
@@ -144,56 +209,8 @@ HydroSim::riemann_flux_and_state(const Box& bx,
         if (hybrid_riemann == 1) {
             // correct the fluxes using an HLL scheme if we are in a shock
             // and doing the hybrid approach
-
-            int is_shock = 0;
-
-            if (idir == 0) {
-                is_shock = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
-            } else if (idir == 1) {
-                is_shock = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
-            } else {
-                is_shock = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
-            }
-
-            if (is_shock >= 1) {
-
-                Real cl;
-                Real cr;
-                if (idir == 0) {
-                    cl = qaux_arr(i-1,j,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                } else if (idir == 1) {
-                    cl = qaux_arr(i,j-1,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                } else {
-                    cl = qaux_arr(i,j,k-1,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                }
-
-                Real ql_zone[NQ];
-                Real qr_zone[NQ];
-                Real flx_zone[NUM_STATE];
-
-                for (int n = 0; n < NQ; n++) {
-                    ql_zone[n] = qm(i,j,k,n);
-                    qr_zone[n] = qp(i,j,k,n);
-                }
-
-                // pass in the current flux -- the
-                // HLL solver will overwrite this
-                // if necessary
-                for (int n = 0; n < NUM_STATE; n++) {
-                    flx_zone[n] = flx(i,j,k,n);
-                }
-
-                HLL::HLL(ql_zone, qr_zone, cl, cr,
-                         idir, coord,
-                         flx_zone);
-
-                for (int n = 0; n < NUM_STATE; n++) {
-                    flx(i,j,k,n) = flx_zone[n];
-                }
-            }
+            hll_shock_flux(i, j, k, idir, coord,
+                           qm, qp, qaux_arr, shk, flx);
         }
     });
 

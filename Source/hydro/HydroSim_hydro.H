@@ -34,6 +34,96 @@
     advance_status construct_ctu_hydro_source(amrex::Real time, amrex::Real dt);
 
 ///
+/// Views of the per-tile arrays used to build the interface fluxes in
+/// the CTU update: the normal interface states, the auxiliary state and
+/// shock flag, the fluxes and Godunov states on each face, and the work
+/// space for the transverse corrections
+///
+    struct ctu_tile_arrays
+    {
+        amrex::Array4<amrex::Real const> qaux;
+        amrex::Array4<amrex::Real const> shk;
+        amrex::Array4<amrex::Real> qm[AMREX_SPACEDIM];
+        amrex::Array4<amrex::Real> qp[AMREX_SPACEDIM];
+        amrex::Array4<amrex::Real> flux[AMREX_SPACEDIM];
+        amrex::Array4<amrex::Real> qe[AMREX_SPACEDIM];
+#ifdef RADIATION
+        amrex::Array4<amrex::Real> rad_flux[AMREX_SPACEDIM];
+#endif
+#if AMREX_SPACEDIM >= 2
+        amrex::Array4<amrex::Real> ftmp1;
+        amrex::Array4<amrex::Real> ftmp2;
+#ifdef RADIATION
+        amrex::Array4<amrex::Real> rftmp1;
+        amrex::Array4<amrex::Real> rftmp2;
+#endif
+        amrex::Array4<amrex::Real> qfacetmp1;
+#if AMREX_SPACEDIM == 3
+        amrex::Array4<amrex::Real> qfacetmp2;
+#endif
+        amrex::Array4<amrex::Real> ql;
+        amrex::Array4<amrex::Real> qr;
+#endif
+#ifdef REACTIONS
+        amrex::Array4<amrex::Real const> sdc_src;
+#endif
+    };
+
+///
+/// Solve the Riemann problems that give the final interface fluxes
+/// and Godunov states of one tile, including the transverse
+/// corrections in 2-d and 3-d
+///
+/// @param mfi       the tile iterator
+/// @param dt        timestep
+/// @param tile      interface states, output fluxes and work space
+/// @param qm_trans  storage for the transverse-corrected left states (3-d)
+/// @param qp_trans  storage for the transverse-corrected right states (3-d)
+/// @param fab_size  running total of bytes allocated for temporaries (3-d)
+///
+#if AMREX_SPACEDIM < 3
+    void ctu_interface_fluxes(const amrex::MFIter& mfi, amrex::Real dt,
+                              ctu_tile_arrays const& tile);
+#else
+    void ctu_interface_fluxes(const amrex::MFIter& mfi, amrex::Real dt,
+                              ctu_tile_arrays const& tile,
+                              amrex::Vector<amrex::FArrayBox>& qm_trans,
+                              amrex::Vector<amrex::FArrayBox>& qp_trans,
+                              std::size_t& fab_size);
+#endif
+
+///
+/// Finish the hydrodynamics update of one tile from its interface
+/// fluxes: artificial viscosity, flux limiting and species
+/// normalization, the conservative update, and the scaled fluxes kept
+/// for the flux registers and the gravity source
+///
+/// @param mfi             the tile iterator
+/// @param dt              timestep
+/// @param U_old_arr       old-time conserved state
+/// @param div_arr         node-centred velocity divergence
+/// @param flux            interface fluxes in each direction
+/// @param qe              interface Godunov states in each direction
+/// @param rad_flux        radiation fluxes in each direction (if USE_RAD=TRUE)
+/// @param priv_nstep_fsp  number of f-space advection substeps (if USE_RAD=TRUE)
+/// @param pradial         scaled radial pressure (1-d and 2-d)
+/// @param S_new           state receiving the update
+///
+    void apply_ctu_fluxes(const amrex::MFIter& mfi, amrex::Real dt,
+                          amrex::Array4<amrex::Real const> const& U_old_arr,
+                          amrex::Array4<amrex::Real const> const& div_arr,
+                          amrex::Vector<amrex::FArrayBox>& flux,
+                          amrex::Vector<amrex::FArrayBox>& qe,
+#ifdef RADIATION
+                          amrex::Vector<amrex::FArrayBox>& rad_flux,
+                          int& priv_nstep_fsp,
+#endif
+#if AMREX_SPACEDIM <= 2
+                          amrex::FArrayBox& pradial,
+#endif
+                          amrex::MultiFab& S_new);
+
+///
 /// this constructs the hydrodynamic source (essentially the flux
 /// divergence) using method of lines integration.  The output, is the
 /// divergence of the fluxes, A = -div{F(U)}
@@ -43,6 +133,40 @@
 /// @param A_update  divergence of the fluxes
 ///
     void construct_mol_hydro_source(amrex::Real time, amrex::Real dt, amrex::MultiFab& A_update);
+
+///
+/// For the second-order MOL update: reconstruct the interface states in
+/// one direction, solve the Riemann problem across those interfaces,
+/// and add the artificial viscosity to the resulting flux
+///
+/// @param bx            the tile box
+/// @param idir          coordinate direction (0 = x, 1 = y, 2 = z)
+/// @param q_arr         primitive variable state
+/// @param flatcoef_arr  flattening coefficient
+/// @param src_q_arr     primitive variable source terms
+/// @param qaux_arr      auxiliary state
+/// @param shk_arr       shock flag
+/// @param div_arr       node-centred velocity divergence
+/// @param uin_arr       conserved state
+/// @param dq            storage for the limited slopes (PLM)
+/// @param qm_arr        left interface states
+/// @param qp_arr        right interface states
+/// @param flux_arr      output flux through the interfaces
+/// @param qe_arr        output Godunov state on the interfaces
+///
+    void mol_face_flux(const amrex::Box& bx, const int idir,
+                       amrex::Array4<amrex::Real const> const& q_arr,
+                       amrex::Array4<amrex::Real const> const& flatcoef_arr,
+                       amrex::Array4<amrex::Real const> const& src_q_arr,
+                       amrex::Array4<amrex::Real const> const& qaux_arr,
+                       amrex::Array4<amrex::Real const> const& shk_arr,
+                       amrex::Array4<amrex::Real const> const& div_arr,
+                       amrex::Array4<amrex::Real const> const& uin_arr,
+                       amrex::FArrayBox& dq,
+                       amrex::Array4<amrex::Real> const& qm_arr,
+                       amrex::Array4<amrex::Real> const& qp_arr,
+                       amrex::Array4<amrex::Real> const& flux_arr,
+                       amrex::Array4<amrex::Real> const& qe_arr);
 
 
 ///

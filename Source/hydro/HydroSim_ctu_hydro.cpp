@@ -13,6 +13,17 @@
 
 using namespace amrex;
 
+// Resize a tile-local work Fab, add it to the running total of
+// temporary Fab memory, and return a view of its data.
+
+static Array4<Real>
+resize_scratch (FArrayBox& fab, const Box& box, int ncomp, size_t& fab_size)
+{
+    fab.resize(box, ncomp);
+    fab_size += fab.nBytes();
+    return fab.array();
+}
+
 advance_status
 HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
@@ -38,18 +49,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       amrex::Print() << "... Entering construct_ctu_hydro_source() on level " << level << std::endl << std::endl;
   }
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
-
-#if AMREX_SPACEDIM <= 2
-  int coord = geom.Coord();
-#endif
-
-#if AMREX_SPACEDIM >= 2
-  const Real *dx = geom.CellSize();
-#endif
-
   MultiFab& S_new = get_new_data(State_Type);
 
 #ifdef REACTIONS
@@ -61,8 +60,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   // we will treat the hydro source as any other source term
 
 #ifdef RADIATION
-  MultiFab& Er_new = get_new_data(Rad_Type);
-
   if (!Radiation::rad_hydro_combined) {
     amrex::Abort("HydroSim::construct_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
   }
@@ -180,12 +177,13 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
     FArrayBox pradial(The_Async_Arena());
 #endif
 #if AMREX_SPACEDIM == 3
-    FArrayBox qmyx(The_Async_Arena()), qpyx(The_Async_Arena());
-    FArrayBox qmzx(The_Async_Arena()), qpzx(The_Async_Arena());
-    FArrayBox qmxy(The_Async_Arena()), qpxy(The_Async_Arena());
-    FArrayBox qmzy(The_Async_Arena()), qpzy(The_Async_Arena());
-    FArrayBox qmxz(The_Async_Arena()), qpxz(The_Async_Arena());
-    FArrayBox qmyz(The_Async_Arena()), qpyz(The_Async_Arena());
+    // interface states corrected by one transverse flux difference,
+    // one pair for each (normal, transverse) direction pair
+    Vector<FArrayBox> qm_trans, qp_trans;
+    for (int n = 0; n < 2 * AMREX_SPACEDIM; ++n) {
+        qm_trans.push_back(FArrayBox(The_Async_Arena()));
+        qp_trans.push_back(FArrayBox(The_Async_Arena()));
+    }
 #endif
 
     MultiFab& old_source = get_old_data(Source_Type);
@@ -204,24 +202,18 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       const Box& qbx3 = amrex::grow(bx, 3);
 
 #ifdef RADIATION
-      q.resize(qbx, NQ);
+      Array4<Real> const q_arr = resize_scratch(q, qbx, NQ, fab_size);
 #else
       // note: we won't store the passives in q, so we'll compute their
       // primitive versions on demand as needed
-      q.resize(qbx, NQTHERM);
+      Array4<Real> const q_arr = resize_scratch(q, qbx, NQTHERM, fab_size);
 #endif
-      fab_size += q.nBytes();
-      Array4<Real> const q_arr = q.array();
 
-      qaux.resize(qbx, NQAUX);
-      fab_size += qaux.nBytes();
-      Array4<Real> const qaux_arr = qaux.array();
+      Array4<Real> const qaux_arr = resize_scratch(qaux, qbx, NQAUX, fab_size);
 
       Array4<Real const> const U_old_arr = Sborder.array(mfi);
 
-      rho_inv.resize(qbx3, 1);
-      fab_size += rho_inv.nBytes();
-      Array4<Real> const rho_inv_arr = rho_inv.array();
+      Array4<Real> const rho_inv_arr = resize_scratch(rho_inv, qbx3, 1, fab_size);
 
       amrex::ParallelFor(qbx3,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -235,12 +227,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
               q_arr, qaux_arr);
 
-#if AMREX_SPACEDIM == 2
-      Array4<Real const> const areax_arr = area[0].array(mfi);
-      Array4<Real const> const areay_arr = area[1].array(mfi);
-      Array4<Real> const vol_arr = volume.array(mfi);
-#endif
-
 #if AMREX_SPACEDIM < 3
       Array4<Real const> const dLogAreaX_arr = (dLogArea[0]).array(mfi);
 #endif
@@ -248,33 +234,17 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       Array4<Real const> const dLogAreaY_arr = (dLogArea[1]).array(mfi);
 #endif
 
-      const Box& xbx = amrex::surroundingNodes(bx, 0);
-      const Box& gxbx = amrex::grow(xbx, 1);
-#if AMREX_SPACEDIM >= 2
-      const Box& ybx = amrex::surroundingNodes(bx, 1);
-      const Box& gybx = amrex::grow(ybx, 1);
-#endif
-#if AMREX_SPACEDIM == 3
-      const Box& zbx = amrex::surroundingNodes(bx, 2);
-      const Box& gzbx = amrex::grow(zbx, 1);
-#endif
-
-      shk.resize(obx, 1);
-      fab_size += shk.nBytes();
-
       // Multidimensional shock detection
 
       // this is a local shock variable used only for the Riemann
       // solver -- this will never be used to update the value in the
       // conserved state.
 
-      Array4<Real> const shk_arr = shk.array();
+      Array4<Real> const shk_arr = resize_scratch(shk, obx, 1, fab_size);
 
       // get the primitive variable hydro sources
 
-      src_q.resize(qbx3, NQSRC);
-      fab_size += src_q.nBytes();
-      Array4<Real> const src_q_arr = src_q.array();
+      Array4<Real> const src_q_arr = resize_scratch(src_q, qbx3, NQSRC, fab_size);
 
       Array4<Real> const old_src_arr = old_source.array(mfi);
       Array4<Real> const src_corr_arr = source_corrector.array(mfi);
@@ -298,37 +268,17 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // work on the interface states
 
-      qxm.resize(obx, NQ);
-      fab_size += qxm.nBytes();
-
-      qxp.resize(obx, NQ);
-      fab_size += qxp.nBytes();
-
-      Array4<Real> const qxm_arr = qxm.array();
-      Array4<Real> const qxp_arr = qxp.array();
+      Array4<Real> const qxm_arr = resize_scratch(qxm, obx, NQ, fab_size);
+      Array4<Real> const qxp_arr = resize_scratch(qxp, obx, NQ, fab_size);
 
 #if AMREX_SPACEDIM >= 2
-      qym.resize(obx, NQ);
-      fab_size += qym.nBytes();
-
-      qyp.resize(obx, NQ);
-      fab_size += qyp.nBytes();
-
-      Array4<Real> const qym_arr = qym.array();
-      Array4<Real> const qyp_arr = qyp.array();
-
+      Array4<Real> const qym_arr = resize_scratch(qym, obx, NQ, fab_size);
+      Array4<Real> const qyp_arr = resize_scratch(qyp, obx, NQ, fab_size);
 #endif
 
 #if AMREX_SPACEDIM == 3
-      qzm.resize(obx, NQ);
-      fab_size += qzm.nBytes();
-
-      qzp.resize(obx, NQ);
-      fab_size += qzp.nBytes();
-
-      Array4<Real> const qzm_arr = qzm.array();
-      Array4<Real> const qzp_arr = qzp.array();
-
+      Array4<Real> const qzm_arr = resize_scratch(qzm, obx, NQ, fab_size);
+      Array4<Real> const qzp_arr = resize_scratch(qzp, obx, NQ, fab_size);
 #endif
 
       if (ppm_type == 0) {
@@ -396,951 +346,90 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       }
 
-      div.resize(obx, 1);
-      fab_size += div.nBytes();
-      auto div_arr = div.array();
+      auto div_arr = resize_scratch(div, obx, 1, fab_size);
 
       // compute divu -- we'll use this later when doing the artificial viscosity
       divu(obx, q_arr, div_arr);
 
-      flux[0].resize(gxbx, NUM_STATE);
-      fab_size += flux[0].nBytes();
-      Array4<Real> const flux0_arr = (flux[0]).array();
+      // the face-centred fluxes and Godunov states, and the work space
+      // for the transverse corrections
 
-      qe[0].resize(gxbx, NIFC);
-      auto qex_arr = qe[0].array();
-      fab_size += qe[0].nBytes();
+      ctu_tile_arrays tile;
 
+      for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+          const Box& gnbx = amrex::grow(amrex::surroundingNodes(bx, idir), 1);
+
+          tile.flux[idir] = resize_scratch(flux[idir], gnbx, NUM_STATE, fab_size);
+          tile.qe[idir] = resize_scratch(qe[idir], gnbx, NIFC, fab_size);
 #ifdef RADIATION
-      rad_flux[0].resize(gxbx, Radiation::nGroups);
-      fab_size += rad_flux[0].nBytes();
-      auto rad_flux0_arr = (rad_flux[0]).array();
+          tile.rad_flux[idir] = resize_scratch(rad_flux[idir], gnbx, Radiation::nGroups, fab_size);
 #endif
-
-#if AMREX_SPACEDIM >= 2
-      flux[1].resize(gybx, NUM_STATE);
-      fab_size += flux[1].nBytes();
-      Array4<Real> const flux1_arr = (flux[1]).array();
-
-      qe[1].resize(gybx, NIFC);
-      auto qey_arr = qe[1].array();
-      fab_size += qe[1].nBytes();
-
-#ifdef RADIATION
-      rad_flux[1].resize(gybx, Radiation::nGroups);
-      fab_size += rad_flux[1].nBytes();
-      auto const rad_flux1_arr = (rad_flux[1]).array();
-#endif
-#endif
-
-#if AMREX_SPACEDIM == 3
-      flux[2].resize(gzbx, NUM_STATE);
-      fab_size += flux[2].nBytes();
-      Array4<Real> const flux2_arr = (flux[2]).array();
-
-      qe[2].resize(gzbx, NIFC);
-      auto qez_arr = qe[2].array();
-      fab_size += qe[2].nBytes();
-
-#ifdef RADIATION
-      rad_flux[2].resize(gzbx, Radiation::nGroups);
-      fab_size += rad_flux[2].nBytes();
-      auto const rad_flux2_arr = (rad_flux[2]).array();
-#endif
-#endif
+      }
 
 #if AMREX_SPACEDIM <= 2
       if (!Geom().IsCartesian()) {
-          pradial.resize(xbx, 1);
+          pradial.resize(amrex::surroundingNodes(bx, 0), 1);
       }
       fab_size += pradial.nBytes();
 #endif
 
-#ifdef REACTIONS
-      auto sdc_src_arr = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections ?
-                         SDC_react_source.array(mfi) : Array4<Real const>{};
-#endif
-
-#if AMREX_SPACEDIM == 1
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(xbx, 0, dt,
-                                   qxm_arr, qxp_arr, sdc_src_arr);
-      }
-#endif
-
-      // compute the fluxes through the x-interface
-
-      riemann_flux_and_state(xbx,
-                          qxm_arr, qxp_arr,
-                          flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr,
-                          qaux_arr,
-                          shk_arr,
-                          0, false);
-
-#endif // 1-d
-
-
-
 #if AMREX_SPACEDIM >= 2
-      ftmp1.resize(obx, NUM_STATE);
-      auto ftmp1_arr = ftmp1.array();
-      fab_size += ftmp1.nBytes();
-
-      ftmp2.resize(obx, NUM_STATE);
-      auto ftmp2_arr = ftmp2.array();
-      fab_size += ftmp2.nBytes();
+      tile.ftmp1 = resize_scratch(ftmp1, obx, NUM_STATE, fab_size);
+      tile.ftmp2 = resize_scratch(ftmp2, obx, NUM_STATE, fab_size);
 
 #ifdef RADIATION
-      rftmp1.resize(obx, Radiation::nGroups);
-      auto rftmp1_arr = rftmp1.array();
-      fab_size += rftmp1.nBytes();
-
-      rftmp2.resize(obx, Radiation::nGroups);
-      auto rftmp2_arr = rftmp2.array();
-      fab_size += rftmp2.nBytes();
+      tile.rftmp1 = resize_scratch(rftmp1, obx, Radiation::nGroups, fab_size);
+      tile.rftmp2 = resize_scratch(rftmp2, obx, Radiation::nGroups, fab_size);
 #endif
 
-      qfacetmp1.resize(obx, NIFC);
-      auto qfacetmp1_arr = qfacetmp1.array();
-      fab_size += qfacetmp1.nBytes();
+      tile.qfacetmp1 = resize_scratch(qfacetmp1, obx, NIFC, fab_size);
 
 #if AMREX_SPACEDIM == 3
-      qfacetmp2.resize(obx, NIFC);
-      auto qfacetmp2_arr = qfacetmp2.array();
-      fab_size += qfacetmp2.nBytes();
+      tile.qfacetmp2 = resize_scratch(qfacetmp2, obx, NIFC, fab_size);
 #endif
 
-      ql.resize(obx, NQ);
-      auto ql_arr = ql.array();
-      fab_size += ql.nBytes();
-
-      qr.resize(obx, NQ);
-      auto qr_arr = qr.array();
-      fab_size += qr.nBytes();
+      tile.ql = resize_scratch(ql, obx, NQ, fab_size);
+      tile.qr = resize_scratch(qr, obx, NQ, fab_size);
 #endif
 
-
-
-#if AMREX_SPACEDIM == 2
-
-      const amrex::Real hdt = 0.5*dt;
-      const amrex::Real hdtdx = 0.5*dt/dx[0];
-      const amrex::Real hdtdy = 0.5*dt/dx[1];
-
-      // compute F^x
-      // [lo(1), lo(2)-1, 0], [hi(1)+1, hi(2)+1, 0]
-      const Box& cxbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
-
-      // ftmp1 = fx
-      // rftmp1 = rfx
-      // qfacetmp1 = qgdnxv
-      riemann_flux_and_state(cxbx,
-                          qxm_arr, qxp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-      // compute F^y
-      // [lo(1)-1, lo(2), 0], [hi(1)+1, hi(2)+1, 0]
-      const Box& cybx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
-
-      // ftmp2 = fy
-      // rftmp2 = rfy
-      riemann_flux_and_state(cybx,
-                          qym_arr, qyp_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qey_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-
-      // add the transverse flux difference in y to the x states
-      // [lo(1), lo(2), 0], [hi(1)+1, hi(2), 0]
-
-      // ftmp2 = fy
-      // rftmp2 = rfy
-      transverse_correct_single(xbx, 1, 0,
-                   qxm_arr, ql_arr,
-                   qxp_arr, qr_arr,
-                   qaux_arr,
-                   ftmp2_arr,
-#ifdef RADIATION
-                   rftmp2_arr,
-#endif
-                   qey_arr,
-                   areay_arr,
-                   vol_arr,
-                   hdt, hdtdy);
-      reset_edge_state_thermo(xbx, ql_arr);
-
-      reset_edge_state_thermo(xbx, qr_arr);
-
-      // solve the final Riemann problem axross the x-interfaces
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(xbx, 0, dt,
-                                   ql_arr, qr_arr, sdc_src_arr);
-      }
-#endif
-
-      riemann_flux_and_state(xbx,
-                          ql_arr, qr_arr,
-                          flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-      // add the transverse flux difference in x to the y states
-      // [lo(1), lo(2), 0], [hi(1), hi(2)+1, 0]
-
-      // ftmp1 = fx
-      // rftmp1 = rfx
-      // qfacetmp1 = qfacex
-
-      transverse_correct_single(ybx, 0, 1,
-                   qym_arr, ql_arr,
-                   qyp_arr, qr_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   areax_arr,
-                   vol_arr,
-                   hdt, hdtdx);
-      reset_edge_state_thermo(ybx, ql_arr);
-
-      reset_edge_state_thermo(ybx, qr_arr);
-
-
-      // solve the final Riemann problem axross the y-interfaces
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(ybx, 1, dt,
-                                   ql_arr, qr_arr, sdc_src_arr);
-      }
-#endif
-
-      riemann_flux_and_state(ybx,
-                          ql_arr, qr_arr,
-                          flux1_arr,
-#ifdef RADIATION
-                          rad_flux1_arr,
-#endif
-                          qey_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-#endif // 2-d
-
-
-
-#if AMREX_SPACEDIM == 3
-
-      const amrex::Real hdt = 0.5*dt;
-
-      const amrex::Real hdtdx = 0.5*dt/dx[0];
-      const amrex::Real hdtdy = 0.5*dt/dx[1];
-      const amrex::Real hdtdz = 0.5*dt/dx[2];
-
-      const amrex::Real cdtdx = dt/dx[0]/3.0;
-      const amrex::Real cdtdy = dt/dx[1]/3.0;
-      const amrex::Real cdtdz = dt/dx[2]/3.0;
-
-      // compute F^x
-      // [lo(1), lo(2)-1, lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
-      const Box& cxbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,1)));
-
-      // ftmp1 = fx
-      // rftmp1 = rfx
-      // qfacetmp1 = qgdnxv
-      riemann_flux_and_state(cxbx,
-                          qxm_arr, qxp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-
-      // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& tyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
-
-      qmyx.resize(tyxbx, NQ);
-      auto qmyx_arr = qmyx.array();
-      fab_size += qmyx.nBytes();
-
-      qpyx.resize(tyxbx, NQ);
-      auto qpyx_arr = qpyx.array();
-      fab_size += qpyx.nBytes();
-
-      // ftmp1 = fx
-      // rftmp1 = rfx
-      // qfacetmp1 = qfacex
-      transverse_correct_single(tyxbx, 0, 1,
-                   qym_arr, qmyx_arr,
-                   qyp_arr, qpyx_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdx);
-      reset_edge_state_thermo(tyxbx, qmyx.array());
-
-      reset_edge_state_thermo(tyxbx, qpyx.array());
-
-      // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& tzxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
-
-      qmzx.resize(tzxbx, NQ);
-      auto qmzx_arr = qmzx.array();
-      fab_size += qmzx.nBytes();
-
-      qpzx.resize(tzxbx, NQ);
-      auto qpzx_arr = qpzx.array();
-      fab_size += qpzx.nBytes();
-
-      transverse_correct_single(tzxbx, 0, 2,
-                   qzm_arr, qmzx_arr,
-                   qzp_arr, qpzx_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdx);
-      reset_edge_state_thermo(tzxbx, qmzx.array());
-
-      reset_edge_state_thermo(tzxbx, qpzx.array());
-
-      // compute F^y
-      // [lo(1)-1, lo(2), lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
-      const Box& cybx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,1)));
-
-      // ftmp1 = fy
-      // rftmp1 = rfy
-      // qfacetmp1 = qfacey
-      riemann_flux_and_state(cybx,
-                          qym_arr, qyp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-      // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), lo(3)+1]
-      const Box& txybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
-
-      qmxy.resize(txybx, NQ);
-      auto qmxy_arr = qmxy.array();
-      fab_size += qmxy.nBytes();
-
-      qpxy.resize(txybx, NQ);
-      auto qpxy_arr = qpxy.array();
-      fab_size += qpxy.nBytes();
-
-      // ftmp1 = fy
-      // rftmp1 = rfy
-      // qfacetmp1 = qfacey
-      transverse_correct_single(txybx, 1, 0,
-                   qxm_arr, qmxy_arr,
-                   qxp_arr, qpxy_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdy);
-      reset_edge_state_thermo(txybx, qmxy.array());
-
-      reset_edge_state_thermo(txybx, qpxy.array());
-
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), lo(3)+1]
-      const Box& tzybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
-
-      qmzy.resize(tzybx, NQ);
-      auto qmzy_arr = qmzy.array();
-      fab_size += qmzy.nBytes();
-
-      qpzy.resize(tzybx, NQ);
-      auto qpzy_arr = qpzy.array();
-      fab_size += qpzy.nBytes();
-
-      // ftmp1 = fy
-      // rftmp1 = rfy
-      // qfacetmp1 = qfacey
-      transverse_correct_single(tzybx, 1, 2,
-                   qzm_arr, qmzy_arr,
-                   qzp_arr, qpzy_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdy);
-      reset_edge_state_thermo(tzybx, qmzy.array());
-
-      reset_edge_state_thermo(tzybx, qpzy.array());
-
-      // compute F^z
-      // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)+1]
-      const Box& czbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,1,0)));
-
-      // ftmp1 = fz
-      // rftmp1 = rfz
-      // qfacetmp1 = qfacez
-      riemann_flux_and_state(czbx,
-                          qzm_arr, qzp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          2, false);
-      // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
-      const Box& txzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
-
-      qmxz.resize(txzbx, NQ);
-      auto qmxz_arr = qmxz.array();
-      fab_size += qmxz.nBytes();
-
-      qpxz.resize(txzbx, NQ);
-      auto qpxz_arr = qpxz.array();
-      fab_size += qpxz.nBytes();
-
-      // ftmp1 = fz
-      // rftmp1 = rfz
-      // qfacetmp1 = qfacez
-      transverse_correct_single(txzbx, 2, 0,
-                   qxm_arr, qmxz_arr,
-                   qxp_arr, qpxz_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdz);
-      reset_edge_state_thermo(txzbx, qmxz.array());
-
-      reset_edge_state_thermo(txzbx, qpxz.array());
-
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
-      const Box& tyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
-
-      qmyz.resize(tyzbx, NQ);
-      auto qmyz_arr = qmyz.array();
-      fab_size += qmyz.nBytes();
-
-      qpyz.resize(tyzbx, NQ);
-      auto qpyz_arr = qpyz.array();
-      fab_size += qpyz.nBytes();
-
-      // ftmp1 = fz
-      // rftmp1 = rfz
-      // qfacetmp1 = qfacez
-      transverse_correct_single(tyzbx, 2, 1,
-                   qym_arr, qmyz_arr,
-                   qyp_arr, qpyz_arr,
-                   qaux_arr,
-                   ftmp1_arr,
-#ifdef RADIATION
-                   rftmp1_arr,
-#endif
-                   qfacetmp1_arr,
-                   hdt, cdtdz);
-      reset_edge_state_thermo(tyzbx, qmyz.array());
-
-      reset_edge_state_thermo(tyzbx, qpyz.array());
-
-      // we now have q?zx, q?yx, q?zy, q?xy, q?yz, q?xz
-
-      //
-      // Use qx?, q?yz, q?zy to compute final x-flux
-      //
-
-      // compute F^{y|z}
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
-      const Box& cyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
-
-      // ftmp1 = fyz
-      // rftmp1 = rfyz
-      // qfacetmp1 = qfaceyz
-      riemann_flux_and_state(cyzbx,
-                          qmyz_arr, qpyz_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-
-      // compute F^{z|y}
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)+1]
-      const Box& czybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
-
-      // ftmp2 = fzy
-      // rftmp2 = rfzy
-      // qfacetmp2 = qfacezy
-      riemann_flux_and_state(czybx,
-                          qmzy_arr, qpzy_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
-                          qaux_arr, shk_arr,
-                          2, false);
-
-      // compute the corrected x interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)]
-
-      transverse_correct_final(xbx, 0, 1, 2,
-                  qxm_arr, ql_arr,
-                  qxp_arr, qr_arr,
-                  qaux_arr,
-                  ftmp1_arr,
-#ifdef RADIATION
-                  rftmp1_arr,
-#endif
-                  ftmp2_arr,
-#ifdef RADIATION
-                  rftmp2_arr,
-#endif
-                  qfacetmp1_arr,
-                  qfacetmp2_arr,
-                  hdtdy, hdtdz);
-
-      reset_edge_state_thermo(xbx, ql_arr);
-
-      reset_edge_state_thermo(xbx, qr_arr);
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(xbx, 0, dt,
-                                   ql_arr, qr_arr, sdc_src_arr);
-      }
-#endif
-
-
-      riemann_flux_and_state(xbx,
-                          ql_arr, qr_arr,
-                          flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-      //
-      // Use qy?, q?zx, q?xz to compute final y-flux
-      //
-
-      // compute F^{z|x}
-      // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& czxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
-
-      // ftmp1 = fzx
-      // rftmp1 = rfzx
-      // qfacetmp1 = qfacezx
-      riemann_flux_and_state(czxbx,
-                          qmzx_arr, qpzx_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          2, false);
-
-      // compute F^{x|z}
-      // [lo(1), lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
-      const Box& cxzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
-
-      // ftmp2 = fxz
-      // rftmp2 = rfxz
-      // qfacetmp2 = qfacexz
-      riemann_flux_and_state(cxzbx,
-                          qmxz_arr, qpxz_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-      // Compute the corrected y interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
-
-      transverse_correct_final(ybx, 1, 0, 2,
-                  qym_arr, ql_arr,
-                  qyp_arr, qr_arr,
-                  qaux_arr,
-                  ftmp2_arr,
-#ifdef RADIATION
-                  rftmp2_arr,
-#endif
-                  ftmp1_arr,
-#ifdef RADIATION
-                  rftmp1_arr,
-#endif
-                  qfacetmp2_arr,
-                  qfacetmp1_arr,
-                  hdtdx, hdtdz);
-
-      reset_edge_state_thermo(ybx, ql_arr);
-
-      reset_edge_state_thermo(ybx, qr_arr);
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(ybx, 1, dt,
-                                   ql_arr, qr_arr, sdc_src_arr);
-      }
-#endif
-
-
-      // Compute the final F^y
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
-      riemann_flux_and_state(ybx,
-                          ql_arr, qr_arr,
-                          flux1_arr,
-#ifdef RADIATION
-                          rad_flux1_arr,
-#endif
-                          qey_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-
-      //
-      // Use qz?, q?xy, q?yx to compute final z-flux
-      //
-
-      // compute F^{x|y}
-      // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), hi(3)+1]
-      const Box& cxybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
-
-      // ftmp1 = fxy
-      // rftmp1 = rfxy
-      // qfacetmp1 = qfacexy
-      riemann_flux_and_state(cxybx,
-                          qmxy_arr, qpxy_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
-                          qaux_arr, shk_arr,
-                          0, false);
-
-      // compute F^{y|x}
-      // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+dg(2), hi(3)+1]
-      const Box& cyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
-
-      // ftmp2 = fyx
-      // rftmp2 = rfyx
-      // qfacetmp2 = qfaceyx
-      riemann_flux_and_state(cyxbx,
-                          qmyx_arr, qpyx_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
-                          qaux_arr, shk_arr,
-                          1, false);
-
-      // compute the corrected z interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
-
-      transverse_correct_final(zbx, 2, 0, 1,
-                  qzm_arr, ql_arr,
-                  qzp_arr, qr_arr,
-                  qaux_arr,
-                  ftmp1_arr,
-#ifdef RADIATION
-                  rftmp1_arr,
-#endif
-                  ftmp2_arr,
-#ifdef RADIATION
-                  rftmp2_arr,
-#endif
-                  qfacetmp1_arr,
-                  qfacetmp2_arr,
-                  hdtdx, hdtdy);
-
-      reset_edge_state_thermo(zbx, ql_arr);
-
-      reset_edge_state_thermo(zbx, qr_arr);
-
-#ifdef REACTIONS
-      if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-          add_sdc_source_to_states(zbx, 2, dt,
-                                   ql_arr, qr_arr, sdc_src_arr);
-      }
-#endif
-
-      // compute the final z fluxes F^z
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
-
-      riemann_flux_and_state(zbx,
-                          ql_arr, qr_arr,
-                          flux2_arr,
-#ifdef RADIATION
-                          rad_flux2_arr,
-#endif
-                          qez_arr,
-                          qaux_arr, shk_arr,
-                          2, false);
-
-#endif // 3-d
-
-
-
-      // clean the fluxes
-
-      for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-          const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-          Array4<Real> const flux_arr = (flux[idir]).array();
-
-          // Zero out shock and temp fluxes -- these are physically meaningless here
-          amrex::ParallelFor(nbx,
-          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-          {
-              flux_arr(i,j,k,UTEMP) = 0.e0;
-#ifdef SHOCK_VAR
-              flux_arr(i,j,k,USHOCK) = 0.e0;
-#endif
-#ifdef NSE_NET
-              flux_arr(i,j,k,UMU_P) = 0.e0;
-              flux_arr(i,j,k,UMU_N) = 0.e0;
-#endif
-          });
-
-          apply_av(nbx, idir, div_arr, U_old_arr, flux_arr);
-
-#ifdef RADIATION
-          Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
-          Array4<Real const> const Erin_arr = Erborder.array(mfi);
-
-          apply_av_rad(nbx, idir, div_arr, Erin_arr, rad_flux_arr);
-#endif
-
-          if (limit_fluxes_on_small_dens == 1) {
-              limit_hydro_fluxes_on_small_dens
-                  (nbx, idir,
-                   Sborder.array(mfi),
-                   volume.array(mfi),
-                   flux[idir].array(),
-                   area[idir].array(mfi),
-                   dt);
-          }
-
-          normalize_species_fluxes(nbx, flux_arr);
-
-      }
-
-
-
-      // conservative update
-      Array4<Real> const update_arr = S_new.array(mfi);
-
-      Array4<Real> const flx_arr = (flux[0]).array();
-      Array4<Real> const qx_arr = (qe[0]).array();
-
+      tile.qaux = qaux_arr;
+      tile.shk = shk_arr;
+
+      tile.qm[0] = qxm_arr;
+      tile.qp[0] = qxp_arr;
 #if AMREX_SPACEDIM >= 2
-      Array4<Real> const fly_arr = (flux[1]).array();
-      Array4<Real> const qy_arr = (qe[1]).array();
-#endif
-
-#if AMREX_SPACEDIM == 3
-      Array4<Real> const flz_arr = (flux[2]).array();
-      Array4<Real> const qz_arr = (qe[2]).array();
-#endif
-
-      cons_update_hydro(bx,
-                   update_arr,
-                   flx_arr, qx_arr,
-#if AMREX_SPACEDIM >= 2
-                   fly_arr, qy_arr,
+      tile.qm[1] = qym_arr;
+      tile.qp[1] = qyp_arr;
 #endif
 #if AMREX_SPACEDIM == 3
-                   flz_arr, qz_arr,
+      tile.qm[2] = qzm_arr;
+      tile.qp[2] = qzp_arr;
 #endif
-                   dt);
 
-
-#ifdef HYBRID_MOMENTUM
-      auto dx_arr = geom.CellSizeArray();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-          GpuArray<Real, 3> loc;
-
-          position(i, j, k, geomdata, loc);
-
-          for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-              loc[dir] -= problem::center[dir];
-
-          Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                              std::numeric_limits<Real>::min());
-          Real RInv = 1.0_rt / R;
-
-          update_arr(i,j,k,UMR) -= dt * (loc[0] * RInv) * (qx_arr(i+1,j,k,IFCPRES) - qx_arr(i,j,k,IFCPRES)) / dx_arr[0];
-#if AMREX_SPACEDIM >= 2
-          update_arr(i,j,k,UMR) -= dt * (loc[1] * RInv) * (qy_arr(i,j+1,k,IFCPRES) - qy_arr(i,j,k,IFCPRES)) / dx_arr[1];
+#ifdef REACTIONS
+      tile.sdc_src = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections ?
+                     SDC_react_source.array(mfi) : Array4<Real const>{};
 #endif
-      });
+
+#if AMREX_SPACEDIM < 3
+      ctu_interface_fluxes(mfi, dt, tile);
+#else
+      ctu_interface_fluxes(mfi, dt, tile, qm_trans, qp_trans, fab_size);
 #endif
+
+      apply_ctu_fluxes(mfi, dt, U_old_arr, div_arr,
+                       flux, qe,
+#ifdef RADIATION
+                       rad_flux, priv_nstep_fsp,
+#endif
+#if AMREX_SPACEDIM <= 2
+                       pradial,
+#endif
+                       S_new);
 
 #ifdef RADIATION
-      ctu_rad_cons_update(bx,
-                     update_arr,
-                     Erborder.array(mfi),
-                     Er_new.array(mfi),
-                     (rad_flux[0]).array(),
-                     (qe[0]).array(),
-                     (area[0]).array(mfi),
-#if AMREX_SPACEDIM >= 2
-                     (rad_flux[1]).array(),
-                     (qe[1]).array(),
-                     (area[1]).array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                     (rad_flux[2]).array(),
-                     (qe[2]).array(),
-                     (area[2]).array(mfi),
-#endif
-                     priv_nstep_fsp,
-                     volume.array(mfi),
-                     dt);
-
       nstep_fsp = std::max(nstep_fsp, priv_nstep_fsp);
 #endif
-
-
-      for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-
-        const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-        Array4<Real> const flux_arr = (flux[idir]).array();
-        Array4<Real const> const area_arr = (area[idir]).array(mfi);
-
-        scale_flux(nbx, flux_arr, area_arr, dt);
-
-#ifdef RADIATION
-        Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
-        scale_rad_flux(nbx, rad_flux_arr, area_arr, dt);
-#endif
-
-#if AMREX_SPACEDIM <= 2
-        // get the scaled radial pressure -- we need to treat this specially
-
-        if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
-            Array4<Real> pradial_fab = pradial.array();
-
-            amrex::ParallelFor(nbx,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-            {
-                pradial_fab(i,j,k) = qex_arr(i,j,k,IFCPRES) * dt;
-            });
-        }
-#endif
-        // Store the fluxes from this advance. For simplified SDC integration we
-        // only need to do this on the last iteration.
-
-        bool add_fluxes = true;
-
-        if (time_integration_method == SimplifiedSpectralDeferredCorrections &&
-            sdc_iteration != sdc_iters - 1) {
-            add_fluxes = false;
-        }
-
-        if (add_fluxes) {
-
-            Array4<Real> const flux_fab = (flux[idir]).array();
-            Array4<Real> fluxes_fab = (*fluxes[idir]).array(mfi);
-
-            amrex::ParallelFor(mfi.nodaltilebox(idir), NUM_STATE,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-            {
-                fluxes_fab(i,j,k,n) += flux_fab(i,j,k,n);
-            });
-
-#ifdef RADIATION
-            Array4<Real> const rad_flux_fab = (rad_flux[idir]).array();
-            Array4<Real> rad_fluxes_fab = (*rad_fluxes[idir]).array(mfi);
-
-            amrex::ParallelFor(mfi.nodaltilebox(idir), Radiation::nGroups,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-            {
-                rad_fluxes_fab(i,j,k,n) += rad_flux_fab(i,j,k,n);
-            });
-#endif
-
-#if AMREX_SPACEDIM <= 2
-            if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
-                Array4<Real> pradial_fab = pradial.array();
-                Array4<Real> P_radial_fab = P_radial.array(mfi);
-
-                amrex::ParallelFor(mfi.nodaltilebox(0),
-                [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                {
-                    P_radial_fab(i,j,k,0) += pradial_fab(i,j,k,0);
-                });
-            }
-
-#endif
-
-        } // add_fluxes
-
-        Array4<Real> const flux_fab = (flux[idir]).array();
-        Array4<Real> mass_fluxes_fab = (*mass_fluxes[idir]).array(mfi);
-
-        amrex::ParallelFor(mfi.nodaltilebox(idir),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-            // This is a copy, not an add, since we need mass_fluxes to be
-            // only this subcycle's data when we evaluate the gravitational
-            // forces.
-
-            mass_fluxes_fab(i,j,k,0) = flux_fab(i,j,k,URHO);
-        });
-
-      } // idir loop
 
 #ifdef AMREX_USE_GPU
       if (hydrosim::hydro_memory_footprint_ratio > 0.0) {
@@ -1480,3 +569,834 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
   return status;
 }
+
+
+
+void
+HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
+                           Array4<Real const> const& U_old_arr,
+                           Array4<Real const> const& div_arr,
+                           Vector<FArrayBox>& flux, Vector<FArrayBox>& qe,
+#ifdef RADIATION
+                           Vector<FArrayBox>& rad_flux, int& priv_nstep_fsp,
+#endif
+#if AMREX_SPACEDIM <= 2
+                           FArrayBox& pradial,
+#endif
+                           MultiFab& S_new)
+{
+    const Box& bx = mfi.tilebox();
+
+#ifdef HYBRID_MOMENTUM
+    GeometryData geomdata = geom.data();
+#endif
+
+#if AMREX_SPACEDIM <= 2
+    int coord = geom.Coord();
+#endif
+
+#ifdef RADIATION
+    MultiFab& Er_new = get_new_data(Rad_Type);
+    Array4<Real const> const Erin_arr = Erborder.array(mfi);
+#endif
+
+    // Store the fluxes from this advance. For simplified SDC integration we
+    // only need to do this on the last iteration.
+
+    const bool add_fluxes = time_integration_method != SimplifiedSpectralDeferredCorrections ||
+                            sdc_iteration == sdc_iters - 1;
+
+    // clean the fluxes
+
+    for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+
+        const Box& nbx = amrex::surroundingNodes(bx, idir);
+
+        Array4<Real> const flux_arr = (flux[idir]).array();
+
+        // Zero out shock and temp fluxes -- these are physically meaningless here
+        amrex::ParallelFor(nbx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            flux_arr(i,j,k,UTEMP) = 0.e0;
+#ifdef SHOCK_VAR
+            flux_arr(i,j,k,USHOCK) = 0.e0;
+#endif
+#ifdef NSE_NET
+            flux_arr(i,j,k,UMU_P) = 0.e0;
+            flux_arr(i,j,k,UMU_N) = 0.e0;
+#endif
+        });
+
+        apply_av(nbx, idir, div_arr, U_old_arr, flux_arr);
+
+#ifdef RADIATION
+        Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
+
+        apply_av_rad(nbx, idir, div_arr, Erin_arr, rad_flux_arr);
+#endif
+
+        if (limit_fluxes_on_small_dens == 1) {
+            limit_hydro_fluxes_on_small_dens
+                (nbx, idir,
+                 Sborder.array(mfi),
+                 volume.array(mfi),
+                 flux[idir].array(),
+                 area[idir].array(mfi),
+                 dt);
+        }
+
+        normalize_species_fluxes(nbx, flux_arr);
+
+    }
+
+    // conservative update
+    Array4<Real> const update_arr = S_new.array(mfi);
+
+    Array4<Real> const flx_arr = (flux[0]).array();
+    Array4<Real> const qx_arr = (qe[0]).array();
+
+#if AMREX_SPACEDIM >= 2
+    Array4<Real> const fly_arr = (flux[1]).array();
+    Array4<Real> const qy_arr = (qe[1]).array();
+#endif
+
+#if AMREX_SPACEDIM == 3
+    Array4<Real> const flz_arr = (flux[2]).array();
+    Array4<Real> const qz_arr = (qe[2]).array();
+#endif
+
+    cons_update_hydro(bx,
+                 update_arr,
+                 flx_arr, qx_arr,
+#if AMREX_SPACEDIM >= 2
+                 fly_arr, qy_arr,
+#endif
+#if AMREX_SPACEDIM == 3
+                 flz_arr, qz_arr,
+#endif
+                 dt);
+
+#ifdef HYBRID_MOMENTUM
+    auto dx_arr = geom.CellSizeArray();
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+
+        GpuArray<Real, 3> loc;
+
+        position(i, j, k, geomdata, loc);
+
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
+            loc[dir] -= problem::center[dir];
+
+        Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
+                            std::numeric_limits<Real>::min());
+        Real RInv = 1.0_rt / R;
+
+        update_arr(i,j,k,UMR) -= dt * (loc[0] * RInv) * (qx_arr(i+1,j,k,IFCPRES) - qx_arr(i,j,k,IFCPRES)) / dx_arr[0];
+#if AMREX_SPACEDIM >= 2
+        update_arr(i,j,k,UMR) -= dt * (loc[1] * RInv) * (qy_arr(i,j+1,k,IFCPRES) - qy_arr(i,j,k,IFCPRES)) / dx_arr[1];
+#endif
+    });
+#endif
+
+#ifdef RADIATION
+    ctu_rad_cons_update(bx,
+                   update_arr,
+                   Erborder.array(mfi),
+                   Er_new.array(mfi),
+                   (rad_flux[0]).array(),
+                   (qe[0]).array(),
+                   (area[0]).array(mfi),
+#if AMREX_SPACEDIM >= 2
+                   (rad_flux[1]).array(),
+                   (qe[1]).array(),
+                   (area[1]).array(mfi),
+#endif
+#if AMREX_SPACEDIM == 3
+                   (rad_flux[2]).array(),
+                   (qe[2]).array(),
+                   (area[2]).array(mfi),
+#endif
+                   priv_nstep_fsp,
+                   volume.array(mfi),
+                   dt);
+#endif
+
+    for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+
+      const Box& nbx = amrex::surroundingNodes(bx, idir);
+
+      Array4<Real> const flux_arr = (flux[idir]).array();
+      Array4<Real const> const area_arr = (area[idir]).array(mfi);
+
+      scale_flux(nbx, flux_arr, area_arr, dt);
+
+#ifdef RADIATION
+      Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
+      scale_rad_flux(nbx, rad_flux_arr, area_arr, dt);
+#endif
+
+#if AMREX_SPACEDIM <= 2
+      // get the scaled radial pressure -- we need to treat this specially
+
+      if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
+          Array4<Real> pradial_fab = pradial.array();
+          Array4<Real const> const qex_arr = (qe[0]).array();
+
+          amrex::ParallelFor(nbx,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+          {
+              pradial_fab(i,j,k) = qex_arr(i,j,k,IFCPRES) * dt;
+          });
+      }
+#endif
+
+      if (add_fluxes) {
+
+          Array4<Real> const flux_fab = (flux[idir]).array();
+          Array4<Real> fluxes_fab = (*fluxes[idir]).array(mfi);
+
+          amrex::ParallelFor(mfi.nodaltilebox(idir), NUM_STATE,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+          {
+              fluxes_fab(i,j,k,n) += flux_fab(i,j,k,n);
+          });
+
+#ifdef RADIATION
+          Array4<Real> const rad_flux_fab = (rad_flux[idir]).array();
+          Array4<Real> rad_fluxes_fab = (*rad_fluxes[idir]).array(mfi);
+
+          amrex::ParallelFor(mfi.nodaltilebox(idir), Radiation::nGroups,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+          {
+              rad_fluxes_fab(i,j,k,n) += rad_flux_fab(i,j,k,n);
+          });
+#endif
+
+#if AMREX_SPACEDIM <= 2
+          if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
+              Array4<Real> pradial_fab = pradial.array();
+              Array4<Real> P_radial_fab = P_radial.array(mfi);
+
+              amrex::ParallelFor(mfi.nodaltilebox(0),
+              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+              {
+                  P_radial_fab(i,j,k,0) += pradial_fab(i,j,k,0);
+              });
+          }
+
+#endif
+
+      } // add_fluxes
+
+      Array4<Real> const flux_fab = (flux[idir]).array();
+      Array4<Real> mass_fluxes_fab = (*mass_fluxes[idir]).array(mfi);
+
+      amrex::ParallelFor(mfi.nodaltilebox(idir),
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+          // This is a copy, not an add, since we need mass_fluxes to be
+          // only this subcycle's data when we evaluate the gravitational
+          // forces.
+
+          mass_fluxes_fab(i,j,k,0) = flux_fab(i,j,k,URHO);
+      });
+
+    }
+}
+
+
+
+#if AMREX_SPACEDIM == 1
+void
+HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const& tile)
+{
+    const Box& xbx = amrex::surroundingNodes(mfi.tilebox(), 0);
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(xbx, 0, dt,
+                                 tile.qm[0], tile.qp[0], tile.sdc_src);
+    }
+#endif
+
+    // compute the fluxes through the x-interface
+
+    riemann_flux_and_state(xbx,
+                        tile.qm[0], tile.qp[0],
+                        tile.flux[0],
+#ifdef RADIATION
+                        tile.rad_flux[0],
+#endif
+                        tile.qe[0],
+                        tile.qaux,
+                        tile.shk,
+                        0, false);
+}
+#endif
+
+
+#if AMREX_SPACEDIM == 2
+void
+HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const& tile)
+{
+    const Box& bx = mfi.tilebox();
+    const Box& xbx = amrex::surroundingNodes(bx, 0);
+    const Box& ybx = amrex::surroundingNodes(bx, 1);
+
+    const Real *dx = geom.CellSize();
+
+    Array4<Real const> const areax_arr = area[0].array(mfi);
+    Array4<Real const> const areay_arr = area[1].array(mfi);
+    Array4<Real> const vol_arr = volume.array(mfi);
+
+    const amrex::Real hdt = 0.5*dt;
+    const amrex::Real hdtdx = 0.5*dt/dx[0];
+    const amrex::Real hdtdy = 0.5*dt/dx[1];
+
+    // compute F^x
+    const Box& cxbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
+
+    // ftmp1 = fx
+    // rftmp1 = rfx
+    // qfacetmp1 = qgdnxv
+    riemann_flux_and_state(cxbx,
+                        tile.qm[0], tile.qp[0],
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    // compute F^y
+    const Box& cybx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
+
+    // ftmp2 = fy
+    // rftmp2 = rfy
+    riemann_flux_and_state(cybx,
+                        tile.qm[1], tile.qp[1],
+                        tile.ftmp2,
+#ifdef RADIATION
+                        tile.rftmp2,
+#endif
+                        tile.qe[1],
+                        tile.qaux, tile.shk,
+                        1, false);
+
+    // add the transverse flux difference in y to the x states
+
+    // ftmp2 = fy
+    // rftmp2 = rfy
+    transverse_correct_single(xbx, 1, 0,
+                 tile.qm[0], tile.ql,
+                 tile.qp[0], tile.qr,
+                 tile.qaux,
+                 tile.ftmp2,
+#ifdef RADIATION
+                 tile.rftmp2,
+#endif
+                 tile.qe[1],
+                 areay_arr,
+                 vol_arr,
+                 hdt, hdtdy);
+    reset_edge_state_thermo(xbx, tile.ql);
+
+    reset_edge_state_thermo(xbx, tile.qr);
+
+    // solve the final Riemann problem axross the x-interfaces
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(xbx, 0, dt,
+                                 tile.ql, tile.qr, tile.sdc_src);
+    }
+#endif
+
+    riemann_flux_and_state(xbx,
+                        tile.ql, tile.qr,
+                        tile.flux[0],
+#ifdef RADIATION
+                        tile.rad_flux[0],
+#endif
+                        tile.qe[0],
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    // add the transverse flux difference in x to the y states
+
+    // ftmp1 = fx
+    // rftmp1 = rfx
+    // qfacetmp1 = qfacex
+
+    transverse_correct_single(ybx, 0, 1,
+                 tile.qm[1], tile.ql,
+                 tile.qp[1], tile.qr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 areax_arr,
+                 vol_arr,
+                 hdt, hdtdx);
+    reset_edge_state_thermo(ybx, tile.ql);
+
+    reset_edge_state_thermo(ybx, tile.qr);
+
+    // solve the final Riemann problem axross the y-interfaces
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(ybx, 1, dt,
+                                 tile.ql, tile.qr, tile.sdc_src);
+    }
+#endif
+
+    riemann_flux_and_state(ybx,
+                        tile.ql, tile.qr,
+                        tile.flux[1],
+#ifdef RADIATION
+                        tile.rad_flux[1],
+#endif
+                        tile.qe[1],
+                        tile.qaux, tile.shk,
+                        1, false);
+}
+#endif
+
+
+#if AMREX_SPACEDIM == 3
+void
+HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const& tile,
+                               Vector<FArrayBox>& qm_trans, Vector<FArrayBox>& qp_trans,
+                               size_t& fab_size)
+{
+    const Box& bx = mfi.tilebox();
+    const Box& xbx = amrex::surroundingNodes(bx, 0);
+    const Box& ybx = amrex::surroundingNodes(bx, 1);
+    const Box& zbx = amrex::surroundingNodes(bx, 2);
+
+    const Real *dx = geom.CellSize();
+
+    const amrex::Real hdt = 0.5*dt;
+
+    const amrex::Real hdtdx = 0.5*dt/dx[0];
+    const amrex::Real hdtdy = 0.5*dt/dx[1];
+    const amrex::Real hdtdz = 0.5*dt/dx[2];
+
+    const amrex::Real cdtdx = dt/dx[0]/3.0;
+    const amrex::Real cdtdy = dt/dx[1]/3.0;
+    const amrex::Real cdtdz = dt/dx[2]/3.0;
+
+    // compute F^x
+    const Box& cxbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,1)));
+
+    // ftmp1 = fx
+    // rftmp1 = rfx
+    // qfacetmp1 = qgdnxv
+    riemann_flux_and_state(cxbx,
+                        tile.qm[0], tile.qp[0],
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    const Box& tyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
+
+    auto qmyx_arr = resize_scratch(qm_trans[0], tyxbx, NQ, fab_size);
+    auto qpyx_arr = resize_scratch(qp_trans[0], tyxbx, NQ, fab_size);
+
+    // ftmp1 = fx
+    // rftmp1 = rfx
+    // qfacetmp1 = qfacex
+    transverse_correct_single(tyxbx, 0, 1,
+                 tile.qm[1], qmyx_arr,
+                 tile.qp[1], qpyx_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdx);
+    reset_edge_state_thermo(tyxbx, qmyx_arr);
+
+    reset_edge_state_thermo(tyxbx, qpyx_arr);
+
+    const Box& tzxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
+
+    auto qmzx_arr = resize_scratch(qm_trans[1], tzxbx, NQ, fab_size);
+    auto qpzx_arr = resize_scratch(qp_trans[1], tzxbx, NQ, fab_size);
+
+    transverse_correct_single(tzxbx, 0, 2,
+                 tile.qm[2], qmzx_arr,
+                 tile.qp[2], qpzx_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdx);
+    reset_edge_state_thermo(tzxbx, qmzx_arr);
+
+    reset_edge_state_thermo(tzxbx, qpzx_arr);
+
+    // compute F^y
+    const Box& cybx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,1)));
+
+    // ftmp1 = fy
+    // rftmp1 = rfy
+    // qfacetmp1 = qfacey
+    riemann_flux_and_state(cybx,
+                        tile.qm[1], tile.qp[1],
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        1, false);
+    const Box& txybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
+
+    auto qmxy_arr = resize_scratch(qm_trans[2], txybx, NQ, fab_size);
+    auto qpxy_arr = resize_scratch(qp_trans[2], txybx, NQ, fab_size);
+
+    // ftmp1 = fy
+    // rftmp1 = rfy
+    // qfacetmp1 = qfacey
+    transverse_correct_single(txybx, 1, 0,
+                 tile.qm[0], qmxy_arr,
+                 tile.qp[0], qpxy_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdy);
+    reset_edge_state_thermo(txybx, qmxy_arr);
+
+    reset_edge_state_thermo(txybx, qpxy_arr);
+
+    const Box& tzybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
+
+    auto qmzy_arr = resize_scratch(qm_trans[3], tzybx, NQ, fab_size);
+    auto qpzy_arr = resize_scratch(qp_trans[3], tzybx, NQ, fab_size);
+
+    // ftmp1 = fy
+    // rftmp1 = rfy
+    // qfacetmp1 = qfacey
+    transverse_correct_single(tzybx, 1, 2,
+                 tile.qm[2], qmzy_arr,
+                 tile.qp[2], qpzy_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdy);
+    reset_edge_state_thermo(tzybx, qmzy_arr);
+
+    reset_edge_state_thermo(tzybx, qpzy_arr);
+
+    // compute F^z
+    const Box& czbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,1,0)));
+
+    // ftmp1 = fz
+    // rftmp1 = rfz
+    // qfacetmp1 = qfacez
+    riemann_flux_and_state(czbx,
+                        tile.qm[2], tile.qp[2],
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        2, false);
+    const Box& txzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
+
+    auto qmxz_arr = resize_scratch(qm_trans[4], txzbx, NQ, fab_size);
+    auto qpxz_arr = resize_scratch(qp_trans[4], txzbx, NQ, fab_size);
+
+    // ftmp1 = fz
+    // rftmp1 = rfz
+    // qfacetmp1 = qfacez
+    transverse_correct_single(txzbx, 2, 0,
+                 tile.qm[0], qmxz_arr,
+                 tile.qp[0], qpxz_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdz);
+    reset_edge_state_thermo(txzbx, qmxz_arr);
+
+    reset_edge_state_thermo(txzbx, qpxz_arr);
+
+    const Box& tyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
+
+    auto qmyz_arr = resize_scratch(qm_trans[5], tyzbx, NQ, fab_size);
+    auto qpyz_arr = resize_scratch(qp_trans[5], tyzbx, NQ, fab_size);
+
+    // ftmp1 = fz
+    // rftmp1 = rfz
+    // qfacetmp1 = qfacez
+    transverse_correct_single(tyzbx, 2, 1,
+                 tile.qm[1], qmyz_arr,
+                 tile.qp[1], qpyz_arr,
+                 tile.qaux,
+                 tile.ftmp1,
+#ifdef RADIATION
+                 tile.rftmp1,
+#endif
+                 tile.qfacetmp1,
+                 hdt, cdtdz);
+    reset_edge_state_thermo(tyzbx, qmyz_arr);
+
+    reset_edge_state_thermo(tyzbx, qpyz_arr);
+
+    // we now have q?zx, q?yx, q?zy, q?xy, q?yz, q?xz
+
+    //
+    // Use qx?, q?yz, q?zy to compute final x-flux
+    //
+
+    // compute F^{y|z}
+    const Box& cyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
+
+    // ftmp1 = fyz
+    // rftmp1 = rfyz
+    // qfacetmp1 = qfaceyz
+    riemann_flux_and_state(cyzbx,
+                        qmyz_arr, qpyz_arr,
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        1, false);
+
+    // compute F^{z|y}
+    const Box& czybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
+
+    // ftmp2 = fzy
+    // rftmp2 = rfzy
+    // qfacetmp2 = qfacezy
+    riemann_flux_and_state(czybx,
+                        qmzy_arr, qpzy_arr,
+                        tile.ftmp2,
+#ifdef RADIATION
+                        tile.rftmp2,
+#endif
+                        tile.qfacetmp2,
+                        tile.qaux, tile.shk,
+                        2, false);
+
+    // compute the corrected x interface states and fluxes
+
+    transverse_correct_final(xbx, 0, 1, 2,
+                tile.qm[0], tile.ql,
+                tile.qp[0], tile.qr,
+                tile.qaux,
+                tile.ftmp1,
+#ifdef RADIATION
+                tile.rftmp1,
+#endif
+                tile.ftmp2,
+#ifdef RADIATION
+                tile.rftmp2,
+#endif
+                tile.qfacetmp1,
+                tile.qfacetmp2,
+                hdtdy, hdtdz);
+
+    reset_edge_state_thermo(xbx, tile.ql);
+
+    reset_edge_state_thermo(xbx, tile.qr);
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(xbx, 0, dt,
+                                 tile.ql, tile.qr, tile.sdc_src);
+    }
+#endif
+
+    riemann_flux_and_state(xbx,
+                        tile.ql, tile.qr,
+                        tile.flux[0],
+#ifdef RADIATION
+                        tile.rad_flux[0],
+#endif
+                        tile.qe[0],
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    //
+    // Use qy?, q?zx, q?xz to compute final y-flux
+    //
+
+    // compute F^{z|x}
+    const Box& czxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
+
+    // ftmp1 = fzx
+    // rftmp1 = rfzx
+    // qfacetmp1 = qfacezx
+    riemann_flux_and_state(czxbx,
+                        qmzx_arr, qpzx_arr,
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        2, false);
+
+    // compute F^{x|z}
+    const Box& cxzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
+
+    // ftmp2 = fxz
+    // rftmp2 = rfxz
+    // qfacetmp2 = qfacexz
+    riemann_flux_and_state(cxzbx,
+                        qmxz_arr, qpxz_arr,
+                        tile.ftmp2,
+#ifdef RADIATION
+                        tile.rftmp2,
+#endif
+                        tile.qfacetmp2,
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    // Compute the corrected y interface states and fluxes
+
+    transverse_correct_final(ybx, 1, 0, 2,
+                tile.qm[1], tile.ql,
+                tile.qp[1], tile.qr,
+                tile.qaux,
+                tile.ftmp2,
+#ifdef RADIATION
+                tile.rftmp2,
+#endif
+                tile.ftmp1,
+#ifdef RADIATION
+                tile.rftmp1,
+#endif
+                tile.qfacetmp2,
+                tile.qfacetmp1,
+                hdtdx, hdtdz);
+
+    reset_edge_state_thermo(ybx, tile.ql);
+
+    reset_edge_state_thermo(ybx, tile.qr);
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(ybx, 1, dt,
+                                 tile.ql, tile.qr, tile.sdc_src);
+    }
+#endif
+
+    // Compute the final F^y
+    riemann_flux_and_state(ybx,
+                        tile.ql, tile.qr,
+                        tile.flux[1],
+#ifdef RADIATION
+                        tile.rad_flux[1],
+#endif
+                        tile.qe[1],
+                        tile.qaux, tile.shk,
+                        1, false);
+
+    //
+    // Use qz?, q?xy, q?yx to compute final z-flux
+    //
+
+    // compute F^{x|y}
+    const Box& cxybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
+
+    // ftmp1 = fxy
+    // rftmp1 = rfxy
+    // qfacetmp1 = qfacexy
+    riemann_flux_and_state(cxybx,
+                        qmxy_arr, qpxy_arr,
+                        tile.ftmp1,
+#ifdef RADIATION
+                        tile.rftmp1,
+#endif
+                        tile.qfacetmp1,
+                        tile.qaux, tile.shk,
+                        0, false);
+
+    // compute F^{y|x}
+    const Box& cyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
+
+    // ftmp2 = fyx
+    // rftmp2 = rfyx
+    // qfacetmp2 = qfaceyx
+    riemann_flux_and_state(cyxbx,
+                        qmyx_arr, qpyx_arr,
+                        tile.ftmp2,
+#ifdef RADIATION
+                        tile.rftmp2,
+#endif
+                        tile.qfacetmp2,
+                        tile.qaux, tile.shk,
+                        1, false);
+
+    // compute the corrected z interface states and fluxes
+
+    transverse_correct_final(zbx, 2, 0, 1,
+                tile.qm[2], tile.ql,
+                tile.qp[2], tile.qr,
+                tile.qaux,
+                tile.ftmp1,
+#ifdef RADIATION
+                tile.rftmp1,
+#endif
+                tile.ftmp2,
+#ifdef RADIATION
+                tile.rftmp2,
+#endif
+                tile.qfacetmp1,
+                tile.qfacetmp2,
+                hdtdx, hdtdy);
+
+    reset_edge_state_thermo(zbx, tile.ql);
+
+    reset_edge_state_thermo(zbx, tile.qr);
+
+#ifdef REACTIONS
+    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        add_sdc_source_to_states(zbx, 2, dt,
+                                 tile.ql, tile.qr, tile.sdc_src);
+    }
+#endif
+
+    // compute the final z fluxes F^z
+
+    riemann_flux_and_state(zbx,
+                        tile.ql, tile.qr,
+                        tile.flux[2],
+#ifdef RADIATION
+                        tile.rad_flux[2],
+#endif
+                        tile.qe[2],
+                        tile.qaux, tile.shk,
+                        2, false);
+}
+#endif

@@ -55,6 +55,14 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
   GeometryData geomdata = geom.data();
 #endif
 
+  // integrator weight of the current stage
+
+  Real stage_weight = 1.0;
+
+  if (time_integration_method == SpectralDeferredCorrections) {
+    stage_weight = node_weights[current_sdc_node];
+  }
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -104,12 +112,6 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
         // the output of this will be stored in the correct stage MF
         auto source_out_arr = A_update.array(mfi);
-
-        Real stage_weight = 1.0;
-
-        if (time_integration_method == SpectralDeferredCorrections) {
-          stage_weight = node_weights[current_sdc_node];
-        }
 
         // get the flattening coefficient
         flatcoef.resize(obx, 1);
@@ -223,6 +225,19 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 #if AMREX_SPACEDIM == 3
           ibx[2] = amrex::grow(amrex::surroundingNodes(bx, 2), IntVect(AMREX_D_DECL(1,1,0)));
 #endif
+
+#if AMREX_SPACEDIM >= 2
+          const int* lo_bc = phys_bc.lo();
+          const int* hi_bc = phys_bc.hi();
+
+          GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
+          GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+          for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+            lo_periodic[dir] = lo_bc[dir] == amrex::PhysBCType::interior;
+            hi_periodic[dir] = hi_bc[dir] == amrex::PhysBCType::interior;
+          }
+#endif
+
           for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
             const Box& nbx = amrex::surroundingNodes(bx, idir);
@@ -315,16 +330,6 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
 #if AMREX_SPACEDIM >= 2
             // construct the face-center interface states q_fc
-            const int* lo_bc = phys_bc.lo();
-            const int* hi_bc = phys_bc.hi();
-
-            GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-            GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
-            for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-              lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-              hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
-            }
-
             amrex::ParallelFor(nbx, NQ,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
             {
@@ -471,56 +476,12 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             if (do_hydro) {
 
-              if (ppm_type == 0) {
-
-                dq.resize(obx, NQ);
-                auto dq_arr = dq.array();
-
-                mol_plm_reconstruct(obx, idir,
-                                    q_arr, flatcoef_arr, src_q_arr,
-                                    dq_arr,
-                                    qm_arr, qp_arr);
-
-              } else {
-
-                mol_ppm_reconstruct(obx, idir,
-                                    q_arr, flatcoef_arr,
-                                    qm_arr, qp_arr);
-              }
-
-              // ppm_temp_fix = 1
-              if (ppm_temp_fix == 1) {
-                  edge_state_temp_to_pres(obx, qm.array(), qp.array());
-              }
-
-              const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-              auto qe_arr = (qe[idir]).array();
-              auto flux_arr = (flux[idir]).array();
-
-              riemann_flux_and_state
-                (nbx,
-                 qm_arr, qp_arr,
-                 flux_arr, qe_arr,
-                 qaux_arr, shk_arr,
-                 idir, false);
-
-              // set UTEMP, USHOCK, and chemical potential fluxes to zero
-              amrex::ParallelFor(nbx,
-              [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-              {
-                  flux_arr(i,j,k,UTEMP) = 0.e0;
-#ifdef SHOCK_VAR
-                  flux_arr(i,j,k,USHOCK) = 0.e0;
-#endif
-#ifdef NSE_NET
-                  flux_arr(i,j,k,UMU_P) = 0.e0;
-                  flux_arr(i,j,k,UMU_N) = 0.e0;
-#endif
-              });
-
-              // apply artificial viscosity
-              apply_av(nbx, idir, div_arr, uin_arr, flux_arr);
+              mol_face_flux(bx, idir,
+                            q_arr, flatcoef_arr, src_q_arr,
+                            qaux_arr, shk_arr,
+                            div_arr, uin_arr,
+                            dq, qm_arr, qp_arr,
+                            (flux[idir]).array(), (qe[idir]).array());
 
             } else {
                 // we are not doing hydro, so simply zero out the fluxes
@@ -732,4 +693,72 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
     }
 
 #endif // radiation
+}
+
+
+
+void
+HydroSim::mol_face_flux(const Box& bx, const int idir,
+                        Array4<Real const> const& q_arr,
+                        Array4<Real const> const& flatcoef_arr,
+                        Array4<Real const> const& src_q_arr,
+                        Array4<Real const> const& qaux_arr,
+                        Array4<Real const> const& shk_arr,
+                        Array4<Real const> const& div_arr,
+                        Array4<Real const> const& uin_arr,
+                        FArrayBox& dq,
+                        Array4<Real> const& qm_arr,
+                        Array4<Real> const& qp_arr,
+                        Array4<Real> const& flux_arr,
+                        Array4<Real> const& qe_arr)
+{
+    const Box& obx = amrex::grow(bx, 1);
+
+    if (ppm_type == 0) {
+
+        dq.resize(obx, NQ);
+        auto dq_arr = dq.array();
+
+        mol_plm_reconstruct(obx, idir,
+                            q_arr, flatcoef_arr, src_q_arr,
+                            dq_arr,
+                            qm_arr, qp_arr);
+
+    } else {
+
+        mol_ppm_reconstruct(obx, idir,
+                            q_arr, flatcoef_arr,
+                            qm_arr, qp_arr);
+    }
+
+    // ppm_temp_fix = 1
+    if (ppm_temp_fix == 1) {
+        edge_state_temp_to_pres(obx, qm_arr, qp_arr);
+    }
+
+    const Box& nbx = amrex::surroundingNodes(bx, idir);
+
+    riemann_flux_and_state
+        (nbx,
+         qm_arr, qp_arr,
+         flux_arr, qe_arr,
+         qaux_arr, shk_arr,
+         idir, false);
+
+    // set UTEMP, USHOCK, and chemical potential fluxes to zero
+    amrex::ParallelFor(nbx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+    {
+        flux_arr(i,j,k,UTEMP) = 0.e0;
+#ifdef SHOCK_VAR
+        flux_arr(i,j,k,USHOCK) = 0.e0;
+#endif
+#ifdef NSE_NET
+        flux_arr(i,j,k,UMU_P) = 0.e0;
+        flux_arr(i,j,k,UMU_N) = 0.e0;
+#endif
+    });
+
+    // apply artificial viscosity
+    apply_av(nbx, idir, div_arr, uin_arr, flux_arr);
 }
