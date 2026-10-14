@@ -47,16 +47,9 @@
         amrex::Array4<amrex::Real> qp[AMREX_SPACEDIM];
         amrex::Array4<amrex::Real> flux[AMREX_SPACEDIM];
         amrex::Array4<amrex::Real> qe[AMREX_SPACEDIM];
-#ifdef RADIATION
-        amrex::Array4<amrex::Real> rad_flux[AMREX_SPACEDIM];
-#endif
 #if AMREX_SPACEDIM >= 2
         amrex::Array4<amrex::Real> ftmp1;
         amrex::Array4<amrex::Real> ftmp2;
-#ifdef RADIATION
-        amrex::Array4<amrex::Real> rftmp1;
-        amrex::Array4<amrex::Real> rftmp2;
-#endif
         amrex::Array4<amrex::Real> qfacetmp1;
 #if AMREX_SPACEDIM == 3
         amrex::Array4<amrex::Real> qfacetmp2;
@@ -114,10 +107,6 @@
                           amrex::Array4<amrex::Real const> const& div_arr,
                           amrex::Vector<amrex::FArrayBox>& flux,
                           amrex::Vector<amrex::FArrayBox>& qe,
-#ifdef RADIATION
-                          amrex::Vector<amrex::FArrayBox>& rad_flux,
-                          int& priv_nstep_fsp,
-#endif
 #if AMREX_SPACEDIM <= 2
                           amrex::FArrayBox& pradial,
 #endif
@@ -224,15 +213,6 @@
     static void ctoprim(const amrex::Box& bx,
                  const amrex::Real time,
                  amrex::Array4<amrex::Real const> const& uin,
-#ifdef MHD
-                 amrex::Array4<amrex::Real const> const& Bx,
-                 amrex::Array4<amrex::Real const> const& By,
-                 amrex::Array4<amrex::Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                 amrex::Array4<amrex::Real const> const& Erin,
-                 amrex::Array4<amrex::Real const> const& lam,
-#endif
                  amrex::Array4<amrex::Real> const& q_arr,
                  amrex::Array4<amrex::Real> const& qaux_arr);
 
@@ -277,47 +257,6 @@
                   amrex::Array4<amrex::Real const> const& uin,
                   amrex::Array4<amrex::Real> const& flux);
 
-#ifdef RADIATION
-///
-/// Update the radiation flux with the artificial viscosity.  This is a 2nd order
-/// accurate implementation.
-///
-/// @param bx       the box to operate over
-/// @param idir     the coordinate direction (0 = x, 1 = y, 2 = z)
-/// @param div      the node-centered velocity divergence
-/// @param Erin     the radiation energy
-/// @param radflux  the radiation energy flux in direction idir
-///
-    void apply_av_rad(const amrex::Box& bx,
-                      const int idir,
-                      amrex::Array4<amrex::Real const> const& div,
-                      amrex::Array4<amrex::Real const> const& Erin,
-                      amrex::Array4<amrex::Real> const& radflux);
-
-
-    void
-    ctu_rad_cons_update(const amrex::Box& bx,
-                   amrex::Array4<amrex::Real> const& update,
-                   amrex::Array4<amrex::Real const> const& Erin,
-                   amrex::Array4<amrex::Real> const& Erout,
-                   amrex::Array4<amrex::Real const> const& radflux1,
-                   amrex::Array4<amrex::Real const> const& qx,
-                   amrex::Array4<amrex::Real const> const& area1,
-#if AMREX_SPACEDIM >= 2
-                   amrex::Array4<amrex::Real const> const& radflux2,
-                   amrex::Array4<amrex::Real const> const& qy,
-                   amrex::Array4<amrex::Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM == 3
-                   amrex::Array4<amrex::Real const> const& radflux3,
-                   amrex::Array4<amrex::Real const> const& qz,
-                   amrex::Array4<amrex::Real const> const& area3,
-#endif
-                   int& nstep_fsp,
-                   amrex::Array4<amrex::Real const> const& vol,
-                   const amrex::Real dt);
-
-#endif
 
 ///
 /// Compute the normal left and right primitive variable interface
@@ -413,54 +352,6 @@
 #endif
                         const amrex::Real dt);
 
-#ifdef RADIATION
-///
-/// Compute the normal left and right primitive variable interface
-/// states at each interface using the piecewise parabolic method with
-/// characteristic tracing.  This implementation is for the radiation
-/// hydrodynamics.
-///
-/// @param bx       the box to operate over
-/// @param vbx      the valid region box (excludes ghost cells)
-/// @param U_arr    the conserved variable state
-/// @param rho_inv_arr the inverse density array
-/// @param q_arr    the primitive variable state
-/// @param qaux_arr the auxiliary state
-/// @param srcQ     the source terms for the primitive variable equations
-/// @param qxm      left interface state in x, q_{i-1/2,j,k,L}
-/// @param qxp      right interface state in x, q_{i-1/2,j,k,R}
-/// @param qym      left interface state in y, q_{i,j-1/2,k,L}
-/// @param qyp      right interface state in y, q_{i,j-1/2,k,R}
-/// @param qzm      left interface state in z, q_{i,j,k-1/2,L}
-/// @param qzp      right interface state in z, q_{i,j,k-1/2,R}
-/// @param dlogaX   the geometric factor d(log area) in x (r) dir
-/// @param dlogaY   the geometric factor d(log area) in y (theta) dir
-/// @param dt       timestep
-///
-    void ctu_ppm_rad_states(const amrex::Box& bx, const amrex::Box& vbx,
-                            amrex::Array4<amrex::Real const> const& U_arr,
-                            amrex::Array4<amrex::Real const> const& rho_inv_arr,
-                            amrex::Array4<amrex::Real const> const& q_arr,
-                            amrex::Array4<amrex::Real const> const& qaux_arr,
-                            amrex::Array4<amrex::Real const> const& srcQ,
-                            amrex::Array4<amrex::Real> const& qxm,
-                            amrex::Array4<amrex::Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                            amrex::Array4<amrex::Real> const& qym,
-                            amrex::Array4<amrex::Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                            amrex::Array4<amrex::Real> const& qzm,
-                            amrex::Array4<amrex::Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                            amrex::Array4<amrex::Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                            amrex::Array4<amrex::Real const> const& dlogaY,
-#endif
-                            const amrex::Real dt);
-#endif
 
 ///
 /// Compute the left and right primitive variable interface states at
@@ -601,9 +492,6 @@
                        amrex::Array4<amrex::Real> const& qpo,
                        amrex::Array4<amrex::Real const> const& qaux,
                        amrex::Array4<amrex::Real const> const& flux_t,
-#ifdef RADIATION
-                       amrex::Array4<amrex::Real const> const& rflux_t,
-#endif
                        amrex::Array4<amrex::Real const> const& q_t,
 #if AMREX_SPACEDIM == 2
                        amrex::Array4<amrex::Real const> const& area_t,
@@ -637,9 +525,6 @@
                               amrex::Array4<amrex::Real> const& qo_arr,
                               amrex::Array4<amrex::Real const> const& qaux,
                               amrex::Array4<amrex::Real const> const& flux_t,
-#ifdef RADIATION
-                              amrex::Array4<amrex::Real const> const& rflux_t,
-#endif
                               amrex::Array4<amrex::Real const> const& q_t,
 #if AMREX_SPACEDIM == 2
                               amrex::Array4<amrex::Real const> const& area_t,
@@ -678,13 +563,7 @@
                       amrex::Array4<amrex::Real> const& qpo,
                       amrex::Array4<amrex::Real const> const& qaux,
                       amrex::Array4<amrex::Real const> const& flux_t1,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& rflux_t1,
-#endif
                       amrex::Array4<amrex::Real const> const& flux_t2,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& rflux_t2,
-#endif
                       amrex::Array4<amrex::Real const> const& q_t1,
                       amrex::Array4<amrex::Real const> const& q_t2,
                       amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
@@ -716,13 +595,7 @@
                              amrex::Array4<amrex::Real> const& qo_arr,
                              amrex::Array4<amrex::Real const> const& qaux,
                              amrex::Array4<amrex::Real const> const& flux_t1,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& rflux_t1,
-#endif
                              amrex::Array4<amrex::Real const> const& flux_t2,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& rflux_t2,
-#endif
                              amrex::Array4<amrex::Real const> const& q_t1,
                              amrex::Array4<amrex::Real const> const& q_t2,
                              amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
@@ -876,9 +749,6 @@
                              amrex::Array4<amrex::Real> const& qm,
                              amrex::Array4<amrex::Real> const& qp,
                              amrex::Array4<amrex::Real> const& flx,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real> const& rflx,
-#endif
                              amrex::Array4<amrex::Real> const& qface,
                              amrex::Array4<amrex::Real const> const& qaux,
                              amrex::Array4<amrex::Real const> const& shk,
@@ -893,14 +763,10 @@
     static void
     store_godunov_state(const amrex::Box& bx,
                         amrex::Array4<amrex::Real const> const& qint,
-#ifdef RADIATION
-                        amrex::Array4<amrex::Real const> const& lambda,
-#endif
                         amrex::Array4<amrex::Real> const& qface);
 
     static void normalize_species_fluxes(const amrex::Box& bx, amrex::Array4<amrex::Real> const& flux);
 
-#ifndef MHD
     static void
     limit_hydro_fluxes_on_small_dens(const amrex::Box& bx,
                                      int idir,
@@ -910,7 +776,6 @@
                                      amrex::Array4<amrex::Real const> const& area,
                                      amrex::Real dt,
                                      bool scale_by_dAdt = true);
-#endif
 
 
 ///
@@ -929,79 +794,18 @@
                     amrex::Array4<amrex::Real const> const& area,
                     const amrex::Real dt);
 
-#ifdef RADIATION
-    void scale_rad_flux(const amrex::Box& bx,
-                        amrex::Array4<amrex::Real> const& rflux,
-                        amrex::Array4<amrex::Real const> const& area,
-                        const amrex::Real dt);
-#endif
 
-#ifndef MHD
     static void reset_edge_state_thermo(const amrex::Box& bx,
                                         amrex::Array4<amrex::Real> const& qedge);
 
     static void edge_state_temp_to_pres(const amrex::Box& bx,
                                  amrex::Array4<amrex::Real> const& qm,
                                  amrex::Array4<amrex::Real> const& qp);
-#endif
 
     void do_enforce_minimum_density(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const int verbose_warnings);
 
-#ifdef HYBRID_MOMENTUM
-
-///
-/// Construct hybrid source terms at old time
-///
-/// @param source   MultiFab to save source to
-/// @param state    Old state
-/// @param time     current time
-/// @param dt       timestep
-///
-    void assemble_old_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
-
-
-///
-/// Construct hybrid source terms at new time
-///
-/// @param source       MultiFab to save source to
-/// @param state_old    Old state
-/// @param state_new    New state
-/// @param time         current time
-/// @param dt           timestep
-///
-    void assemble_new_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt);
-
-
-///
-/// Fill ``source`` with hybrid source terms
-///
-/// @param state        Current state
-/// @param source       MultiFab to save source to
-/// @param mult_factor scaling factor applied to the source terms
-///
-    void fill_hybrid_hydro_source(amrex::MultiFab& source, const amrex::MultiFab& state, const amrex::Real mult_factor);
-
-
-///
-/// Synchronize linear momentum with hybrid momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void hybrid_to_linear_momentum(amrex::MultiFab& state, int ng = 0);
-
-
-///
-/// Synchronize hybrid momentum with linear momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void linear_to_hybrid_momentum(amrex::MultiFab& state, int ng = 0);
-
-#endif
 
 #ifdef TRUE_SDC
 

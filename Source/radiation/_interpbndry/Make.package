@@ -1,6 +1,0 @@
-
-HS_BASE=EXE
-
-C$(HS_BASE)_sources += RadInterpBndryData.cpp RadBndryData.cpp
-
-C$(HS_BASE)_headers += RadInterpBndryData.H RadBndryData.H RadBoundCond.H
