@@ -1,5 +1,0 @@
-INTEGRATOR_DIR=VODE
-
-PROBLEM_DIR := ../../
-
-include $(PROBLEM_DIR)/GNUmakefile
