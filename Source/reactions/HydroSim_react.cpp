@@ -9,7 +9,6 @@
 using std::string;
 using namespace amrex;
 
-#ifndef TRUE_SDC
 
 advance_status
 HydroSim::handle_split_reactions (Real time, Real dt, int strang_half)
@@ -90,17 +89,11 @@ HydroSim::handle_split_reactions (Real time, Real dt, int strang_half)
 
     if (strang_half == 0) {
         clean_state(
-#ifdef MHD
-                    Bx_old_tmp, By_old_tmp, Bz_old_tmp,
-#endif
                     Sborder, time, Sborder.nGrow());
 
         MultiFab::Copy(R_new, R_old, 0, 0, R_new.nComp(), R_new.nGrow());
     } else {
         clean_state(
-#ifdef MHD
-                    Bx_new, By_new, Bz_new,
-#endif
                     S_new, time, S_new.nGrow());
     }
 
@@ -209,12 +202,6 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
         {
 
             burn_t burn_state;
-#ifdef NSE_NET
-            burn_state.mu_p = U(i,j,k,UMU_P);
-            burn_state.mu_n = U(i,j,k,UMU_N);
-
-            burn_state.y_e = -1.0_rt;
-#endif
 
 #if AMREX_SPACEDIM == 1
             burn_state.dx = dx[0];
@@ -358,21 +345,9 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
                             weights(i,j,k,strang_half) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                         }
                     }
-#ifdef NSE
-                    if (store_omegadot == 1) {
-                        reactions(i,j,k,NumSpec+NumAux+1) = burn_state.nse;
-                    }
-                    else {
-                        reactions(i,j,k,1) = burn_state.nse;
-                    }
-#endif
                 }
 
                 // update the state
-#ifdef NSE_NET
-                U(i,j,k,UMU_P) = burn_state.mu_p;
-                U(i,j,k,UMU_N) = burn_state.mu_n;
-#endif
                 for (int n = 0; n < NumSpec; ++n) {
                     U(i,j,k,USPEC+n) = U(i,j,k,URHO) * burn_state.xn[n];
                 }
@@ -483,11 +458,6 @@ HydroSim::react_state(Real time, Real dt)
     MultiFab& S_old = get_old_data(State_Type);
     MultiFab& S_new = get_new_data(State_Type);
 
-#ifdef MHD
-    MultiFab& Bx_new = get_new_data(Mag_Type_x);
-    MultiFab& By_new = get_new_data(Mag_Type_y);
-    MultiFab& Bz_new = get_new_data(Mag_Type_z);
-#endif
 
     const int ng = S_new.nGrow();
 
@@ -533,11 +503,6 @@ HydroSim::react_state(Real time, Real dt)
 
         auto U_old = S_old.array(mfi);
         auto U_new = S_new.array(mfi);
-#ifdef MHD
-        auto Bx    = Bx_new.array(mfi);
-        auto By    = By_new.array(mfi);
-        auto Bz    = Bz_new.array(mfi);
-#endif
         auto I     = SDC_react.array(mfi);
         auto react_src = reactions.array(mfi);
         auto weights = store_burn_weights ? burn_weights.array(mfi) : Array4<Real>{};
@@ -566,12 +531,6 @@ HydroSim::react_state(Real time, Real dt)
             burn_state.dx = amrex::min(AMREX_D_DECL(dx[0], dx[1], dx[2]));
 #endif
 
-#ifdef NSE_NET
-            burn_state.mu_p = U_old(i,j,k,UMU_P);
-            burn_state.mu_n = U_old(i,j,k,UMU_N);
-
-            burn_state.y_e = -1.0_rt;
-#endif
             // Initialize some data for later.
 
             bool do_burn = true;
@@ -674,9 +633,6 @@ HydroSim::react_state(Real time, Real dt)
             Array1D<Real, 0, NQAUX-1> qaux_dummy;
 
             hydro::conservative_to_primitive(i, j, k, U_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
                                              q_noreact, qaux_dummy, q_noreact.len() == NQ);
 
             // dual energy formalism: in doing EOS calls in the burn,
@@ -704,10 +660,6 @@ HydroSim::react_state(Real time, Real dt)
                 }
 
                 // update the state data.
-#ifdef NSE_NET
-                U_new(i,j,k,UMU_P) = burn_state.mu_p;
-                U_new(i,j,k,UMU_N) = burn_state.mu_n;
-#endif
                 U_new(i,j,k,UEDEN) = burn_state.y[SEDEN];
                 U_new(i,j,k,UEINT) = burn_state.y[SEINT];
                 for (int n = 0; n < NumSpec; n++) {
@@ -752,14 +704,6 @@ HydroSim::react_state(Real time, Real dt)
                              weights(i,j,k,lsdc_iteration) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                          }
                      }
-#ifdef NSE
-                    if (store_omegadot == 1) {
-                        react_src(i,j,k,NumSpec+NumAux+1) = burn_state.nse;
-                    }
-                    else {
-                        react_src(i,j,k,1) = burn_state.nse;
-                    }
-#endif
                  }
 
             }
@@ -769,9 +713,6 @@ HydroSim::react_state(Real time, Real dt)
             Array1D<Real, 0, NQ-1> q_new;
 
             hydro::conservative_to_primitive(i, j, k, U_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
                                              q_new, qaux_dummy, q_new.len() == NQ);
 
             // Compute the reaction source term.
@@ -978,4 +919,3 @@ HydroSim::valid_zones_to_burn(const MultiFab& State)
 
 }
 
-#endif
