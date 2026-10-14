@@ -3,13 +3,7 @@
 
 #include <HydroSim.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef GRAVITY
-#include <Gravity.H>
-#endif
 
 #include <cmath>
 

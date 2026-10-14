@@ -1,9 +1,0 @@
-# source term sources -- this is always included
-
-CEXE_headers += HydroSim_sources.H
-
-CEXE_sources += HydroSim_sources.cpp
-CEXE_sources += HydroSim_sponge.cpp
-CEXE_sources += HydroSim_thermo.cpp
-CEXE_sources += HydroSim_geom.cpp
-
