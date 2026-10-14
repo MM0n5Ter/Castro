@@ -3,13 +3,7 @@
 
 #include <HydroSim_util.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
-#ifdef RADIATION
-#include <rad_util.H>
-#endif
 
 namespace hydro {
 
@@ -18,9 +12,7 @@ void src_to_prim(int i, int j, int k, const Real dt,
                  Array4<Real const> const& U_arr,
                  Array4<Real const> const& q_arr,
                  Array4<Real const> const& old_src,
-#ifndef TRUE_SDC
                  Array4<Real const> const& src_corr,
-#endif
                  Array4<Real> const& srcQ)
 {
 
@@ -36,7 +28,6 @@ void src_to_prim(int i, int j, int k, const Real dt,
 
     for (int n = 0; n < NSRC; n++) {
 
-#ifndef TRUE_SDC
         if (time_integration_method == CornerTransportUpwind && source_term_predictor == 1) {
             if (n == UMX || n == UMY || n == UMZ) {
                 srcU[n] += 0.5 * dt * src_corr(i,j,k,n);
@@ -44,7 +35,6 @@ void src_to_prim(int i, int j, int k, const Real dt,
         } else if (time_integration_method == SimplifiedSpectralDeferredCorrections  && source_term_predictor == 1) {
             srcU[n] += src_corr(i,j,k,n);
         }
-#endif
 
         srcU[n] += old_src(i,j,k,n);
     }
@@ -104,10 +94,6 @@ void conservative_to_primitive(int i, int j, int k,
                                Array4<Real const> const& By,
                                Array4<Real const> const& Bz,
 #endif
-#ifdef RADIATION
-                               Array4<Real const> const& Erin,
-                               Array4<Real const> const& lam,
-#endif
                                T& q, U& qaux, const bool fill_passives)
 {
 #ifndef AMREX_USE_GPU
@@ -154,11 +140,6 @@ void conservative_to_primitive(int i, int j, int k,
     }
 
     q(QTEMP) = uin(i,j,k,UTEMP);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-        q(QERAD+g) = Erin(i,j,k,g);
-    }
-#endif
 
     if (fill_passives) {
         // Load passively advected quantities into q
@@ -188,9 +169,6 @@ void conservative_to_primitive(int i, int j, int k,
     q(QTEMP) = eos_state.T;
     q(QRHOEI) = eos_state.e * q(QRHO);
     q(QPRES) = eos_state.p;
-#ifdef TRUE_SDC
-    q(QGAM1P) = eos_state.gam1;
-#endif
 
 #ifdef MHD
     q(QPTOTAL) = q(QPRES) +
@@ -199,39 +177,8 @@ void conservative_to_primitive(int i, int j, int k,
                          q(QMAGZ) * q(QMAGZ));
 #endif
 
-#ifdef RADIATION
-    qaux(QGAM1GAS) = eos_state.gam1;
-    qaux(QCSNDGAS) = eos_state.cs;
-
-    Real lams[NGROUPS];
-    for (int g = 0; g < NGROUPS; g++) {
-        lams[g] = lam(i,j,k,g);
-    }
-    Real qs[NQ];
-    for (int n = 0; n < NQ; n++) {
-        qs[n] = q(n);
-    }
-    Real ptot;
-    Real ctot;
-    Real gamc_tot;
-    compute_ptot_ctot(lams, qs,
-                      qaux(QCSNDGAS),
-                      ptot, ctot, gamc_tot);
-
-    q(QPTOTAL) = ptot;
-
-    qaux(QC) = ctot;
-    qaux(QGAM1) = gamc_tot;
-
-    q(QRHOEITOT) = q(QRHOEI);
-    for (int g = 0; g < NGROUPS; g++) {
-        qaux(QFLXLIM+g) = lam(i,j,k,g);
-        q(QRHOEITOT) += q(QERAD+g);
-    }
-#else
     qaux(QGAM1) = eos_state.gam1;
     qaux(QC) = eos_state.cs;
-#endif
 }
 
 }
