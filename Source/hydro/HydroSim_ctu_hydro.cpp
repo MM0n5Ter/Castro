@@ -1,13 +1,7 @@
 #include <HydroSim.H>
 #include <HydroSim_util.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
 #include <advection_util.H>
 
@@ -36,7 +30,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       return status;
   }
 
-#ifndef TRUE_SDC
 
   BL_PROFILE("HydroSim::construct_ctu_hydro_source()");
 
@@ -51,31 +44,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
   MultiFab& S_new = get_new_data(State_Type);
 
-#ifdef REACTIONS
-  MultiFab tmp_SDC_mf;
-  MultiFab& SDC_react_source = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections ?
-                               get_new_data(Simplified_SDC_React_Type) : tmp_SDC_mf;
-#endif
 
   // we will treat the hydro source as any other source term
 
-#ifdef RADIATION
-  if (!Radiation::rad_hydro_combined) {
-    amrex::Abort("HydroSim::construct_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
-  }
-
-  int nstep_fsp = -1;
-
-  AmrLevel::FillPatch(*this, Erborder, NUM_GROW, time, Rad_Type, 0, Radiation::nGroups);
-
-  MultiFab lamborder(grids, dmap, Radiation::nGroups, NUM_GROW);
-  if (radiation->pure_hydro) {
-      lamborder.setVal(0.0, NUM_GROW);
-  }
-  else {
-      radiation->compute_limiter(level, grids, Sborder, Erborder, lamborder);
-  }
-#endif
 
   // Record a running total of the number of bytes allocated as temporary Fab data.
 
@@ -123,17 +94,10 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
 
 #ifdef _OPENMP
-#ifdef RADIATION
-#pragma omp parallel reduction(max:nstep_fsp)
-#else
 #pragma omp parallel
-#endif
 #endif
   {
 
-#ifdef RADIATION
-    int priv_nstep_fsp = -1;
-#endif
 
     // Declare local storage now. This should be done outside the
     // MFIter loop, and then we will resize the Fabs in each MFIter
@@ -155,9 +119,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
     FArrayBox div(The_Async_Arena());
 #if AMREX_SPACEDIM >= 2
     FArrayBox ftmp1(The_Async_Arena()), ftmp2(The_Async_Arena());
-#ifdef RADIATION
-    FArrayBox rftmp1(The_Async_Arena()), rftmp2(The_Async_Arena());
-#endif
     FArrayBox qfacetmp1(The_Async_Arena()), qfacetmp2(The_Async_Arena());
     FArrayBox ql(The_Async_Arena()), qr(The_Async_Arena());
 #endif
@@ -167,12 +128,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
         qe.push_back(FArrayBox(The_Async_Arena()));
     }
 
-#ifdef RADIATION
-    Vector<FArrayBox> rad_flux;
-    for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-        rad_flux.push_back(FArrayBox(The_Async_Arena()));
-    }
-#endif
 #if AMREX_SPACEDIM <= 2
     FArrayBox pradial(The_Async_Arena());
 #endif
@@ -201,13 +156,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       const Box& qbx = amrex::grow(bx, NUM_GROW);
       const Box& qbx3 = amrex::grow(bx, 3);
 
-#ifdef RADIATION
-      Array4<Real> const q_arr = resize_scratch(q, qbx, NQ, fab_size);
-#else
       // note: we won't store the passives in q, so we'll compute their
       // primitive versions on demand as needed
       Array4<Real> const q_arr = resize_scratch(q, qbx, NQTHERM, fab_size);
-#endif
 
       Array4<Real> const qaux_arr = resize_scratch(qaux, qbx, NQAUX, fab_size);
 
@@ -222,9 +173,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       });
 
       ctoprim(qbx, time, U_old_arr,
-#ifdef RADIATION
-              Erborder.array(mfi), lamborder.array(mfi),
-#endif
               q_arr, qaux_arr);
 
 #if AMREX_SPACEDIM < 3
@@ -305,25 +253,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       } else {
 
-#ifdef RADIATION
-        ctu_ppm_rad_states(obx, bx,
-                           U_old_arr, rho_inv_arr,
-                           q_arr, qaux_arr, src_q_arr,
-                           qxm_arr, qxp_arr,
-#if AMREX_SPACEDIM >= 2
-                           qym_arr, qyp_arr,
-#endif
-#if AMREX_SPACEDIM == 3
-                           qzm_arr, qzp_arr,
-#endif
-#if AMREX_SPACEDIM < 3
-                           dLogAreaX_arr,
-#endif
-#if AMREX_SPACEDIM == 2
-                           dLogAreaY_arr,
-#endif
-                           dt);
-#else
 
         ctu_ppm_states(obx, bx,
                        U_old_arr, rho_inv_arr,
@@ -342,7 +271,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                        dLogAreaY_arr,
 #endif
                        dt);
-#endif
 
       }
 
@@ -361,9 +289,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
           tile.flux[idir] = resize_scratch(flux[idir], gnbx, NUM_STATE, fab_size);
           tile.qe[idir] = resize_scratch(qe[idir], gnbx, NIFC, fab_size);
-#ifdef RADIATION
-          tile.rad_flux[idir] = resize_scratch(rad_flux[idir], gnbx, Radiation::nGroups, fab_size);
-#endif
       }
 
 #if AMREX_SPACEDIM <= 2
@@ -377,10 +302,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       tile.ftmp1 = resize_scratch(ftmp1, obx, NUM_STATE, fab_size);
       tile.ftmp2 = resize_scratch(ftmp2, obx, NUM_STATE, fab_size);
 
-#ifdef RADIATION
-      tile.rftmp1 = resize_scratch(rftmp1, obx, Radiation::nGroups, fab_size);
-      tile.rftmp2 = resize_scratch(rftmp2, obx, Radiation::nGroups, fab_size);
-#endif
 
       tile.qfacetmp1 = resize_scratch(qfacetmp1, obx, NIFC, fab_size);
 
@@ -406,10 +327,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       tile.qp[2] = qzp_arr;
 #endif
 
-#ifdef REACTIONS
-      tile.sdc_src = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections ?
-                     SDC_react_source.array(mfi) : Array4<Real const>{};
-#endif
 
 #if AMREX_SPACEDIM < 3
       ctu_interface_fluxes(mfi, dt, tile);
@@ -419,17 +336,11 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       apply_ctu_fluxes(mfi, dt, U_old_arr, div_arr,
                        flux, qe,
-#ifdef RADIATION
-                       rad_flux, priv_nstep_fsp,
-#endif
 #if AMREX_SPACEDIM <= 2
                        pradial,
 #endif
                        S_new);
 
-#ifdef RADIATION
-      nstep_fsp = std::max(nstep_fsp, priv_nstep_fsp);
-#endif
 
 #ifdef AMREX_USE_GPU
       if (hydrosim::hydro_memory_footprint_ratio > 0.0) {
@@ -497,28 +408,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
   } // OMP loop
 
-#ifdef RADIATION
-  if (radiation->verbose>=1) {
-      amrex::Real llevel = level;
-#ifdef BL_LAZY
-    Lazy::QueueReduction( [=] () mutable {
-#endif
-       ParallelDescriptor::ReduceIntMax(nstep_fsp, ParallelDescriptor::IOProcessorNumber());
-       if (ParallelDescriptor::IOProcessor() && nstep_fsp > 0) {
-         std::cout << "Radiation f-space advection on level " << llevel
-                   << " takes as many as " << nstep_fsp;
-         if (nstep_fsp == 1) {
-           std::cout<< " substep.\n";
-         }
-         else {
-           std::cout<< " substeps.\n";
-         }
-       }
-#ifdef BL_LAZY
-     });
-#endif
-  }
-#endif
 
   // Check for small/negative densities and X > 1 or X < 0.
 
@@ -531,22 +420,12 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   // Sync up state after hydro source.
 
   clean_state(
-#ifdef MHD
-               Bx_new, By_new, Bz_new,
-#endif
                S_new, time + dt, 0);
 
   // Check for NaN's.
 
   check_for_nan(S_new);
 
-#ifdef GRAVITY
-  // Must define new value of "center" after advecting on the grid
-
-  if (moving_center == 1) {
-      define_new_center(S_new, time);
-  }
-#endif
 
   // Perform reflux (for non-subcycling advances).
 
@@ -565,7 +444,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
     print_stage_time("HydroSim::construct_ctu_hydro_source()", strt_time, true);
   }
 
-#endif
 
   return status;
 }
@@ -577,9 +455,6 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
                            Array4<Real const> const& U_old_arr,
                            Array4<Real const> const& div_arr,
                            Vector<FArrayBox>& flux, Vector<FArrayBox>& qe,
-#ifdef RADIATION
-                           Vector<FArrayBox>& rad_flux, int& priv_nstep_fsp,
-#endif
 #if AMREX_SPACEDIM <= 2
                            FArrayBox& pradial,
 #endif
@@ -587,18 +462,11 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
 {
     const Box& bx = mfi.tilebox();
 
-#ifdef HYBRID_MOMENTUM
-    GeometryData geomdata = geom.data();
-#endif
 
 #if AMREX_SPACEDIM <= 2
     int coord = geom.Coord();
 #endif
 
-#ifdef RADIATION
-    MultiFab& Er_new = get_new_data(Rad_Type);
-    Array4<Real const> const Erin_arr = Erborder.array(mfi);
-#endif
 
     // Store the fluxes from this advance. For simplified SDC integration we
     // only need to do this on the last iteration.
@@ -622,19 +490,10 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
 #ifdef SHOCK_VAR
             flux_arr(i,j,k,USHOCK) = 0.e0;
 #endif
-#ifdef NSE_NET
-            flux_arr(i,j,k,UMU_P) = 0.e0;
-            flux_arr(i,j,k,UMU_N) = 0.e0;
-#endif
         });
 
         apply_av(nbx, idir, div_arr, U_old_arr, flux_arr);
 
-#ifdef RADIATION
-        Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
-
-        apply_av_rad(nbx, idir, div_arr, Erin_arr, rad_flux_arr);
-#endif
 
         if (limit_fluxes_on_small_dens == 1) {
             limit_hydro_fluxes_on_small_dens
@@ -677,53 +536,7 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
 #endif
                  dt);
 
-#ifdef HYBRID_MOMENTUM
-    auto dx_arr = geom.CellSizeArray();
 
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-
-        GpuArray<Real, 3> loc;
-
-        position(i, j, k, geomdata, loc);
-
-        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-            loc[dir] -= problem::center[dir];
-
-        Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                            std::numeric_limits<Real>::min());
-        Real RInv = 1.0_rt / R;
-
-        update_arr(i,j,k,UMR) -= dt * (loc[0] * RInv) * (qx_arr(i+1,j,k,IFCPRES) - qx_arr(i,j,k,IFCPRES)) / dx_arr[0];
-#if AMREX_SPACEDIM >= 2
-        update_arr(i,j,k,UMR) -= dt * (loc[1] * RInv) * (qy_arr(i,j+1,k,IFCPRES) - qy_arr(i,j,k,IFCPRES)) / dx_arr[1];
-#endif
-    });
-#endif
-
-#ifdef RADIATION
-    ctu_rad_cons_update(bx,
-                   update_arr,
-                   Erborder.array(mfi),
-                   Er_new.array(mfi),
-                   (rad_flux[0]).array(),
-                   (qe[0]).array(),
-                   (area[0]).array(mfi),
-#if AMREX_SPACEDIM >= 2
-                   (rad_flux[1]).array(),
-                   (qe[1]).array(),
-                   (area[1]).array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                   (rad_flux[2]).array(),
-                   (qe[2]).array(),
-                   (area[2]).array(mfi),
-#endif
-                   priv_nstep_fsp,
-                   volume.array(mfi),
-                   dt);
-#endif
 
     for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -734,10 +547,6 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
 
       scale_flux(nbx, flux_arr, area_arr, dt);
 
-#ifdef RADIATION
-      Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
-      scale_rad_flux(nbx, rad_flux_arr, area_arr, dt);
-#endif
 
 #if AMREX_SPACEDIM <= 2
       // get the scaled radial pressure -- we need to treat this specially
@@ -765,16 +574,6 @@ HydroSim::apply_ctu_fluxes(const MFIter& mfi, Real dt,
               fluxes_fab(i,j,k,n) += flux_fab(i,j,k,n);
           });
 
-#ifdef RADIATION
-          Array4<Real> const rad_flux_fab = (rad_flux[idir]).array();
-          Array4<Real> rad_fluxes_fab = (*rad_fluxes[idir]).array(mfi);
-
-          amrex::ParallelFor(mfi.nodaltilebox(idir), Radiation::nGroups,
-          [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-          {
-              rad_fluxes_fab(i,j,k,n) += rad_flux_fab(i,j,k,n);
-          });
-#endif
 
 #if AMREX_SPACEDIM <= 2
           if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
@@ -816,21 +615,12 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 {
     const Box& xbx = amrex::surroundingNodes(mfi.tilebox(), 0);
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(xbx, 0, dt,
-                                 tile.qm[0], tile.qp[0], tile.sdc_src);
-    }
-#endif
 
     // compute the fluxes through the x-interface
 
     riemann_flux_and_state(xbx,
                         tile.qm[0], tile.qp[0],
                         tile.flux[0],
-#ifdef RADIATION
-                        tile.rad_flux[0],
-#endif
                         tile.qe[0],
                         tile.qaux,
                         tile.shk,
@@ -866,9 +656,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cxbx,
                         tile.qm[0], tile.qp[0],
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         0, false);
@@ -881,9 +668,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cybx,
                         tile.qm[1], tile.qp[1],
                         tile.ftmp2,
-#ifdef RADIATION
-                        tile.rftmp2,
-#endif
                         tile.qe[1],
                         tile.qaux, tile.shk,
                         1, false);
@@ -897,9 +681,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[0], tile.qr,
                  tile.qaux,
                  tile.ftmp2,
-#ifdef RADIATION
-                 tile.rftmp2,
-#endif
                  tile.qe[1],
                  areay_arr,
                  vol_arr,
@@ -910,19 +691,10 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 
     // solve the final Riemann problem axross the x-interfaces
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(xbx, 0, dt,
-                                 tile.ql, tile.qr, tile.sdc_src);
-    }
-#endif
 
     riemann_flux_and_state(xbx,
                         tile.ql, tile.qr,
                         tile.flux[0],
-#ifdef RADIATION
-                        tile.rad_flux[0],
-#endif
                         tile.qe[0],
                         tile.qaux, tile.shk,
                         0, false);
@@ -938,9 +710,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[1], tile.qr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  areax_arr,
                  vol_arr,
@@ -951,19 +720,10 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 
     // solve the final Riemann problem axross the y-interfaces
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(ybx, 1, dt,
-                                 tile.ql, tile.qr, tile.sdc_src);
-    }
-#endif
 
     riemann_flux_and_state(ybx,
                         tile.ql, tile.qr,
                         tile.flux[1],
-#ifdef RADIATION
-                        tile.rad_flux[1],
-#endif
                         tile.qe[1],
                         tile.qaux, tile.shk,
                         1, false);
@@ -1003,9 +763,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cxbx,
                         tile.qm[0], tile.qp[0],
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         0, false);
@@ -1023,9 +780,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[1], qpyx_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdx);
     reset_edge_state_thermo(tyxbx, qmyx_arr);
@@ -1042,9 +796,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[2], qpzx_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdx);
     reset_edge_state_thermo(tzxbx, qmzx_arr);
@@ -1060,9 +811,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cybx,
                         tile.qm[1], tile.qp[1],
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         1, false);
@@ -1079,9 +827,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[0], qpxy_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdy);
     reset_edge_state_thermo(txybx, qmxy_arr);
@@ -1101,9 +846,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[2], qpzy_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdy);
     reset_edge_state_thermo(tzybx, qmzy_arr);
@@ -1119,9 +861,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(czbx,
                         tile.qm[2], tile.qp[2],
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         2, false);
@@ -1138,9 +877,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[0], qpxz_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdz);
     reset_edge_state_thermo(txzbx, qmxz_arr);
@@ -1160,9 +896,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                  tile.qp[1], qpyz_arr,
                  tile.qaux,
                  tile.ftmp1,
-#ifdef RADIATION
-                 tile.rftmp1,
-#endif
                  tile.qfacetmp1,
                  hdt, cdtdz);
     reset_edge_state_thermo(tyzbx, qmyz_arr);
@@ -1184,9 +917,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cyzbx,
                         qmyz_arr, qpyz_arr,
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         1, false);
@@ -1200,9 +930,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(czybx,
                         qmzy_arr, qpzy_arr,
                         tile.ftmp2,
-#ifdef RADIATION
-                        tile.rftmp2,
-#endif
                         tile.qfacetmp2,
                         tile.qaux, tile.shk,
                         2, false);
@@ -1214,13 +941,7 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                 tile.qp[0], tile.qr,
                 tile.qaux,
                 tile.ftmp1,
-#ifdef RADIATION
-                tile.rftmp1,
-#endif
                 tile.ftmp2,
-#ifdef RADIATION
-                tile.rftmp2,
-#endif
                 tile.qfacetmp1,
                 tile.qfacetmp2,
                 hdtdy, hdtdz);
@@ -1229,19 +950,10 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 
     reset_edge_state_thermo(xbx, tile.qr);
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(xbx, 0, dt,
-                                 tile.ql, tile.qr, tile.sdc_src);
-    }
-#endif
 
     riemann_flux_and_state(xbx,
                         tile.ql, tile.qr,
                         tile.flux[0],
-#ifdef RADIATION
-                        tile.rad_flux[0],
-#endif
                         tile.qe[0],
                         tile.qaux, tile.shk,
                         0, false);
@@ -1259,9 +971,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(czxbx,
                         qmzx_arr, qpzx_arr,
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         2, false);
@@ -1275,9 +984,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cxzbx,
                         qmxz_arr, qpxz_arr,
                         tile.ftmp2,
-#ifdef RADIATION
-                        tile.rftmp2,
-#endif
                         tile.qfacetmp2,
                         tile.qaux, tile.shk,
                         0, false);
@@ -1289,13 +995,7 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                 tile.qp[1], tile.qr,
                 tile.qaux,
                 tile.ftmp2,
-#ifdef RADIATION
-                tile.rftmp2,
-#endif
                 tile.ftmp1,
-#ifdef RADIATION
-                tile.rftmp1,
-#endif
                 tile.qfacetmp2,
                 tile.qfacetmp1,
                 hdtdx, hdtdz);
@@ -1304,20 +1004,11 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 
     reset_edge_state_thermo(ybx, tile.qr);
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(ybx, 1, dt,
-                                 tile.ql, tile.qr, tile.sdc_src);
-    }
-#endif
 
     // Compute the final F^y
     riemann_flux_and_state(ybx,
                         tile.ql, tile.qr,
                         tile.flux[1],
-#ifdef RADIATION
-                        tile.rad_flux[1],
-#endif
                         tile.qe[1],
                         tile.qaux, tile.shk,
                         1, false);
@@ -1335,9 +1026,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cxybx,
                         qmxy_arr, qpxy_arr,
                         tile.ftmp1,
-#ifdef RADIATION
-                        tile.rftmp1,
-#endif
                         tile.qfacetmp1,
                         tile.qaux, tile.shk,
                         0, false);
@@ -1351,9 +1039,6 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
     riemann_flux_and_state(cyxbx,
                         qmyx_arr, qpyx_arr,
                         tile.ftmp2,
-#ifdef RADIATION
-                        tile.rftmp2,
-#endif
                         tile.qfacetmp2,
                         tile.qaux, tile.shk,
                         1, false);
@@ -1365,13 +1050,7 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
                 tile.qp[2], tile.qr,
                 tile.qaux,
                 tile.ftmp1,
-#ifdef RADIATION
-                tile.rftmp1,
-#endif
                 tile.ftmp2,
-#ifdef RADIATION
-                tile.rftmp2,
-#endif
                 tile.qfacetmp1,
                 tile.qfacetmp2,
                 hdtdx, hdtdy);
@@ -1380,21 +1059,12 @@ HydroSim::ctu_interface_fluxes(const MFIter& mfi, Real dt, ctu_tile_arrays const
 
     reset_edge_state_thermo(zbx, tile.qr);
 
-#ifdef REACTIONS
-    if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        add_sdc_source_to_states(zbx, 2, dt,
-                                 tile.ql, tile.qr, tile.sdc_src);
-    }
-#endif
 
     // compute the final z fluxes F^z
 
     riemann_flux_and_state(zbx,
                         tile.ql, tile.qr,
                         tile.flux[2],
-#ifdef RADIATION
-                        tile.rad_flux[2],
-#endif
                         tile.qe[2],
                         tile.qaux, tile.shk,
                         2, false);

@@ -10,11 +10,9 @@ HydroSim::assemble_old_thermo_source(MultiFab& source, MultiFab& state_in,
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
-#ifndef MHD
   if (!(time_integration_method == SpectralDeferredCorrections)) {
       return;
   }
-#endif
 
   const Real strt_time = ParallelDescriptor::second();
 
@@ -47,43 +45,11 @@ HydroSim::assemble_new_thermo_source(MultiFab& source, const MultiFab& state_old
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
-#ifndef MHD
   if (!(time_integration_method == SpectralDeferredCorrections)) {
       return;
   }
 
   amrex::Abort("you should not get here!");
-#else
-
-  const Real strt_time = ParallelDescriptor::second();
-
-  MultiFab thermo_src(grids, dmap, source.nComp(), 0);
-
-  auto add_thermo_source = [&] (const MultiFab& state, Real mult_factor)
-  {
-      thermo_src.setVal(0.0);
-
-      fill_thermo_source(state, thermo_src);
-
-      MultiFab::Saxpy(source, mult_factor, thermo_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
-  };
-
-  add_thermo_source(state_old, -0.5);
-
-  //Time center with the new data
-
-  //state_new needs ghost cell
-  FillPatchIterator fpi(*this, state_new, 1, time, State_Type, 0, NUM_STATE);
-  MultiFab& grown_state = fpi.get_mf();
-
-  add_thermo_source(grown_state, 0.5);
-
-  if (verbose > 1) {
-    print_stage_time("HydroSim::assemble_new_thermo_source()", strt_time);
-  }
-
-
-#endif //MHD
 }
 
 

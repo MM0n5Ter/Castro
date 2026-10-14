@@ -49,10 +49,6 @@ namespace HLL {
       U[USHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UMU_P] = 0.0;
-      U[UMU_N] = 0.0;
-    #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
           const int n  = upassmap(ipassive);
@@ -100,10 +96,6 @@ namespace HLL {
       F[USHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      F[UMU_P] = 0.0;
-      F[UMU_N] = 0.0;
-    #endif
 
       for (int ipassive=0; ipassive < npassive; ipassive++) {
           const int n = upassmap(ipassive);
@@ -137,10 +129,6 @@ namespace HLL {
       U[USHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UMU_P] = 0.0;
-      U[UMU_N] = 0.0;
-    #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
           const int n  = upassmap(ipassive);
@@ -410,12 +398,6 @@ namespace HLL {
         Real gamcl = qaux_arr(i-sx,j-sy,k-sz,QGAM1);
         Real gamcr = qaux_arr(i,j,k,QGAM1);
 
-    #ifdef TRUE_SDC
-        if (use_reconstructed_gamma1 == 1) {
-            gamcl = ql(i,j,k,QGAM1P);
-            gamcr = qr(i,j,k,QGAM1P);
-        }
-    #endif
 
         Real wsmall = small_dens*csmall;
         Real wl = std::max(wsmall, std::sqrt(std::abs(gamcl*pl*rl)));
@@ -573,9 +555,6 @@ namespace HLL {
 
         } else {
 
-    #ifdef HYBRID_MOMENTUM
-            qface(i,j,k,IFCRHO) = qint[QRHO];
-    #endif
             qface(i,j,k,IFCU) = qint[QU];
             qface(i,j,k,IFCV) = qint[QV];
             qface(i,j,k,IFCW) = qint[QW];
