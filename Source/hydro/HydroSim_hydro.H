@@ -1,12 +1,4 @@
 
-#ifdef TRUE_SDC
-///
-/// Calculate primitive variables from conserved variables (uses StateData)
-///
-/// @param time     current time
-///
-    void cons_to_prim(const amrex::Real time);
-#endif
 
 ///
 /// convert the conservative state cell averages to primitive cell
@@ -69,17 +61,13 @@
 /// @param dt      timestep
 /// @param q_arr   primitive variable state array
 /// @param old_src conserved source array
-#ifndef TRUE_SDC
 /// @param src_corr source correction array
-#endif
 /// @param srcQ    primitive variable source array
 ///
     void src_to_prim(const amrex::Box& bx, const Real dt,
                      amrex::Array4<amrex::Real const> const& q_arr,
                      amrex::Array4<amrex::Real const> const& old_src,
-#ifndef TRUE_SDC
                      amrex::Array4<amrex::Real const> const& src_corr,
-#endif
                      amrex::Array4<amrex::Real> const& srcQ);
 
 ///
@@ -100,11 +88,6 @@
     static void ctoprim(const amrex::Box& bx,
                  const amrex::Real time,
                  amrex::Array4<amrex::Real const> const& uin,
-#ifdef MHD
-                 amrex::Array4<amrex::Real const> const& Bx,
-                 amrex::Array4<amrex::Real const> const& By,
-                 amrex::Array4<amrex::Real const> const& Bz,
-#endif
 #ifdef RADIATION
                  amrex::Array4<amrex::Real const> const& Erin,
                  amrex::Array4<amrex::Real const> const& lam,
@@ -776,7 +759,6 @@
 
     static void normalize_species_fluxes(const amrex::Box& bx, amrex::Array4<amrex::Real> const& flux);
 
-#ifndef MHD
     static void
     limit_hydro_fluxes_on_small_dens(const amrex::Box& bx,
                                      int idir,
@@ -786,7 +768,6 @@
                                      amrex::Array4<amrex::Real const> const& area,
                                      amrex::Real dt,
                                      bool scale_by_dAdt = true);
-#endif
 
 
 ///
@@ -812,139 +793,15 @@
                         const amrex::Real dt);
 #endif
 
-#ifndef MHD
     static void reset_edge_state_thermo(const amrex::Box& bx,
                                         amrex::Array4<amrex::Real> const& qedge);
 
     static void edge_state_temp_to_pres(const amrex::Box& bx,
                                  amrex::Array4<amrex::Real> const& qm,
                                  amrex::Array4<amrex::Real> const& qp);
-#endif
 
     void do_enforce_minimum_density(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const int verbose_warnings);
 
-#ifdef HYBRID_MOMENTUM
 
-///
-/// Construct hybrid source terms at old time
-///
-/// @param source   MultiFab to save source to
-/// @param state    Old state
-/// @param time     current time
-/// @param dt       timestep
-///
-    void assemble_old_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
-
-
-///
-/// Construct hybrid source terms at new time
-///
-/// @param source       MultiFab to save source to
-/// @param state_old    Old state
-/// @param state_new    New state
-/// @param time         current time
-/// @param dt           timestep
-///
-    void assemble_new_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt);
-
-
-///
-/// Fill ``source`` with hybrid source terms
-///
-/// @param state        Current state
-/// @param source       MultiFab to save source to
-/// @param mult_factor scaling factor applied to the source terms
-///
-    void fill_hybrid_hydro_source(amrex::MultiFab& source, const amrex::MultiFab& state, const amrex::Real mult_factor);
-
-
-///
-/// Synchronize linear momentum with hybrid momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void hybrid_to_linear_momentum(amrex::MultiFab& state, int ng = 0);
-
-
-///
-/// Synchronize hybrid momentum with linear momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void linear_to_hybrid_momentum(amrex::MultiFab& state, int ng = 0);
-
-#endif
-
-#ifdef TRUE_SDC
-
-    void
-    fourth_interfaces(const amrex::Box& bx,
-                      const int idir, const int ncomp,
-                      amrex::Array4<amrex::Real const> const& a,
-                      amrex::Array4<amrex::Real> const& a_int);
-
-    void
-    states(const amrex::Box& bx,
-           const int idir, const int ncomp,
-           amrex::Array4<amrex::Real const> const& a,
-           amrex::Array4<amrex::Real const> const& a_int,
-           amrex::Array4<amrex::Real const> const& flatcoef,
-           amrex::Array4<amrex::Real> const& al,
-           amrex::Array4<amrex::Real> const& ar);
-
-    void
-    fourth_avisc(const amrex::Box& bx,
-                 amrex::Array4<amrex::Real const> const& q,
-                 amrex::Array4<amrex::Real const> const& qaux,
-                 amrex::Array4<amrex::Real> const& avis,
-                 const int idir);
-
-    void
-    fourth_add_diffusive_flux(const amrex::Box& bx,
-                              amrex::Array4<amrex::Real const> const& q,
-                              const int temp_comp,
-                              amrex::Array4<amrex::Real const> const& qint,
-                              amrex::Array4<amrex::Real> const& F,
-                              const int idir, const bool is_avg);
-
-    static
-    void make_cell_center(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& U_cc,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void make_cell_center_in_place(const Box& bx,
-                                   Array4<Real> const& U,
-                                   Array4<Real> const& tmp,
-                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void compute_lap_term(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& lap, const int ncomp,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void make_fourth_average(const Box& bx,
-                             Array4<Real> const& q,
-                             Array4<Real const> const& q_bar,
-                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void make_fourth_in_place(const Box& bx,
-                              Array4<Real> const& q,
-                              Array4<Real> const& tmp,
-                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void make_fourth_in_place_n(const Box& bx,
-                                Array4<Real> const& q, const int ncomp,
-                                Array4<Real> const& tmp,
-                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-#endif

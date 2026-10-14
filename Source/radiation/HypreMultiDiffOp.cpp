@@ -195,7 +195,6 @@ BndryAuxVar::BndryAuxVar(const BoxArray& _grids,
 
   if (loc == INTERIOR) {
     for (int i = firstLocal(); isValid(i); i = nextLocal(i)) {
-#if 1
       // This is the current default implementation:
       for (OrientationIter omitr; omitr; ++omitr) {
         Orientation om = omitr();
@@ -213,41 +212,6 @@ BndryAuxVar::BndryAuxVar(const BoxArray& _grids,
           }
         }
       }
-#elif 0
-      // This was the original implementation, 2D only:
-      Orientation oxlo(0, Orientation::low);
-      Orientation oxhi(0, Orientation::high);
-      Orientation oylo(1, Orientation::low);
-      Orientation oyhi(1, Orientation::high);
-      IntVect p = aux[oxlo][i]->box().smallEnd();
-      (*aux[oxlo][i])(p).push_secondary(&(*aux[oylo][i])(p));
-      p = aux[oxlo][i]->box().bigEnd();
-      (*aux[oxlo][i])(p).push_secondary(&(*aux[oyhi][i])(p));
-      p = aux[oxhi][i]->box().smallEnd();
-      (*aux[oxhi][i])(p).push_secondary(&(*aux[oylo][i])(p));
-      p = aux[oxhi][i]->box().bigEnd();
-      (*aux[oxhi][i])(p).push_secondary(&(*aux[oyhi][i])(p));
-#elif 0
-      // This version is like the new default, except that
-      // it loops through orientations in a different order.
-      // Some primary/secondary pairs are therefore flipped, and in
-      // the end the solvers return slightly different numbers.
-      // (Results should be the same within the solver tolerance.)
-      for (OrientationIter omitr; omitr; ++omitr) {
-        Orientation om = omitr();
-        const Box& bm = aux[om][i]->box();
-        for (OrientationIter ositr(om); ++ositr; ) {
-          Orientation os = ositr();
-          const Box& bs = aux[os][i]->box();
-          if (bm.intersects(bs)) {
-            Box reg = (bm & bs);
-            for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-                (*aux[om][i])(v).push_secondary(&(*aux[os][i])(v));
-            }
-          }
-        }
-      }
-#endif
     }
   }
 }
@@ -762,12 +726,6 @@ void HypreMultiDiffOp::addLevel(int             level,
     for (int i = 0; i < grids[level].size(); i++) {
       if (dmap[level][i] == myid) {
         subgrids[level][i] = amrex::complementIn(grids[level][i], mask);
-#if 0
-        std::cout << "Coarse level, grid " << i << " subgrids are "
-             << subgrids[level][i] << std::endl;
-        std::cout << "Box numPts = " << grids[level][i].numPts()
-             << "Subgrids numPts = " << subgrids[level][i].numPts() << std::endl;
-#endif
         for (int j = 0; j < subgrids[level][i].size(); j++) {
           HYPRE_SStructGridSetExtents(hgrid, part,
                                       loV(subgrids[level][i][j]),
@@ -795,12 +753,7 @@ TransverseInterpolant(AuxVarBox& cintrp, const Mask& msk,
     vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
     Box face(vf, vf + ve);
     if (msk(vf) == RadBndryData::not_covered) {
-#if (0)
-      // force piecewise constant interpolation for debugging:
-      for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
-        cintrp(v).push(clevel, vc,     1.0);
-      }
-#elif (AMREX_SPACEDIM == 1)
+#if (AMREX_SPACEDIM == 1)
       cintrp(vf).push(clevel, vc, 1.0);
 #elif (AMREX_SPACEDIM == 2)
       if (msk(vf-vj1) != RadBndryData::not_covered &&
@@ -1104,14 +1057,6 @@ void HypreMultiDiffOp::buildMatrixStructure()
         reg.shift(-vin); // fine interior cells
 //        const Mask &msk = bd[level]->bndryMasks(ori,i);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-#if (0 && !defined(NDEBUG))
-          if (msk(v+vin) == RadBndryData::not_covered &&
-              entry(ori,i)(v).secondary()) {
-            std::cout << v << " is secondary in orientation " << ori
-                 << " on processor " << ParallelDescriptor::MyProc()
-                 << std::endl;
-          }
-#endif
           // Even if this entry is covered, it could have a
           // not_covered secondary:
           if (!entry(ori,i)(v).empty() &&
@@ -2777,27 +2722,12 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
     //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 0
-    // Barry used these four settings, at least for level solves:
-    HYPRE_BoomerAMGSetInterpType(solver, 6);
-    HYPRE_BoomerAMGSetCoarsenType(solver, 8);
-    HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
-    HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
     //HYPRE_BoomerAMGSetStrongThreshold(solver, 0.6);
     //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
     //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
     //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
     //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
-    int num_sweeps[4] = {2, 2, 2, 1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
     //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_flag == 101) {
@@ -3066,9 +2996,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &sstruct_solver);
     HYPRE_SStructSplitSetMaxIter(sstruct_solver, maxiter);
-#if 0
-    HYPRE_SStructSplitSetStructSolverNumIterations(sstruct_solver, struct_iter);
-#endif
     HYPRE_SStructSplitSetTol(sstruct_solver, reltol);
     //HYPRE_SStructSplitSetZeroGuess(sstruct_solver);
     //HYPRE_SStructSplitSetLogging(sstruct_solver, 1);
@@ -3079,9 +3006,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
       HYPRE_SStructSplitSetStructSolver(sstruct_solver, HYPRE_PFMG);
     }
     else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(sstruct_solver, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructSplitSetup(sstruct_solver, A, b, x);
@@ -3122,9 +3046,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &sstruct_precond);
     HYPRE_SStructSplitSetMaxIter(sstruct_precond, split_iter);
-#if 0
-    HYPRE_SStructSplitSetStructSolverNumIterations(sstruct_precond, struct_iter);
-#endif
     HYPRE_SStructSplitSetTol(sstruct_precond, 0.0);
     //HYPRE_SStructSplitSetMaxIter(sstruct_precond, 1);
     //HYPRE_SStructSplitSetTol(sstruct_precond, reltol);
@@ -3137,9 +3058,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
       HYPRE_SStructSplitSetStructSolver(sstruct_precond, HYPRE_PFMG);
     }
     else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(sstruct_precond, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructGMRESSetPrecond(sstruct_solver,
@@ -3289,36 +3207,21 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_SStructMatrixGetObject(A, (void**) &par_A);
     HYPRE_SStructVectorGetObject(b, (void**) &par_b);
     HYPRE_SStructVectorGetObject(x, (void**) &par_x);
-#if 0
-    HYPRE_SStructMatrixPrint("A", A, 0);
-    HYPRE_SStructVectorPrint("B", b, 0);
-    std::cout << "HypreMultiDiffOp: creating solver" << std::endl;
-#endif
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
     //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 1
     // Barry used these four settings, at least for level solves:
     HYPRE_BoomerAMGSetInterpType(solver, 6);
     HYPRE_BoomerAMGSetCoarsenType(solver, 8);
     HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
     HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
     //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
     //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
     //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
     //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
-    int num_sweeps[4] = {2,2,2,1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
     //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_flag == 151 || solver_flag == 153) {
