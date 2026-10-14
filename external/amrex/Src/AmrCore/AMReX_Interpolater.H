@@ -1,0 +1,970 @@
+#ifndef AMREX_INTERPOLATER_H_
+#define AMREX_INTERPOLATER_H_
+#include <AMReX_Config.H>
+
+#include <AMReX_Extension.H>
+#include <AMReX_GpuControl.H>
+#include <AMReX_InterpBase.H>
+#include <AMReX_LUSolver.H>
+#include <AMReX_Vector.H>
+
+#include <map>
+#include <variant>
+
+/**
+ * \file AMReX_Interpolater.H
+ * \brief Collection of spatial interpolaters used by FillPatch and flux-register logic.
+ */
+
+namespace amrex {
+
+class Geometry;
+class FArrayBox;
+class IArrayBox;
+
+/**
+* \brief Virtual base class for interpolaters.
+*
+* Specifies interpolater interface for coarse-to-fine interpolation in space.
+*/
+class Interpolater
+    : public InterpBase
+{
+public:
+    /**
+    * \brief Perform coarse-to-fine interpolation on a cell-centered FAB.
+    *
+    * \param crse        Source coarse FAB.
+    * \param crse_comp   Starting component in the coarse FAB.
+    * \param fine        Destination fine FAB.
+    * \param fine_comp   Starting component in the fine FAB.
+    * \param ncomp       Number of components to interpolate.
+    * \param fine_region Region of the fine FAB to fill.
+    * \param ratio       Refinement ratio between coarse and fine.
+    * \param crse_geom   Coarse Geometry.
+    * \param fine_geom   Fine Geometry.
+    * \param bcr         Boundary-condition records per component.
+    * \param actual_comp Component offset into the state vector (for BC lookup).
+    * \param actual_state Index of the state being interpolated (for query hooks).
+    * \param runon       Execution context (host/device) for the interpolation kernels.
+    */
+    virtual void interp (const FArrayBox& crse,
+                         int              crse_comp,
+                         FArrayBox&       fine,
+                         int              fine_comp,
+                         int              ncomp,
+                         const Box&       fine_region,
+                         const IntVect&   ratio,
+                         const Geometry&  crse_geom,
+                         const Geometry&  fine_geom,
+                         Vector<BCRec> const & bcr,
+                         int              actual_comp,
+                         int              actual_state,
+                         RunOn            runon) = 0;
+
+    /**
+    * \brief Coarse-to-fine interpolation for face-based data (optional override).
+    *
+    * By default, this aborts and callers should invoke interp() instead. Face-aware
+    * interpolaters override this to apply solve masks and BCs.
+    */
+    virtual void interp_face (const FArrayBox& /*crse*/,
+                              const int        /*crse_comp*/,
+                              FArrayBox&       /*fine*/,
+                              const int        /*fine_comp*/,
+                              const int        /*ncomp*/,
+                              const Box&       /*fine_region*/,
+                              const IntVect&   /*ratio*/,
+                              const IArrayBox& /*solve_mask*/,
+                              const Geometry&  /*crse_geom*/,
+                              const Geometry&  /*fine_geom*/,
+                              Vector<BCRec> const & /*bcr*/,
+                              const int        /*bccomp*/,
+                              RunOn            /*runon*/)
+    { amrex::Abort("The version of this Interpolater for face-based data is not implemented or does not apply. Call 'interp' instead."); }
+
+    /**
+    * \brief Interpolate arrays of face-centered FABs simultaneously (optional override).
+    */
+    virtual void interp_arr (Array<FArrayBox*, AMREX_SPACEDIM> const& /*crse*/,
+                             const int         /*crse_comp*/,
+                             Array<FArrayBox*, AMREX_SPACEDIM> const& /*fine*/,
+                             const int         /*fine_comp*/,
+                             const int         /*ncomp*/,
+                             const Box&        /*fine_region*/,
+                             const IntVect&    /*ratio*/,
+                             Array<IArrayBox*, AMREX_SPACEDIM> const& /*solve_mask*/,
+                             const Geometry&   /*crse_geom*/,
+                             const Geometry&   /*fine_geom*/,
+                             Vector<Array<BCRec, AMREX_SPACEDIM> > const& /*bcr*/,
+                             const int         /*actual_comp*/,
+                             const int         /*actual_state*/,
+                             const RunOn       /*runon*/)
+
+    { amrex::Abort("The Array<FArrayBox*, AMREX_SPACEDIM> version of this Interpolater is not implemented or does not apply. Call 'interp' instead."); }
+
+    /**
+    * \brief Optional limiter hook that reprojects fine data to avoid undershoot/overshoot.
+    */
+    virtual void protect (const FArrayBox& /*crse*/,
+                          int              /*crse_comp*/,
+                          FArrayBox&       /*fine*/,
+                          int              /*fine_comp*/,
+                          FArrayBox&       /*fine_state*/,
+                          int              /*state_comp*/,
+                          int              /*ncomp*/,
+                          const Box&       /*fine_region*/,
+                          const IntVect&   /*ratio*/,
+                          const Geometry&  /*crse_geom*/,
+                          const Geometry&  /*fine_geom*/,
+                          Vector<BCRec>&   /*bcr*/,
+                          RunOn            /*runon*/) {}
+};
+
+
+/**
+* \brief Bilinear interpolation on node centered data.
+*
+* Bilinear interpolation on node centered data.
+*/
+class NodeBilinear
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+
+/**
+* \brief Bilinear interpolation on cell centered data.
+*
+* Bilinear interpolation on cell centered data.
+*/
+class CellBilinear
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+
+/**
+* \brief Linear conservative interpolation on cell centered data
+*
+*
+* Linear conservative interpolation on cell centered data
+* I.e, conservative interpolation with a limiting scheme that
+* preserves the value of any linear combination  of the
+* fab components; //!< e.g.,
+*
+* if sum_ivar a(ic,jc,ivar)*fab(ic,jc,ivar) = 0, then
+* sum_ivar a(ic,jc,ivar)*fab(if,jf,ivar) = 0 is satisfied
+* in all fine cells if,jf covering coarse cell ic,jc.
+*/
+class CellConservativeLinear
+    :
+    public Interpolater
+{
+public:
+
+    /**
+    * \brief The constructor.
+    *
+    * \param do_linear_limiting_
+    */
+    explicit CellConservativeLinear (bool do_linear_limiting_= true);
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+    /**
+    * \brief Coarse to fine interpolation in space.
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              /*actual_comp*/,
+                 int              /*actual_state*/,
+                 RunOn            runon) override;
+
+protected:
+
+    bool do_linear_limiting;
+};
+
+
+/**
+* \brief Lin. cons. interp. on cc data with protection against under/over-shoots.
+*
+* Linear conservative interpolation on cell centered data
+* but with protection against undershoots or overshoots.
+*/
+class CellConservativeProtected
+    :
+    public CellConservativeLinear
+{
+public:
+
+    /**
+    * \brief The constructor.
+    */
+    CellConservativeProtected ();
+
+    /**
+    * \brief Re-visit the interpolation to protect against under- or overshoots.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param fine_state
+    * \param state_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param runon
+    */
+    void protect (const FArrayBox& crse,
+                  int              crse_comp,
+                  FArrayBox&       fine,
+                  int              fine_comp,
+                  FArrayBox&       fine_state,
+                  int              state_comp,
+                  int              ncomp,
+                  const Box&       fine_region,
+                  const IntVect&   ratio,
+                  const Geometry&  crse_geom,
+                  const Geometry&  fine_geom,
+                  Vector<BCRec>&   bcr,
+                  RunOn            runon) override;
+};
+
+
+/**
+* \brief Quadratic interpolation on cell centered data.
+*
+* Quadratic interpolation on cell centered data.
+*/
+class CellQuadratic
+    :
+    public Interpolater
+{
+public:
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+
+/**
+* \brief Piecewise Constant interpolation on cell centered data.
+*/
+class PCInterp
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const&  bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+
+/**
+* \brief Conservative quartic interpolation on cell averaged data.
+*
+* An order 4 polynomial is used to fit the data.  For each cell involved
+* in constructing the polynomial, the average of the polynomial inside that
+* cell is equal to the cell averaged value of the original data.
+*/
+class CellConservativeQuartic
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const&  bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+/**
+* \brief Divergence-preserving interpolation on face centered data.
+*
+* Divergence-preserving interpolation on face centered data,
+* i.e., it ensures the divergence of the fine ghost cells match the value
+* of the divergence of the underlying crse cell. All fine cells overlying
+* a given coarse cell will have the same divergence, even when the coarse
+* grid divergence is spatially varying.
+* Based on Vanella et. al. (doi:10.1016/j.jcp.2010.05.003, section 3.2),
+* but solves the interior closure problem using least squares with an
+* initial guess equal to the average of fine face values across the cell.
+*/
+class FaceDivFree
+    :
+    public Interpolater
+{
+public:
+
+    FaceDivFree ();
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param solve_mask
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp_arr (Array<FArrayBox*, AMREX_SPACEDIM> const& crse,
+                     int         crse_comp,
+                     Array<FArrayBox*, AMREX_SPACEDIM> const& fine,
+                     int         fine_comp,
+                     int         ncomp,
+                     const Box&        fine_region,
+                     const IntVect&    ratio,
+                     Array<IArrayBox*, AMREX_SPACEDIM> const& solve_mask,
+                     const Geometry&   crse_geom,
+                     const Geometry&   fine_geom,
+                     Vector<Array<BCRec, AMREX_SPACEDIM> > const& bcr,
+                     int         actual_comp,
+                     int         actual_state,
+                     RunOn       runon) override;
+
+private:
+
+#if (AMREX_SPACEDIM == 2)
+    using Solver_t = std::variant<LUSolver< 4,Real>, // IntVect(2,2): refinement
+                                  LUSolver< 8,Real>, // IntVect(4,2)
+                                  LUSolver< 8,Real>, // IntVect(2,4)
+                                  LUSolver<16,Real>>;// IntVect(4,4)
+#elif (AMREX_SPACEDIM == 3)
+    using Solver_t = std::variant<LUSolver< 8,Real>, // IntVect(2,2,2): refinement
+                                  LUSolver<16,Real>, // IntVect(4,2,2)
+                                  LUSolver<16,Real>, // IntVect(2,4,2)
+                                  LUSolver<32,Real>, // IntVect(4,4,2)
+                                  LUSolver<16,Real>, // IntVect(2,2,4)
+                                  LUSolver<32,Real>, // IntVect(4,2,4)
+                                  LUSolver<32,Real>, // IntVect(2,4,4)
+                                  LUSolver<64,Real>>;// IntVect(4,4,4)
+#endif
+
+#if (AMREX_SPACEDIM > 1)
+    Vector<std::map<Box,Solver_t>> m_lusolver;
+#endif
+};
+
+/**
+* \brief Piecewise constant tangential interpolation / linear normal interpolation of face data.
+*
+* Piecewise constant tangential interpolation / linear normal interpolation of face data.
+*/
+class FaceLinear
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space for face-based data.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param solve_mask
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param bccomp
+    * \param runon
+    */
+    void interp_face (const FArrayBox& crse,
+                      int        crse_comp,
+                      FArrayBox&       fine,
+                      int        fine_comp,
+                      int        ncomp,
+                      const Box&       fine_region,
+                      const IntVect&   ratio,
+                      const IArrayBox& solve_mask,
+                      const Geometry&  crse_geom,
+                      const Geometry&  fine_geom,
+                      Vector<BCRec> const & bcr,
+                      int        bccomp,
+                      RunOn            runon) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param solve_mask
+    * \param runon
+    */
+    void interp_arr (Array<FArrayBox*, AMREX_SPACEDIM> const& crse,
+                     int         crse_comp,
+                     Array<FArrayBox*, AMREX_SPACEDIM> const& fine,
+                     int         fine_comp,
+                     int         ncomp,
+                     const Box&        fine_region,
+                     const IntVect&    ratio,
+                     Array<IArrayBox*, AMREX_SPACEDIM> const& solve_mask,
+                     const Geometry&   /*crse_geom*/,
+                     const Geometry&   /*fine_geom*/,
+                     Vector<Array<BCRec, AMREX_SPACEDIM> > const& /*bcr*/,
+                     int         /*actual_comp*/,
+                     int         /*actual_state*/,
+                     RunOn       runon) override;
+
+
+};
+
+/**
+* \brief Bilinear tangential interpolation / linear normal interpolation of face data.
+*
+* Bilinear tangential interpolation / linear normal interpolation of face data.
+*/
+class FaceConservativeLinear
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space for face-based data.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param solve_mask
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param bccomp
+    * \param runon
+    */
+    void interp_face (const FArrayBox& crse,
+                      int        crse_comp,
+                      FArrayBox&       fine,
+                      int        fine_comp,
+                      int        ncomp,
+                      const Box&       fine_region,
+                      const IntVect&   ratio,
+                      const IArrayBox& solve_mask,
+                      const Geometry&  crse_geom,
+                      const Geometry&  fine_geom,
+                      Vector<BCRec> const & bcr,
+                      int        bccomp,
+                      RunOn            runon) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param solve_mask
+    * \param crse_geom
+    * \param runon
+    */
+    void interp_arr (Array<FArrayBox*, AMREX_SPACEDIM> const& crse,
+                     int         crse_comp,
+                     Array<FArrayBox*, AMREX_SPACEDIM> const& fine,
+                     int         fine_comp,
+                     int         ncomp,
+                     const Box&        fine_region,
+                     const IntVect&    ratio,
+                     Array<IArrayBox*, AMREX_SPACEDIM> const& solve_mask,
+                     const Geometry&   crse_geom,
+                     const Geometry&   /*fine_geom*/,
+                     Vector<Array<BCRec, AMREX_SPACEDIM> > const& /*bcr*/,
+                     int         /*actual_comp*/,
+                     int         /*actual_state*/,
+                     RunOn       runon) override;
+
+
+};
+
+/**
+* \brief Quartic interpolation on cell centered data.
+*
+* Quartic interpolation on cell centered data.
+*/
+class CellQuartic
+    :
+    public Interpolater
+{
+public:
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, int ratio) override;
+
+    /**
+    * \brief Returns coarsened box given fine box and refinement ratio.
+    *
+    * \param fine
+    * \param ratio
+    */
+    Box CoarseBox (const Box& fine, const IntVect& ratio) override;
+
+    /**
+    * \brief Coarse to fine interpolation in space.
+    *
+    * \param crse
+    * \param crse_comp
+    * \param fine
+    * \param fine_comp
+    * \param ncomp
+    * \param fine_region
+    * \param ratio
+    * \param crse_geom
+    * \param fine_geom
+    * \param bcr
+    * \param actual_comp
+    * \param actual_state
+    * \param runon
+    */
+    void interp (const FArrayBox& crse,
+                 int              crse_comp,
+                 FArrayBox&       fine,
+                 int              fine_comp,
+                 int              ncomp,
+                 const Box&       fine_region,
+                 const IntVect&   ratio,
+                 const Geometry&  crse_geom,
+                 const Geometry&  fine_geom,
+                 Vector<BCRec> const& bcr,
+                 int              actual_comp,
+                 int              actual_state,
+                 RunOn            runon) override;
+};
+
+//! CONSTRUCT A GLOBAL OBJECT OF EACH VERSION.
+extern AMREX_EXPORT PCInterp                  pc_interp;
+extern AMREX_EXPORT NodeBilinear              node_bilinear_interp;
+extern AMREX_EXPORT FaceDivFree               face_divfree_interp;
+extern AMREX_EXPORT FaceLinear                face_linear_interp;
+extern AMREX_EXPORT FaceConservativeLinear    face_cons_linear_interp;
+extern AMREX_EXPORT CellConservativeLinear    lincc_interp;
+extern AMREX_EXPORT CellConservativeLinear    cell_cons_interp;
+extern AMREX_EXPORT CellBilinear              cell_bilinear_interp;
+extern AMREX_EXPORT CellConservativeProtected protected_interp;
+extern AMREX_EXPORT CellConservativeQuartic   quartic_interp;
+extern AMREX_EXPORT CellQuadratic             quadratic_interp;
+extern AMREX_EXPORT CellQuartic               cell_quartic_interp;
+
+}
+
+#endif /*_INTERPOLATER_H_*/

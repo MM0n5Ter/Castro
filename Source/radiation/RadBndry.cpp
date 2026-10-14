@@ -43,11 +43,6 @@ RadBndry::RadBndry(const BoxArray& _grids, const DistributionMapping& _dmap,
           const Box& face_box = bndry[face][bi].box();
           bctypearray[face][igrid].reset(new BaseFab<int>(face_box));
           // We don't care about the bndry values here, only the type array.
-#if 0
-          FORT_RADBNDRY2(BL_TO_FORTRAN(bndry[face][bi]),
-                         bctypearray[face][igrid]->dataPtr(),
-                         AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-#endif
         }
       }
     }
@@ -218,17 +213,6 @@ void RadBndry::setBndryFluxConds(const BCRec& bc, const BC_Mode phys_bc_mode)
           }
           exit(2);
 
-#if 0
-          FArrayBox& bnd_fab = bndry[face][bi];
-          BaseFab<int>& tfab = bctypearray[face][i];
-          FORT_RADBNDRY2(BL_TO_FORTRAN(bnd_fab),
-                         tfab.dataPtr(),
-                         AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-          if (p_bcflag == 0) {
-            // Homogeneous case.  We called RADBNDRY2 only to set tfab right.
-            setValue(face, i, value);
-          }
-#endif
         }
       }
     }
