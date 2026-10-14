@@ -119,11 +119,6 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 single_zone_jac(burn_t& burn_state, const Real dt, T& Jac) {
 
-#ifdef SIMPLIFIED_SDC
-#ifndef AMREX_USE_GPU
-    amrex::Error("we shouldn't be here with the simplified SDC method (USE_SIMPLIFIED_SDC=TRUE)");
-#endif
-#else
 
     // Jac has the derivatives with respect to the native
     // network variables, X, e.  Note: the e derivative
@@ -177,7 +172,6 @@ single_zone_jac(burn_t& burn_state, const Real dt, T& Jac) {
             }
         }
     }
-#endif
 
     // at this point, our Jacobian should be entirely in terms of X,
     // not Y.
