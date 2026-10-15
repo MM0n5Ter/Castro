@@ -160,43 +160,46 @@ HydroSim::riemann_flux_and_state(const Box& bx,
 #endif
         }
 
-        if (hybrid_riemann == 1) {
-            // correct the fluxes using an HLL scheme if we are in a shock
-            // and doing the hybrid approach
+        // correct the fluxes using an HLL scheme if we are in a shock
+        // and doing the hybrid approach
 
-            const Dim3 left = lower_neighbor(i, j, k, idir);
+        if (hybrid_riemann != 1) {
+            return;
+        }
 
-            int is_shock = static_cast<int>(shk(left) + shk(i,j,k));
+        const Dim3 left = lower_neighbor(i, j, k, idir);
 
-            if (is_shock >= 1) {
+        int is_shock = static_cast<int>(shk(left) + shk(i,j,k));
 
-                Real cl = qaux_arr(left, QC);
-                Real cr = qaux_arr(i,j,k,QC);
+        if (is_shock < 1) {
+            return;
+        }
 
-                Real ql_zone[NQ];
-                Real qr_zone[NQ];
-                Real flx_zone[NUM_STATE];
+        Real cl = qaux_arr(left, QC);
+        Real cr = qaux_arr(i,j,k,QC);
 
-                for (int n = 0; n < NQ; n++) {
-                    ql_zone[n] = qm(i,j,k,n);
-                    qr_zone[n] = qp(i,j,k,n);
-                }
+        Real ql_zone[NQ];
+        Real qr_zone[NQ];
+        Real flx_zone[NUM_STATE];
 
-                // pass in the current flux -- the
-                // HLL solver will overwrite this
-                // if necessary
-                for (int n = 0; n < NUM_STATE; n++) {
-                    flx_zone[n] = flx(i,j,k,n);
-                }
+        for (int n = 0; n < NQ; n++) {
+            ql_zone[n] = qm(i,j,k,n);
+            qr_zone[n] = qp(i,j,k,n);
+        }
 
-                HLL::HLL(ql_zone, qr_zone, cl, cr,
-                         idir, coord,
-                         flx_zone);
+        // pass in the current flux -- the
+        // HLL solver will overwrite this
+        // if necessary
+        for (int n = 0; n < NUM_STATE; n++) {
+            flx_zone[n] = flx(i,j,k,n);
+        }
 
-                for (int n = 0; n < NUM_STATE; n++) {
-                    flx(i,j,k,n) = flx_zone[n];
-                }
-            }
+        HLL::HLL(ql_zone, qr_zone, cl, cr,
+                 idir, coord,
+                 flx_zone);
+
+        for (int n = 0; n < NUM_STATE; n++) {
+            flx(i,j,k,n) = flx_zone[n];
         }
     });
 

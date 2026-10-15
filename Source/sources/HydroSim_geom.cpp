@@ -18,11 +18,7 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
 
-  if (geom.Coord() == 0) {
-      return;
-  }
-
-  if (use_geom_source == 0) {
+  if (geom.Coord() == 0 || use_geom_source == 0) {
       return;
   }
 
@@ -71,11 +67,7 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
 
-  if (geom.Coord() == 0) {
-      return;
-  }
-
-  if (use_geom_source == 0) {
+  if (geom.Coord() == 0 || use_geom_source == 0) {
       return;
   }
 

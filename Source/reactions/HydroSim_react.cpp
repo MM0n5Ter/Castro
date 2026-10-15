@@ -25,25 +25,27 @@ HydroSim::handle_old_reactions (Real time, Real dt) {  // NOLINT(readability-con
     MultiFab& R_old = get_old_data(Reactions_Type);
     MultiFab& R_new = get_new_data(Reactions_Type);
 
-    if (time_integration_method != SimplifiedSpectralDeferredCorrections) {
-        // The result of the reactions is added directly to Sborder.
-        burn_success = react_state(Sborder, R_old, time, 0.5 * dt, 0);
+    if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        return status;
+    }
 
-        if (burn_success != 1) {
-            status.success = false;
-            status.reason = "burn unsuccessful";
+    // The result of the reactions is added directly to Sborder.
+    burn_success = react_state(Sborder, R_old, time, 0.5 * dt, 0);
 
-            return status;
-        }
+    if (burn_success != 1) {
+        status.success = false;
+        status.reason = "burn unsuccessful";
 
-        clean_state(
+        return status;
+    }
+
+    clean_state(
 #ifdef MHD
                     Bx_old_tmp, By_old_tmp, Bz_old_tmp,
 #endif
                     Sborder, time, Sborder.nGrow());
 
-        MultiFab::Copy(R_new, R_old, 0, 0, R_new.nComp(), R_new.nGrow());
-    }
+    MultiFab::Copy(R_new, R_old, 0, 0, R_new.nComp(), R_new.nGrow());
 #endif
 
     return status;
@@ -65,47 +67,15 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 #ifdef SIMPLIFIED_SDC
     MultiFab& R_old = get_old_data(Reactions_Type);
 
-    if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-
-        if (do_react) {
-
-            // Do the ODE integration to capture the reaction source terms.
-
-            burn_success = react_state(time, dt);
-
-            if (burn_success != 1) {
-                status.success = false;
-                status.reason = "burn unsuccessful";
-
-                return status;
-            }
-
-            clean_state(S_new, time + dt, S_new.nGrow());
-
-            // Check for NaN's.
-
-            check_for_nan(S_new);
-
-        }
-        else {
-
-            // If we're not burning, just initialize the reactions data to zero.
-
-            MultiFab& SDC_react_new = get_new_data(Simplified_SDC_React_Type);
-            SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
-
-            R_old.setVal(0.0, R_old.nGrow());
-            R_new.setVal(0.0, R_new.nGrow());
-
-        }
-
+    if (time_integration_method != SimplifiedSpectralDeferredCorrections) {
+        return status;
     }
 
-#else // SIMPLIFIED_SDC
+    if (do_react) {
 
-    if (time_integration_method != SimplifiedSpectralDeferredCorrections) {
+        // Do the ODE integration to capture the reaction source terms.
 
-        burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, 1);
+        burn_success = react_state(time, dt);
 
         if (burn_success != 1) {
             status.success = false;
@@ -114,13 +84,45 @@ HydroSim::handle_new_reactions (Real time, Real dt)
             return status;
         }
 
-        clean_state(
+        clean_state(S_new, time + dt, S_new.nGrow());
+
+        // Check for NaN's.
+
+        check_for_nan(S_new);
+
+    }
+    else {
+
+        // If we're not burning, just initialize the reactions data to zero.
+
+        MultiFab& SDC_react_new = get_new_data(Simplified_SDC_React_Type);
+        SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
+
+        R_old.setVal(0.0, R_old.nGrow());
+        R_new.setVal(0.0, R_new.nGrow());
+
+    }
+
+#else // SIMPLIFIED_SDC
+
+    if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+        return status;
+    }
+
+    burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, 1);
+
+    if (burn_success != 1) {
+        status.success = false;
+        status.reason = "burn unsuccessful";
+
+        return status;
+    }
+
+    clean_state(
 #ifdef MHD
                     Bx_new, By_new, Bz_new,
 #endif
                     S_new, time, S_new.nGrow());
-
-    }
 
 #endif // SIMPLIFIED_SDC
 
@@ -149,18 +151,9 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
 
     int burn_success = 1;
 
-    if (do_react != 1) {
+    // Check if reactions are enabled and we have any zones to burn.
 
-        // Ensure we always have valid data, even if we don't do the burn.
-        r.setVal(0.0, r.nGrow());
-
-        return burn_success;
-
-    }
-
-    // Check if we have any zones to burn.
-
-    if (!valid_zones_to_burn(s)) {
+    if (do_react != 1 || !valid_zones_to_burn(s)) {
 
         // Ensure we always have valid data, even if we don't do the burn.
         r.setVal(0.0, r.nGrow());

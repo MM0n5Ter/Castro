@@ -288,29 +288,19 @@ HydroSim::finalize_do_advance (Real time, Real dt)
     // whereas in computeNewDt change_max prevents the timestep from growing
     // too much. The same reasoning applies for the other timestep limiters.
 
-    if (hydrosim::time_integration_method == CornerTransportUpwind ||
-        hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        if (hydrosim::check_dt_after_advance) {
+    // But don't do this check if we're using simplified SDC and we're not yet
+    // on the final SDC iteration, since we're not yet at the final advance.
 
-            // But don't do this check if we're using simplified SDC and we're not yet
-            // on the final SDC iteration, since we're not yet at the final advance.
+    if ((hydrosim::time_integration_method == CornerTransportUpwind ||
+         (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
+          sdc_iteration >= sdc_iters - 1)) &&
+        hydrosim::check_dt_after_advance) {
+        const int is_new = 1;
 
-            auto do_validity_check = true;
-
-            if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
-                sdc_iteration < sdc_iters - 1) {
-                do_validity_check = false;
-            }
-
-            if (do_validity_check) {
-                const int is_new = 1;
-
-                if (timestep_check_failed(*this, is_new, dt)) {
-                    status.success = false;
-                    status.reason = "post-advance timestep validity check failed";
-                    return status;
-                }
-            }
+        if (timestep_check_failed(*this, is_new, dt)) {
+            status.success = false;
+            status.reason = "post-advance timestep validity check failed";
+            return status;
         }
     }
 
@@ -350,19 +340,14 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
     in_retry = 0;
     num_subcycles_taken = 1;
 
-    if (use_post_step_regrid == 1 && level > 0) {
+    // If the level below this just triggered a special regrid,
+    // the coarse contribution to this level's FluxRegister
+    // is no longer valid because the grids have, in general, changed.
+    // Zero it out, and add them back using the saved copy of the fluxes.
 
-        if (getLevel(level-1).post_step_regrid == 1 && amr_iteration == 1) {
-
-            // If the level below this just triggered a special regrid,
-            // the coarse contribution to this level's FluxRegister
-            // is no longer valid because the grids have, in general, changed.
-            // Zero it out, and add them back using the saved copy of the fluxes.
-
-            getLevel(level-1).FluxRegCrseInit();
-
-        }
-
+    if (use_post_step_regrid == 1 && level > 0 &&
+        getLevel(level-1).post_step_regrid == 1 && amr_iteration == 1) {
+        getLevel(level-1).FluxRegCrseInit();
     }
 
     // The option of whether to do a multilevel initialization is
@@ -658,6 +643,10 @@ HydroSim::finalize_advance()
 
     num_zones_advanced += static_cast<Real>(grids.numPts()) / static_cast<Real>(getLevel(0).grids.numPts());
 
+    if (verbose < 1) {
+        return;
+    }
+
     // For the per-advance timing report, count all levels advanced together.
 
     int max_level_to_advance = level;
@@ -676,15 +665,11 @@ HydroSim::finalize_advance()
 
     Real fom_advance = static_cast<Real>(num_pts_advanced) / wall_time / 1.e6;
 
-    if (verbose >= 1) {
-        if (!(max_level_to_advance > 0)) {
-            amrex::Print() << "  Zones advanced per microsecond at this level: "
-                           << fom_advance << std::endl << std::endl;
-        } else {
-            if (level == 0) {
-                amrex::Print() << "  Zones advanced per microsecond from level " << level << " to level "
-                               << max_level_to_advance << ": " << fom_advance << std::endl << std::endl;
-            }
-        }
+    if (max_level_to_advance == 0) {
+        amrex::Print() << "  Zones advanced per microsecond at this level: "
+                       << fom_advance << std::endl << std::endl;
+    } else if (level == 0) {
+        amrex::Print() << "  Zones advanced per microsecond from level " << level << " to level "
+                       << max_level_to_advance << ": " << fom_advance << std::endl << std::endl;
     }
 }

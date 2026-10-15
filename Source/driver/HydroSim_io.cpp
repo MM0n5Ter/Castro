@@ -390,16 +390,16 @@ HydroSim::restart (Amr&     papa,
 
     }
 
-    if (reset_checkpoint_step > -1) {
-
-        if (!parent->RegridOnRestart()) {
-          amrex::Error("reset_checkpoint_step only makes sense when amr.regrid_on_restart=1");
-        }
-
-        parent->setLevelSteps(level, reset_checkpoint_step);
-        parent->setLevelCount(level, reset_checkpoint_step);
-
+    if (reset_checkpoint_step <= -1) {
+        return;
     }
+
+    if (!parent->RegridOnRestart()) {
+      amrex::Error("reset_checkpoint_step only makes sense when amr.regrid_on_restart=1");
+    }
+
+    parent->setLevelSteps(level, reset_checkpoint_step);
+    parent->setLevelCount(level, reset_checkpoint_step);
 }
 
 void
@@ -433,98 +433,98 @@ HydroSim::checkPoint(const std::string& dir,
   ParticleCheckPoint(dir);
 #endif
 
-  if (level == 0 && ParallelDescriptor::IOProcessor())
-    {
-        {
-            std::ofstream HydroSimHeaderFile;
-            std::string FullPathHydroSimHeaderFile = dir;
-            FullPathHydroSimHeaderFile += "/HydroSimHeader";
-            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
+  if (level != 0 || !ParallelDescriptor::IOProcessor()) {
+    return;
+  }
 
-            HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
-            HydroSimHeaderFile.close();
+  {
+      std::ofstream HydroSimHeaderFile;
+      std::string FullPathHydroSimHeaderFile = dir;
+      FullPathHydroSimHeaderFile += "/HydroSimHeader";
+      HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
 
-            writeJobInfo(dir, io_time);
+      HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
+      HydroSimHeaderFile.close();
 
-            // output the list of state variables, so we can do a sanity check on restart
-            std::ofstream StateListFile;
-            std::string FullPathStateList = dir;
-            FullPathStateList += "/state_names.txt";
-            StateListFile.open(FullPathStateList.c_str(), std::ios::out);
+      writeJobInfo(dir, io_time);
 
-            for (int n = 0; n < NUM_STATE; n++) {
-              StateListFile << desc_lst[State_Type].name(n) << "\n";
-            }
-            StateListFile.close();
-        }
+      // output the list of state variables, so we can do a sanity check on restart
+      std::ofstream StateListFile;
+      std::string FullPathStateList = dir;
+      FullPathStateList += "/state_names.txt";
+      StateListFile.open(FullPathStateList.c_str(), std::ios::out);
 
-        // If we have limited this last timestep to hit a plot interval,
-        // store the timestep we took before limiting. After the restart,
-        // this dt will be read in and used to limit the next timestep
-        // appropriately, rather than the shortened timestep.
+      for (int n = 0; n < NUM_STATE; n++) {
+        StateListFile << desc_lst[State_Type].name(n) << "\n";
+      }
+      StateListFile.close();
+  }
 
-        if (lastDtPlotLimited == 1) {
+  // If we have limited this last timestep to hit a plot interval,
+  // store the timestep we took before limiting. After the restart,
+  // this dt will be read in and used to limit the next timestep
+  // appropriately, rather than the shortened timestep.
 
-            std::ofstream dtHeaderFile;
-            std::string FullPathdtHeaderFile = dir;
-            FullPathdtHeaderFile += "/dtHeader";
-            dtHeaderFile.open(FullPathdtHeaderFile.c_str(), std::ios::out);
+  if (lastDtPlotLimited == 1) {
 
-            dtHeaderFile << lastDtBeforePlotLimiting << std::endl;
-            dtHeaderFile.close();
+      std::ofstream dtHeaderFile;
+      std::string FullPathdtHeaderFile = dir;
+      FullPathdtHeaderFile += "/dtHeader";
+      dtHeaderFile.open(FullPathdtHeaderFile.c_str(), std::ios::out);
 
-        }
+      dtHeaderFile << lastDtBeforePlotLimiting << std::endl;
+      dtHeaderFile.close();
 
-        {
-            // store elapsed CPU time
-            std::ofstream CPUFile;
-            std::string FullPathCPUFile = dir;
-            FullPathCPUFile += "/CPUtime";
-            CPUFile.open(FullPathCPUFile.c_str(), std::ios::out);
+  }
 
-            CPUFile << std::setprecision(17) << getCPUTime();
-            CPUFile.close();
-        }
+  {
+      // store elapsed CPU time
+      std::ofstream CPUFile;
+      std::string FullPathCPUFile = dir;
+      FullPathCPUFile += "/CPUtime";
+      CPUFile.open(FullPathCPUFile.c_str(), std::ios::out);
+
+      CPUFile << std::setprecision(17) << getCPUTime();
+      CPUFile.close();
+  }
 
 #ifdef GRAVITY
-        if (use_point_mass) {
+  if (use_point_mass) {
 
-            // store current value of the point mass
-            std::ofstream PMFile;
-            std::string FullPathPMFile = dir;
-            FullPathPMFile += "/point_mass";
-            PMFile.open(FullPathPMFile.c_str(), std::ios::out);
+      // store current value of the point mass
+      std::ofstream PMFile;
+      std::string FullPathPMFile = dir;
+      FullPathPMFile += "/point_mass";
+      PMFile.open(FullPathPMFile.c_str(), std::ios::out);
 
-            PMFile << std::setprecision(17) << point_mass << std::endl;
+      PMFile << std::setprecision(17) << point_mass << std::endl;
 
-            PMFile.close();
+      PMFile.close();
 
-        }
+  }
 #endif
 
 #ifdef ROTATION
-        if (do_rotation) {
-            // store current value of the rotation period
-            std::ofstream RotationFile;
-            std::string FullPathRotationFile = dir;
-            FullPathRotationFile += "/Rotation";
-            RotationFile.open(FullPathRotationFile.c_str(), std::ios::out);
+  if (do_rotation) {
+      // store current value of the rotation period
+      std::ofstream RotationFile;
+      std::string FullPathRotationFile = dir;
+      FullPathRotationFile += "/Rotation";
+      RotationFile.open(FullPathRotationFile.c_str(), std::ios::out);
 
-            RotationFile << std::scientific;
-            RotationFile.precision(19);
+      RotationFile << std::scientific;
+      RotationFile.precision(19);
 
-            RotationFile << std::setw(30) << hydrosim::rotational_period << std::endl;
+      RotationFile << std::setw(30) << hydrosim::rotational_period << std::endl;
 
-            RotationFile.close();
-        }
+      RotationFile.close();
+  }
 #endif
 
-        {
-            // store any problem-specific stuff
-            problem_checkpoint(dir);
-        }
-    }
-
+  {
+      // store any problem-specific stuff
+      problem_checkpoint(dir);
+  }
 }
 
 std::string

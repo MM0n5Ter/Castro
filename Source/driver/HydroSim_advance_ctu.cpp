@@ -111,71 +111,65 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 {
     BL_PROFILE("HydroSim::redo_advance_ctu()");
 
-    bool do_retry = false;
-
-    if (!status.success) {
-        do_retry = true;
+    if (status.success) {
+        return false;
     }
 
-    if (do_retry) {
+    const int max_level_to_advance = finest_level_advanced();
 
-        const int max_level_to_advance = finest_level_advanced();
-
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            if (!(status.suggested_dt > 0.0_rt && status.suggested_dt < dt)) {
-                getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
-            } else {
-                getLevel(lev).dt_subcycle = status.suggested_dt;
-            }
+    for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        if (!(status.suggested_dt > 0.0_rt && status.suggested_dt < dt)) {
+            getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
+        } else {
+            getLevel(lev).dt_subcycle = status.suggested_dt;
         }
+    }
 
-        if (verbose && ParallelDescriptor::IOProcessor()) {
-            std::cout << std::endl;
-            std::cout << Font::Bold << FGColor::Red;
-            std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
-            std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_subcycle << std::endl;
-            std::cout << ResetDisplay;
-            std::cout << std::endl;
-        }
+    if (verbose && ParallelDescriptor::IOProcessor()) {
+        std::cout << std::endl;
+        std::cout << Font::Bold << FGColor::Red;
+        std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
+        std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_subcycle << std::endl;
+        std::cout << ResetDisplay;
+        std::cout << std::endl;
+    }
 
-        // If we are doing a retry and this is the first attempt
-        // at the advance, make a copy of the state data. This will
-        // be useful to us at the end of the timestep when we need
-        // to restore the original old data.
+    // If we are doing a retry and this is the first attempt
+    // at the advance, make a copy of the state data. This will
+    // be useful to us at the end of the timestep when we need
+    // to restore the original old data.
 
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            getLevel(lev).save_data_for_retry();
+    for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        getLevel(lev).save_data_for_retry();
 
-            // Clear the contribution to the fluxes from this step.
+        // Clear the contribution to the fluxes from this step.
 
-            getLevel(lev).zero_flux_accumulators();
+        getLevel(lev).zero_flux_accumulators();
 
 #ifdef REACTIONS
-            if (hydrosim::store_burn_weights) {
-                getLevel(lev).burn_weights.setVal(0.0);
-            }
+        if (hydrosim::store_burn_weights) {
+            getLevel(lev).burn_weights.setVal(0.0);
+        }
 #endif
 
-            // For simplified SDC, we'll have garbage data if we
-            // attempt to use the lagged source terms (both reacting
-            // and non-reacting) from the last timestep, since that
-            // advance failed and we don't know if we can trust it.
-            // So we zero out both source term correctors.
+        // For simplified SDC, we'll have garbage data if we
+        // attempt to use the lagged source terms (both reacting
+        // and non-reacting) from the last timestep, since that
+        // advance failed and we don't know if we can trust it.
+        // So we zero out both source term correctors.
 
-            if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-                getLevel(lev).source_corrector.setVal(0.0, getLevel(lev).source_corrector.nGrow());
+        if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
+            getLevel(lev).source_corrector.setVal(0.0, getLevel(lev).source_corrector.nGrow());
 
 #ifdef REACTIONS
-                MultiFab& SDC_react_new = getLevel(lev).get_new_data(Simplified_SDC_React_Type);
-                SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
+            MultiFab& SDC_react_new = getLevel(lev).get_new_data(Simplified_SDC_React_Type);
+            SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
 #endif
-            }
-
         }
 
     }
 
-    return do_retry;
+    return true;
 }
 
 
@@ -370,24 +364,18 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
         sdc_iters = sdc_iters_old;
 
         // If we're allowing for retries, check for that here.
+        // If we hit a retry, signal that we want to try again.
+        // The retry function will handle resetting the state,
+        // and updating dt_subcycle.
 
-        if (use_retry) {
+        if (use_retry && redo_advance_ctu(dt_subcycle, status)) {
+            do_swap = false;
+            for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = true; });
 
-            // If we hit a retry, signal that we want to try again.
-            // The retry function will handle resetting the state,
-            // and updating dt_subcycle.
-
-            if (redo_advance_ctu(dt_subcycle, status)) {
-                do_swap = false;
-                for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = true; });
-
-                continue;
-            }
-{
-                for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = false; });
-            }
-
+            continue;
         }
+
+        for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = false; });
 
         subcycle_time += dt_subcycle;
         sub_iteration += 1;

@@ -102,156 +102,157 @@ Gravity::read_params ()
 {
     static bool done = false;
 
-    if (!done)
-    {
-        const Geometry& dgeom = DefaultGeometry();
+    if (done) {
+        return;
+    }
 
-        ParmParse pp("gravity");
+    const Geometry& dgeom = DefaultGeometry();
 
-        if ( (gravity::gravity_type != "UniformField") &&
-             (gravity::gravity_type != "FullPoisson") &&
-             (gravity::gravity_type != "SphericalMonopole") )
-             {
-                std::cout << "Sorry -- dont know this gravity type"  << std::endl;
-                amrex::Abort("Options are UniformField, FullPoisson, or SphericalMonopole");
-             }
+    ParmParse pp("gravity");
+
+    if ( (gravity::gravity_type != "UniformField") &&
+         (gravity::gravity_type != "FullPoisson") &&
+         (gravity::gravity_type != "SphericalMonopole") )
+         {
+            std::cout << "Sorry -- dont know this gravity type"  << std::endl;
+            amrex::Abort("Options are UniformField, FullPoisson, or SphericalMonopole");
+         }
 
 #if (AMREX_SPACEDIM == 1)
-        if (gravity::gravity_type == "FullPoisson")
-        {
-          amrex::Abort(" gravity::gravity_type = FullPoisson doesn't work well in 1-d -- please set gravity::gravity_type = SphericalMonopole");
-        }
-        else if (gravity::gravity_type == "SphericalMonopole" && !(dgeom.IsSPHERICAL()))
-        {
-          amrex::Abort("Only use SphericalMonopole in 1D spherical coordinates");
-        }
-        else if (gravity::gravity_type == "UniformField" && dgeom.IsSPHERICAL())
-        {
-          amrex::Abort("Can't use constant gravity in 1D spherical coordinates");
-        }
+    if (gravity::gravity_type == "FullPoisson")
+    {
+      amrex::Abort(" gravity::gravity_type = FullPoisson doesn't work well in 1-d -- please set gravity::gravity_type = SphericalMonopole");
+    }
+    else if (gravity::gravity_type == "SphericalMonopole" && !(dgeom.IsSPHERICAL()))
+    {
+      amrex::Abort("Only use SphericalMonopole in 1D spherical coordinates");
+    }
+    else if (gravity::gravity_type == "UniformField" && dgeom.IsSPHERICAL())
+    {
+      amrex::Abort("Can't use constant gravity in 1D spherical coordinates");
+    }
 
 #elif (AMREX_SPACEDIM == 2)
-        if (gravity::gravity_type == "SphericalMonopole" && dgeom.IsCartesian() )
-        {
-          amrex::Abort(" gravity::gravity_type = SphericalMonopole doesn't make sense in 2D Cartesian coordinates");
-        }
+    if (gravity::gravity_type == "SphericalMonopole" && dgeom.IsCartesian() )
+    {
+      amrex::Abort(" gravity::gravity_type = SphericalMonopole doesn't make sense in 2D Cartesian coordinates");
+    }
 #endif
 
-        if (pp.contains("get_g_from_phi") && !gravity::get_g_from_phi && gravity::gravity_type == "FullPoisson") {
-            amrex::Print() << "Warning: gravity::gravity_type = FullPoisson assumes get_g_from_phi is true" << std::endl;
-        }
-
-        int nlevs = parent->maxLevel() + 1;
-
-        // Allow run-time input of solver tolerance. If the user
-        // provides no value, set a reasonable default value on the
-        // coarse level, and then increase it by ref_ratio**2 as the
-        // levels get finer to account for the change in the absolute
-        // scale of the Laplacian. If the user provides one value, use
-        // that on the coarse level, and increase it the same way for
-        // the fine levels. If the user provides more than one value,
-        // we expect them to provide one for every level, and we do
-        // not apply the ref_ratio effect.
-
-        int n_abs_tol = pp.countval("abs_tol");
-
-        if (n_abs_tol <= 1) {
-
-            Real tol;
-
-            if (n_abs_tol == 1) {
-
-                pp.get("abs_tol", tol);
-
-            } else {
-
-                if (dgeom.IsCartesian()) {
-                    tol = 1.e-11;
-                } else {
-                    tol = 1.e-10;
-                }
-
-            }
-
-            abs_tol[0] = tol;
-
-            // Account for the fact that on finer levels, the scale of the
-            // Laplacian changes due to the zone size changing. We assume
-            // dx == dy == dz, so it is fair to say that on each level the
-            // tolerance should increase by the factor ref_ratio**2, since
-            // in absolute terms the Laplacian increases by that ratio too.
-            // The actual tolerance we'll send in is the effective tolerance
-            // on the finest level that we solve for.
-
-            for (int lev = 1; lev < nlevs; ++lev) {
-                abs_tol[lev] = abs_tol[lev - 1] * amrex::Math::powi<2>(parent->refRatio(lev - 1)[0]);
-            }
-
-        } else if (n_abs_tol >= nlevs) {
-
-            pp.getarr("abs_tol", abs_tol, 0, nlevs);
-
-        } else {
-
-            amrex::Abort("If you are providing multiple values for abs_tol, you must provide at least one value for every level up to amr.max_level.");
-
-        }
-
-        // For the relative tolerance, we can again accept a single
-        // scalar (same for all levels) or one for all levels. The
-        // default value is zero, so that we only use the absolute
-        // tolerance.  The multigrid always chooses the looser of the
-        // two criteria in determining whether the solve has
-        // converged.
-
-        // Note that the parameter rel_tol used to be known as ml_tol,
-        // so if we detect that the user has set ml_tol but not
-        // rel_tol, we'll accept that for specifying the relative
-        // tolerance. ml_tol is now considered deprecated and will be
-        // removed in a future release.
-
-        std::string rel_tol_name = "rel_tol";
-
-        if (pp.contains("ml_tol")) {
-
-            amrex::Warning("The gravity parameter ml_tol has been renamed rel_tol. ml_tol is now deprecated.");
-
-            if (!pp.contains("rel_tol")) {
-                rel_tol_name = "ml_tol";
-            }
-
-        }
-
-        int n_rel_tol = pp.countval(rel_tol_name);
-
-        if (n_rel_tol <= 1) {
-
-            Real tol;
-
-            if (n_rel_tol == 1) {
-
-                pp.get(rel_tol_name, tol);
-
-            } else {
-
-                tol = 0.0;
-
-            }
-
-            std::fill_n(rel_tol.begin(), MAX_LEV, tol);
-
-        } else if (n_rel_tol >= nlevs) {
-
-            pp.getarr(rel_tol_name, rel_tol, 0, nlevs);
-
-        } else {
-
-            amrex::Abort("If you are providing multiple values for rel_tol, you must provide at least one value for every level up to amr.max_level.");
-
-        }
-
-        done = true;
+    if (pp.contains("get_g_from_phi") && !gravity::get_g_from_phi && gravity::gravity_type == "FullPoisson") {
+        amrex::Print() << "Warning: gravity::gravity_type = FullPoisson assumes get_g_from_phi is true" << std::endl;
     }
+
+    int nlevs = parent->maxLevel() + 1;
+
+    // Allow run-time input of solver tolerance. If the user
+    // provides no value, set a reasonable default value on the
+    // coarse level, and then increase it by ref_ratio**2 as the
+    // levels get finer to account for the change in the absolute
+    // scale of the Laplacian. If the user provides one value, use
+    // that on the coarse level, and increase it the same way for
+    // the fine levels. If the user provides more than one value,
+    // we expect them to provide one for every level, and we do
+    // not apply the ref_ratio effect.
+
+    int n_abs_tol = pp.countval("abs_tol");
+
+    if (n_abs_tol <= 1) {
+
+        Real tol;
+
+        if (n_abs_tol == 1) {
+
+            pp.get("abs_tol", tol);
+
+        } else {
+
+            if (dgeom.IsCartesian()) {
+                tol = 1.e-11;
+            } else {
+                tol = 1.e-10;
+            }
+
+        }
+
+        abs_tol[0] = tol;
+
+        // Account for the fact that on finer levels, the scale of the
+        // Laplacian changes due to the zone size changing. We assume
+        // dx == dy == dz, so it is fair to say that on each level the
+        // tolerance should increase by the factor ref_ratio**2, since
+        // in absolute terms the Laplacian increases by that ratio too.
+        // The actual tolerance we'll send in is the effective tolerance
+        // on the finest level that we solve for.
+
+        for (int lev = 1; lev < nlevs; ++lev) {
+            abs_tol[lev] = abs_tol[lev - 1] * amrex::Math::powi<2>(parent->refRatio(lev - 1)[0]);
+        }
+
+    } else if (n_abs_tol >= nlevs) {
+
+        pp.getarr("abs_tol", abs_tol, 0, nlevs);
+
+    } else {
+
+        amrex::Abort("If you are providing multiple values for abs_tol, you must provide at least one value for every level up to amr.max_level.");
+
+    }
+
+    // For the relative tolerance, we can again accept a single
+    // scalar (same for all levels) or one for all levels. The
+    // default value is zero, so that we only use the absolute
+    // tolerance.  The multigrid always chooses the looser of the
+    // two criteria in determining whether the solve has
+    // converged.
+
+    // Note that the parameter rel_tol used to be known as ml_tol,
+    // so if we detect that the user has set ml_tol but not
+    // rel_tol, we'll accept that for specifying the relative
+    // tolerance. ml_tol is now considered deprecated and will be
+    // removed in a future release.
+
+    std::string rel_tol_name = "rel_tol";
+
+    if (pp.contains("ml_tol")) {
+
+        amrex::Warning("The gravity parameter ml_tol has been renamed rel_tol. ml_tol is now deprecated.");
+
+        if (!pp.contains("rel_tol")) {
+            rel_tol_name = "ml_tol";
+        }
+
+    }
+
+    int n_rel_tol = pp.countval(rel_tol_name);
+
+    if (n_rel_tol <= 1) {
+
+        Real tol;
+
+        if (n_rel_tol == 1) {
+
+            pp.get(rel_tol_name, tol);
+
+        } else {
+
+            tol = 0.0;
+
+        }
+
+        std::fill_n(rel_tol.begin(), MAX_LEV, tol);
+
+    } else if (n_rel_tol >= nlevs) {
+
+        pp.getarr(rel_tol_name, rel_tol, 0, nlevs);
+
+    } else {
+
+        amrex::Abort("If you are providing multiple values for rel_tol, you must provide at least one value for every level up to amr.max_level.");
+
+    }
+
+    done = true;
 }
 
 void

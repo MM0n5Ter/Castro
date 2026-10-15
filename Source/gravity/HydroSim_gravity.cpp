@@ -54,13 +54,8 @@ HydroSim::assemble_old_gravity (Real time)
     // or all levels above this level, since the new-time composite solve
     // at the new time in the last step will still be valid.
 
-    bool do_old_solve = true;
-
-    if (parent->subcyclingMode() == "None" || parent->finestLevel() == 0) {
-        do_old_solve = false;
-    }
-
-    if (gravity->get_gravity_type() == "FullPoisson" && do_old_solve)
+    if (gravity->get_gravity_type() == "FullPoisson" &&
+        parent->subcyclingMode() != "None" && parent->finestLevel() != 0)
     {
         // Create a copy of the current (composite) data on this level.
 

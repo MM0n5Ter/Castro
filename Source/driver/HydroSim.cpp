@@ -1971,10 +1971,8 @@ HydroSim::post_timestep (int iteration_local)
     // Now do the refluxing. If we're using gravity it
     // will also do the sync solve associated with the reflux.
 
-    if (do_reflux && level < parent->finestLevel()) {
-        if (parent->subcyclingMode() != "None") {
-            reflux(level, level+1, true);
-        }
+    if (do_reflux && level < parent->finestLevel() && parent->subcyclingMode() != "None") {
+        reflux(level, level+1, true);
     }
 
     // Ensure consistency with finer grids.
@@ -2055,46 +2053,47 @@ HydroSim::post_timestep (int iteration_local)
 
     // Check to see if the user-supplied stopping criterion has been met.
 
-    if (!hydrosim::stopping_criterion_field.empty() && level == 0) {
-        const auto levels = std::views::iota(0, parent->finestLevel() + 1);
+    if (hydrosim::stopping_criterion_field.empty() || level != 0) {
+        return;
+    }
 
-        const Real max_field_val =
-            std::accumulate(levels.begin(), levels.end(), std::numeric_limits<Real>::min(),
-                            [&] (Real level_max, int lev) {
-                                auto mf = getLevel(lev).derive(hydrosim::stopping_criterion_field, state[State_Type].curTime(), 0);
-                                return std::max(level_max, mf->max(0));
-                            });
+    const auto levels = std::views::iota(0, parent->finestLevel() + 1);
 
-        int to_stop = (max_field_val >= hydrosim::stopping_criterion_value);
+    const Real max_field_val =
+        std::accumulate(levels.begin(), levels.end(), std::numeric_limits<Real>::min(),
+                        [&] (Real level_max, int lev) {
+                            auto mf = getLevel(lev).derive(hydrosim::stopping_criterion_field, state[State_Type].curTime(), 0);
+                            return std::max(level_max, mf->max(0));
+                        });
 
-        amrex::ParallelDescriptor::ReduceIntMax(to_stop);
+    int to_stop = (max_field_val >= hydrosim::stopping_criterion_value);
 
-        if (to_stop) {
+    amrex::ParallelDescriptor::ReduceIntMax(to_stop);
 
-            amrex::Print() << std::endl
-                           << "Ending simulation because we are above the user-specified stopping criterion threshold."
-                           << std::endl;
+    if (!to_stop) {
+        return;
+    }
 
-            signalStopJob = true;
+    amrex::Print() << std::endl
+                   << "Ending simulation because we are above the user-specified stopping criterion threshold."
+                   << std::endl;
 
-            // Write out a checkpoint.
+    signalStopJob = true;
 
-            if (amrex::ParallelDescriptor::IOProcessor()) {
-                std::ofstream dump_file;
-                dump_file.open("dump_and_stop", std::ofstream::out);
-                dump_file.close();
-            }
+    // Write out a checkpoint.
 
-            // Write out a file that indicates the job has completed.
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        std::ofstream dump_file;
+        dump_file.open("dump_and_stop", std::ofstream::out);
+        dump_file.close();
+    }
 
-            if (amrex::ParallelDescriptor::IOProcessor()) {
-                std::ofstream jobIsDoneFile;
-                jobIsDoneFile.open("jobIsDone", std::ofstream::out);
-                jobIsDoneFile.close();
-            }
+    // Write out a file that indicates the job has completed.
 
-        }
-
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        std::ofstream jobIsDoneFile;
+        jobIsDoneFile.open("jobIsDone", std::ofstream::out);
+        jobIsDoneFile.close();
     }
 }
 
@@ -2127,52 +2126,49 @@ HydroSim::post_restart ()
 #endif
 
 #ifdef GRAVITY
-    if (do_grav)
+    if (do_grav && level == 0)
     {
         Real cur_time = state[State_Type].curTime();
 
-        if (level == 0)
-        {
-            // Passing numpts_1d at level 0
-            int numpts_1d = get_numpts ();
+        // Passing numpts_1d at level 0
+        int numpts_1d = get_numpts ();
 
 #if (AMREX_SPACEDIM == 1)
-            numpts_1d += 2 * NUM_GROW;
+        numpts_1d += 2 * NUM_GROW;
 #endif
 
-            gravity->set_radial_npts(numpts_1d);
+        gravity->set_radial_npts(numpts_1d);
 
-            for (int lev = 0; lev <= parent->finestLevel(); lev++)
-            {
-                AmrLevel& this_level  = getLevel(lev);
-                HydroSim& cs_level = getLevel(lev);
-                gravity->register_level(lev,&this_level,
-                                       cs_level.Volume(),cs_level.Area());
+        for (int lev = 0; lev <= parent->finestLevel(); lev++)
+        {
+            AmrLevel& this_level  = getLevel(lev);
+            HydroSim& cs_level = getLevel(lev);
+            gravity->register_level(lev,&this_level,
+                                   cs_level.Volume(),cs_level.Area());
+        }
+
+        if (moving_center == 1)
+        {
+           const MultiFab& S_new = get_new_data(State_Type);
+           define_new_center(S_new,cur_time);
+        }
+
+        gravity->set_mass_offset(cur_time);
+
+        if ( gravity->get_gravity_type() == "FullPoisson")
+        {
+            // Update the maximum density, used in setting the solver tolerance.
+
+            gravity->update_max_rhs();
+
+            gravity->solve_new_phi_all_levels(0, parent->finestLevel());
+            if (gravity->verify_solves() == 1) {
+                gravity->check_composite_phi(level);
             }
+        }
 
-            if (moving_center == 1)
-            {
-               const MultiFab& S_new = get_new_data(State_Type);
-               define_new_center(S_new,cur_time);
-            }
-
-            gravity->set_mass_offset(cur_time);
-
-            if ( gravity->get_gravity_type() == "FullPoisson")
-            {
-                // Update the maximum density, used in setting the solver tolerance.
-
-                gravity->update_max_rhs();
-
-                gravity->solve_new_phi_all_levels(0, parent->finestLevel());
-                if (gravity->verify_solves() == 1) {
-                    gravity->check_composite_phi(level);
-                }
-            }
-
-            if (grown_factor > 1) {
-                post_grown_restart();
-            }
+        if (grown_factor > 1) {
+            post_grown_restart();
         }
     }
 #endif
@@ -2488,52 +2484,48 @@ HydroSim::okToContinue ()
       return 1;
     }
 
-    int test = 1;
-
     if (signalStopJob) {
-      test = 0;
       if (ParallelDescriptor::IOProcessor()) {
         std::cout << " Signalling a stop of the run due to signalStopJob = true." << std::endl;
       }
+      return 0;
     }
-    else if (parent->dtLevel(level) < dt_cutoff * parent->cumTime()) {
-      test = 0;
+
+    if (parent->dtLevel(level) < dt_cutoff * parent->cumTime()) {
       if (ParallelDescriptor::IOProcessor()) {
         std::cout << " Signalling a stop of the run because dt < dt_cutoff * time." << std::endl;
       }
+      return 0;
     }
 
-    return test;
+    return 1;
 }
 
 void
 HydroSim::FluxRegCrseInit() {
     BL_PROFILE("HydroSim::FluxRegCrseInit");
 
-    if (level == parent->finestLevel()) {
-      return;
-    }
+    if (level < parent->finestLevel()) {
+        HydroSim& fine_level = getLevel(level+1);
 
-    HydroSim& fine_level = getLevel(level+1);
-
-    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      fine_level.flux_reg.CrseInit(*fluxes[i], i, 0, 0, NUM_STATE, flux_crse_scale);
-    }
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+          fine_level.flux_reg.CrseInit(*fluxes[i], i, 0, 0, NUM_STATE, flux_crse_scale);
+        }
 
 #if (AMREX_SPACEDIM <= 2)
-    if (!Geom().IsCartesian()) {
-      fine_level.pres_reg.CrseInit(P_radial, 0, 0, 0, 1, pres_crse_scale);
-    }
+        if (!Geom().IsCartesian()) {
+          fine_level.pres_reg.CrseInit(P_radial, 0, 0, 0, 1, pres_crse_scale);
+        }
 #endif
 
 #ifdef RADIATION
-    if (Radiation::rad_hydro_combined) {
-      for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        fine_level.rad_flux_reg.CrseInit(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_crse_scale);
-      }
-    }
+        if (Radiation::rad_hydro_combined) {
+          for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+            fine_level.rad_flux_reg.CrseInit(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_crse_scale);
+          }
+        }
 #endif
-
+    }
 }
 
 
@@ -2542,28 +2534,25 @@ HydroSim::FluxRegFineAdd() {
 
     BL_PROFILE("HydroSim::FluxRegFineAdd()");
 
-    if (level == 0) {
-      return;
-    }
-
-    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      flux_reg.FineAdd(*fluxes[i], i, 0, 0, NUM_STATE, flux_fine_scale);
-    }
+    if (level > 0) {
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+          flux_reg.FineAdd(*fluxes[i], i, 0, 0, NUM_STATE, flux_fine_scale);
+        }
 
 #if (AMREX_SPACEDIM <= 2)
-    if (!Geom().IsCartesian()) {
-      getLevel(level).pres_reg.FineAdd(P_radial, 0, 0, 0, 1, pres_fine_scale);
-    }
+        if (!Geom().IsCartesian()) {
+          getLevel(level).pres_reg.FineAdd(P_radial, 0, 0, 0, 1, pres_fine_scale);
+        }
 #endif
 
 #ifdef RADIATION
-    if (Radiation::rad_hydro_combined) {
-      for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        getLevel(level).rad_flux_reg.FineAdd(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_fine_scale);
-      }
-    }
+        if (Radiation::rad_hydro_combined) {
+          for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+            getLevel(level).rad_flux_reg.FineAdd(*rad_fluxes[i], i, 0, 0, Radiation::nGroups, flux_fine_scale);
+          }
+        }
 #endif
-
+    }
 }
 
 // reflux() synchronizes fluxes between levels and has two modes of operation.
@@ -4309,30 +4298,31 @@ HydroSim::write_center ()
 {
     int ndatalogs = parent->NumDataLogs();
 
-    if ( (moving_center==1) && (ndatalogs > 0) && ParallelDescriptor::IOProcessor())
-    {
-       std::ostream& data_logc = parent->DataLog(0);
+    if (moving_center != 1 || ndatalogs <= 0 || !ParallelDescriptor::IOProcessor()) {
+        return;
+    }
 
-       int nstep = parent->levelSteps(0);
-       Real time = state[State_Type].curTime();
+    std::ostream& data_logc = parent->DataLog(0);
 
-       if (time == 0.0) {
-           data_logc << std::setw( 8) <<  "   nstep";
-           data_logc << std::setw(14) <<  "         time  ";
-           data_logc << std::setw(14) <<  "         center" << std::endl;;
-       }
+    int nstep = parent->levelSteps(0);
+    Real time = state[State_Type].curTime();
 
-           data_logc << std::setw( 8) <<  nstep;
-           data_logc << std::setw(14) <<  std::setprecision(6) <<  time;
-           data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[0];
+    if (time == 0.0) {
+        data_logc << std::setw( 8) <<  "   nstep";
+        data_logc << std::setw(14) <<  "         time  ";
+        data_logc << std::setw(14) <<  "         center" << std::endl;;
+    }
+
+    data_logc << std::setw( 8) <<  nstep;
+    data_logc << std::setw(14) <<  std::setprecision(6) <<  time;
+    data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[0];
 #if (AMREX_SPACEDIM >= 2)
-           data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[1];
+    data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[1];
 #endif
 #if (AMREX_SPACEDIM == 3)
-           data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[2];
+    data_logc << std::setw(14) <<  std::setprecision(6) << problem::center[2];
 #endif
-           data_logc << std::endl;
-    }
+    data_logc << std::endl;
 }
 #endif
 

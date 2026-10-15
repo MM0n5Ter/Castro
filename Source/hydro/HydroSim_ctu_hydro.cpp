@@ -1325,11 +1325,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
   // Perform reflux (for non-subcycling advances).
 
-  if (parent->subcyclingMode() == "None") {
-      if (do_reflux == 1) {
-          FluxRegCrseInit();
-          FluxRegFineAdd();
-      }
+  if (parent->subcyclingMode() == "None" && do_reflux == 1) {
+      FluxRegCrseInit();
+      FluxRegFineAdd();
   }
 
   if (verbose) {
