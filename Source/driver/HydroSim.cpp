@@ -2604,8 +2604,8 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 #ifdef GRAVITY
     int nlevs = fine_level - crse_level + 1;
 
-    Vector<std::unique_ptr<MultiFab> > drho(nlevs);
-    Vector<std::unique_ptr<MultiFab> > dphi(nlevs);
+    MultiFabVector drho(nlevs);
+    MultiFabVector dphi(nlevs);
 
     const bool do_gravity_sync = do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep;
 

@@ -44,6 +44,11 @@ public:
 protected:
 
 ///
+/// Linear solver boundary types on one side of the domain, one per direction
+///
+  using DomainBCTypes = std::array<MLLinOp::BCType, AMREX_SPACEDIM>;
+
+///
 /// Keep pointers to the state, volume and area data of level ``level``
 ///
 /// @param level        integer, level number
@@ -67,8 +72,8 @@ protected:
 
   BCRec*       phys_bc;
 
-  std::array<MLLinOp::BCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<MLLinOp::BCType,AMREX_SPACEDIM> mlmg_hibc;
+  DomainBCTypes mlmg_lobc;
+  DomainBCTypes mlmg_hibc;
 
 };
 

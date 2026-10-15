@@ -15,6 +15,10 @@ class Diffusion : public LevelSolverBase {
 
 public:
 
+///
+/// Edge-centred conductivity coefficients, one MultiFab per direction
+///
+  using CoefficientVector = amrex::Vector<std::unique_ptr<amrex::MultiFab> >;
 
 ///
 /// @param Parent
@@ -60,7 +64,7 @@ public:
 /// @param temp_cond_coef
 ///
   void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-               amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
+               amrex::MultiFab& DiffTerm, CoefficientVector& temp_cond_coef);
 
   void set_solver_bc_types() override;
 
@@ -80,7 +84,7 @@ protected:
 /// @param temp_cond_coef
 ///
   void applyop_mlmg(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-                    amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
+                    amrex::MultiFab& DiffTerm, CoefficientVector& temp_cond_coef);
 
 };
 #endif

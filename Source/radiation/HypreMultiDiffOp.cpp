@@ -971,7 +971,7 @@ void HypreMultiDiffOp::buildMatrixStructure()
     acoefs[level].reset(new MultiFab(grids[level], dmap[level], ncomp, ngrow));
     acoefs[level]->setVal(0.0);
 
-    bcoefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+    bcoefs[level].reset(new FaceCoefSet);
 
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       BoxArray edge_boxes(grids[level]);

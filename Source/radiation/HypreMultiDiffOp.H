@@ -676,6 +676,9 @@ class HypreMultiDiffOp {
 
  protected:
 
+  /// coefficient set with one MultiFab per direction
+  using FaceCoefSet = amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>;
+
   int crse_level, fine_level, solver_flag;
 
   amrex::Vector<amrex::Geometry> geom;
@@ -688,7 +691,7 @@ class HypreMultiDiffOp {
   amrex::Vector< amrex::Vector<amrex::BoxArray> > subgrids;
 
   amrex::Vector<std::unique_ptr<amrex::MultiFab> > acoefs;
-  amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > bcoefs;
+  amrex::Vector<std::unique_ptr<FaceCoefSet> > bcoefs;
   amrex::Real alpha, beta;
   amrex::Real reltol, abstol;
 

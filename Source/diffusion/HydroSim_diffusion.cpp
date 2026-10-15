@@ -103,7 +103,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
     BL_PROFILE("HydroSim::getTempDiffusionTerm()");
 
    // Fill coefficients at this level.
-   Vector<std::unique_ptr<MultiFab> > coeffs(AMREX_SPACEDIM);
+   Diffusion::CoefficientVector coeffs(AMREX_SPACEDIM);
    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
        coeffs[dir] = std::make_unique<MultiFab>(getEdgeBoxArray(dir), dmap, 1, 0);
    }

@@ -27,7 +27,7 @@ void HypreExtMultiDiffOp::a2Coefficients(int level, const MultiFab &a2, int dir)
   int ngrow=0;
 
   if (!a2coefs[level]) {
-    a2coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+    a2coefs[level].reset(new FaceCoefSet);
 
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       BoxArray edge_boxes(grids[level]);
@@ -52,7 +52,7 @@ void HypreExtMultiDiffOp::cCoefficients(int level, const MultiFab &c, int dir)
   int ngrow=0;
 
   if (!ccoefs[level]) {
-    ccoefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+    ccoefs[level].reset(new FaceCoefSet);
 
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       BoxArray edge_boxes(grids[level]);
@@ -77,7 +77,7 @@ void HypreExtMultiDiffOp::d1Coefficients(int level, const MultiFab &d1, int dir)
   int ngrow=0;
 
   if (!d1coefs[level]) {
-    d1coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+    d1coefs[level].reset(new FaceCoefSet);
 
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       (*d1coefs[level])[i].define(grids[level], dmap[level], ncomp, ngrow);
@@ -100,7 +100,7 @@ void HypreExtMultiDiffOp::d2Coefficients(int level, const MultiFab &d2, int dir)
   int ngrow=0;
 
   if (!d2coefs[level]) {
-    d2coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+    d2coefs[level].reset(new FaceCoefSet);
 
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       BoxArray edge_boxes(grids[level]);

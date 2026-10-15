@@ -42,6 +42,11 @@ class Gravity : public LevelSolverBase {
 public:
 
 ///
+/// Face-centred gradient of phi on one level, one MultiFab per direction
+///
+  using GradPhiVector = amrex::Vector<std::unique_ptr<amrex::MultiFab> >;
+
+///
 /// Constructor
 ///
 /// @param Parent           Parent ``Amr`` object
@@ -135,14 +140,14 @@ public:
 ///
 /// @param level        level index
 ///
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_grad_phi_prev(int level);
+  GradPhiVector& get_grad_phi_prev(int level);
 
 ///
 /// Return ``grad_phi_curr`` at given level
 ///
 /// @param level        level index
 ///
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_grad_phi_curr(int level);
+  GradPhiVector& get_grad_phi_curr(int level);
 
 
 ///
@@ -235,7 +240,7 @@ public:
                                         amrex::MultiFab& comp_phi,
                                         const amrex::Vector<amrex::MultiFab*>& comp_gphi,
                                         amrex::MultiFab& composite_level_phi_diff,
-                                        amrex::Vector<std::unique_ptr<amrex::MultiFab> >& composite_level_grad_phi_diff);
+                                        GradPhiVector& composite_level_grad_phi_diff);
 
 
 ///
@@ -389,8 +394,8 @@ public:
 ///
 /// Pointers to grad_phi at previous and current time
 ///
-  amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > grad_phi_curr;
-  amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > grad_phi_prev;
+  amrex::Vector<GradPhiVector> grad_phi_curr;
+  amrex::Vector<GradPhiVector> grad_phi_prev;
 
 
 ///

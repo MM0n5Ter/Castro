@@ -14,6 +14,9 @@ using namespace amrex;
 
 namespace {
 
+// primitive variables of a single zone, as the HLL solver takes them
+using PrimitiveState = GpuArray<Real, NQ>;
+
 // the zone on the low side of the idir interface of zone (i,j,k)
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Dim3 lower_neighbor (int i, int j, int k, const int idir)
@@ -181,8 +184,8 @@ HydroSim::riemann_flux_and_state(const Box& bx,
         Real cl = qaux_arr(left, QC);
         Real cr = qaux_arr(i,j,k,QC);
 
-        GpuArray<Real, NQ> ql_zone;
-        GpuArray<Real, NQ> qr_zone;
+        PrimitiveState ql_zone;
+        PrimitiveState qr_zone;
         GpuArray<Real, NUM_STATE> flx_zone;
 
         for (int n = 0; n < NQ; n++) {

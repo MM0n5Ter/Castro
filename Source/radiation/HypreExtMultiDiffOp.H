@@ -134,10 +134,10 @@ class HypreExtMultiDiffOp : public HypreMultiDiffOp {
 
  protected:
 
-  amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > a2coefs; ///< face-based
-  amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > ccoefs;  ///< face-based, 2 component
-  amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > d1coefs; ///< cell-based but directional
-  amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > d2coefs; ///< face-based
+  amrex::Vector<std::unique_ptr<FaceCoefSet> > a2coefs; ///< face-based
+  amrex::Vector<std::unique_ptr<FaceCoefSet> > ccoefs;  ///< face-based, 2 component
+  amrex::Vector<std::unique_ptr<FaceCoefSet> > d1coefs; ///< cell-based but directional
+  amrex::Vector<std::unique_ptr<FaceCoefSet> > d2coefs; ///< face-based
   amrex::Real alpha2{}, gamma{}, delta1{}, delta2{}; ///< multipliers for the above
 };
 

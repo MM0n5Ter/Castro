@@ -17,6 +17,12 @@ using namespace amrex;
 
 namespace {
 
+    using SumReduceOps = ReduceOps<ReduceOpSum>;
+    using SumReduceData = ReduceData<Real>;
+
+    // the per-zone kernels below return the tuple type the reduction yields
+    using SumTuple = SumReduceData::Type;
+
     // Sum a zone quantity over the tiles of mf. For each tile, make_kernel(mfi)
     // returns the per-zone function evaluated by the reduction. Unless local
     // is set, the result is summed over all ranks.
@@ -25,9 +31,8 @@ namespace {
     Real
     sum_over_tiles (const MultiFab& mf, bool local, KernelMaker&& make_kernel)
     {
-        ReduceOps<ReduceOpSum> reduce_op;
-        ReduceData<Real> reduce_data(reduce_op);
-        using ReduceTuple = typename decltype(reduce_data)::Type;
+        SumReduceOps reduce_op;
+        SumReduceData reduce_data(reduce_op);
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
@@ -39,7 +44,7 @@ namespace {
             reduce_op.eval(box, reduce_data, make_kernel(mfi));
         }
 
-        ReduceTuple hv = reduce_data.value();
+        SumTuple hv = reduce_data.value();
         Real sum = amrex::get<0>(hv);
 
         if (!local) {
@@ -82,7 +87,7 @@ HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
         // whatever quantity is passed in, not strictly the "mass".
         //
 
-        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> SumTuple
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
@@ -115,7 +120,7 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
         // whatever quantity is passed in, not strictly the "mass".
         //
 
-        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> SumTuple
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
@@ -172,7 +177,7 @@ HydroSim::volProductSum (const MultiFab& mf1,
         auto const& vol  = volume.array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
 
-        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> SumTuple
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
@@ -206,7 +211,7 @@ HydroSim::locSquaredSum (const std::string& name,
         auto const& fab = (*mf).array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
 
-        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> SumTuple
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 

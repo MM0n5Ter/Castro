@@ -50,6 +50,10 @@ HydroSim::sum_integrated_quantities ()
     Real rho_max     = 0.0;
     Real ts_te_max   = 0.0;
 
+    // reduction computing the three maxima above on each level
+    using MaxReduceOps = ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpMax>;
+    using MaxReduceData = ReduceData<Real, Real, Real>;
+
     int datprecision = 16;
 
     int datwidth     = 25; // Floating point data in scientific notation
@@ -122,8 +126,8 @@ HydroSim::sum_integrated_quantities ()
         MultiFab tmp_mf;
         const MultiFab& mask_mf = mask_available ? getLevel(lev+1).build_fine_mask() : tmp_mf;
 
-        ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpMax> reduce_op;
-        ReduceData<Real, Real, Real> reduce_data(reduce_op);
+        MaxReduceOps reduce_op;
+        MaxReduceData reduce_data(reduce_op);
         using ReduceTuple = typename decltype(reduce_data)::Type;
 
 #ifdef AMREX_USE_OMP

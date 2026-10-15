@@ -5,6 +5,10 @@
 
 using namespace amrex;
 
+// one entry per coordinate direction (x, y, z)
+template <typename T>
+using PerDirection = Array<T, AMREX_SPACEDIM>;
+
 advance_status
 HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 {
@@ -35,7 +39,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 #endif
     {
 
-      Array<FArrayBox, AMREX_SPACEDIM> flux, E;
+      PerDirection<FArrayBox> flux, E;
 
       FArrayBox q;
       FArrayBox qaux;
@@ -44,8 +48,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
       FArrayBox flatcoef;
       FArrayBox flatg;
 
-      Array<FArrayBox, AMREX_SPACEDIM> qleft;
-      Array<FArrayBox, AMREX_SPACEDIM> qright;
+      PerDirection<FArrayBox> qleft;
+      PerDirection<FArrayBox> qright;
 
       FArrayBox flxx1D;
       FArrayBox flxy1D;
@@ -118,14 +122,14 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           const Box& nby = amrex::surroundingNodes(bx, 1);
           const Box& nbz = amrex::surroundingNodes(bx, 2);
 
-          const Array<Box, AMREX_SPACEDIM> face_boxes{nbx, nby, nbz};
-          const Array<IntVect, AMREX_SPACEDIM> flux_grow{IntVect(0, 1, 1), IntVect(1, 0, 1), IntVect(1, 1, 0)};
+          const PerDirection<Box> face_boxes{nbx, nby, nbz};
+          const PerDirection<IntVect> flux_grow{IntVect(0, 1, 1), IntVect(1, 0, 1), IntVect(1, 1, 0)};
 
           // need to revisit these box sizes
-          const Array<IntVect, AMREX_SPACEDIM> efield_grow{IntVect(2, 3, 3), IntVect(3, 2, 3), IntVect(3, 3, 2)};
+          const PerDirection<IntVect> efield_grow{IntVect(2, 3, 3), IntVect(3, 2, 3), IntVect(3, 3, 2)};
 
-          Array<Elixir, AMREX_SPACEDIM> elix_flux;
-          Array<Elixir, AMREX_SPACEDIM> elix_E;
+          PerDirection<Elixir> elix_flux;
+          PerDirection<Elixir> elix_E;
 
           for (int d = 0; d < AMREX_SPACEDIM; ++d) {
               flux[d].resize(amrex::grow(face_boxes[d], flux_grow[d]), NUM_STATE+3);

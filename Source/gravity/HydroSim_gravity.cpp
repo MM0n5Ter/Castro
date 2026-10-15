@@ -9,8 +9,12 @@
 
 using namespace amrex;
 
+// Conserved state and source terms of a single zone
+using ZoneState = GpuArray<Real, NUM_STATE>;
+using ZoneSource = GpuArray<Real, NSRC>;
+
 static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-Real kinetic_energy (const GpuArray<Real, NUM_STATE>& s, Real rho_inv)
+Real kinetic_energy (const ZoneState& s, Real rho_inv)
 {
     return 0.5_rt * (s[UMX] * s[UMX] + s[UMY] * s[UMY] + s[UMZ] * s[UMZ]) * rho_inv;
 }
@@ -343,11 +347,11 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
         {
             // Temporary array for seeing what the new state would be if the update were applied here.
 
-            GpuArray<Real, NUM_STATE> snew;
+            ZoneState snew;
 
             // Temporary array for holding the update to the state.
 
-            GpuArray<Real, NSRC> src;
+            ZoneSource src;
             for (int n = 0; n < NSRC; ++n) {
                 src[n] = 0.0_rt;
             }
@@ -507,7 +511,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                GpuArray<Real, NSRC> src{};
+                ZoneSource src{};
 
                 // Gravitational source options for how to add the work to (rho E):
                 // grav_coupling_type =
@@ -524,7 +528,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
 
                 // Temporary array for seeing what the new state would be if the update were applied here.
 
-                GpuArray<Real, NUM_STATE> snew{};
+                ZoneState snew{};
                 for (int n = 0; n < NUM_STATE; ++n) {
                     snew[n] = unew(i,j,k,n);
                 }

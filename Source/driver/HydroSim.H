@@ -1194,6 +1194,11 @@ public:
 
 protected:
 
+///
+/// Owning list of MultiFabs, e.g. one per direction or per time node.
+///
+    using MultiFabVector = amrex::Vector<std::unique_ptr<amrex::MultiFab> >;
+
 
 #ifdef GRAVITY
     int get_numpts();
@@ -1203,7 +1208,7 @@ protected:
 /// Difference between composite and level solve for phi.
 ///
     amrex::MultiFab composite_level_phi_diff;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > composite_level_grad_phi_diff;
+    MultiFabVector composite_level_grad_phi_diff;
 #endif
 
 
@@ -1277,15 +1282,15 @@ protected:
 ///
 /// Hydrodynamic (and radiation) fluxes.
 ///
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > fluxes;
+    MultiFabVector fluxes;
 #if (AMREX_SPACEDIM <= 2)
     amrex::MultiFab         P_radial;
 #endif
 #ifdef RADIATION
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > rad_fluxes;
+    MultiFabVector rad_fluxes;
 #endif
 
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > mass_fluxes;
+    MultiFabVector mass_fluxes;
 
     amrex::FluxRegister flux_reg;
 #if (AMREX_SPACEDIM <= 2)
@@ -1329,20 +1334,20 @@ protected:
     // Storage for the SDC time integration
 
     // this is the new iterations solution at the time nodes
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > k_new;
+    MultiFabVector k_new;
 
     // this is the old value of the advective update at the
     // nodes of the time integration
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > A_old;
+    MultiFabVector A_old;
 
     // this is the new value of the advective update at the
     // nodes of the time integration
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > A_new;
+    MultiFabVector A_new;
 
     // this is the old value of the reaction source at the
     // nodes of the time integration
 #ifdef REACTIONS
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > R_old;
+    MultiFabVector R_old;
 #endif
 
     static int SDC_NODES;

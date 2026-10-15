@@ -340,13 +340,13 @@ int Gravity::verify_solves()
   return test_solves;
 }
 
-Vector<std::unique_ptr<MultiFab> >&
+Gravity::GradPhiVector&
 Gravity::get_grad_phi_prev(int level)
 {
   return grad_phi_prev[level];
 }
 
-Vector<std::unique_ptr<MultiFab> >&
+Gravity::GradPhiVector&
 Gravity::get_grad_phi_curr(int level)
 {
   return grad_phi_curr[level];
@@ -1173,7 +1173,7 @@ Gravity::build_composite_level_diff(int level,
                                           MultiFab& comp_phi,
                                           const Vector<MultiFab*>& comp_gphi,
                                           MultiFab& composite_level_phi_diff,
-                                          Vector<std::unique_ptr<MultiFab> >& composite_level_grad_phi_diff)
+                                          GradPhiVector& composite_level_grad_phi_diff)
 {
     BL_PROFILE("Gravity::build_composite_level_diff()");
 

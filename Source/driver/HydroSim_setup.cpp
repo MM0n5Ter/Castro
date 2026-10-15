@@ -35,7 +35,9 @@ namespace {
     // Components are:
     //  Interior, Inflow, Outflow,  Symmetry,     SlipWall,     NoSlipWall
     //
-    constexpr std::array<int, 6> scalar_bc{
+    using BCTypeMap = std::array<int, 6>;
+
+    constexpr BCTypeMap scalar_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
         amrex::BCType::foextrap,
@@ -44,7 +46,7 @@ namespace {
         amrex::BCType::reflect_even
     };
 
-    constexpr std::array<int, 6> norm_vel_bc{
+    constexpr BCTypeMap norm_vel_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
         amrex::BCType::foextrap,
@@ -53,7 +55,7 @@ namespace {
         amrex::BCType::reflect_odd
     };
 
-    constexpr std::array<int, 6> tang_vel_bc{
+    constexpr BCTypeMap tang_vel_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
         amrex::BCType::foextrap,
@@ -63,7 +65,7 @@ namespace {
     };
 
 #ifdef MHD
-    constexpr std::array<int, 6> mag_field_bc{
+    constexpr BCTypeMap mag_field_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
         amrex::BCType::foextrap,
