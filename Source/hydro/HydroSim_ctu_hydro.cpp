@@ -251,11 +251,11 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       Array4<Real> const vol_arr = volume.array(mfi);
 #endif
 
+      Array<Array4<Real const>, AMREX_SPACEDIM> dloga_arrs{};
 #if AMREX_SPACEDIM < 3
-      Array4<Real const> const dLogAreaX_arr = (dLogArea[0]).array(mfi);
-#endif
-#if AMREX_SPACEDIM == 2
-      Array4<Real const> const dLogAreaY_arr = (dLogArea[1]).array(mfi);
+      for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
+        dloga_arrs[idir] = dLogArea[idir].array(mfi);
+      }
 #endif
 
       const Box& xbx = amrex::surroundingNodes(bx, 0);
@@ -318,6 +318,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 #endif
 
+      const Array<Array4<Real>, AMREX_SPACEDIM> qm_arrs{AMREX_D_DECL(qxm_arr, qym_arr, qzm_arr)};
+      const Array<Array4<Real>, AMREX_SPACEDIM> qp_arrs{AMREX_D_DECL(qxp_arr, qyp_arr, qzp_arr)};
+
       if (ppm_type == 0) {
 
         ctu_plm_states(obx, bx,
@@ -325,19 +328,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                        q_arr,
                        qaux_arr,
                        src_q_arr,
-                       qxm_arr, qxp_arr,
-#if AMREX_SPACEDIM >= 2
-                       qym_arr, qyp_arr,
-#endif
-#if AMREX_SPACEDIM == 3
-                       qzm_arr, qzp_arr,
-#endif
-#if AMREX_SPACEDIM < 3
-                       dLogAreaX_arr,
-#endif
-#if AMREX_SPACEDIM == 2
-                       dLogAreaY_arr,
-#endif
+                       qm_arrs, qp_arrs, dloga_arrs,
                        dt);
 
       } else {
@@ -346,38 +337,14 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
         ctu_ppm_rad_states(obx, bx,
                            U_old_arr, rho_inv_arr,
                            q_arr, qaux_arr, src_q_arr,
-                           qxm_arr, qxp_arr,
-#if AMREX_SPACEDIM >= 2
-                           qym_arr, qyp_arr,
-#endif
-#if AMREX_SPACEDIM == 3
-                           qzm_arr, qzp_arr,
-#endif
-#if AMREX_SPACEDIM < 3
-                           dLogAreaX_arr,
-#endif
-#if AMREX_SPACEDIM == 2
-                           dLogAreaY_arr,
-#endif
+                           qm_arrs, qp_arrs, dloga_arrs,
                            dt);
 #else
 
         ctu_ppm_states(obx, bx,
                        U_old_arr, rho_inv_arr,
                        q_arr, qaux_arr, src_q_arr,
-                       qxm_arr, qxp_arr,
-#if AMREX_SPACEDIM >= 2
-                       qym_arr, qyp_arr,
-#endif
-#if AMREX_SPACEDIM == 3
-                       qzm_arr, qzp_arr,
-#endif
-#if AMREX_SPACEDIM < 3
-                       dLogAreaX_arr,
-#endif
-#if AMREX_SPACEDIM == 2
-                       dLogAreaY_arr,
-#endif
+                       qm_arrs, qp_arrs, dloga_arrs,
                        dt);
 #endif
 

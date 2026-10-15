@@ -48,7 +48,7 @@ HydroSim::plm(const Box& bx,
 
     // compute the 1-sided differences used for the slopes
 
-    Real Q[NEVEC][nslp];
+    ZoneStencil Q[NEVEC];
 
     // we use a reduced eigensystem, the normal B field component is
     // omitted
@@ -57,34 +57,34 @@ HydroSim::plm(const Box& bx,
     // the velocity is
     int QUN;
 
-    load_stencil(s, idir, i, j, k, QRHO, Q[IEVEC_RHO]);
-    load_stencil(s, idir, i, j, k, QU, Q[IEVEC_U]);
-    load_stencil(s, idir, i, j, k, QV, Q[IEVEC_V]);
-    load_stencil(s, idir, i, j, k, QW, Q[IEVEC_W]);
-    load_stencil(s, idir, i, j, k, QPRES, Q[IEVEC_P]);
+    Q[IEVEC_RHO] = load_stencil(s, idir, i, j, k, QRHO);
+    Q[IEVEC_U] = load_stencil(s, idir, i, j, k, QU);
+    Q[IEVEC_V] = load_stencil(s, idir, i, j, k, QV);
+    Q[IEVEC_W] = load_stencil(s, idir, i, j, k, QW);
+    Q[IEVEC_P] = load_stencil(s, idir, i, j, k, QPRES);
 
     if (idir == 0) {
         QUN = IEVEC_U;
 
         // component (Bx) is omitted
-        load_stencil(s, idir, i, j, k, QMAGY, Q[IEVEC_BT]);
-        load_stencil(s, idir, i, j, k, QMAGZ, Q[IEVEC_BTT]);
+        Q[IEVEC_BT] = load_stencil(s, idir, i, j, k, QMAGY);
+        Q[IEVEC_BTT] = load_stencil(s, idir, i, j, k, QMAGZ);
 
     } else if (idir == 1) {
 
         QUN = IEVEC_V;
 
         // component (By) is omitted
-        load_stencil(s, idir, i, j, k, QMAGX, Q[IEVEC_BT]);
-        load_stencil(s, idir, i, j, k, QMAGZ, Q[IEVEC_BTT]);
+        Q[IEVEC_BT] = load_stencil(s, idir, i, j, k, QMAGX);
+        Q[IEVEC_BTT] = load_stencil(s, idir, i, j, k, QMAGZ);
 
     } else {
 
         QUN = IEVEC_W;
 
         // component (Bz) is omitted
-        load_stencil(s, idir, i, j, k, QMAGX, Q[IEVEC_BT]);
-        load_stencil(s, idir, i, j, k, QMAGY, Q[IEVEC_BTT]);
+        Q[IEVEC_BT] = load_stencil(s, idir, i, j, k, QMAGX);
+        Q[IEVEC_BTT] = load_stencil(s, idir, i, j, k, QMAGY);
 
     }
 
@@ -162,7 +162,7 @@ HydroSim::plm(const Box& bx,
       for (int ii = 0; ii < NEVEC; ii++) {
 
         // construct the ii-th primitive variables
-        Real W[nslp] = {};
+        ZoneStencil W{};
         for (int n = 0; n < NEVEC; n++) {
             for (int idx = 0; idx < nslp; ++idx) {
                 W[idx] += leig(ii, n) * Q[n][idx];
@@ -170,7 +170,7 @@ HydroSim::plm(const Box& bx,
         }
 
         // now limit
-        Real dW = uslope(W, flatcoef(i,j,k), false, false);
+        Real dW = uslope(W, flatcoef(i,j,k), ReflectEdge::None);
 
         // now add this charactistic variable's contribution to the
         // primitive variable slope
@@ -185,7 +185,7 @@ HydroSim::plm(const Box& bx,
 
       for (int ii = 0; ii < NEVEC; ii++) {
         bool vtest = ii == QUN;
-        dq[ii] = uslope(Q[ii], flatcoef(i,j,k), lo_bc_test && vtest, hi_bc_test && vtest);
+        dq[ii] = uslope(Q[ii], flatcoef(i,j,k), reflect_edge(lo_bc_test && vtest, hi_bc_test && vtest));
       }
 
     }
@@ -279,9 +279,7 @@ HydroSim::plm(const Box& bx,
     // species
     for (int n = 0; n < NumSpec; n++) {
       Real un{};
-      Real X[nslp];
-
-      load_stencil(s, idir, i, j, k, QSPEC+n, X);
+      const ZoneStencil X = load_stencil(s, idir, i, j, k, QSPEC+n);
 
       if (idir == 0) {
         un = s(i,j,k,QU);
@@ -291,7 +289,7 @@ HydroSim::plm(const Box& bx,
         un = s(i,j,k,QW);
       }
 
-      Real dX = uslope(X, flatcoef(i,j,k), false, false);
+      Real dX = uslope(X, flatcoef(i,j,k), ReflectEdge::None);
 
       if (idir == 0) {
         qleft(i+1,j,k,QSPEC+n) = q_zone(QSPEC+n) + 0.5_rt*(1.0_rt - dtdx*un) * dX;

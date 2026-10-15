@@ -15,21 +15,21 @@ using namespace amrex;
 void
 HydroSim::trace_ppm_rad(const Box& bx,
                       const int idir,
-                      Array4<Real const> const& U_arr,
-                      Array4<Real const> const& rho_inv_arr,
-                      Array4<Real const> const& q_arr,
-                      Array4<Real const> const& qaux_arr,
-                      Array4<Real const> const& srcQ,
+                      TraceFields const& fields,
                       Array4<Real> const& qm,
                       Array4<Real> const& qp,
-#if (AMREX_SPACEDIM < 3)
-                      Array4<Real const> const& dloga,
-#endif
                       const Box& vbx,
                       const Real dt) {
 
   // These routines do the characteristic tracing under the parabolic
   // profiles in each zone to the edge / half-time.
+
+  auto const& U_arr = fields.U;
+  auto const& rho_inv_arr = fields.rho_inv;
+  auto const& q_arr = fields.q;
+  auto const& qaux_arr = fields.qaux;
+  auto const& srcQ = fields.srcQ;
+  [[maybe_unused]] auto const& dloga = fields.dloga;
 
   // To allow for easy integration of radiation, we adopt the
   // following conventions:
@@ -169,7 +169,7 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
     // do the parabolic reconstruction and compute the
     // integrals under the characteristic waves
-    Real s[5];
+    ZoneStencil s;
 
     Real flat = 1.0;
 
@@ -194,11 +194,9 @@ HydroSim::trace_ppm_rad(const Box& bx,
 #endif
     }
 
-    Real sm;
-    Real sp;
+    ParabolaEdges edge;
 
-    Real Ip[NQ][3];
-    Real Im[NQ][3];
+    ParabolaIntegrals traced[NQ];
 
 
     // do the non-passives first
@@ -206,9 +204,9 @@ HydroSim::trace_ppm_rad(const Box& bx,
     for (int n = 0; n < NQTHERM; n++) {
       if (n == QTEMP) continue;
 
-      load_stencil(q_arr, idir, i, j, k, n, s);
-      ppm_reconstruct(s, flat, sm, sp);
-      ppm_int_profile(sm, sp, s[i0], un, cc, dtdx, Ip[n], Im[n]);
+      s = load_stencil(q_arr, idir, i, j, k, n);
+      edge = ppm_reconstruct(s, flat);
+      traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
     }
 
@@ -219,16 +217,15 @@ HydroSim::trace_ppm_rad(const Box& bx,
       const int n = qpassmap(ipassive);
       const int nc = upassmap(ipassive);
 
-      load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc, s);
-      ppm_reconstruct(s, flat, sm, sp);
-      ppm_int_profile(sm, sp, s[i0], un, cc, dtdx, Ip[n], Im[n]);
+      s = load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc);
+      edge = ppm_reconstruct(s, flat);
+      traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
     }
 
 
     // source terms
-    Real Ip_src[NQSRC][3];
-    Real Im_src[NQSRC][3];
+    ParabolaIntegrals src_traced[NQSRC];
 
     for (int n = 0; n < NQSRC; n++) {
 
@@ -263,18 +260,12 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
       if (do_trace) {
 
-          load_stencil(srcQ, idir, i, j, k, n, s);
-          ppm_reconstruct(s, flat, sm, sp);
-          ppm_int_profile(sm, sp, s[i0], un, cc, dtdx, Ip_src[n], Im_src[n]);
+          s = load_stencil(srcQ, idir, i, j, k, n);
+          edge = ppm_reconstruct(s, flat);
+          src_traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
       } else {
-        Ip_src[n][0] = 0.0_rt;
-        Ip_src[n][1] = 0.0_rt;
-        Ip_src[n][2] = 0.0_rt;
-
-        Im_src[n][0] = 0.0_rt;
-        Im_src[n][1] = 0.0_rt;
-        Im_src[n][2] = 0.0_rt;
+        src_traced[n] = {};
       }
 
     }
@@ -302,16 +293,16 @@ HydroSim::trace_ppm_rad(const Box& bx,
         // wave, so no projection is needed.  Since we are not
         // projecting, the reference state doesn't matter
 
-        qp(i,j,k,n) = Im[n][1];
+        qp(i,j,k,n) = traced[n].lo[1];
       }
 
       // Minus state on face i+1
       if (idir == 0 && i <= vhi[0]) {
-        qm(i+1,j,k,n) = Ip[n][1];
+        qm(i+1,j,k,n) = traced[n].hi[1];
       } else if (idir == 1 && j <= vhi[1]) {
-        qm(i,j+1,k,n) = Ip[n][1];
+        qm(i,j+1,k,n) = traced[n].hi[1];
       } else if (idir == 2 && k <= vhi[2]) {
-        qm(i,j,k+1,n) = Ip[n][1];
+        qm(i,j,k+1,n) = traced[n].hi[1];
       }
     }
 
@@ -323,16 +314,16 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
       // Set the reference state
       // This will be the fastest moving state to the left
-      Real rho_ref = Im[QRHO][0];
-      Real un_ref = Im[QUN][0];
+      Real rho_ref = traced[QRHO].lo[0];
+      Real un_ref = traced[QUN].lo[0];
 
-      Real p_ref = Im[QPRES][0];
-      Real rhoe_g_ref = Im[QRHOEI][0];
+      Real p_ref = traced[QPRES].lo[0];
+      Real rhoe_g_ref = traced[QRHOEI].lo[0];
 
-      Real ptot_ref = Im[QPTOTAL][0];
+      Real ptot_ref = traced[QPTOTAL].lo[0];
       Real er_ref[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        er_ref[g] = Im[QERAD+g][0];
+        er_ref[g] = traced[QERAD+g].lo[0];
       }
 
       rho_ref = amrex::max(rho_ref, lsmall_dens);
@@ -345,20 +336,20 @@ HydroSim::trace_ppm_rad(const Box& bx,
       //       only by the u wave (the contact)
 
       // we also add the sources here so they participate in the tracing
-      Real dum = un_ref - Im[QUN][0] - hdt*Im_src[QUN][0];
-      Real dptotm = ptot_ref - Im[QPTOTAL][0] - hdt*Im_src[QPRES][0];
+      Real dum = un_ref - traced[QUN].lo[0] - hdt*src_traced[QUN].lo[0];
+      Real dptotm = ptot_ref - traced[QPTOTAL].lo[0] - hdt*src_traced[QPRES].lo[0];
 
-      Real drho = rho_ref - Im[QRHO][1] - hdt*Im_src[QRHO][1];
-      Real dptot = ptot_ref - Im[QPTOTAL][1] - hdt*Im_src[QPRES][1];
-      Real drhoe_g = rhoe_g_ref - Im[QRHOEI][1] - hdt*Im_src[QRHOEI][1];
+      Real drho = rho_ref - traced[QRHO].lo[1] - hdt*src_traced[QRHO].lo[1];
+      Real dptot = ptot_ref - traced[QPTOTAL].lo[1] - hdt*src_traced[QPRES].lo[1];
+      Real drhoe_g = rhoe_g_ref - traced[QRHOEI].lo[1] - hdt*src_traced[QRHOEI].lo[1];
 
       Real der[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        der[g] = er_ref[g] - Im[QERAD+g][1];
+        der[g] = er_ref[g] - traced[QERAD+g].lo[1];
       }
 
-      Real dup = un_ref - Im[QUN][2] - hdt*Im_src[QUN][2];
-      Real dptotp = ptot_ref - Im[QPTOTAL][2] - hdt*Im_src[QPRES][2];
+      Real dup = un_ref - traced[QUN].lo[2] - hdt*src_traced[QUN].lo[2];
+      Real dptotp = ptot_ref - traced[QPTOTAL].lo[2] - hdt*src_traced[QPRES].lo[2];
 
       // {rho, u, p, (rho e)} eigensystem
 
@@ -424,8 +415,8 @@ HydroSim::trace_ppm_rad(const Box& bx,
       // Recall that I already takes the limit of the parabola
       // in the event that the wave is not moving toward the
       // interface
-      qp(i,j,k,QUT) = Im[QUT][1] + hdt*Im_src[QUT][1];
-      qp(i,j,k,QUTT) = Im[QUTT][1] + hdt*Im_src[QUTT][1];
+      qp(i,j,k,QUT) = traced[QUT].lo[1] + hdt*src_traced[QUT].lo[1];
+      qp(i,j,k,QUTT) = traced[QUTT].lo[1] + hdt*src_traced[QUTT].lo[1];
 
     }
 
@@ -437,16 +428,16 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
       // Set the reference state
       // This will be the fastest moving state to the right
-      Real rho_ref = Ip[QRHO][2];
-      Real un_ref = Ip[QUN][2];
+      Real rho_ref = traced[QRHO].hi[2];
+      Real un_ref = traced[QUN].hi[2];
 
-      Real p_ref = Ip[QPRES][2];
-      Real rhoe_g_ref = Ip[QRHOEI][2];
+      Real p_ref = traced[QPRES].hi[2];
+      Real rhoe_g_ref = traced[QRHOEI].hi[2];
 
-      Real ptot_ref = Ip[QPTOTAL][2];
+      Real ptot_ref = traced[QPTOTAL].hi[2];
       Real er_ref[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        er_ref[g] = Ip[QERAD+g][2];
+        er_ref[g] = traced[QERAD+g].hi[2];
       }
 
       rho_ref = amrex::max(rho_ref, lsmall_dens);
@@ -455,20 +446,20 @@ HydroSim::trace_ppm_rad(const Box& bx,
       // *m are the jumps carried by u-c
       // *p are the jumps carried by u+c
 
-      Real dum = un_ref - Ip[QUN][0] - hdt*Ip_src[QUN][0];
-      Real dptotm = ptot_ref - Ip[QPTOTAL][0] - hdt*Ip_src[QPRES][0];
+      Real dum = un_ref - traced[QUN].hi[0] - hdt*src_traced[QUN].hi[0];
+      Real dptotm = ptot_ref - traced[QPTOTAL].hi[0] - hdt*src_traced[QPRES].hi[0];
 
-      Real drho = rho_ref - Ip[QRHO][1] - hdt*Ip_src[QRHO][1];
-      Real dptot = ptot_ref - Ip[QPTOTAL][1] - hdt*Ip_src[QPRES][1];
-      Real drhoe_g = rhoe_g_ref - Ip[QRHOEI][1] - hdt*Ip_src[QRHOEI][1];
+      Real drho = rho_ref - traced[QRHO].hi[1] - hdt*src_traced[QRHO].hi[1];
+      Real dptot = ptot_ref - traced[QPTOTAL].hi[1] - hdt*src_traced[QPRES].hi[1];
+      Real drhoe_g = rhoe_g_ref - traced[QRHOEI].hi[1] - hdt*src_traced[QRHOEI].hi[1];
 
       Real der[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        der[g]  = er_ref[g]  - Ip[QERAD+g][1];
+        der[g]  = er_ref[g]  - traced[QERAD+g].hi[1];
       }
 
-      Real dup = un_ref - Ip[QUN][2] - hdt*Ip_src[QUN][2];
-      Real dptotp = ptot_ref - Ip[QPTOTAL][2] - hdt*Ip_src[QPRES][2];
+      Real dup = un_ref - traced[QUN].hi[2] - hdt*src_traced[QUN].hi[2];
+      Real dptotp = ptot_ref - traced[QPTOTAL].hi[2] - hdt*src_traced[QPRES].hi[2];
 
       // {rho, u, p, (rho e)} eigensystem
 
@@ -529,8 +520,8 @@ HydroSim::trace_ppm_rad(const Box& bx,
         }
 
         // transverse velocities
-        qm(i+1,j,k,QUT) = Ip[QUT][1] + hdt*Ip_src[QUT][1];
-        qm(i+1,j,k,QUTT) = Ip[QUTT][1] + hdt*Ip_src[QUTT][1];
+        qm(i+1,j,k,QUT) = traced[QUT].hi[1] + hdt*src_traced[QUT].hi[1];
+        qm(i+1,j,k,QUTT) = traced[QUTT].hi[1] + hdt*src_traced[QUTT].hi[1];
 
       } else if (idir == 1) {
         qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, rho_ref + alphap + alpham + alpha0r);
@@ -568,8 +559,8 @@ HydroSim::trace_ppm_rad(const Box& bx,
         }
 
         // transverse velocities
-        qm(i,j+1,k,QUT) = Ip[QUT][1] + hdt*Ip_src[QUT][1];
-        qm(i,j+1,k,QUTT) = Ip[QUTT][1] + hdt*Ip_src[QUTT][1];
+        qm(i,j+1,k,QUT) = traced[QUT].hi[1] + hdt*src_traced[QUT].hi[1];
+        qm(i,j+1,k,QUTT) = traced[QUTT].hi[1] + hdt*src_traced[QUTT].hi[1];
 
 
       } else {
@@ -609,8 +600,8 @@ HydroSim::trace_ppm_rad(const Box& bx,
         }
 
         // transverse velocities
-        qm(i,j,k+1,QUT) = Ip[QUT][1] + hdt*Ip_src[QUT][1];
-        qm(i,j,k+1,QUTT) = Ip[QUTT][1] + hdt*Ip_src[QUTT][1];
+        qm(i,j,k+1,QUT) = traced[QUT].hi[1] + hdt*src_traced[QUT].hi[1];
+        qm(i,j,k+1,QUTT) = traced[QUTT].hi[1] + hdt*src_traced[QUTT].hi[1];
 
       }
 

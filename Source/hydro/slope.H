@@ -19,17 +19,35 @@ using namespace amrex;
 using namespace reconstruction;
 
 ///
+/// The edges of a zone that sit on a symmetry (reflecting) boundary
+///
+enum class ReflectEdge : std::uint8_t {
+    None = 0,
+    Lo,
+    Hi,
+    Both
+};
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+ReflectEdge
+reflect_edge(const bool at_lo, const bool at_hi) {
+    if (at_lo) {
+        return at_hi ? ReflectEdge::Both : ReflectEdge::Lo;
+    }
+    return at_hi ? ReflectEdge::Hi : ReflectEdge::None;
+}
+
+///
 /// Construct the piecewise linear slopes for an input state q
 ///
-/// @param q               Real[nslp] giving q_{i-2} through q_{i+2}, used in the reconstruction
+/// @param q               the stencil giving q_{i-2} through q_{i+2}, used in the reconstruction
 /// @param flatcoef           flattening coefficient
-/// @param bnd_lo_reflect  true if a symmetry boundary is just to the left of this zone
-/// @param bnd_hi_reflect  true if a symmetry boundary is just to the right of this zone
+/// @param reflect         the edges of this zone on a symmetry boundary
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
-uslope(const Real* q, const Real flatcoef,
-       bool bnd_lo_reflect, bool bnd_hi_reflect) {
+uslope(const ZoneStencil& q, const Real flatcoef,
+       const ReflectEdge reflect) {
 
   Real dq;
 
@@ -66,12 +84,12 @@ uslope(const Real* q, const Real flatcoef,
       Real qp1 = q[ip1];
       Real qp2 = q[ip2];
 
-      if (bnd_lo_reflect) {
+      if (reflect == ReflectEdge::Lo || reflect == ReflectEdge::Both) {
         qm2 = -qp1;
         qm1 = -3.0_rt*q0 + qp1 - 0.125_rt*(qp2 + qp1);
       }
 
-      if (bnd_hi_reflect) {
+      if (reflect == ReflectEdge::Hi || reflect == ReflectEdge::Both) {
         qp2 = -qm1;
         qp1 = -3.0_rt*q0 + qm1 - 0.125_rt*(qm2 + qm1);
       }
@@ -116,19 +134,20 @@ uslope(const Real* q, const Real flatcoef,
 /// Compute the pressure slope using a well-balanced procedure where we subtract
 /// HSE off of the pressure before limiting
 ///
-/// @param rho          Real[nslp] giving the density in zones i-2, i-1, i, i+1, i+2
-/// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
-/// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
-///                    i-2, i-1, i, i+1, i+2
+/// @param hse         the density, pressure and velocity-equation source (e.g. g)
+///                    in zones i-2, i-1, i, i+1, i+2
 /// @param flatcoef       flattening coefficient
-/// @param lo_bc_test  true if a physical boundary is just to the left of this zone
-/// @param hi_bc_test  true if a physical boundary is just to the right of this zone
+/// @param bc_edge     the edges of this zone on a physical boundary
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-pslope(const Real* rho, const Real* p, const Real* src, const Real flatcoef,
-       bool lo_bc_test, bool hi_bc_test,
+pslope(const HydrostaticStencils& hse, const Real flatcoef,
+       const ReflectEdge bc_edge,
        const Real dx, Real& dp) {
+
+  const ZoneStencil& rho = hse.rho;
+  const ZoneStencil& p = hse.p;
+  const ZoneStencil& src = hse.src;
 
   // dp should come in as the current estimate of the pressure slope
   // and we overwrite it if needed
@@ -170,12 +189,12 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatcoef,
     pm1 = p[im1] - pm1_hse;
     pm2 = p[im2] - pm2_hse;
 
-    if (lo_bc_test) {
+    if (bc_edge == ReflectEdge::Lo || bc_edge == ReflectEdge::Both) {
       pm1 = 0.0_rt;  // HSE is perfectly satisfied
       pm2 = 0.0_rt;
     }
 
-    if (hi_bc_test) {
+    if (bc_edge == ReflectEdge::Hi || bc_edge == ReflectEdge::Both) {
       pp1 = 0.0_rt;
       pp2 = 0.0_rt;
     }

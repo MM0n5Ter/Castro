@@ -1,6 +1,8 @@
 #ifndef HYDROSIM_RECONSTRUCTION_H
 #define HYDROSIM_RECONSTRUCTION_H
 
+#include <AMReX_Array.H>
+
 #include <state_indices.H>
 
 namespace reconstruction {
@@ -12,19 +14,32 @@ namespace reconstruction {
        ip2,
        nslp
    };
+
+   // the zone values i-2 .. i+2 along one direction, indexed by slope_indices
+   using ZoneStencil = amrex::GpuArray<amrex::Real, nslp>;
+
+   // the stencils used to subtract hydrostatic equilibrium off of the
+   // pressure before limiting: density, pressure, and the source in the
+   // normal velocity equation (e.g. g)
+   struct HydrostaticStencils {
+       ZoneStencil rho;
+       ZoneStencil p;
+       ZoneStencil src;
+   };
 }
 
-// Fill the five-point stencil s centered on (i,j,k) along direction
+// Return the five-point stencil centered on (i,j,k) along direction
 // idir, taking the zone values from value_at(ii,jj,kk).
 
 template <typename ValueAt>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+reconstruction::ZoneStencil
 fill_stencil(ValueAt value_at, const int idir,
-             const int i, const int j, const int k,
-             amrex::Real* s) {
+             const int i, const int j, const int k) {
 
     using namespace reconstruction;
+
+    ZoneStencil s;
 
     if (idir == 0) {
         s[im2] = value_at(i-2,j,k);
@@ -49,31 +64,30 @@ fill_stencil(ValueAt value_at, const int idir,
 
     }
 
+    return s;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+reconstruction::ZoneStencil
 load_stencil(amrex::Array4<amrex::Real const> const& q_arr, const int idir,
-             const int i, const int j, const int k, const int ncomp,
-             amrex::Real* s) {
+             const int i, const int j, const int k, const int ncomp) {
 
-    fill_stencil([&] (int ii, int jj, int kk) { return q_arr(ii,jj,kk,ncomp); },
-                 idir, i, j, k, s);
+    return fill_stencil([&] (int ii, int jj, int kk) { return q_arr(ii,jj,kk,ncomp); },
+                        idir, i, j, k);
 
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+reconstruction::ZoneStencil
 load_passive_stencil(amrex::Array4<amrex::Real const> const& U_arr,
                      amrex::Array4<amrex::Real const> const& rho_inv_arr,
                      const int idir,
-                     const int i, const int j, const int k, const int ncomp,
-                     amrex::Real* s) {
+                     const int i, const int j, const int k, const int ncomp) {
 
     // the passive is stored conserved; convert to primitive zone by zone
 
-    fill_stencil([&] (int ii, int jj, int kk) { return U_arr(ii,jj,kk,ncomp) * rho_inv_arr(ii,jj,kk); },
-                 idir, i, j, k, s);
+    return fill_stencil([&] (int ii, int jj, int kk) { return U_arr(ii,jj,kk,ncomp) * rho_inv_arr(ii,jj,kk); },
+                        idir, i, j, k);
 
 }
 
@@ -82,7 +96,7 @@ void
 add_geometric_rho_source(amrex::Array4<amrex::Real const> const& q_arr,
                          amrex::Array4<amrex::Real const> const& dloga,
                          const int i, const int j, const int k,
-                         const int ncomp, amrex::Real* s) {
+                         const int ncomp, reconstruction::ZoneStencil& s) {
 
     using namespace reconstruction;
 
@@ -123,7 +137,7 @@ void
 add_geometric_rhoe_source(amrex::Array4<amrex::Real const> const& q_arr,
                           amrex::Array4<amrex::Real const> const& dloga,
                           const int i, const int j, const int k,
-                          const int ncomp, amrex::Real* s) {
+                          const int ncomp, reconstruction::ZoneStencil& s) {
 
     using namespace reconstruction;
 
@@ -165,7 +179,7 @@ add_geometric_p_source(amrex::Array4<amrex::Real const> const& q_arr,
                        amrex::Array4<amrex::Real const> const& qaux_arr,
                        amrex::Array4<amrex::Real const> const& dloga,
                        const int i, const int j, const int k,
-                       const int ncomp, amrex::Real* s) {
+                       const int ncomp, reconstruction::ZoneStencil& s) {
 
     using namespace reconstruction;
 

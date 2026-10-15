@@ -17,22 +17,21 @@ using namespace reconstruction;
 void
 HydroSim::trace_ppm(const Box& bx,
                   const int idir,
-                  Array4<Real const> const& U_arr,
-                  Array4<Real const> const& rho_inv_arr,
-                  Array4<Real const> const& q_arr,
-                  Array4<Real const> const& qaux_arr,
-                  Array4<Real const> const& srcQ,
+                  TraceFields const& fields,
                   Array4<Real> const& qm,
                   Array4<Real> const& qp,
-#if (AMREX_SPACEDIM < 3)
-                  Array4<Real const> const& dloga,
-#endif
                   const Box& vbx,
                   const Real dt) {
 
   // here, lo and hi are the range we loop over -- this can include ghost cells
   // vlo and vhi are the bounds of the valid box (no ghost cells)
 
+  auto const& U_arr = fields.U;
+  auto const& rho_inv_arr = fields.rho_inv;
+  auto const& q_arr = fields.q;
+  auto const& qaux_arr = fields.qaux;
+  auto const& srcQ = fields.srcQ;
+  [[maybe_unused]] auto const& dloga = fields.dloga;
 
 
   // To allow for easy integration of radiation, we adopt the
@@ -171,7 +170,7 @@ HydroSim::trace_ppm(const Box& bx,
 
     // do the parabolic reconstruction and compute the
     // integrals under the characteristic waves
-    Real s[nslp];
+    ZoneStencil s;
 
     Real flat = 1.0;
 
@@ -205,18 +204,14 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
     }
 
-    Real sm;
-    Real sp;
+    ParabolaEdges edge;
 
 
     // reconstruct density
 
-    Real Ip_rho[3];
-    Real Im_rho[3];
-
-    load_stencil(q_arr, idir, i, j, k, QRHO, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_rho, Im_rho);
+    s = load_stencil(q_arr, idir, i, j, k, QRHO);
+    edge = ppm_reconstruct(s, flat);
+    const ParabolaIntegrals rho_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
 
     // reconstruct normal velocity
 
@@ -225,17 +220,16 @@ HydroSim::trace_ppm(const Box& bx,
     Real Ip_un_2;
     Real Im_un_2;
 
-    load_stencil(q_arr, idir, i, j, k, QUN, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile_single(sm, sp, s[i0], un-cc, dtdL, Ip_un_0, Im_un_0);
-    ppm_int_profile_single(sm, sp, s[i0], un+cc, dtdL, Ip_un_2, Im_un_2);
+    s = load_stencil(q_arr, idir, i, j, k, QUN);
+    edge = ppm_reconstruct(s, flat);
+    amrex::Tie(Ip_un_0, Im_un_0) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un-cc, dtdL);
+    amrex::Tie(Ip_un_2, Im_un_2) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un+cc, dtdL);
 
     // reconstruct pressure
 
-    Real Ip_p[3];
-    Real Im_p[3];
+    ParabolaIntegrals p_trace;
 
-    load_stencil(q_arr, idir, i, j, k, QPRES, s);
+    s = load_stencil(q_arr, idir, i, j, k, QPRES);
 
     bool in_hse{};
 
@@ -246,37 +240,32 @@ HydroSim::trace_ppm(const Box& bx,
     amrex::Real p_p_hse{};
 
     if (hydrosim::use_pslope || hydrosim::ppm_well_balanced) {
-        Real trho[nslp];
-        Real src[nslp];
+        const HydrostaticStencils hse{load_stencil(q_arr, idir, i, j, k, QRHO),
+                                      s,
+                                      load_stencil(srcQ, idir, i, j, k, QUN)};
 
-        load_stencil(q_arr, idir, i, j, k, QRHO, trho);
-        load_stencil(srcQ, idir, i, j, k, QUN, src);
-
-        in_hse = ppm_reconstruct_pslope(trho, s, src, flat, dL, sm, sp);
+        in_hse = ppm_reconstruct_pslope(hse, flat, dL, edge.lo, edge.hi);
 
         if (in_hse && hydrosim::ppm_well_balanced) {
             // we are working with the perturbational pressure
-            ppm_int_profile(sm, sp, 0.0_rt, un, cc, dtdL, Ip_p, Im_p);
-            p_m_hse = s[i0] - 0.5_rt * dL * trho[i0] * src[i0];
-            p_p_hse = s[i0] + 0.5_rt * dL * trho[i0] * src[i0];
+            p_trace = ppm_int_profile(edge.lo, edge.hi, 0.0_rt, un, cc, dtdL);
+            p_m_hse = s[i0] - 0.5_rt * dL * hse.rho[i0] * hse.src[i0];
+            p_p_hse = s[i0] + 0.5_rt * dL * hse.rho[i0] * hse.src[i0];
 
         } else {
-            ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_p, Im_p);
+            p_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
         }
 
     } else {
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_p, Im_p);
+        edge = ppm_reconstruct(s, flat);
+        p_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
     }
 
     // reconstruct rho e
 
-    Real Ip_rhoe[3];
-    Real Im_rhoe[3];
-
-    load_stencil(q_arr, idir, i, j, k, QRHOEI, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_rhoe, Im_rhoe);
+    s = load_stencil(q_arr, idir, i, j, k, QRHOEI);
+    edge = ppm_reconstruct(s, flat);
+    const ParabolaIntegrals rhoe_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
 
     // reconstruct transverse velocities
 
@@ -285,13 +274,13 @@ HydroSim::trace_ppm(const Box& bx,
     Real Ip_utt_1;
     Real Im_utt_1;
 
-    load_stencil(q_arr, idir, i, j, k, QUT, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile_single(sm, sp, s[i0], un, dtdL, Ip_ut_1, Im_ut_1);
+    s = load_stencil(q_arr, idir, i, j, k, QUT);
+    edge = ppm_reconstruct(s, flat);
+    amrex::Tie(Ip_ut_1, Im_ut_1) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdL);
 
-    load_stencil(q_arr, idir, i, j, k, QUTT, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile_single(sm, sp, s[i0], un, dtdL, Ip_utt_1, Im_utt_1);
+    s = load_stencil(q_arr, idir, i, j, k, QUTT);
+    edge = ppm_reconstruct(s, flat);
+    amrex::Tie(Ip_utt_1, Im_utt_1) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdL);
 
     // gamma_c
 
@@ -300,10 +289,10 @@ HydroSim::trace_ppm(const Box& bx,
     Real Ip_gc_2;
     Real Im_gc_2;
 
-    load_stencil(qaux_arr, idir, i, j, k, QGAM1, s);
-    ppm_reconstruct(s, flat, sm, sp);
-    ppm_int_profile_single(sm, sp, s[i0], un-cc, dtdL, Ip_gc_0, Im_gc_0);
-    ppm_int_profile_single(sm, sp, s[i0], un+cc, dtdL, Ip_gc_2, Im_gc_2);
+    s = load_stencil(qaux_arr, idir, i, j, k, QGAM1);
+    edge = ppm_reconstruct(s, flat);
+    amrex::Tie(Ip_gc_0, Im_gc_0) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un-cc, dtdL);
+    amrex::Tie(Ip_gc_2, Im_gc_2) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un+cc, dtdL);
 
 
     // source terms -- we only trace if the terms in the stencil are non-zero
@@ -311,8 +300,7 @@ HydroSim::trace_ppm(const Box& bx,
 
     // density
 
-    Real Ip_src_rho[3] = {0.0_rt};
-    Real Im_src_rho[3] = {0.0_rt};
+    ParabolaIntegrals src_rho_trace{};
 
 #ifndef AMREX_USE_GPU
     do_trace = do_source_trace[QRHO];
@@ -325,14 +313,14 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QRHO, s);
+        s = load_stencil(srcQ, idir, i, j, k, QRHO);
 #if AMREX_SPACEDIM <= 2
         if (coord == 2 || (idir == 0 && coord == 1)) {
             add_geometric_rho_source(q_arr, dloga, i, j, k, QUN, s);
         }
 #endif
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_src_rho, Im_src_rho);
+        edge = ppm_reconstruct(s, flat);
+        src_rho_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
     }
 
     // normal velocity
@@ -349,16 +337,15 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QUN, s);
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile_single(sm, sp, s[i0], un-cc, dtdL, Ip_src_un_0, Im_src_un_0);
-        ppm_int_profile_single(sm, sp, s[i0], un+cc, dtdL, Ip_src_un_2, Im_src_un_2);
+        s = load_stencil(srcQ, idir, i, j, k, QUN);
+        edge = ppm_reconstruct(s, flat);
+        amrex::Tie(Ip_src_un_0, Im_src_un_0) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un-cc, dtdL);
+        amrex::Tie(Ip_src_un_2, Im_src_un_2) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un+cc, dtdL);
     }
 
     // pressure
 
-    Real Ip_src_p[3] = {0.0_rt};
-    Real Im_src_p[3] = {0.0_rt};
+    ParabolaIntegrals src_p_trace{};
 
 #ifndef AMREX_USE_GPU
     do_trace = do_source_trace[QPRES];
@@ -371,20 +358,19 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QPRES, s);
+        s = load_stencil(srcQ, idir, i, j, k, QPRES);
 #if AMREX_SPACEDIM <= 2
         if (coord == 2 || (idir == 0 && coord == 1)) {
             add_geometric_p_source(q_arr, qaux_arr, dloga, i, j, k, QUN, s);
         }
 #endif
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_src_p, Im_src_p);
+        edge = ppm_reconstruct(s, flat);
+        src_p_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
     }
 
     // rho e
 
-    Real Ip_src_rhoe[3] = {0.0_rt};
-    Real Im_src_rhoe[3] = {0.0_rt};
+    ParabolaIntegrals src_rhoe_trace{};
 
 #ifndef AMREX_USE_GPU
     do_trace = do_source_trace[QRHOEI];
@@ -397,14 +383,14 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QRHOEI, s);
+        s = load_stencil(srcQ, idir, i, j, k, QRHOEI);
 #if AMREX_SPACEDIM <= 2
         if (coord == 2 || (idir == 0 && coord == 1)) {
             add_geometric_rhoe_source(q_arr, dloga, i, j, k, QUN, s);
         }
 #endif
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile(sm, sp, s[i0], un, cc, dtdL, Ip_src_rhoe, Im_src_rhoe);
+        edge = ppm_reconstruct(s, flat);
+        src_rhoe_trace = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdL);
     }
 
     // transverse velocities
@@ -419,9 +405,9 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QUT, s);
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile_single(sm, sp, s[i0], un, dtdL, Ip_src_ut_1, Im_src_ut_1);
+        s = load_stencil(srcQ, idir, i, j, k, QUT);
+        edge = ppm_reconstruct(s, flat);
+        amrex::Tie(Ip_src_ut_1, Im_src_ut_1) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdL);
     }
 
     Real Ip_src_utt_1 = 0.0_rt;
@@ -434,9 +420,9 @@ HydroSim::trace_ppm(const Box& bx,
 #endif
 
     if (do_trace) {
-        load_stencil(srcQ, idir, i, j, k, QUTT, s);
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile_single(sm, sp, s[i0], un, dtdL, Ip_src_utt_1, Im_src_utt_1);
+        s = load_stencil(srcQ, idir, i, j, k, QUTT);
+        edge = ppm_reconstruct(s, flat);
+        amrex::Tie(Ip_src_utt_1, Im_src_utt_1) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdL);
     }
 
 
@@ -452,9 +438,9 @@ HydroSim::trace_ppm(const Box& bx,
         const int nc = upassmap(ipassive);
         const int n = qpassmap(ipassive);
 
-        load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc, s);
-        ppm_reconstruct(s, flat, sm, sp);
-        ppm_int_profile_single(sm, sp, s[i0], un, dtdL, Ip_passive, Im_passive);
+        s = load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc);
+        edge = ppm_reconstruct(s, flat);
+        amrex::Tie(Ip_passive, Im_passive) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdL);
 
         // Plus state on face i
 
@@ -504,11 +490,11 @@ HydroSim::trace_ppm(const Box& bx,
       // acting on a fluid that is initially uniformly at rest --
       // the dt * g term will be the only non-zero contribution).
       // We ignore the effect of the source term for gamma.
-      Real rho_ref = Im_rho[0] + hdt * Im_src_rho[0];
+      Real rho_ref = rho_trace.lo[0] + hdt * src_rho_trace.lo[0];
       Real un_ref = Im_un_0 + fac * hdt * Im_src_un_0;
 
-      Real p_ref = Im_p[0] + hdt * Im_src_p[0];
-      Real rhoe_g_ref = Im_rhoe[0] + hdt * Im_src_rhoe[0];
+      Real p_ref = p_trace.lo[0] + hdt * src_p_trace.lo[0];
+      Real rhoe_g_ref = rhoe_trace.lo[0] + hdt * src_rhoe_trace.lo[0];
 
       Real gam_g_ref = Im_gc_0;
 
@@ -533,14 +519,14 @@ HydroSim::trace_ppm(const Box& bx,
       // we also add the sources here so they participate in the tracing
 
       Real dum = un_ref - Im_un_0 - fac * hdt * Im_src_un_0;
-      Real dptotm = p_ref - Im_p[0] - hdt * Im_src_p[0];
+      Real dptotm = p_ref - p_trace.lo[0] - hdt * src_p_trace.lo[0];
 
-      Real drho = rho_ref - Im_rho[1] - hdt * Im_src_rho[1];
-      Real dptot = p_ref - Im_p[1] - hdt * Im_src_p[1];
-      Real drhoe_g = rhoe_g_ref - Im_rhoe[1] - hdt * Im_src_rhoe[1];
+      Real drho = rho_ref - rho_trace.lo[1] - hdt * src_rho_trace.lo[1];
+      Real dptot = p_ref - p_trace.lo[1] - hdt * src_p_trace.lo[1];
+      Real drhoe_g = rhoe_g_ref - rhoe_trace.lo[1] - hdt * src_rhoe_trace.lo[1];
 
       Real dup = un_ref - Im_un_2 - fac * hdt * Im_src_un_2;
-      Real dptotp = p_ref - Im_p[2] - hdt * Im_src_p[2];
+      Real dptotp = p_ref - p_trace.lo[2] - hdt * src_p_trace.lo[2];
 
       // {rho, u, p, (rho e)} eigensystem
 
@@ -587,11 +573,11 @@ HydroSim::trace_ppm(const Box& bx,
 
       // Set the reference state
       // This will be the fastest moving state to the right
-      Real rho_ref = Ip_rho[2] + hdt * Ip_src_rho[2];
+      Real rho_ref = rho_trace.hi[2] + hdt * src_rho_trace.hi[2];
       Real un_ref = Ip_un_2 + fac * hdt * Ip_src_un_2;
 
-      Real p_ref = Ip_p[2] + hdt * Ip_src_p[2];
-      Real rhoe_g_ref = Ip_rhoe[2] + hdt * Ip_src_rhoe[2];
+      Real p_ref = p_trace.hi[2] + hdt * src_p_trace.hi[2];
+      Real rhoe_g_ref = rhoe_trace.hi[2] + hdt * src_rhoe_trace.hi[2];
 
       Real gam_g_ref = Ip_gc_2;
 
@@ -609,14 +595,14 @@ HydroSim::trace_ppm(const Box& bx,
       // *p are the jumps carried by u+c
 
       Real dum = un_ref - Ip_un_0 - fac * hdt * Ip_src_un_0;
-      Real dptotm  = p_ref - Ip_p[0] - hdt * Ip_src_p[0];
+      Real dptotm  = p_ref - p_trace.hi[0] - hdt * src_p_trace.hi[0];
 
-      Real drho = rho_ref - Ip_rho[1] - hdt * Ip_src_rho[1];
-      Real dptot = p_ref - Ip_p[1] - hdt * Ip_src_p[1];
-      Real drhoe_g = rhoe_g_ref - Ip_rhoe[1] - hdt * Ip_src_rhoe[1];
+      Real drho = rho_ref - rho_trace.hi[1] - hdt * src_rho_trace.hi[1];
+      Real dptot = p_ref - p_trace.hi[1] - hdt * src_p_trace.hi[1];
+      Real drhoe_g = rhoe_g_ref - rhoe_trace.hi[1] - hdt * src_rhoe_trace.hi[1];
 
       Real dup = un_ref - Ip_un_2 - fac * hdt * Ip_src_un_2;
-      Real dptotp = p_ref - Ip_p[2] - hdt * Ip_src_p[2];
+      Real dptotp = p_ref - p_trace.hi[2] - hdt * src_p_trace.hi[2];
 
       // {rho, u, p, (rho e)} eigensystem
 

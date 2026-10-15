@@ -318,11 +318,10 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             const int* lo_bc = phys_bc.lo();
             const int* hi_bc = phys_bc.hi();
 
-            GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-            GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+            DomainBounds domain{domain_lo, domain_hi, {}, {}};
             for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-              lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-              hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+              domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+              domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
             }
 
             amrex::ParallelFor(nbx, NQ,
@@ -332,8 +331,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
               if (test) return;
 
-              Real lap = trans_laplacian(i, j, k, n, idir, q_avg_arr,
-                                         lo_periodic, hi_periodic, domain_lo, domain_hi);
+              Real lap = trans_laplacian(i, j, k, n, idir, q_avg_arr, domain);
 
               q_fc_arr(i,j,k,n) = q_avg_arr(i,j,k,n) - (1.0_rt/24.0_rt) * lap;
 
@@ -374,8 +372,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
             {
 
-              Real lap = trans_laplacian(i, j, k, n, idir, f_avg_arr,
-                                         lo_periodic, hi_periodic, domain_lo, domain_hi);
+              Real lap = trans_laplacian(i, j, k, n, idir, f_avg_arr, domain);
 
               flux_arr(i,j,k,n) += (1.0_rt/24.0_rt) * lap;
 

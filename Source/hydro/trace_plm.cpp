@@ -16,21 +16,21 @@ using namespace reconstruction;
 
 void
 HydroSim::trace_plm(const Box& bx, const int idir,
-                  Array4<Real const> const& U_arr,
-                  Array4<Real const> const& rho_inv_arr,
-                  Array4<Real const> const& q_arr,
-                  Array4<Real const> const& qaux_arr,
+                  TraceFields const& fields,
                   Array4<Real> const& qm,
                   Array4<Real> const& qp,
-#if AMREX_SPACEDIM < 3
-                  Array4<Real const> const& dloga,
-#endif
-                  Array4<Real const> const& srcQ,
                   const Box& vbx,
                   const Real dt) {
 
   // here, bx is the box we loop over -- this can include ghost cells
   // vbx is the valid box (no ghost cells)
+
+  auto const& U_arr = fields.U;
+  auto const& rho_inv_arr = fields.rho_inv;
+  auto const& q_arr = fields.q;
+  auto const& qaux_arr = fields.qaux;
+  auto const& srcQ = fields.srcQ;
+  [[maybe_unused]] auto const& dloga = fields.dloga;
 
   const auto dx = geom.CellSizeArray();
   const auto problo = geom.ProbLoArray();
@@ -118,6 +118,8 @@ HydroSim::trace_plm(const Box& bx, const int idir,
                                   (idir == 1 && j == domhi[1]) ||
                                   (idir == 2 && k == domhi[2]));
 
+    const ReflectEdge zone_edge = reflect_edge(lo_bc_test, hi_bc_test);
+
     Real cc = qaux_arr(i,j,k,QC);
     Real csq = cc*cc;
     Real rho = q_arr(i,j,k,QRHO);
@@ -131,7 +133,7 @@ HydroSim::trace_plm(const Box& bx, const int idir,
     Real enth = (rhoe+p)/(rho*csq);
 
     Real dq[NEVEC];
-    Real s[nslp];
+    ZoneStencil s;
 
     Real flat = 1.0;
 
@@ -167,24 +169,22 @@ HydroSim::trace_plm(const Box& bx, const int idir,
     for (int n = 0; n < NEVEC; n++) {
       int v = cvars[n];
 
-      load_stencil(q_arr, idir, i, j, k, v, s);
+      s = load_stencil(q_arr, idir, i, j, k, v);
 
       bool vtest = v == QUN;
-      dq[n] = uslope(s, flat, lo_bc_test && vtest, hi_bc_test && vtest);
+      dq[n] = uslope(s, flat, vtest ? zone_edge : ReflectEdge::None);
     }
 
     // are we doing well-balanced?
     if (use_pslope == 1) {
 
-      Real trho[nslp];
-      Real src[nslp];
-
-      load_stencil(q_arr, idir, i, j, k, QPRES, s);
-      load_stencil(q_arr, idir, i, j, k, QRHO, trho);
-      load_stencil(srcQ, idir, i, j, k, QUN, src);
+      HydrostaticStencils hse;
+      hse.rho = load_stencil(q_arr, idir, i, j, k, QRHO);
+      hse.p = load_stencil(q_arr, idir, i, j, k, QPRES);
+      hse.src = load_stencil(srcQ, idir, i, j, k, QUN);
 
       Real dp = dq[IEVEC_P];
-      pslope(trho, s, src, flat, lo_bc_test, hi_bc_test, dL, dp);
+      pslope(hse, flat, zone_edge, dL, dp);
       dq[IEVEC_P] = dp;
 
     }
@@ -363,8 +363,8 @@ HydroSim::trace_plm(const Box& bx, const int idir,
 
       // get the slope
 
-      load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc, s);
-      Real dX = uslope(s, flat, false, false);
+      s = load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc);
+      Real dX = uslope(s, flat, ReflectEdge::None);
 
       // Right state
       if ((idir == 0 && i >= vlo[0]) ||

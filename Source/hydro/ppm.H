@@ -2,6 +2,7 @@
 #include <cmath>
 
 #include <AMReX_REAL.H>
+#include <AMReX_Tuple.H>
 #include <reconstruction.H>
 
 #ifndef PPM_H
@@ -45,19 +46,29 @@ check_trace_source(amrex::Array4<amrex::Real const> const& srcQ, const int idir,
 
 
 ///
+/// The values of the parabola in a zone on its left (lo) and right (hi) edges
+///
+struct ParabolaEdges {
+    amrex::Real lo;
+    amrex::Real hi;
+};
+
+///
 /// Compute the coefficients of a parabolic reconstruction of the data in a zone.
 /// This uses the standard PPM limiters
 ///
-/// @param s      Real[nslp] the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
+/// @param s      the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
 /// @param flatcoef  The flattening coefficient
-/// @param sm     The value of the parabola on the left edge of the zone
-/// @param sp     The value of the parabola on the right edge of the zone
+///
+/// @return the value of the parabola on the left (sm) and right (sp) edges of the zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-ppm_reconstruct(const amrex::Real* s,
-                const amrex::Real flatcoef, amrex::Real& sm, amrex::Real& sp) {
+ParabolaEdges
+ppm_reconstruct(const ZoneStencil& s,
+                const amrex::Real flatcoef) {
 
+    amrex::Real sm;
+    amrex::Real sp;
 
     if (ppm_do_limiting) {
 
@@ -145,6 +156,7 @@ ppm_reconstruct(const amrex::Real* s,
 
     }
 
+    return {sm, sp};
 }
 
 
@@ -154,10 +166,8 @@ ppm_reconstruct(const amrex::Real* s,
 /// the gravitational force by only limiting on the wave-generating pressure.
 /// This uses the standard PPM limiters
 ///
-/// @param rho         Real[nslp] giving the density in zones i-2, i-1, i, i+1, i+2
-/// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
-/// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
-///                    i-2, i-1, i, i+1, i+2
+/// @param hse         the density, pressure and velocity-equation source (e.g. g)
+///                    in zones i-2, i-1, i, i+1, i+2
 /// @param flatcoef       flattening coefficient
 /// @param lo_bc_test  true if a physical boundary is just to the left of this zone
 /// @param hi_bc_test  true if a physical boundary is just to the right of this zone
@@ -169,11 +179,15 @@ ppm_reconstruct(const amrex::Real* s,
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
-ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatcoef,
+ppm_reconstruct_pslope(const HydrostaticStencils& hse, const amrex::Real flatcoef,
                        const amrex::Real dx,
                        amrex::Real& sm, amrex::Real& sp) {
 
-    amrex::Real tp[nslp];
+    const ZoneStencil& rho = hse.rho;
+    const ZoneStencil& p = hse.p;
+    const ZoneStencil& src = hse.src;
+
+    ZoneStencil tp;
 
     // compute the hydrostatic pressure in each zone center starting with i0
 
@@ -225,7 +239,9 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
         tp[ip2] = p[ip2];
     }
 
-    ppm_reconstruct(tp, flatcoef, sm, sp);
+    const ParabolaEdges edges = ppm_reconstruct(tp, flatcoef);
+    sm = edges.lo;
+    sp = edges.hi;
 
 
     // now correct sm and sp to be back to the full pressure by
@@ -244,6 +260,15 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
 
 
 ///
+/// The integrals under the parabola of a zone over the 3 waves u-c, u,
+/// u+c, reaching the left (lo) and right (hi) zone edges
+///
+struct ParabolaIntegrals {
+    amrex::GpuArray<amrex::Real, 3> lo;
+    amrex::GpuArray<amrex::Real, 3> hi;
+};
+
+///
 /// Integrate under the parabola using from the left and right edges
 /// with the wave speeds u-c, u, u+c
 ///
@@ -253,16 +278,16 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
 /// @param u     The fluid velocity
 /// @param c     The sound speed
 /// @param dtdx  dt/dx (timestep / cell width)
-/// @param Ip    Real[3], the integrals under the parabola over
-///              the 3 waves from the right zone edge
-/// @param Im    Real[3], the integrals under the parabola over
-///              the 3 waves from the left zone edge
+///
+/// @return the integrals under the parabola over the 3 waves from
+///         the right zone edge (hi, Ip) and the left zone edge (lo, Im)
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+ParabolaIntegrals
 ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
-                const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
-                amrex::Real* Ip, amrex::Real* Im) {
+                const amrex::Real u, const amrex::Real c, const amrex::Real dtdx) {
+
+  ParabolaIntegrals integrals;
 
   // Integrate the parabolic profile to the edge of the cell.
 
@@ -282,11 +307,11 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
 
   // if speed == ZERO, then either branch is the same
   if (speed <= 0.0_rt) {
-    Ip[0] = sp;
-    Im[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.hi[0] = sp;
+    integrals.lo[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
   } else {
-    Ip[0] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[0] = sm;
+    integrals.hi[0] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.lo[0] = sm;
   }
 
   // u wave
@@ -294,11 +319,11 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
   sigma = std::abs(speed) * dtdx;
 
   if (speed <= 0.0_rt) {
-    Ip[1] = sp;
-    Im[1] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.hi[1] = sp;
+    integrals.lo[1] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
   } else {
-    Ip[1] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[1] = sm;
+    integrals.hi[1] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.lo[1] = sm;
   }
 
   // u+c wave
@@ -306,13 +331,14 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
   sigma = std::abs(speed) * dtdx;
 
   if (speed <= 0.0_rt) {
-    Ip[2] = sp;
-    Im[2] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.hi[2] = sp;
+    integrals.lo[2] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
   } else {
-    Ip[2] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[2] = sm;
+    integrals.hi[2] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    integrals.lo[2] = sm;
   }
 
+  return integrals;
 }
 
 ///
@@ -324,14 +350,14 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
 /// @param sc    The state value at the zone center
 /// @param lam   The wave speed
 /// @param dtdx  dt/dx (timestep / cell width)
-/// @param Ip    integral under the parabola from the right zone edge
-/// @param Im    integral under the parabola from the left zone edge
+///
+/// @return the integrals under the parabola from the right zone edge (Ip)
+///         and from the left zone edge (Im), in that order
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+amrex::GpuTuple<Real, Real>
 ppm_int_profile_single(const Real sm, const Real sp, const Real sc,
-                       const Real lam, const Real dtdx,
-                       Real& Ip, Real& Im) {
+                       const Real lam, const Real dtdx) {
 
   // Integrate the parabolic profile to the edge of the cell.
   // This is the MHD version.  We come in already with the eigenvalues.
@@ -347,6 +373,9 @@ ppm_int_profile_single(const Real sm, const Real sp, const Real sc,
 
   Real sigma = std::abs(lam) * dtdx;
 
+  Real Ip;
+  Real Im;
+
   if (lam <= 0.0_rt) {
     Ip = sp;
     Im = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
@@ -354,6 +383,8 @@ ppm_int_profile_single(const Real sm, const Real sp, const Real sc,
     Ip = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
     Im = sm;
   }
+
+  return {Ip, Im};
 }
 
 #endif

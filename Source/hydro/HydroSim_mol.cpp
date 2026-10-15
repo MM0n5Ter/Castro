@@ -52,15 +52,14 @@ HydroSim::mol_plm_reconstruct(const Box& bx,
                                   (idir == 1 && j == domhi[1]) ||
                                   (idir == 2 && k == domhi[2]));
 
-    Real s[nslp];
     Real flat = flatcoef_arr(i,j,k);
 
-    load_stencil(q_arr, idir, i, j, k, n, s);
+    const ZoneStencil s = load_stencil(q_arr, idir, i, j, k, n);
 
     // normal velocity?
     bool vtest = n == QU+idir;
 
-    dq(i,j,k,n) = uslope(s, flat, lo_bc_test && vtest, hi_bc_test && vtest);
+    dq(i,j,k,n) = uslope(s, flat, reflect_edge(lo_bc_test && vtest, hi_bc_test && vtest));
   });
 
   if (use_pslope == 1) {
@@ -69,11 +68,7 @@ HydroSim::mol_plm_reconstruct(const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-      Real s[nslp];
       Real flat = flatcoef_arr(i,j,k);
-
-      Real trho[nslp];
-      Real src[nslp];
 
       bool lo_bc_test = lo_symm && ((idir == 0 && i == domlo[0]) ||
                                     (idir == 1 && j == domlo[1]) ||
@@ -83,12 +78,12 @@ HydroSim::mol_plm_reconstruct(const Box& bx,
                                     (idir == 1 && j == domhi[1]) ||
                                     (idir == 2 && k == domhi[2]));
 
-      load_stencil(q_arr, idir, i, j, k, QPRES, s);
-      load_stencil(q_arr, idir, i, j, k, QRHO, trho);
-      load_stencil(src_q_arr, idir, i, j, k, QU+idir, src);
+      const HydrostaticStencils hse{load_stencil(q_arr, idir, i, j, k, QRHO),
+                                    load_stencil(q_arr, idir, i, j, k, QPRES),
+                                    load_stencil(src_q_arr, idir, i, j, k, QU+idir)};
 
       Real dp = dq(i,j,k,QPRES);
-      pslope(trho, s, src, flat, lo_bc_test, hi_bc_test, dx[idir], dp);
+      pslope(hse, flat, reflect_edge(lo_bc_test, hi_bc_test), dx[idir], dp);
       dq(i,j,k,QPRES) = dp;
 
     });
@@ -159,13 +154,10 @@ HydroSim::mol_ppm_reconstruct(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
   {
 
-    Real s[nslp];
     Real flat = flatcoef_arr(i,j,k);
-    Real sm;
-    Real sp;
 
-    load_stencil(q_arr, idir, i, j, k, n, s);
-    ppm_reconstruct(s, flat, sm, sp);
+    const ZoneStencil s = load_stencil(q_arr, idir, i, j, k, n);
+    const auto [sm, sp] = ppm_reconstruct(s, flat);
 
     if (idir == 0) {
       // right state at i-1/2

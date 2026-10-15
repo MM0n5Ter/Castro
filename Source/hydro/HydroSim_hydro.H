@@ -208,14 +208,10 @@
 /// @param q_arr    the primitive variable state
 /// @param qaux_arr the auxiliary state
 /// @param srcQ     the source terms for the primitive variable equations
-/// @param qxm      left interface state in x, q_{i-1/2,j,k,L}
-/// @param qxp      right interface state in x, q_{i-1/2,j,k,R}
-/// @param qym      left interface state in y, q_{i,j-1/2,k,L}
-/// @param qyp      right interface state in y, q_{i,j-1/2,k,R}
-/// @param qzm      left interface state in z, q_{i,j,k-1/2,L}
-/// @param qzp      right interface state in z, q_{i,j,k-1/2,R}
-/// @param dlogaX   the geometric factor d(log area) in x (r) dir
-/// @param dlogaY   the geometric factor d(log area) in y (theta) dir
+/// @param qm       left interface state in each direction, e.g. q_{i-1/2,j,k,L} in x
+/// @param qp       right interface state in each direction, e.g. q_{i-1/2,j,k,R} in x
+/// @param dloga    the geometric factor d(log area) in each direction (x = r,
+///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
     void ctu_ppm_states(const amrex::Box& bx, const amrex::Box& vbx,
@@ -224,22 +220,9 @@
                         amrex::Array4<amrex::Real const> const& q_arr,
                         amrex::Array4<amrex::Real const> const& qaux_arr,
                         amrex::Array4<amrex::Real const> const& srcQ,
-                        amrex::Array4<amrex::Real> const& qxm,
-                        amrex::Array4<amrex::Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                        amrex::Array4<amrex::Real> const& qym,
-                        amrex::Array4<amrex::Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                        amrex::Array4<amrex::Real> const& qzm,
-                        amrex::Array4<amrex::Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                        amrex::Array4<amrex::Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                        amrex::Array4<amrex::Real const> const& dlogaY,
-#endif
+                        amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qm,
+                        amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qp,
+                        amrex::Array<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& dloga,
                         const amrex::Real dt);
 
 ///
@@ -255,14 +238,10 @@
 /// @param q_arr    the primitive variable state
 /// @param qaux_arr the auxiliary state
 /// @param srcQ     the source terms for the primitive variable equations
-/// @param qxm      left interface state in x, q_{i-1/2,j,k,L}
-/// @param qxp      right interface state in x, q_{i-1/2,j,k,R}
-/// @param qym      left interface state in y, q_{i,j-1/2,k,L}
-/// @param qyp      right interface state in y, q_{i,j-1/2,k,R}
-/// @param qzm      left interface state in z, q_{i,j,k-1/2,L}
-/// @param qzp      right interface state in z, q_{i,j,k-1/2,R}
-/// @param dlogaX   the geometric factor d(log area) in x (r) dir
-/// @param dlogaY   the geometric factor d(log area) in y (theta) dir
+/// @param qm       left interface state in each direction, e.g. q_{i-1/2,j,k,L} in x
+/// @param qp       right interface state in each direction, e.g. q_{i-1/2,j,k,R} in x
+/// @param dloga    the geometric factor d(log area) in each direction (x = r,
+///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
     void ctu_plm_states(const amrex::Box& bx, const amrex::Box& vbx,
@@ -271,22 +250,9 @@
                         amrex::Array4<amrex::Real const> const& q_arr,
                         amrex::Array4<amrex::Real const> const& qaux_arr,
                         amrex::Array4<amrex::Real const> const& srcQ,
-                        amrex::Array4<amrex::Real> const& qxm,
-                        amrex::Array4<amrex::Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                        amrex::Array4<amrex::Real> const& qym,
-                        amrex::Array4<amrex::Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                        amrex::Array4<amrex::Real> const& qzm,
-                        amrex::Array4<amrex::Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                        amrex::Array4<amrex::Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                        amrex::Array4<amrex::Real const> const& dlogaY,
-#endif
+                        amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qm,
+                        amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qp,
+                        amrex::Array<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& dloga,
                         const amrex::Real dt);
 
 #ifdef RADIATION
@@ -303,14 +269,10 @@
 /// @param q_arr    the primitive variable state
 /// @param qaux_arr the auxiliary state
 /// @param srcQ     the source terms for the primitive variable equations
-/// @param qxm      left interface state in x, q_{i-1/2,j,k,L}
-/// @param qxp      right interface state in x, q_{i-1/2,j,k,R}
-/// @param qym      left interface state in y, q_{i,j-1/2,k,L}
-/// @param qyp      right interface state in y, q_{i,j-1/2,k,R}
-/// @param qzm      left interface state in z, q_{i,j,k-1/2,L}
-/// @param qzp      right interface state in z, q_{i,j,k-1/2,R}
-/// @param dlogaX   the geometric factor d(log area) in x (r) dir
-/// @param dlogaY   the geometric factor d(log area) in y (theta) dir
+/// @param qm       left interface state in each direction, e.g. q_{i-1/2,j,k,L} in x
+/// @param qp       right interface state in each direction, e.g. q_{i-1/2,j,k,R} in x
+/// @param dloga    the geometric factor d(log area) in each direction (x = r,
+///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
     void ctu_ppm_rad_states(const amrex::Box& bx, const amrex::Box& vbx,
@@ -319,22 +281,9 @@
                             amrex::Array4<amrex::Real const> const& q_arr,
                             amrex::Array4<amrex::Real const> const& qaux_arr,
                             amrex::Array4<amrex::Real const> const& srcQ,
-                            amrex::Array4<amrex::Real> const& qxm,
-                            amrex::Array4<amrex::Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                            amrex::Array4<amrex::Real> const& qym,
-                            amrex::Array4<amrex::Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                            amrex::Array4<amrex::Real> const& qzm,
-                            amrex::Array4<amrex::Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                            amrex::Array4<amrex::Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                            amrex::Array4<amrex::Real const> const& dlogaY,
-#endif
+                            amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qm,
+                            amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qp,
+                            amrex::Array<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& dloga,
                             const amrex::Real dt);
 #endif
 
@@ -604,35 +553,43 @@
                              amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
 
 ///
+/// The zone data the characteristic tracing reads in one direction
+///
+/// U          the conserved variable state
+/// rho_inv    the inverse density
+/// q          the primitive variable state
+/// qaux       the auxiliary state
+/// srcQ       the source terms for the primitive variable equations
+/// dloga      geometric factor dlog(area) in the traced direction (1-d and 2-d only)
+///
+    struct TraceFields
+    {
+        amrex::Array4<amrex::Real const> U;
+        amrex::Array4<amrex::Real const> rho_inv;
+        amrex::Array4<amrex::Real const> q;
+        amrex::Array4<amrex::Real const> qaux;
+        amrex::Array4<amrex::Real const> srcQ;
+        amrex::Array4<amrex::Real const> dloga;
+    };
+
+///
 /// Reconstruct the primitive state as parabola, integrate under them,
 /// and perform the characteristic tracing to get the interface states.
 /// This is for the CTU hydrodynamics scheme.
 ///
 /// @param bx        the box to operate over
 /// @param idir      coordinate direction of the interface (0 = x, 1 = y, 2 = z)
-/// @param U_arr     the conserved variable state
-/// @param rho_inv_arr the inverse density array
-/// @param q_arr     primitive variable state
-/// @param qaux_arr  the auxiliary state
-/// @param srcQ      primitive variable equation source terms
+/// @param fields    the zone data to trace
 /// @param qm        left interface state (e.g., q_{i-1/2,j,k,L})
 /// @param qp        right interface state (e.g., q_{i-1/2,j,k,R})
-/// @param dloga     geometric factor dlog(area)
 /// @param vbx       the valid region box (excluding ghost cells)
 /// @param dt        timestep
 ///
     void trace_ppm(const amrex::Box& bx,
                    const int idir,
-                   amrex::Array4<amrex::Real const> const& U_arr,
-                   amrex::Array4<amrex::Real const> const& rho_inv_arr,
-                   amrex::Array4<amrex::Real const> const& q_arr,
-                   amrex::Array4<amrex::Real const> const& qaux_arr,
-                   amrex::Array4<amrex::Real const> const& srcQ,
+                   TraceFields const& fields,
                    amrex::Array4<amrex::Real> const& qm,
                    amrex::Array4<amrex::Real> const& qp,
-#if (AMREX_SPACEDIM < 3)
-                   amrex::Array4<amrex::Real const> const& dloga,
-#endif
                    const amrex::Box& vbx,
                    const amrex::Real dt);
 
@@ -643,29 +600,17 @@
 ///
 /// @param bx           the box to operate over
 /// @param idir         coordinate direction of the interface (0 = x, 1 = y, 2 = z)
-/// @param U_arr        the conserved variable state
-/// @param rho_inv_arr  the inverse density array
-/// @param q_arr        primitive variable state
-/// @param qaux_arr     the auxiliary state
-/// @param SrcQ         primitive variable equation source terms
+/// @param fields       the zone data to trace
 /// @param qm           left interface state (e.g., q_{i-1/2,j,k,L})
 /// @param qp           right interface state (e.g., q_{i-1/2,j,k,R})
-/// @param dloga        geometric factor dlog(area)
 /// @param vbx          the valid region box (excluding ghost cells)
 /// @param dt           timestep
 ///
     void trace_plm(const amrex::Box& bx,
                    const int idir,
-                   amrex::Array4<amrex::Real const> const& U_arr,
-                   amrex::Array4<amrex::Real const> const& rho_inv_arr,
-                   amrex::Array4<amrex::Real const> const& q_arr,
-                   amrex::Array4<amrex::Real const> const& qaux_arr,
+                   TraceFields const& fields,
                    amrex::Array4<amrex::Real> const& qm,
                    amrex::Array4<amrex::Real> const& qp,
-#if (AMREX_SPACEDIM < 3)
-                   amrex::Array4<amrex::Real const> const& dloga,
-#endif
-                   amrex::Array4<amrex::Real const> const& SrcQ,
                    const amrex::Box& vbx,
                    const amrex::Real dt);
 
@@ -676,29 +621,17 @@
 ///
 /// @param bx        the box to operate over
 /// @param idir      coordinate direction of the interface (0 = x, 1 = y, 2 = z)
-/// @param U_arr     the conserved variable state
-/// @param rho_inv_arr the inverse density array
-/// @param q_arr     primitive variable state
-/// @param qaux_arr  the auxiliary state
-/// @param srcQ      primitive variable equation source terms
+/// @param fields    the zone data to trace
 /// @param qm        left interface state (e.g., q_{i-1/2,j,k,L})
 /// @param qp        right interface state (e.g., q_{i-1/2,j,k,R})
-/// @param dloga     geometric factor dlog(area)
 /// @param vbx       the valid region box (excluding ghost cells)
 /// @param dt        timestep
 ///
     void trace_ppm_rad(const amrex::Box& bx,
                        const int idir,
-                       amrex::Array4<amrex::Real const> const& U_arr,
-                       amrex::Array4<amrex::Real const> const& rho_inv_arr,
-                       amrex::Array4<amrex::Real const> const& q_arr,
-                       amrex::Array4<amrex::Real const> const& qaux_arr,
-                       amrex::Array4<amrex::Real const> const& srcQ,
+                       TraceFields const& fields,
                        amrex::Array4<amrex::Real> const& qm,
                        amrex::Array4<amrex::Real> const& qp,
-#if (AMREX_SPACEDIM < 3)
-                       amrex::Array4<amrex::Real const> const& dloga,
-#endif
                        const amrex::Box& vbx,
                        const amrex::Real dt);
 

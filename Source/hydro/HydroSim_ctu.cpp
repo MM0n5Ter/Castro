@@ -90,22 +90,9 @@ HydroSim::ctu_ppm_states(const Box& bx, const Box& vbx,
                        Array4<Real const> const& q_arr,
                        Array4<Real const> const& qaux_arr,
                        Array4<Real const> const& srcQ,
-                       Array4<Real> const& qxm,
-                       Array4<Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                       Array4<Real> const& qym,
-                       Array4<Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                       Array4<Real> const& qzm,
-                       Array4<Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                       Array4<Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                       Array4<Real const> const& dlogaY,
-#endif
+                       Array<Array4<Real>, AMREX_SPACEDIM> const& qm,
+                       Array<Array4<Real>, AMREX_SPACEDIM> const& qp,
+                       Array<Array4<Real const>, AMREX_SPACEDIM> const& dloga,
                        const Real dt) {
 
   // Compute the normal interface states by reconstructing
@@ -113,46 +100,14 @@ HydroSim::ctu_ppm_states(const Box& bx, const Box& vbx,
   // and doing characteristic tracing.  We do not apply the
   // transverse terms here.
 
+  TraceFields fields{U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ, {}};
+
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
-    if (idir == 0) {
-      trace_ppm(bx,
-                idir,
-                U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                qxm, qxp,
-#if AMREX_SPACEDIM <= 2
-                dlogaX,
-#endif
-                vbx, dt);
+    fields.dloga = dloga[idir];
+    trace_ppm(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-      enforce_reflect_states(bx, 0, qxm, qxp);
-
-#if AMREX_SPACEDIM >= 2
-    } else if (idir == 1) {
-      trace_ppm(bx,
-                idir,
-                U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                qym, qyp,
-#if AMREX_SPACEDIM <= 2
-                dlogaY,
-#endif
-                vbx, dt);
-
-      enforce_reflect_states(bx, 1, qym, qyp);
-#endif
-
-
-#if AMREX_SPACEDIM == 3
-    } else {
-      trace_ppm(bx,
-                idir,
-                U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                qzm, qzp,
-                vbx, dt);
-
-      enforce_reflect_states(bx, 2, qzm, qzp);
-#endif
-    }
+    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
   }
 }
 
@@ -165,67 +120,20 @@ HydroSim::ctu_ppm_rad_states(const Box& bx, const Box& vbx,
                            Array4<Real const> const& q_arr,
                            Array4<Real const> const& qaux_arr,
                            Array4<Real const> const& srcQ,
-                           Array4<Real> const& qxm,
-                           Array4<Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                           Array4<Real> const& qym,
-                           Array4<Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                           Array4<Real> const& qzm,
-                           Array4<Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                           Array4<Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                           Array4<Real const> const& dlogaY,
-#endif
+                           Array<Array4<Real>, AMREX_SPACEDIM> const& qm,
+                           Array<Array4<Real>, AMREX_SPACEDIM> const& qp,
+                           Array<Array4<Real const>, AMREX_SPACEDIM> const& dloga,
                            const Real dt) {
 
 
+  TraceFields fields{U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ, {}};
+
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
-    if (idir == 0) {
+    fields.dloga = dloga[idir];
+    trace_ppm_rad(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qxm, qxp,
-#if AMREX_SPACEDIM <= 2
-                    dlogaX,
-#endif
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 0, qxm, qxp);
-
-#if AMREX_SPACEDIM >= 2
-    } else if (idir == 1) {
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qym, qyp,
-#if AMREX_SPACEDIM <= 2
-                    dlogaY,
-#endif
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 1, qym, qyp);
-#endif
-
-
-#if AMREX_SPACEDIM == 3
-    } else {
-      trace_ppm_rad(bx,
-                    idir,
-                    U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ,
-                    qzm, qzp,
-                    vbx, dt);
-
-      enforce_reflect_states(bx, 2, qzm, qzp);
-
-#endif
-    }
+    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
   }
 }
 #endif
@@ -238,22 +146,9 @@ HydroSim::ctu_plm_states(const Box& bx, const Box& vbx,
                        Array4<Real const> const& q_arr,
                        Array4<Real const> const& qaux_arr,
                        Array4<Real const> const& srcQ,
-                       Array4<Real> const& qxm,
-                       Array4<Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                       Array4<Real> const& qym,
-                       Array4<Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                       Array4<Real> const& qzm,
-                       Array4<Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                       Array4<Real const> const& dlogaX,
-#endif
-#if AMREX_SPACEDIM == 2
-                       Array4<Real const> const& dlogaY,
-#endif
+                       Array<Array4<Real>, AMREX_SPACEDIM> const& qm,
+                       Array<Array4<Real>, AMREX_SPACEDIM> const& qp,
+                       Array<Array4<Real const>, AMREX_SPACEDIM> const& dloga,
                        const Real dt) {
 
   // Compute the normal interface states by reconstructing
@@ -272,45 +167,17 @@ HydroSim::ctu_plm_states(const Box& bx, const Box& vbx,
 #endif
 #endif
 
+  TraceFields fields{U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ, {}};
+
   // Compute all slopes
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
     // compute the interface states
 
-    if (idir == 0) {
-      trace_plm(bx, 0,
-                U_arr, rho_inv_arr, q_arr, qaux_arr,
-                qxm, qxp,
-#if AMREX_SPACEDIM < 3
-                dlogaX,
-#endif
-                srcQ, vbx, dt);
+    fields.dloga = dloga[idir];
+    trace_plm(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-      enforce_reflect_states(bx, 0, qxm, qxp);
-
-#if AMREX_SPACEDIM >= 2
-    } else if (idir == 1) {
-      trace_plm(bx, 1,
-                U_arr, rho_inv_arr, q_arr, qaux_arr,
-                qym, qyp,
-#if AMREX_SPACEDIM < 3
-                dlogaY,
-#endif
-                srcQ, vbx, dt);
-
-      enforce_reflect_states(bx, 1, qym, qyp);
-#endif
-
-#if AMREX_SPACEDIM == 3
-    } else {
-      trace_plm(bx, 2,
-                U_arr, rho_inv_arr, q_arr, qaux_arr,
-                qzm, qzp,
-                srcQ, vbx, dt);
-
-      enforce_reflect_states(bx, 2, qzm, qzp);
-#endif
-    }
+    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
   }
 }
 

@@ -101,10 +101,9 @@ HydroSim::ppm_mhd(const Box& bx,
 
     // do the parabolic reconstruction and compute the integrals under
     // the characteristic waves
-    Real s[nslp];
+    ZoneStencil s;
     Real flat = flatcoef(i,j,k);
-    Real sm;
-    Real sp;
+    ParabolaEdges edge;
 
     Real Ip[NEVEC][NEVEC];  // first component is var, second is wave
     Real Im[NEVEC][NEVEC];
@@ -117,8 +116,8 @@ HydroSim::ppm_mhd(const Box& bx,
 
       int v = cvars[n];
 
-      load_stencil(q_arr, idir, i, j, k, v, s);
-      ppm_reconstruct(s, flat, sm, sp);
+      s = load_stencil(q_arr, idir, i, j, k, v);
+      edge = ppm_reconstruct(s, flat);
 
       Real Ipt = 0.0;
       Real Imt = 0.0;
@@ -127,7 +126,7 @@ HydroSim::ppm_mhd(const Box& bx,
       for (int ii = 0; ii < NEVEC; ii++) {
         Real speed = lam(ii);
 
-        ppm_int_profile_single(sm, sp, s[i0], speed, dtdx, Ipt, Imt);
+        amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], speed, dtdx);
 
         // we do a special correction here for waves that are not
         // moving toward the interface.  It doesn't make sense to
@@ -136,13 +135,13 @@ HydroSim::ppm_mhd(const Box& bx,
         if (lam(ii) >= 0.0_rt) {
           Ip[n][ii] = Ipt;
         } else {
-          Ip[n][ii] = 0.5_rt * dtdx * (sp - sm);
+          Ip[n][ii] = 0.5_rt * dtdx * (edge.hi - edge.lo);
         }
 
         if (lam(ii) <= 0.0_rt) {
           Im[n][ii] = Imt;
         } else {
-          Im[n][ii] = 0.5_rt * dtdx * (sp - sm);
+          Im[n][ii] = 0.5_rt * dtdx * (edge.hi - edge.lo);
         }
 
       }
@@ -151,12 +150,12 @@ HydroSim::ppm_mhd(const Box& bx,
 
       // q_{i+1/2, L} uses the fastest wave moving to the right
       Real lambda_max = amrex::max(lam(NEVEC-1), 0.0_rt);
-      ppm_int_profile_single(sm, sp, s[i0], lambda_max, dtdx, Ipt, Imt);
+      amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], lambda_max, dtdx);
       q_ref_left[n] = Ipt;
 
       // q_{i+1/2, L} uses the fastest wave moving to the left
       Real lambda_min = amrex::min(lam(0), 0.0_rt);
-      ppm_int_profile_single(sm, sp, s[i0], lambda_min, dtdx, Ipt, Imt);
+      amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], lambda_min, dtdx);
       q_ref_right[n] = Imt;
 
     }
@@ -345,9 +344,9 @@ HydroSim::ppm_mhd(const Box& bx,
         un = q_arr(i,j,k,QW);
       }
 
-      load_stencil(q_arr, idir, i, j, k, v, s);
-      ppm_reconstruct(s, flat, sm, sp);
-      ppm_int_profile_single(sm, sp, s[i0], un, dtdx, Ips, Ims);
+      s = load_stencil(q_arr, idir, i, j, k, v);
+      edge = ppm_reconstruct(s, flat);
+      amrex::Tie(Ips, Ims) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdx);
 
       if (idir == 0) {
         qleft(i+1,j,k,QSPEC+n) = Ips;

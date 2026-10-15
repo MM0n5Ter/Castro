@@ -29,18 +29,16 @@ HydroSim::make_cell_center(const Box& bx,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
 
-  GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-  GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+  DomainBounds domain{domlo, domhi, {}, {}};
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+    domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
   }
 
   amrex::ParallelFor(bx, U.nComp(),
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
   {
-    Real lap = compute_laplacian(i, j, k, n, U,
-                                 lo_periodic, hi_periodic, domlo, domhi);
+    Real lap = compute_laplacian(i, j, k, n, U, domain);
 
     U_cc(i,j,k,n) = U(i,j,k,n) - (1.0_rt/24.0_rt) * lap;
 
@@ -62,11 +60,10 @@ HydroSim::make_cell_center_in_place(const Box& bx,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
 
-  GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-  GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+  DomainBounds domain{domlo, domhi, {}, {}};
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+    domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
   }
 
   for (int n = 0; n < U.nComp(); n++) {
@@ -74,8 +71,7 @@ HydroSim::make_cell_center_in_place(const Box& bx,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-      tmp(i,j,k) = compute_laplacian(i, j, k, n, U,
-                                     lo_periodic, hi_periodic, domlo, domhi);
+      tmp(i,j,k) = compute_laplacian(i, j, k, n, U, domain);
     });
 
     amrex::ParallelFor(bx,
@@ -99,19 +95,17 @@ HydroSim::compute_lap_term(const Box& bx,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
 
-  GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-  GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+  DomainBounds domain{domlo, domhi, {}, {}};
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+    domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
   }
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
     lap(i,j,k) = (1.0_rt/24.0_rt) *
-      compute_laplacian(i, j, k, ncomp, U,
-                        lo_periodic, hi_periodic, domlo, domhi);
+      compute_laplacian(i, j, k, ncomp, U, domain);
   });
 
 }
@@ -130,18 +124,16 @@ HydroSim::make_fourth_average(const Box& bx,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
 
-  GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-  GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+  DomainBounds domain{domlo, domhi, {}, {}};
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+    domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
   }
 
   amrex::ParallelFor(bx, q_arr.nComp(),
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
   {
-    Real lap = compute_laplacian(i, j, k, n, q_bar_arr,
-                                 lo_periodic, hi_periodic, domlo, domhi);
+    Real lap = compute_laplacian(i, j, k, n, q_bar_arr, domain);
 
     q_arr(i,j,k,n) += (1.0_rt/24.0_rt) * lap;
   });
@@ -180,18 +172,16 @@ HydroSim::make_fourth_in_place_n(const Box& bx,
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
 
-  GpuArray<bool, AMREX_SPACEDIM> lo_periodic;
-  GpuArray<bool, AMREX_SPACEDIM> hi_periodic;
+  DomainBounds domain{domlo, domhi, {}, {}};
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+    domain.lo_periodic[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    domain.hi_periodic[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
   }
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
-    tmp(i,j,k) = compute_laplacian(i, j, k, ncomp, q_arr,
-                                   lo_periodic, hi_periodic, domlo, domhi);
+    tmp(i,j,k) = compute_laplacian(i, j, k, ncomp, q_arr, domain);
   });
 
   amrex::ParallelFor(bx,
