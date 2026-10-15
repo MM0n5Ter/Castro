@@ -21,7 +21,7 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 #ifdef RADIATION
                Array4<Real> const& rF,
 #endif
-               Array4<Real> const& qface, const bool store_full_state) {
+               Array4<Real> const& qface, const FaceComponents qface_comps) {
 
     // given a primitive state, compute the flux in direction idir
     //
@@ -48,11 +48,11 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
     }
 
     // Compute fluxes, order as conserved state (not q)
-    F(i,j,k,URHO) = qint.rho * qint.un;
+    F(i,j,k,URHO) = qint.rho * qint.vel.un;
 
-    F(i,j,k,im1) = F(i,j,k,URHO) * qint.un;
-    F(i,j,k,im2) = F(i,j,k,URHO) * qint.ut;
-    F(i,j,k,im3) = F(i,j,k,URHO) * qint.utt;
+    F(i,j,k,im1) = F(i,j,k,URHO) * qint.vel.un;
+    F(i,j,k,im2) = F(i,j,k,URHO) * qint.vel.ut;
+    F(i,j,k,im3) = F(i,j,k,URHO) * qint.vel.utt;
 
 #ifndef RADIATION
     if (mom_check) {
@@ -60,24 +60,24 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
     }
 
     Real rhoetot = qint.rhoe + 0.5_rt * qint.rho *
-        (qint.un * qint.un +
-         qint.ut * qint.ut +
-         qint.utt * qint.utt);
+        (qint.vel.un * qint.vel.un +
+         qint.vel.ut * qint.vel.ut +
+         qint.vel.utt * qint.vel.utt);
 
-    F(i,j,k,UEDEN) = qint.un * (rhoetot + qint.p);
-    F(i,j,k,UEINT) = qint.un * qint.rhoe;
+    F(i,j,k,UEDEN) = qint.vel.un * (rhoetot + qint.p);
+    F(i,j,k,UEINT) = qint.vel.un * qint.rhoe;
 #else
     if (mom_check) {
-      F(i,j,k,im1) += qint.p_g;
+      F(i,j,k,im1) += qint.rad.p_g;
     }
 
-    Real rhoetot = qint.rhoe_g + 0.5_rt * qint.rho *
-        (qint.un * qint.un +
-         qint.ut * qint.ut +
-         qint.utt * qint.utt);
+    Real rhoetot = qint.rad.rhoe_g + 0.5_rt * qint.rho *
+        (qint.vel.un * qint.vel.un +
+         qint.vel.ut * qint.vel.ut +
+         qint.vel.utt * qint.vel.utt);
 
-    F(i,j,k,UEDEN) = qint.un * (rhoetot + qint.p_g);
-    F(i,j,k,UEINT) = qint.un * qint.rhoe_g;
+    F(i,j,k,UEDEN) = qint.vel.un * (rhoetot + qint.rad.p_g);
+    F(i,j,k,UEINT) = qint.vel.un * qint.rad.rhoe_g;
 #endif
 
     F(i,j,k,UTEMP) = 0.0;
@@ -93,14 +93,14 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 #ifdef RADIATION
     if (radiation::fspace_advection_type == 1) {
         for (int g = 0; g < NGROUPS; g++) {
-            Real eddf = Edd_factor(qint.lam[g]);
+            Real eddf = Edd_factor(qint.rad.lam[g]);
             Real f1 = 0.5e0_rt*(1.0_rt-eddf);
-            rF(i,j,k,g) = (1.0_rt + f1) * qint.er[g] * qint.un;
+            rF(i,j,k,g) = (1.0_rt + f1) * qint.rad.er[g] * qint.vel.un;
         }
     } else {
         // type 2
         for (int g = 0; g < NGROUPS; g++) {
-            rF(i,j,k,g) = qint.er[g] * qint.un;
+            rF(i,j,k,g) = qint.rad.er[g] * qint.vel.un;
         }
     }
 #endif
@@ -110,23 +110,23 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
     GpuArray<Real, NIFC> qface_zone;
     qface_zone[IFCRHO] = qint.rho;
     if (idir == 0) {
-        qface_zone[IFCU] = qint.un;
-        qface_zone[IFCV] = qint.ut;
-        qface_zone[IFCW] = qint.utt;
+        qface_zone[IFCU] = qint.vel.un;
+        qface_zone[IFCV] = qint.vel.ut;
+        qface_zone[IFCW] = qint.vel.utt;
     } else if (idir == 1) {
-        qface_zone[IFCV] = qint.un;
-        qface_zone[IFCU] = qint.ut;
-        qface_zone[IFCW] = qint.utt;
+        qface_zone[IFCV] = qint.vel.un;
+        qface_zone[IFCU] = qint.vel.ut;
+        qface_zone[IFCW] = qint.vel.utt;
     } else {
-        qface_zone[IFCW] = qint.un;
-        qface_zone[IFCU] = qint.ut;
-        qface_zone[IFCV] = qint.utt;
+        qface_zone[IFCW] = qint.vel.un;
+        qface_zone[IFCU] = qint.vel.ut;
+        qface_zone[IFCV] = qint.vel.utt;
     }
     qface_zone[IFCPRES] = qint.p;
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
-        qface_zone[IFCFLXLIM+g] = qint.lam[g];
-        qface_zone[IFCERAD+g] = qint.er[g];
+        qface_zone[IFCFLXLIM+g] = qint.rad.lam[g];
+        qface_zone[IFCERAD+g] = qint.rad.er[g];
     }
 #endif
     GpuArray<Real, NUM_STATE> F_zone;
@@ -141,38 +141,38 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
     // now we store the interface state in the full 4-d array.  We
     // either store just the NIFC subset or the whole NQ hydro state,
-    // depending on the value of store_full_state
+    // depending on the value of qface_comps
 
     // note: we don't handle the passives here
 
-    if (store_full_state) {
+    if (qface_comps == FaceComponents::Full) {
 
         // this is the primitive variable state on the interface
 
         qface(i,j,k,QRHO) = qint.rho;
         if (idir == 0) {
-            qface(i,j,k,QU) = qint.un;
-            qface(i,j,k,QV) = qint.ut;
-            qface(i,j,k,QW) = qint.utt;
+            qface(i,j,k,QU) = qint.vel.un;
+            qface(i,j,k,QV) = qint.vel.ut;
+            qface(i,j,k,QW) = qint.vel.utt;
         } else if (!(idir == 1)) {
-            qface(i,j,k,QW) = qint.un;
-            qface(i,j,k,QU) = qint.ut;
-            qface(i,j,k,QV) = qint.utt;
+            qface(i,j,k,QW) = qint.vel.un;
+            qface(i,j,k,QU) = qint.vel.ut;
+            qface(i,j,k,QV) = qint.vel.utt;
         } else {
-            qface(i,j,k,QV) = qint.un;
-            qface(i,j,k,QU) = qint.ut;
-            qface(i,j,k,QW) = qint.utt;
+            qface(i,j,k,QV) = qint.vel.un;
+            qface(i,j,k,QU) = qint.vel.ut;
+            qface(i,j,k,QW) = qint.vel.utt;
         }
 
         qface(i,j,k,QTEMP) = 0.0_rt;
 
 #ifdef RADIATION
-        qface(i,j,k,QPRES) = qint.p_g;
-        qface(i,j,k,QRHOEI) = qint.rhoe_g;
+        qface(i,j,k,QPRES) = qint.rad.p_g;
+        qface(i,j,k,QRHOEI) = qint.rad.rhoe_g;
         qface(i,j,k,QPTOTAL) = qint.p;
         qface(i,j,k,QRHOEITOT) = qint.rhoe;
         for (int g = 0; g < NGROUPS; g++) {
-            qface(i,j,k,QERAD) = qint.er[g];
+            qface(i,j,k,QERAD) = qint.rad.er[g];
         }
 #else
         qface(i,j,k,QPRES) = qint.p;
@@ -188,25 +188,25 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
         qface(i,j,k,IFCRHO) = qint.rho;
 #endif
         if (idir == 0) {
-            qface(i,j,k,IFCU) = qint.un;
-            qface(i,j,k,IFCV) = qint.ut;
-            qface(i,j,k,IFCW) = qint.utt;
+            qface(i,j,k,IFCU) = qint.vel.un;
+            qface(i,j,k,IFCV) = qint.vel.ut;
+            qface(i,j,k,IFCW) = qint.vel.utt;
         } else if (idir == 1) {
-            qface(i,j,k,IFCV) = qint.un;
-            qface(i,j,k,IFCU) = qint.ut;
-            qface(i,j,k,IFCW) = qint.utt;
+            qface(i,j,k,IFCV) = qint.vel.un;
+            qface(i,j,k,IFCU) = qint.vel.ut;
+            qface(i,j,k,IFCW) = qint.vel.utt;
         } else {
-            qface(i,j,k,IFCW) = qint.un;
-            qface(i,j,k,IFCU) = qint.ut;
-            qface(i,j,k,IFCV) = qint.utt;
+            qface(i,j,k,IFCW) = qint.vel.un;
+            qface(i,j,k,IFCU) = qint.vel.ut;
+            qface(i,j,k,IFCV) = qint.vel.utt;
         }
 #ifndef RADIATION
         qface(i,j,k,IFCPRES) = qint.p;
 #else
-        qface(i,j,k,IFCPRES) = qint.p_g;
+        qface(i,j,k,IFCPRES) = qint.rad.p_g;
         for (int g = 0; g < NGROUPS; g++) {
-            qface(i,j,k,IFCFLXLIM+g) = qint.lam[g];
-            qface(i,j,k,IFCERAD+g) = qint.er[g];
+            qface(i,j,k,IFCFLXLIM+g) = qint.rad.lam[g];
+            qface(i,j,k,IFCERAD+g) = qint.rad.er[g];
         }
 #endif
 
@@ -217,14 +217,12 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+RiemannState
 riemann_state(const int i, const int j, const int k, const int idir,
               Array4<Real> const& qm,
               Array4<Real> const& qp,
               Array4<Real const> const& qaux_arr,
-              RiemannState& qint,
-              const bool special_bnd_lo, const bool special_bnd_hi,
-              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi,
+              DomainEdges const& edges,
               const bool do_ppm_temp_fix, const Real temp_guess) {
 
   // just compute the hydrodynamic state on the interfaces
@@ -286,39 +284,35 @@ riemann_state(const int i, const int j, const int k, const int idir,
   }
 
 
-  RiemannState ql;
-  RiemannState qr;
-  RiemannAux raux;
-
-
-  load_input_states(i, j, k, idir,
-                    qm, qp, qaux_arr,
-                    ql, qr, raux);
+  auto [ql, qr, raux] = load_input_states(i, j, k, idir,
+                                          qm, qp, qaux_arr);
 
   // deal with hard walls
   raux.bnd_fac = 1.0_rt;
 
   if (idir == 0) {
-      if ((i == domlo[0] && special_bnd_lo) ||
-          (i == domhi[0]+1 && special_bnd_hi)) {
+      if ((i == edges.lo[0] && edges.wall_lo) ||
+          (i == edges.hi[0]+1 && edges.wall_hi)) {
           raux.bnd_fac = 0.0_rt;
       }
 
   } else if (idir == 1) {
-      if ((j == domlo[1] && special_bnd_lo) ||
-          (j == domhi[1]+1 && special_bnd_hi)) {
+      if ((j == edges.lo[1] && edges.wall_lo) ||
+          (j == edges.hi[1]+1 && edges.wall_hi)) {
           raux.bnd_fac = 0.0_rt;
       }
 
   } else {
-      if ((k == domlo[2] && special_bnd_lo) ||
-          (k == domhi[2]+1 && special_bnd_hi)) {
+      if ((k == edges.lo[2] && edges.wall_lo) ||
+          (k == edges.hi[2]+1 && edges.wall_hi)) {
           raux.bnd_fac = 0.0_rt;
       }
   }
 
 
   // Solve Riemann problem
+  RiemannState qint{};
+
   if (riemann_solver == 0) {
       // Colella, Glaz, & Ferguson solver
 
@@ -337,7 +331,7 @@ riemann_state(const int i, const int j, const int k, const int idir,
 #endif
   }
 
-
+  return qint;
 }
 
 

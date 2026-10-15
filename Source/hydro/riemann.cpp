@@ -36,14 +36,10 @@ void
 HydroSim::riemann_flux_and_state(const Box& bx,
                             Array4<Real> const& qm,
                             Array4<Real> const& qp,
-                            Array4<Real> const& flx,
-#ifdef RADIATION
-                            Array4<Real> const& rflx,
-#endif
-                            Array4<Real> const& qface,
+                            InterfaceOutput const& out,
                             Array4<Real const> const& qaux_arr,
                             Array4<Real const> const& shk,
-                            const int idir, const bool store_full_state) {
+                            const int idir, const FaceComponents qface_comps) {
 
     // note: bx is not necessarily the limits of the valid (no ghost
     // cells) domain, but could be hi+1 in some dimensions.  We rely on
@@ -52,18 +48,18 @@ HydroSim::riemann_flux_and_state(const Box& bx,
 
     // Solve Riemann problem to get the fluxes
 
-    // store_full_state determines what is put into qface.  if
-    // store_full_state is True, we put all NQ variables into the
-    // qface.  if store_full_state is False, we only store the NIFC
+    // qface_comps determines what is put into qface.  if
+    // qface_comps is Full, we put all NQ variables into the
+    // qface.  if qface_comps is Reduced, we only store the NIFC
     // needed elsewhere in the algorithm.
 
 
     // Note: because the NQ variables do not include lambda and the
-    // NIFC do, we only support store_full_state = false for
+    // NIFC do, we only support qface_comps = Reduced for
     // Radiation
 
 #ifdef RADIATION
-    if (store_full_state == true) {
+    if (qface_comps == FaceComponents::Full) {
         amrex::Error("cannot store full interface state with radiation");
     }
 #endif
@@ -78,21 +74,21 @@ HydroSim::riemann_flux_and_state(const Box& bx,
                bc == amrex::PhysBCType::noslipwall;
     };
 
-    const bool special_bnd_lo = is_wall(lo_bc[idir]);
-    const bool special_bnd_hi = is_wall(hi_bc[idir]);
+    const DomainEdges edges{geom.Domain().loVect3d(), geom.Domain().hiVect3d(),
+                            is_wall(lo_bc[idir]), is_wall(hi_bc[idir])};
 
     auto coord = geom.Coord();
 
     GeometryData geomdata = geom.data();
-
-    const auto domlo = geom.Domain().loVect3d();
-    const auto domhi = geom.Domain().hiVect3d();
 
     const bool do_ppm_temp_fix = ppm_temp_fix == 2;
     const Real temp_guess = T_guess;
 
     const int solver_type = riemann_solver;
     const bool do_hybrid_correction = hybrid_riemann;
+
+    Array4<Real> const& flx = out.flux;
+    Array4<Real> const& qface = out.qface;
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -104,14 +100,10 @@ HydroSim::riemann_flux_and_state(const Box& bx,
 
             // first find the interface state on the current interface
 
-            RiemannState qint{};
-
-            riemann_state(i, j, k, idir,
-                          qm, qp, qaux_arr,
-                          qint,
-                          special_bnd_lo, special_bnd_hi,
-                          domlo, domhi,
-                          do_ppm_temp_fix, temp_guess);
+            const RiemannState qint = riemann_state(i, j, k, idir,
+                                                    qm, qp, qaux_arr,
+                                                    edges,
+                                                    do_ppm_temp_fix, temp_guess);
 
             // now use the interface state to compute and store the flux
 
@@ -119,17 +111,17 @@ HydroSim::riemann_flux_and_state(const Box& bx,
                            geomdata,
                            qint, flx,
 #ifdef RADIATION
-                           rflx,
+                           out.rad_flux,
 #endif
-                           qface, store_full_state);
+                           qface, qface_comps);
 
             // now do the passives -- we didn't include them in qint, qface, or flux above
 
             // the passives are always just upwinded, so we do that here
             // regardless of the solver
 
-            Real sgnm = std::copysign(1.0_rt, qint.un);
-            if (qint.un == 0.0_rt) {
+            Real sgnm = std::copysign(1.0_rt, qint.vel.un);
+            if (qint.vel.un == 0.0_rt) {
                 sgnm = 0.0_rt;
             }
 
@@ -144,7 +136,7 @@ HydroSim::riemann_flux_and_state(const Box& bx,
 
                 flx(i,j,k,n) = flx(i,j,k,URHO) * X_int;
 
-                if (store_full_state) {
+                if (qface_comps == FaceComponents::Full) {
                     qface(i,j,k,nqp) = X_int;
                 }
             }
@@ -155,10 +147,9 @@ HydroSim::riemann_flux_and_state(const Box& bx,
                       qm, qp,
                       qaux_arr,
                       flx,
-                      qface, store_full_state,
+                      qface, qface_comps,
                       geomdata,
-                      special_bnd_lo, special_bnd_hi,
-                      domlo, domhi);
+                      edges);
 
 #ifndef AMREX_USE_GPU
         } else {
@@ -200,9 +191,9 @@ HydroSim::riemann_flux_and_state(const Box& bx,
             flx_zone[n] = flx(i,j,k,n);
         }
 
-        HLL::HLL(ql_zone.data(), qr_zone.data(), cl, cr,
+        HLL::HLL(ql_zone, qr_zone, cl, cr,
                  idir, coord,
-                 flx_zone.data());
+                 flx_zone);
 
         for (int n = 0; n < NUM_STATE; n++) {
             flx(i,j,k,n) = flx_zone[n];

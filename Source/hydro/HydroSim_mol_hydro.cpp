@@ -270,10 +270,10 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             riemann_flux_and_state(ibx[idir],
                                 qm_arr, qp_arr,
-                                f_avg_arr, q_avg_arr,
+                                {f_avg_arr, q_avg_arr},
                                 qaux_arr,
                                 shk_arr,
-                                idir, true);
+                                idir, FaceComponents::Full);
 
             if (do_hydro == 0) {
                 amrex::ParallelFor(ibx[idir], NUM_STATE,
@@ -501,9 +501,9 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
               riemann_flux_and_state
                 (nbx,
                  qm_arr, qp_arr,
-                 flux_arr, qe_arr,
+                 {flux_arr, qe_arr},
                  qaux_arr, shk_arr,
-                 idir, false);
+                 idir, FaceComponents::Reduced);
 
               // set UTEMP, USHOCK, and chemical potential fluxes to zero
               amrex::ParallelFor(nbx,

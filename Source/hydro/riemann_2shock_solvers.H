@@ -2,6 +2,7 @@
 #define RIEMANN_2SHOCK_SOLVERS_H
 
 #include <AMReX_REAL.H>
+#include <AMReX_Tuple.H>
 
 using namespace amrex::literals;
 
@@ -15,19 +16,20 @@ using namespace amrex::literals;
 namespace TwoShock {
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
+    amrex::GpuTuple<amrex::Real, amrex::Real>
     wsqge(const amrex::Real p, const amrex::Real v,
-          const amrex::Real gam, const amrex::Real gdot, amrex::Real& gstar,
+          const amrex::Real gam, const amrex::Real gdot,
           const amrex::Real gmin, const amrex::Real gmax, const amrex::Real csq,
-          const amrex::Real pstar, amrex::Real& wsq) {
+          const amrex::Real pstar) {
 
       // compute the lagrangian wave speeds -- this is the approximate
-      // version for the Colella & Glaz algorithm
+      // version for the Colella & Glaz algorithm.  Returns the
+      // predicted game across the shock and the squared wave speed.
 
 
       // First predict a value of game across the shock
 
-      gstar = (pstar-p)*gdot/(pstar+p) + gam;
+      amrex::Real gstar = (pstar-p)*gdot/(pstar+p) + gam;
       gstar = amrex::Clamp(gstar, gmin, gmax);
 
       // Now use that predicted value of game with the R-H jump conditions
@@ -40,26 +42,62 @@ namespace TwoShock {
 
       amrex::Real beta = pstar + 0.5_rt*(gstar - 1.0_rt)*(pstar+p);
 
-      wsq = (pstar-p)*beta/(v*alpha);
+      amrex::Real wsq = (pstar-p)*beta/(v*alpha);
 
       if (std::abs(pstar - p) < riemann_constants::smlp1*(pstar + p)) {
         wsq = csq;
       }
       wsq = amrex::max(wsq, (0.5_rt * (gam - 1.0_rt)/gam)*csq);
+
+      return {gstar, wsq};
     }
 
 
+    ///
+    /// one side of the interface in the Lagrangian variables of the
+    /// two-shock iteration: velocity, pressure, specific volume,
+    /// game and the Lagrangian sound speed squared
+    ///
+    struct LagrangianState
+    {
+        amrex::Real u;
+        amrex::Real p;
+        amrex::Real tau;
+        amrex::Real gam;
+        amrex::Real csq;
+    };
+
+
+    ///
+    /// the game bounds and the iteration limits of the pstar bisection
+    ///
+    struct BisectionControls
+    {
+        amrex::Real gdot;
+        amrex::Real gmin;
+        amrex::Real gmax;
+        int maxiter;
+        amrex::Real tol;
+    };
+
+
+    ///
+    /// the outcome of the pstar bisection
+    ///
+    struct BisectionResult
+    {
+        amrex::Real pstar;
+        amrex::Real gamstar;
+        bool converged;
+    };
+
+
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
+    BisectionResult
     pstar_bisection(amrex::Real& pstar_lo, amrex::Real& pstar_hi,
-                    const amrex::Real ul, const amrex::Real pl, const amrex::Real taul,
-                    const amrex::Real gamel, const amrex::Real clsql,
-                    const amrex::Real ur, const amrex::Real pr, const amrex::Real taur,
-                    const amrex::Real gamer, const amrex::Real clsqr,
-                    const amrex::Real gdot, const amrex::Real gmin, const amrex::Real gmax,
-                    const int lriemann_shock_maxiter, const amrex::Real lriemann_pstar_tol,
-                    amrex::Real& pstar, amrex::Real& gamstar,
-                    bool& converged, amrex::GpuArray<amrex::Real, riemann_constants::PSTAR_BISECT_FACTOR * riemann_constants::HISTORY_SIZE>& pstar_hist_extra) {
+                    LagrangianState const& left, LagrangianState const& right,
+                    BisectionControls const& ctrl, const amrex::Real pstar,
+                    amrex::GpuArray<amrex::Real, riemann_constants::PSTAR_BISECT_FACTOR * riemann_constants::HISTORY_SIZE>& pstar_hist_extra) {
 
       // we want to zero
       // f(p*) = u*_l(p*) - u*_r(p*)
@@ -70,61 +108,63 @@ namespace TwoShock {
 
 
       // lo bounds
+      amrex::Real gamstar = 0.0;
+
       amrex::Real wlsq = 0.0;
-      wsqge(pl, taul, gamel, gdot,
-             gamstar, gmin, gmax, clsql, pstar_lo, wlsq);
+      amrex::Tie(gamstar, wlsq) = wsqge(left.p, left.tau, left.gam, ctrl.gdot,
+                                        ctrl.gmin, ctrl.gmax, left.csq, pstar_lo);
 
       amrex::Real wrsq = 0.0;
-      wsqge(pr, taur, gamer, gdot,
-             gamstar, gmin, gmax, clsqr, pstar_lo, wrsq);
+      amrex::Tie(gamstar, wrsq) = wsqge(right.p, right.tau, right.gam, ctrl.gdot,
+                                        ctrl.gmin, ctrl.gmax, right.csq, pstar_lo);
 
       amrex::Real wl = 1.0_rt / std::sqrt(wlsq);
       amrex::Real wr = 1.0_rt / std::sqrt(wrsq);
 
-      amrex::Real ustar_l = ul - (pstar_lo - pstar)*wl;
-      amrex::Real ustar_r = ur + (pstar_lo - pstar)*wr;
+      amrex::Real ustar_l = left.u - (pstar_lo - pstar)*wl;
+      amrex::Real ustar_r = right.u + (pstar_lo - pstar)*wr;
 
       amrex::Real f_lo = ustar_l - ustar_r;
 
       // hi bounds
-      wsqge(pl, taul, gamel, gdot,
-            gamstar, gmin, gmax, clsql, pstar_hi, wlsq);
+      amrex::Tie(gamstar, wlsq) = wsqge(left.p, left.tau, left.gam, ctrl.gdot,
+                                        ctrl.gmin, ctrl.gmax, left.csq, pstar_hi);
 
-      wsqge(pr, taur, gamer, gdot,
-            gamstar, gmin, gmax, clsqr, pstar_hi, wrsq);
+      amrex::Tie(gamstar, wrsq) = wsqge(right.p, right.tau, right.gam, ctrl.gdot,
+                                        ctrl.gmin, ctrl.gmax, right.csq, pstar_hi);
 
       // wl = 1.0_rt / std::sqrt(wlsq);
       // wr = 1.0_rt / std::sqrt(wrsq);
 
-      //ustar_l = ul - (pstar_hi - pstar)*wl;
-      //ustar_r = ur + (pstar_hi - pstar)*wr;
+      //ustar_l = left.u - (pstar_hi - pstar)*wl;
+      //ustar_r = right.u + (pstar_hi - pstar)*wr;
 
       //amrex::Real f_hi = ustar_l - ustar_r;
 
       // bisection
-      converged = false;
+      bool converged = false;
       amrex::Real pstar_c = 0.0;
 
-      for (int iter = 0; iter < riemann_constants::PSTAR_BISECT_FACTOR * lriemann_shock_maxiter; iter++) {
+      for (int iter = 0; iter < riemann_constants::PSTAR_BISECT_FACTOR * ctrl.maxiter; iter++) {
 
         pstar_c = 0.5_rt * (pstar_lo + pstar_hi);
         pstar_hist_extra[iter] = pstar_c;
 
-        wsqge(pl, taul, gamel, gdot,
-              gamstar, gmin, gmax, clsql, pstar_c, wlsq);
+        amrex::Tie(gamstar, wlsq) = wsqge(left.p, left.tau, left.gam, ctrl.gdot,
+                                          ctrl.gmin, ctrl.gmax, left.csq, pstar_c);
 
-        wsqge(pr, taur, gamer, gdot,
-              gamstar, gmin, gmax, clsqr, pstar_c, wrsq);
+        amrex::Tie(gamstar, wrsq) = wsqge(right.p, right.tau, right.gam, ctrl.gdot,
+                                          ctrl.gmin, ctrl.gmax, right.csq, pstar_c);
 
         wl = 1.0_rt / std::sqrt(wlsq);
         wr = 1.0_rt / std::sqrt(wrsq);
 
-        ustar_l = ul - (pstar_c - pl)*wl;
-        ustar_r = ur - (pstar_c - pr)*wr;
+        ustar_l = left.u - (pstar_c - left.p)*wl;
+        ustar_r = right.u - (pstar_c - right.p)*wr;
 
         amrex::Real f_c = ustar_l - ustar_r;
 
-        if ( 0.5_rt * std::abs(pstar_lo - pstar_hi) < lriemann_pstar_tol * pstar_c ) {
+        if ( 0.5_rt * std::abs(pstar_lo - pstar_hi) < ctrl.tol * pstar_c ) {
           converged = true;
           break;
         }
@@ -139,7 +179,7 @@ namespace TwoShock {
         }
       }
 
-      pstar = pstar_c;
+      return {pstar_c, gamstar, converged};
     }
 
 
@@ -202,19 +242,19 @@ namespace TwoShock {
       // make an initial guess for pstar -- this is a two-shock
       // approximation
       //pstar = ((wr*pl + wl*pr) + wl*wr*(ul - ur))/(wl + wr)
-      amrex::Real pstar = ql.p + ( (qr.p - ql.p) - wr*(qr.un - ql.un) ) * wl / (wl + wr);
+      amrex::Real pstar = ql.p + ( (qr.p - ql.p) - wr*(qr.vel.un - ql.vel.un) ) * wl / (wl + wr);
       pstar = amrex::max(pstar, small_pres);
 
       // get the shock speeds -- this computes W_s
       amrex::Real gamstar = 0.0;
 
       amrex::Real wlsq = 0.0;
-      wsqge(ql.p, taul, gamel, gdot, gamstar,
-            gmin, gmax, clsql, pstar, wlsq);
+      amrex::Tie(gamstar, wlsq) = wsqge(ql.p, taul, gamel, gdot,
+                                        gmin, gmax, clsql, pstar);
 
       amrex::Real wrsq = 0.0;
-      wsqge(qr.p, taur, gamer, gdot, gamstar,
-            gmin, gmax, clsqr, pstar, wrsq);
+      amrex::Tie(gamstar, wrsq) = wsqge(qr.p, taur, gamer, gdot,
+                                        gmin, gmax, clsqr, pstar);
 
       amrex::Real pstar_old = pstar;
 
@@ -225,12 +265,12 @@ namespace TwoShock {
       // should be equal when we are done iterating.  Our notation
       // here is a little funny, comparing to CG, ustar_l = u*_L and
       // ustar_r = u*_R.
-      amrex::Real ustar_l = ql.un - (pstar - ql.p) / wl;
-      amrex::Real ustar_r = qr.un + (pstar - qr.p) / wr;
+      amrex::Real ustar_l = ql.vel.un - (pstar - ql.p) / wl;
+      amrex::Real ustar_r = qr.vel.un + (pstar - qr.p) / wr;
 
       // revise our pstar guess
       // pstar = ((wr*pl + wl*pr) + wl*wr*(ul - ur))/(wl + wr)
-      pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.un - ql.un) ) * wl / (wl + wr);
+      pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.vel.un - ql.vel.un) ) * wl / (wl + wr);
       pstar = amrex::max(pstar, small_pres);
 
       // secant iteration
@@ -239,11 +279,11 @@ namespace TwoShock {
       int iter = 0;
       while ((iter < riemann_shock_maxiter && !converged) || iter < 2) {
 
-          wsqge(ql.p, taul, gamel, gdot, gamstar,
-                gmin, gmax, clsql, pstar, wlsq);
+          amrex::Tie(gamstar, wlsq) = wsqge(ql.p, taul, gamel, gdot,
+                                            gmin, gmax, clsql, pstar);
 
-          wsqge(qr.p, taur, gamer, gdot, gamstar,
-                gmin, gmax, clsqr, pstar, wrsq);
+          amrex::Tie(gamstar, wrsq) = wsqge(qr.p, taur, gamer, gdot,
+                                            gmin, gmax, clsqr, pstar);
 
 
           // NOTE: these are really the inverses of the wave speeds!
@@ -253,8 +293,8 @@ namespace TwoShock {
           amrex::Real ustar_r_old = ustar_r;
           amrex::Real ustar_l_old = ustar_l;
 
-          ustar_r = qr.un - (qr.p - pstar) * wr;
-          ustar_l = ql.un + (ql.p - pstar) * wl;
+          ustar_r = qr.vel.un - (qr.p - pstar) * wr;
+          ustar_l = ql.vel.un + (ql.p - pstar) * wl;
 
           amrex::Real dpditer = std::abs(pstar_old - pstar);
 
@@ -316,7 +356,7 @@ namespace TwoShock {
 
           } else if (riemann_cg_blend == 1) {
 
-              pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.un - ql.un) ) * wl / (wl + wr);
+              pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.vel.un - ql.vel.un) ) * wl / (wl + wr);
 
           } else if (riemann_cg_blend == 2) {
 
@@ -336,12 +376,17 @@ namespace TwoShock {
 
               amrex::GpuArray<amrex::Real, riemann_constants::PSTAR_BISECT_FACTOR * riemann_constants::HISTORY_SIZE> pstar_hist_extra;
 
-              pstar_bisection(pstarl, pstaru,
-                              ql.un, ql.p, taul, gamel, clsql,
-                              qr.un, qr.p, taur, gamer, clsqr,
-                              gdot, gmin, gmax,
-                              riemann_shock_maxiter, riemann_pstar_tol,
-                              pstar, gamstar, converged, pstar_hist_extra);
+              const LagrangianState left{ql.vel.un, ql.p, taul, gamel, clsql};
+              const LagrangianState right{qr.vel.un, qr.p, taur, gamer, clsqr};
+              const BisectionControls ctrl{gdot, gmin, gmax,
+                                           riemann_shock_maxiter, riemann_pstar_tol};
+
+              const auto bisection = pstar_bisection(pstarl, pstaru,
+                                                     left, right, ctrl, pstar,
+                                                     pstar_hist_extra);
+              pstar = bisection.pstar;
+              gamstar = bisection.gamstar;
+              converged = bisection.converged;
 
               if (!converged) {
 
@@ -374,14 +419,14 @@ namespace TwoShock {
 
       // we converged!  construct the single ustar for the region
       // between the left and right waves, using the updated wave speeds
-      ustar_r = qr.un - (qr.p - pstar) * wr;  // careful -- here wl, wr are 1/W
-      ustar_l = ql.un + (ql.p - pstar) * wl;
+      ustar_r = qr.vel.un - (qr.p - pstar) * wr;  // careful -- here wl, wr are 1/W
+      ustar_l = ql.vel.un + (ql.p - pstar) * wl;
 
       amrex::Real ustar = 0.5_rt * (ustar_l + ustar_r);
 
       // for symmetry preservation, if ustar is really small, then we
       // set it to zero
-      if (std::abs(ustar) < riemann_constants::smallu * 0.5_rt * (std::abs(ql.un) + std::abs(qr.un))) {
+      if (std::abs(ustar) < riemann_constants::smallu * 0.5_rt * (std::abs(ql.vel.un) + std::abs(qr.vel.un))) {
           ustar = 0.0_rt;
       }
 
@@ -397,7 +442,7 @@ namespace TwoShock {
 
       if (ustar > 0.0_rt) {
           //ro = ql.rho;
-          uo = ql.un;
+          uo = ql.vel.un;
           po = ql.p;
           tauo = taul;
           gamco = ql.gamc;
@@ -405,7 +450,7 @@ namespace TwoShock {
 
       } else if (ustar < 0.0_rt) {
           //ro = qr.rho;
-          uo = qr.un;
+          uo = qr.vel.un;
           po = qr.p;
           tauo = taur;
           gamco = qr.gamc;
@@ -413,7 +458,7 @@ namespace TwoShock {
 
       } else {
           //ro = 0.5_rt * (ql.rho + qr.rho);
-          uo = 0.5_rt * (ql.un + qr.un);
+          uo = 0.5_rt * (ql.vel.un + qr.vel.un);
           po = 0.5_rt * (ql.p + qr.p);
           tauo = 0.5_rt * (taul + taur);
           gamco = 0.5_rt * (ql.gamc + qr.gamc);
@@ -432,8 +477,8 @@ namespace TwoShock {
       // about, get the value of gamstar and wosq across the wave we
       // are dealing with.
       amrex::Real wosq = 0.0;
-      wsqge(po, tauo, gameo, gdot, gamstar,
-            gmin, gmax, clsq, pstar, wosq);
+      amrex::Tie(gamstar, wosq) = wsqge(po, tauo, gameo, gdot,
+                                        gmin, gmax, clsq, pstar);
 
       amrex::Real sgnm = std::copysign(1.0_rt, ustar);
 
@@ -466,20 +511,20 @@ namespace TwoShock {
       // the transverse velocity states only depend on the
       // direction that the contact moves
       if (ustar > 0.0_rt) {
-          qint.ut = ql.ut;
-          qint.utt = ql.utt;
+          qint.vel.ut = ql.vel.ut;
+          qint.vel.utt = ql.vel.utt;
       } else if (ustar < 0.0_rt) {
-          qint.ut = qr.ut;
-          qint.utt = qr.utt;
+          qint.vel.ut = qr.vel.ut;
+          qint.vel.utt = qr.vel.utt;
       } else {
-          qint.ut = 0.5_rt * (ql.ut + qr.ut);
-          qint.utt = 0.5_rt * (ql.utt + qr.utt);
+          qint.vel.ut = 0.5_rt * (ql.vel.ut + qr.vel.ut);
+          qint.vel.utt = 0.5_rt * (ql.vel.utt + qr.vel.utt);
       }
 
       // linearly interpolate between the star and normal state -- this covers the
       // case where we are inside the rarefaction fan.
       qint.rho = frac*rstar + (1.0_rt - frac)*ro;
-      qint.un = frac*ustar + (1.0_rt - frac)*uo;
+      qint.vel.un = frac*ustar + (1.0_rt - frac)*uo;
       qint.p = frac*pstar + (1.0_rt - frac)*po;
       amrex::Real game_int = frac*gamstar + (1.0_rt-frac)*gameo;
 
@@ -487,21 +532,21 @@ namespace TwoShock {
       // star or fully in the original (l/r) state
       if (spout < 0.0_rt) {
           qint.rho = ro;
-          qint.un = uo;
+          qint.vel.un = uo;
           qint.p = po;
           game_int = gameo;
       }
 
       if (spin >= 0.0_rt) {
           qint.rho = rstar;
-          qint.un = ustar;
+          qint.vel.un = ustar;
           qint.p = pstar;
           game_int = gamstar;
       }
 
       qint.p = amrex::max(qint.p, small_pres);
 
-      qint.un = qint.un * raux.bnd_fac;
+      qint.vel.un = qint.vel.un * raux.bnd_fac;
 
       // compute the total energy from the internal, p/(gamma - 1), and the kinetic
       qint.rhoe = qint.p / (game_int - 1.0_rt);
@@ -543,15 +588,15 @@ namespace TwoShock {
       amrex::Real wr = amrex::max(wsmall, std::sqrt(std::abs(qr.gamc * qr.p * qr.rho)));
 
       amrex::Real wwinv = 1.0_rt/(wl + wr);
-      amrex::Real pstar = ((wr * ql.p + wl * qr.p) + wl * wr * (ql.un - qr.un)) * wwinv;
-      amrex::Real ustar = ((wl * ql.un + wr * qr.un) + (ql.p - qr.p)) * wwinv;
+      amrex::Real pstar = ((wr * ql.p + wl * qr.p) + wl * wr * (ql.vel.un - qr.vel.un)) * wwinv;
+      amrex::Real ustar = ((wl * ql.vel.un + wr * qr.vel.un) + (ql.p - qr.p)) * wwinv;
 
       pstar = amrex::max(pstar, small_pres);
 
       // for symmetry preservation, if ustar is really small, then we
       // set it to zero
 
-      if (std::abs(ustar) < riemann_constants::smallu * 0.5_rt * (std::abs(ql.un) + std::abs(qr.un))) {
+      if (std::abs(ustar) < riemann_constants::smallu * 0.5_rt * (std::abs(ql.vel.un) + std::abs(qr.vel.un))) {
           ustar = 0.0_rt;
       }
 
@@ -569,31 +614,31 @@ namespace TwoShock {
       amrex::Real fm = 0.5_rt*(1.0_rt - sgnm);
 
       amrex::Real ro = fp * ql.rho + fm * qr.rho;
-      amrex::Real uo = fp * ql.un + fm * qr.un;
+      amrex::Real uo = fp * ql.vel.un + fm * qr.vel.un;
       amrex::Real po = fp * ql.p + fm * qr.p;
       amrex::Real reo = fp * ql.rhoe + fm * qr.rhoe;
       amrex::Real gamco = fp * ql.gamc + fm * qr.gamc;
     #ifdef RADIATION
       for (int g = 0; g < NGROUPS; g++) {
-          qint.lam[g] = fp * ql.lam[g] + fm * qr.lam[g];
+          qint.rad.lam[g] = fp * ql.rad.lam[g] + fm * qr.rad.lam[g];
       }
 
       if (ustar == 0) {
           // harmonic average
           for (int g = 0; g < NGROUPS; g++) {
-              qint.lam[g] = 2.0_rt * (ql.lam[g] * qr.lam[g]) / (ql.lam[g] + qr.lam[g] + 1.e-50_rt);
+              qint.rad.lam[g] = 2.0_rt * (ql.rad.lam[g] * qr.rad.lam[g]) / (ql.rad.lam[g] + qr.rad.lam[g] + 1.e-50_rt);
           }
       }
 
-      amrex::Real po_g = fp * ql.p_g + fm * qr.p_g;
+      amrex::Real po_g = fp * ql.rad.p_g + fm * qr.rad.p_g;
       amrex::Real reo_r[NGROUPS];
       amrex::Real po_r[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-          reo_r[g] = fp * ql.er[g] + fm * qr.er[g];
-          po_r[g] = qint.lam[g] * reo_r[g];
+          reo_r[g] = fp * ql.rad.er[g] + fm * qr.rad.er[g];
+          po_r[g] = qint.rad.lam[g] * reo_r[g];
       }
-      amrex::Real reo_g = fp * ql.rhoe_g + fm * qr.rhoe_g;
-      amrex::Real gamco_g = fp * ql.gamcg + fm * qr.gamcg;
+      amrex::Real reo_g = fp * ql.rad.rhoe_g + fm * qr.rad.rhoe_g;
+      amrex::Real gamco_g = fp * ql.rad.gamcg + fm * qr.rad.gamcg;
     #endif
 
       ro = amrex::max(small_dens, ro);
@@ -607,8 +652,8 @@ namespace TwoShock {
       // we can already deal with the transverse velocities -- they
       // only jump across the contact
 
-      qint.ut = fp * ql.ut + fm * qr.ut;
-      qint.utt = fp * ql.utt + fm * qr.utt;
+      qint.vel.ut = fp * ql.vel.ut + fm * qr.vel.ut;
+      qint.vel.utt = fp * ql.vel.utt + fm * qr.vel.utt;
 
       // compute the rest of the star state
 
@@ -664,7 +709,7 @@ namespace TwoShock {
       frac = amrex::Clamp(frac, 0.0_rt, 1.0_rt);
 
       qint.rho = frac*rstar + (1.0_rt - frac)*ro;
-      qint.un = frac*ustar + (1.0_rt - frac)*uo;
+      qint.vel.un = frac*ustar + (1.0_rt - frac)*uo;
 
     #ifdef RADIATION
       amrex::Real pface_t = frac*pstar + (1.0_rt - frac)*po;
@@ -688,7 +733,7 @@ namespace TwoShock {
       if (spout < 0.0_rt) {
           // the l or r state is on the interface
           qint.rho = ro;
-          qint.un = uo;
+          qint.vel.un = uo;
     #ifdef RADIATION
           pface_t = po;
           pface_g = po_g;
@@ -705,7 +750,7 @@ namespace TwoShock {
       if (spin >= 0.0_rt) {
           // the star state is on the interface
           qint.rho = rstar;
-          qint.un = ustar;
+          qint.vel.un = ustar;
     #ifdef RADIATION
           pface_t = pstar;
           pface_g = pstar_g;
@@ -721,12 +766,12 @@ namespace TwoShock {
 
     #ifdef RADIATION
       for (int g = 0; g < NGROUPS; g++) {
-          qint.er[g] = amrex::max(reface_r[g], 0.0_rt);
+          qint.rad.er[g] = amrex::max(reface_r[g], 0.0_rt);
       }
 
-      qint.p_g = pface_g;
+      qint.rad.p_g = pface_g;
       qint.p = pface_t;
-      qint.rhoe_g = reface_g;
+      qint.rad.rhoe_g = reface_g;
 
       qint.rhoe = reface_g;
       for (int g = 0; g < NGROUPS; g++) {
@@ -739,7 +784,7 @@ namespace TwoShock {
     #endif
 
       // Enforce that fluxes through a symmetry plane or wall are hard zero.
-      qint.un = qint.un * raux.bnd_fac;
+      qint.vel.un = qint.vel.un * raux.bnd_fac;
 
       // we'll do the passive scalars separately
 

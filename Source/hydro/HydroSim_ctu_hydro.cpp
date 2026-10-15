@@ -390,26 +390,32 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       Array4<Real> const flux0_arr = resize_tile_fab(flux[0], gxbx, NUM_STATE);
       auto qex_arr = resize_tile_fab(qe[0], gxbx, NIFC);
+      InterfaceOutput x_out{flux0_arr, qex_arr};
 
 #ifdef RADIATION
       auto rad_flux0_arr = resize_tile_fab(rad_flux[0], gxbx, Radiation::nGroups);
+      x_out.rad_flux = rad_flux0_arr;
 #endif
 
 #if AMREX_SPACEDIM >= 2
       Array4<Real> const flux1_arr = resize_tile_fab(flux[1], gybx, NUM_STATE);
       auto qey_arr = resize_tile_fab(qe[1], gybx, NIFC);
+      InterfaceOutput y_out{flux1_arr, qey_arr};
 
 #ifdef RADIATION
       auto const rad_flux1_arr = resize_tile_fab(rad_flux[1], gybx, Radiation::nGroups);
+      y_out.rad_flux = rad_flux1_arr;
 #endif
 #endif
 
 #if AMREX_SPACEDIM == 3
       Array4<Real> const flux2_arr = resize_tile_fab(flux[2], gzbx, NUM_STATE);
       auto qez_arr = resize_tile_fab(qe[2], gzbx, NIFC);
+      InterfaceOutput z_out{flux2_arr, qez_arr};
 
 #ifdef RADIATION
       auto const rad_flux2_arr = resize_tile_fab(rad_flux[2], gzbx, Radiation::nGroups);
+      z_out.rad_flux = rad_flux2_arr;
 #endif
 #endif
 
@@ -438,14 +444,10 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       riemann_flux_and_state(xbx,
                           qxm_arr, qxp_arr,
-                          flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr,
+                          x_out,
                           qaux_arr,
                           shk_arr,
-                          0, false);
+                          0, FaceComponents::Reduced);
 
 #endif // 1-d
 
@@ -461,9 +463,20 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
 
       auto qfacetmp1_arr = resize_tile_fab(qfacetmp1, obx, NIFC);
+      InterfaceOutput tmp1_out{ftmp1_arr, qfacetmp1_arr};
 
 #if AMREX_SPACEDIM == 3
       auto qfacetmp2_arr = resize_tile_fab(qfacetmp2, obx, NIFC);
+      InterfaceOutput tmp2_out{ftmp2_arr, qfacetmp2_arr};
+#else
+      // in 2-d, the second transverse solve writes the y interface
+      // state directly
+      InterfaceOutput tmp2_out{ftmp2_arr, qey_arr};
+#endif
+
+#ifdef RADIATION
+      tmp1_out.rad_flux = rftmp1_arr;
+      tmp2_out.rad_flux = rftmp2_arr;
 #endif
 
       auto ql_arr = resize_tile_fab(ql, obx, NQ);
@@ -474,11 +487,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // solve the Riemann problem across the idir faces of nbx.
 
       auto final_riemann_solve = [&] (const Box& nbx, int idir,
-                                      Array4<Real> const& flux_arr,
-#ifdef RADIATION
-                                      Array4<Real> const& rad_flux_arr,
-#endif
-                                      Array4<Real> const& qface_arr) {
+                                      InterfaceOutput const& out) {
           reset_edge_state_thermo(nbx, ql_arr);
 
           reset_edge_state_thermo(nbx, qr_arr);
@@ -492,13 +501,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
           riemann_flux_and_state(nbx,
                                  ql_arr, qr_arr,
-                                 flux_arr,
-#ifdef RADIATION
-                                 rad_flux_arr,
-#endif
-                                 qface_arr,
+                                 out,
                                  qaux_arr, shk_arr,
-                                 idir, false);
+                                 idir, FaceComponents::Reduced);
       };
 #endif
 
@@ -519,13 +524,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qgdnxv
       riemann_flux_and_state(cxbx,
                           qxm_arr, qxp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          0, false);
+                          0, FaceComponents::Reduced);
 
       // compute F^y
       // [lo(1)-1, lo(2), 0], [hi(1)+1, hi(2)+1, 0]
@@ -535,13 +536,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // rftmp2 = rfy
       riemann_flux_and_state(cybx,
                           qym_arr, qyp_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qey_arr,
+                          tmp2_out,
                           qaux_arr, shk_arr,
-                          1, false);
+                          1, FaceComponents::Reduced);
 
       // add the transverse flux difference in y to the x states
       // [lo(1), lo(2), 0], [hi(1)+1, hi(2), 0]
@@ -563,11 +560,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // solve the final Riemann problem axross the x-interfaces
 
-      final_riemann_solve(xbx, 0, flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr);
+      final_riemann_solve(xbx, 0, x_out);
 
       // add the transverse flux difference in x to the y states
       // [lo(1), lo(2), 0], [hi(1), hi(2)+1, 0]
@@ -591,11 +584,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // solve the final Riemann problem axross the y-interfaces
 
-      final_riemann_solve(ybx, 1, flux1_arr,
-#ifdef RADIATION
-                          rad_flux1_arr,
-#endif
-                          qey_arr);
+      final_riemann_solve(ybx, 1, y_out);
 #endif // 2-d
 
 
@@ -621,13 +610,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qgdnxv
       riemann_flux_and_state(cxbx,
                           qxm_arr, qxp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          0, false);
+                          0, FaceComponents::Reduced);
 
 
       // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+1, hi(3)+1]
@@ -682,13 +667,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qfacey
       riemann_flux_and_state(cybx,
                           qym_arr, qyp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          1, false);
+                          1, FaceComponents::Reduced);
       // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), lo(3)+1]
       const Box& txybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
@@ -744,13 +725,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qfacez
       riemann_flux_and_state(czbx,
                           qzm_arr, qzp_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          2, false);
+                          2, FaceComponents::Reduced);
       // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
       const Box& txzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
@@ -812,13 +789,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qfaceyz
       riemann_flux_and_state(cyzbx,
                           qmyz_arr, qpyz_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          1, false);
+                          1, FaceComponents::Reduced);
 
       // compute F^{z|y}
       // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)+1]
@@ -829,13 +802,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp2 = qfacezy
       riemann_flux_and_state(czybx,
                           qmzy_arr, qpzy_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
+                          tmp2_out,
                           qaux_arr, shk_arr,
-                          2, false);
+                          2, FaceComponents::Reduced);
 
       // compute the corrected x interface states and fluxes
       // [lo(1), lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)]
@@ -856,11 +825,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                   qfacetmp2_arr,
                   hdtdy, hdtdz);
 
-      final_riemann_solve(xbx, 0, flux0_arr,
-#ifdef RADIATION
-                          rad_flux0_arr,
-#endif
-                          qex_arr);
+      final_riemann_solve(xbx, 0, x_out);
 
       //
       // Use qy?, q?zx, q?xz to compute final y-flux
@@ -875,13 +840,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qfacezx
       riemann_flux_and_state(czxbx,
                           qmzx_arr, qpzx_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          2, false);
+                          2, FaceComponents::Reduced);
 
       // compute F^{x|z}
       // [lo(1), lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
@@ -892,13 +853,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp2 = qfacexz
       riemann_flux_and_state(cxzbx,
                           qmxz_arr, qpxz_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
+                          tmp2_out,
                           qaux_arr, shk_arr,
-                          0, false);
+                          0, FaceComponents::Reduced);
 
       // Compute the corrected y interface states and fluxes
       // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
@@ -921,11 +878,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // Compute the final F^y
       // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
-      final_riemann_solve(ybx, 1, flux1_arr,
-#ifdef RADIATION
-                          rad_flux1_arr,
-#endif
-                          qey_arr);
+      final_riemann_solve(ybx, 1, y_out);
 
       //
       // Use qz?, q?xy, q?yx to compute final z-flux
@@ -940,13 +893,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp1 = qfacexy
       riemann_flux_and_state(cxybx,
                           qmxy_arr, qpxy_arr,
-                          ftmp1_arr,
-#ifdef RADIATION
-                          rftmp1_arr,
-#endif
-                          qfacetmp1_arr,
+                          tmp1_out,
                           qaux_arr, shk_arr,
-                          0, false);
+                          0, FaceComponents::Reduced);
 
       // compute F^{y|x}
       // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+dg(2), hi(3)+1]
@@ -957,13 +906,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // qfacetmp2 = qfaceyx
       riemann_flux_and_state(cyxbx,
                           qmyx_arr, qpyx_arr,
-                          ftmp2_arr,
-#ifdef RADIATION
-                          rftmp2_arr,
-#endif
-                          qfacetmp2_arr,
+                          tmp2_out,
                           qaux_arr, shk_arr,
-                          1, false);
+                          1, FaceComponents::Reduced);
 
       // compute the corrected z interface states and fluxes
       // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
@@ -987,11 +932,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       // compute the final z fluxes F^z
       // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
 
-      final_riemann_solve(zbx, 2, flux2_arr,
-#ifdef RADIATION
-                          rad_flux2_arr,
-#endif
-                          qez_arr);
+      final_riemann_solve(zbx, 2, z_out);
 
 #endif // 3-d
 

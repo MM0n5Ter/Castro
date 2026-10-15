@@ -3,12 +3,14 @@
 
 #include <AMReX_REAL.H>
 
+#include <riemann_type.H>
+
 namespace HLL {
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     HLLC_state(const int idir, const Real S_k, const Real S_c,
-               const Real* qstate, Real* U) {
+               GpuArray<Real, NQ> const& qstate, GpuArray<Real, NUM_STATE>& U) {
 
       Real u_k = 0.0;
       if (idir == 0) {
@@ -68,8 +70,8 @@ namespace HLL {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     compute_flux(const int idir, const Real bnd_fac, const int coord,
-                 const Real* U, const Real p,
-                 Real* F) {
+                 GpuArray<Real, NUM_STATE> const& U, const Real p,
+                 GpuArray<Real, NUM_STATE>& F) {
 
       Real u_flx = U[UMX+idir]/U[URHO];
 
@@ -116,7 +118,7 @@ namespace HLL {
     ///
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
-    cons_state(const Real* qstate, Real* U) {
+    cons_state(GpuArray<Real, NQ> const& qstate, GpuArray<Real, NUM_STATE>& U) {
 
       U[URHO] = qstate[QRHO];
 
@@ -164,10 +166,10 @@ namespace HLL {
     ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
-    HLL(const Real* ql, const Real* qr,
+    HLL(GpuArray<Real, NQ> const& ql, GpuArray<Real, NQ> const& qr,
         const Real cl, const Real cr,
         const int idir, const int coord,
-        Real* flux_hll) {
+        GpuArray<Real, NUM_STATE>& flux_hll) {
 
       // This is the HLLE solver.  We should apply it to zone averages
       // (not reconstructed states) at an interface in the presence of
@@ -325,10 +327,9 @@ namespace HLL {
          Array4<Real const> const& qr,
          Array4<Real const> const& qaux_arr,
          Array4<Real> const& uflx,
-         Array4<Real> const& qface, const bool store_full_state,
+         Array4<Real> const& qface, const FaceComponents qface_comps,
          const GeometryData& geom,
-         const bool special_bnd_lo, const bool special_bnd_hi,
-         GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+         DomainEdges const& edges) {
 
         // this is an implementation of the HLLC solver.
         // it uses the simplest estimate of the wave speeds, since
@@ -369,20 +370,20 @@ namespace HLL {
         Real bnd_fac = 1.0_rt;
 
         if (idir == 0) {
-            if ((i == domlo[0] && special_bnd_lo) ||
-                (i == domhi[0]+1 && special_bnd_hi)) {
+            if ((i == edges.lo[0] && edges.wall_lo) ||
+                (i == edges.hi[0]+1 && edges.wall_hi)) {
                 bnd_fac = 0.0_rt;
             }
 
         } else if (idir == 1) {
-            if ((j == domlo[1] && special_bnd_lo) ||
-                (j == domhi[1]+1 && special_bnd_hi)) {
+            if ((j == edges.lo[1] && edges.wall_lo) ||
+                (j == edges.hi[1]+1 && edges.wall_hi)) {
                 bnd_fac = 0.0_rt;
             }
 
         } else {
-            if ((k == domlo[2] && special_bnd_lo) ||
-                (k == domhi[2]+1 && special_bnd_hi)) {
+            if ((k == edges.lo[2] && edges.wall_lo) ||
+                (k == edges.hi[2]+1 && edges.wall_hi)) {
                 bnd_fac = 0.0_rt;
             }
         }
@@ -504,10 +505,10 @@ namespace HLL {
         Real S_c = (pr - pl + rl*ul*(S_l - ul) - rr*ur*(S_r - ur))/
             (rl*(S_l - ul) - rr*(S_r - ur));
 
-        Real q_zone[NQ];
-        Real U_state[NUM_STATE];
-        Real U_hllc_state[NUM_STATE];
-        Real F_state[NUM_STATE];
+        GpuArray<Real, NQ> q_zone;
+        GpuArray<Real, NUM_STATE> U_state;
+        GpuArray<Real, NUM_STATE> U_hllc_state;
+        GpuArray<Real, NUM_STATE> F_state;
 
         if (S_r <= 0.0_rt) {
             // R region
@@ -565,7 +566,7 @@ namespace HLL {
 
         // now store the state
 
-        if (store_full_state) {
+        if (qface_comps == FaceComponents::Full) {
 
             for (int n = 0; n < NQ; n++) {
                 qface(i,j,k,n) = qint[n];

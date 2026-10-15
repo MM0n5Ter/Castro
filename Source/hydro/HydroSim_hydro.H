@@ -732,6 +732,22 @@
 
 
 ///
+/// The arrays a Riemann solve writes on the interfaces
+///
+/// flux       flux through the interface
+/// qface      Godunov state on the interface [either NQ or NIFC]
+/// rad_flux   radiation fluxes through the interface
+///
+    struct InterfaceOutput
+    {
+        amrex::Array4<amrex::Real> flux;
+        amrex::Array4<amrex::Real> qface;
+#ifdef RADIATION
+        amrex::Array4<amrex::Real> rad_flux;
+#endif
+    };
+
+///
 /// A general interface to the pure hydrodynamics and radiation
 /// Riemann solvers which takes the left and right interface states,
 /// qm and qp, and computes the flux through the interface and the
@@ -740,25 +756,19 @@
 /// @param bx          the box to operate over
 /// @param qm          left state on the interface
 /// @param qp          right state on the interface
-/// @param flx         flux through the interface
-/// @param rflux       radiation fluxes through the interface
-/// @param qface       Godunov state on the interface [either NQ or NIFC]
+/// @param out         flux, Godunov state and radiation fluxes on the interface
 /// @param qaux        auxiliary state
 /// @param shk         shock flag
 /// @param idir        coordinate direction of the solve (0 = x, 1 = y, 2 = z)
-/// @param store_full_state do we store all NQ or just the NIFC subset in qface
+/// @param qface_comps do we store all NQ or just the NIFC subset in qface
 ///
     void riemann_flux_and_state(const amrex::Box& bx,
                              amrex::Array4<amrex::Real> const& qm,
                              amrex::Array4<amrex::Real> const& qp,
-                             amrex::Array4<amrex::Real> const& flx,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real> const& rflx,
-#endif
-                             amrex::Array4<amrex::Real> const& qface,
+                             InterfaceOutput const& out,
                              amrex::Array4<amrex::Real const> const& qaux,
                              amrex::Array4<amrex::Real const> const& shk,
-                             const int idir, const bool store_full_state);
+                             const int idir, const FaceComponents qface_comps);
 
     void
     compute_flux_from_q(const amrex::Box& bx,

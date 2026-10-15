@@ -125,6 +125,15 @@ enum class CoveredZones : std::uint8_t {
     Include
 };
 
+// Which components of the interface state a Riemann solve stores:
+// the reduced set (NIFC) needed by the rest of the update, or the
+// full primitive state (NQ).
+
+enum class FaceComponents : std::uint8_t {
+    Reduced = 0,
+    Full
+};
+
 // Struct that returns information about
 // why an advance failed.
 
