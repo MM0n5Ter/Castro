@@ -193,13 +193,13 @@ HypreDiffOp::HypreDiffOp(const BoxArray& grids,
 
   int ncomp=1;
   int ngrow=0;
-  acoefs.reset(new MultiFab(grids, dmap, ncomp, ngrow));
+  acoefs = std::make_unique<MultiFab>(grids, dmap, ncomp, ngrow);
   acoefs->setVal(0.0);
 
   for (int i = 0; i < AMREX_SPACEDIM; i++) {
     BoxArray edge_boxes(grids);
     edge_boxes.surroundingNodes(i);
-    bcoefs[i].reset(new MultiFab(edge_boxes, dmap, ncomp, ngrow));
+    bcoefs[i] = std::make_unique<MultiFab>(edge_boxes, dmap, ncomp, ngrow);
   }
 }
 

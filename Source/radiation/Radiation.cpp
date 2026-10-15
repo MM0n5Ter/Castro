@@ -506,21 +506,21 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
   if (level > 0) {
     IntVect crse_ratio = parent->refRatio(level-1);
 
-    flux_cons[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
+    flux_cons[level] = std::make_unique<FluxRegister>(grids, dmap, crse_ratio, level, nGroups);
     flux_cons[level]->setVal(0.0);
 
     // For deferred sync, flux_cons_old does not need to be defined here.
     // It will be set in the deferred_sync_setup routine.
 
-    flux_trial[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
+    flux_trial[level] = std::make_unique<FluxRegister>(grids, dmap, crse_ratio, level, nGroups);
     flux_trial[level]->setVal(0.0);
 
   }
 
-  dflux[level].reset(new MultiFab(grids, dmap, 1, 0));
+  dflux[level] = std::make_unique<MultiFab>(grids, dmap, 1, 0);
 
   if (nplotvar > 0) {
-      plotvar[level].reset(new MultiFab(grids, dmap, nplotvar, 0));
+      plotvar[level] = std::make_unique<MultiFab>(grids, dmap, nplotvar, 0);
       plotvar[level]->setVal(0.0);
   }
 
@@ -621,7 +621,7 @@ void Radiation::restart(int level, const BoxArray& grids,
     // Input conservation flux register.
     //
     const IntVect& crse_ratio = parent->refRatio(level-1);
-    flux_cons_old[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
+    flux_cons_old[level] = std::make_unique<FluxRegister>(grids, dmap, crse_ratio, level, nGroups);
     flux_cons_old[level]->read(FullPathName, is);
   }
 }
@@ -719,7 +719,7 @@ void Radiation::pre_timestep(int level)
           const BoxArray& grids = parent->getLevel(flevel).boxArray();
           const DistributionMapping& dmap = parent->getLevel(flevel).DistributionMap();
           const IntVect& crse_ratio = parent->refRatio(level);
-          flux_cons[flevel].reset(new FluxRegister(grids, dmap, crse_ratio, flevel, nGroups));
+          flux_cons[flevel] = std::make_unique<FluxRegister>(grids, dmap, crse_ratio, flevel, nGroups);
           flux_cons[flevel]->setVal(0.0);
       }
   }

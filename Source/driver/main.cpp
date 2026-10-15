@@ -6,6 +6,7 @@
 #include <format>
 #include <iostream>
 #include <iomanip>
+#include <memory>
 
 #ifndef WIN32
 #include <unistd.h>
@@ -149,54 +150,54 @@ main (int   argc,
     // Initialize random seed after we're running in parallel.
     //
 
-    Amr* amrptr = new Amr(getLevelBld());
-    global::the_amr_ptr = amrptr;
+    auto amr = std::make_unique<Amr>(getLevelBld());
+    global::the_amr_ptr = amr.get();
 
-    amrptr->init(strt_time,stop_time);
+    amr->init(strt_time,stop_time);
 
     // If we set the regrid_on_restart flag and if we are *not* going to take
     //    a time step then we want to go ahead and regrid here.
-    if ( amrptr->RegridOnRestart() &&
-         ( (amrptr->levelSteps(0) >= max_step) ||
-           (amrptr->cumTime() >= stop_time) ) )
+    if ( amr->RegridOnRestart() &&
+         ( (amr->levelSteps(0) >= max_step) ||
+           (amr->cumTime() >= stop_time) ) )
            {
            //
            // Regrid only!
            //
-           amrptr->RegridOnly(amrptr->cumTime());
+           amr->RegridOnly(amr->cumTime());
            }
 
     double dRunTime2 = ParallelDescriptor::second();
 
-    while ( amrptr->okToContinue()                            &&
-           (amrptr->levelSteps(0) < max_step || max_step < 0) &&
-           (amrptr->cumTime() < stop_time || stop_time < 0.0) )
+    while ( amr->okToContinue()                            &&
+           (amr->levelSteps(0) < max_step || max_step < 0) &&
+           (amr->cumTime() < stop_time || stop_time < 0.0) )
 
     {
         //
         // Do a timestep.
         //
-        amrptr->coarseTimeStep(stop_time);
+        amr->coarseTimeStep(stop_time);
     }
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-    HydroSim::problem_post_simulation(amrptr->getAmrLevels());
+    HydroSim::problem_post_simulation(amr->getAmrLevels());
 #endif
 
     // Write final checkpoint and plotfile
 
     if (HydroSim::get_output_at_completion() == 1) {
 
-        if (amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0)) {
-            amrptr->checkPoint();
+        if (amr->stepOfLastCheckPoint() < amr->levelSteps(0)) {
+            amr->checkPoint();
         }
 
-        if (amrptr->stepOfLastPlotFile() < amrptr->levelSteps(0)) {
-            amrptr->writePlotFile();
+        if (amr->stepOfLastPlotFile() < amr->levelSteps(0)) {
+            amr->writePlotFile();
         }
 
-        if (amrptr->stepOfLastSmallPlotFile() < amrptr->levelSteps(0)) {
-            amrptr->writeSmallPlotFile();
+        if (amr->stepOfLastSmallPlotFile() < amr->levelSteps(0)) {
+            amr->writeSmallPlotFile();
         }
 
     }
@@ -205,14 +206,14 @@ main (int   argc,
     // advanced per microsecond. This must be done before we delete the Amr
     // object because we need to scale it by the number of zones on the coarse grid.
 
-    long numPtsCoarseGrid = amrptr->getLevel(0).boxArray().numPts();
+    long numPtsCoarseGrid = amr->getLevel(0).boxArray().numPts();
     Real fom = HydroSim::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
 
     print_run_stamp("Ending");
 
-    delete amrptr;
+    amr.reset();
     //
-    // This MUST follow the above delete as ~Amr() may dump files to disk.
+    // This MUST follow the above reset as ~Amr() may dump files to disk.
     //
     const int IOProc = ParallelDescriptor::IOProcessorNumber();
     const int nprocs = ParallelDescriptor::NProcs();

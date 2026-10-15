@@ -2083,17 +2083,13 @@ HydroSim::post_timestep (int iteration_local)
     // Write out a checkpoint.
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
-        std::ofstream dump_file;
-        dump_file.open("dump_and_stop", std::ofstream::out);
-        dump_file.close();
+        std::ofstream dump_file("dump_and_stop");
     }
 
     // Write out a file that indicates the job has completed.
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
-        std::ofstream jobIsDoneFile;
-        jobIsDoneFile.open("jobIsDone", std::ofstream::out);
-        jobIsDoneFile.close();
+        std::ofstream jobIsDoneFile("jobIsDone");
     }
 }
 

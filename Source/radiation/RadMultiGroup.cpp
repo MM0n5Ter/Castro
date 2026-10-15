@@ -83,8 +83,7 @@ void Radiation::get_groups(int verbose)
 
   if (ParallelDescriptor::IOProcessor()) {
 
-    std::ofstream groupfile;
-    groupfile.open("group_structure.dat");
+    std::ofstream groupfile("group_structure.dat");
 
     groupfile << "# total number of groups = " << nGroups << std::endl;
     groupfile << "# group center, group weight" << group_units << std::endl;
@@ -114,8 +113,6 @@ void Radiation::get_groups(int verbose)
                   << dlognugroup[i] << std::endl;
       }
     }
-
-    groupfile.close();
 
     if (verbose >= 1) {
       write_groups(std::cout);

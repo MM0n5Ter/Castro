@@ -67,15 +67,13 @@ namespace
     template <typename T>
     bool read_checkpoint_value (const std::string& path, T& value)
     {
-        std::ifstream file;
-        file.open(path.c_str(), std::ios::in);
+        std::ifstream file(path);
 
         if (!file.good()) {
             return false;
         }
 
         file >> value;
-        file.close();
 
         return true;
     }
@@ -92,16 +90,14 @@ HydroSim::restart (Amr&     papa,
     // trying to read from checkpoint; if nonexisting, set it to 0.
     if (input_version == -1) {
         if (ParallelDescriptor::IOProcessor()) {
-            std::ifstream HydroSimHeaderFile;
             std::string FullPathHydroSimHeaderFile = papa.theRestartFile();
             FullPathHydroSimHeaderFile += "/HydroSimHeader";
-            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::in);
+            std::ifstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
             if (HydroSimHeaderFile.good()) {
                 char foo[256];
                 // first line: Checkpoint version: ?
                 HydroSimHeaderFile.getline(foo, 256, ':');
                 HydroSimHeaderFile >> input_version;
-                HydroSimHeaderFile.close();
             } else {
                 input_version = 0;
             }
@@ -132,10 +128,9 @@ HydroSim::restart (Amr&     papa,
 
     if (ParallelDescriptor::IOProcessor()) {
 
-      std::ifstream StateListFile;
       std::string FullPathStateList = papa.theRestartFile();
       FullPathStateList += "/state_names.txt";
-      StateListFile.open(FullPathStateList.c_str(), std::ios::in);
+      std::ifstream StateListFile(FullPathStateList);
 
       if (StateListFile.good()) {
         std::string var;
@@ -145,7 +140,6 @@ HydroSim::restart (Amr&     papa,
             amrex::Error("state variables do not agree");
           }
         }
-        StateListFile.close();
       }
     }
 
@@ -183,16 +177,14 @@ HydroSim::restart (Amr&     papa,
     if (do_rotation && level == 0)
     {
         // get current value of the rotation period
-        std::ifstream RotationFile;
         std::string FullPathRotationFile = parent->theRestartFile();
         FullPathRotationFile += "/Rotation";
-        RotationFile.open(FullPathRotationFile.c_str(), std::ios::in);
+        std::ifstream RotationFile(FullPathRotationFile);
 
         if (RotationFile.is_open()) {
             RotationFile >> hydrosim::rotational_period;
             amrex::Print() << "  Based on the checkpoint, setting the rotational period to "
                            << std::setprecision(7) << std::fixed << hydrosim::rotational_period << " s.\n";
-            RotationFile.close();
         }
     }
 #endif
@@ -363,7 +355,7 @@ HydroSim::restart (Amr&     papa,
       radiation->regrid(level, grids, dmap);
       radiation->restart(level, grids, dmap, parent->theRestartFile(), is);
 
-      rad_solver.reset(new RadSolve(parent, level, grids, dmap));
+      rad_solver = std::make_unique<RadSolve>(parent, level, grids, dmap);
     }
 #endif
 
@@ -438,26 +430,24 @@ HydroSim::checkPoint(const std::string& dir,
   }
 
   {
-      std::ofstream HydroSimHeaderFile;
       std::string FullPathHydroSimHeaderFile = dir;
       FullPathHydroSimHeaderFile += "/HydroSimHeader";
-      HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
+      std::ofstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
 
       HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
-      HydroSimHeaderFile.close();
+  }
 
-      writeJobInfo(dir, io_time);
+  writeJobInfo(dir, io_time);
 
+  {
       // output the list of state variables, so we can do a sanity check on restart
-      std::ofstream StateListFile;
       std::string FullPathStateList = dir;
       FullPathStateList += "/state_names.txt";
-      StateListFile.open(FullPathStateList.c_str(), std::ios::out);
+      std::ofstream StateListFile(FullPathStateList);
 
       for (int n = 0; n < NUM_STATE; n++) {
         StateListFile << desc_lst[State_Type].name(n) << "\n";
       }
-      StateListFile.close();
   }
 
   // If we have limited this last timestep to hit a plot interval,
@@ -467,39 +457,32 @@ HydroSim::checkPoint(const std::string& dir,
 
   if (lastDtPlotLimited == 1) {
 
-      std::ofstream dtHeaderFile;
       std::string FullPathdtHeaderFile = dir;
       FullPathdtHeaderFile += "/dtHeader";
-      dtHeaderFile.open(FullPathdtHeaderFile.c_str(), std::ios::out);
+      std::ofstream dtHeaderFile(FullPathdtHeaderFile);
 
       dtHeaderFile << lastDtBeforePlotLimiting << std::endl;
-      dtHeaderFile.close();
 
   }
 
   {
       // store elapsed CPU time
-      std::ofstream CPUFile;
       std::string FullPathCPUFile = dir;
       FullPathCPUFile += "/CPUtime";
-      CPUFile.open(FullPathCPUFile.c_str(), std::ios::out);
+      std::ofstream CPUFile(FullPathCPUFile);
 
       CPUFile << std::setprecision(17) << getCPUTime();
-      CPUFile.close();
   }
 
 #ifdef GRAVITY
   if (use_point_mass) {
 
       // store current value of the point mass
-      std::ofstream PMFile;
       std::string FullPathPMFile = dir;
       FullPathPMFile += "/point_mass";
-      PMFile.open(FullPathPMFile.c_str(), std::ios::out);
+      std::ofstream PMFile(FullPathPMFile);
 
       PMFile << std::setprecision(17) << point_mass << std::endl;
-
-      PMFile.close();
 
   }
 #endif
@@ -507,17 +490,14 @@ HydroSim::checkPoint(const std::string& dir,
 #ifdef ROTATION
   if (do_rotation) {
       // store current value of the rotation period
-      std::ofstream RotationFile;
       std::string FullPathRotationFile = dir;
       FullPathRotationFile += "/Rotation";
-      RotationFile.open(FullPathRotationFile.c_str(), std::ios::out);
+      std::ofstream RotationFile(FullPathRotationFile);
 
       RotationFile << std::scientific;
       RotationFile.precision(19);
 
       RotationFile << std::setw(30) << hydrosim::rotational_period << std::endl;
-
-      RotationFile.close();
   }
 #endif
 
