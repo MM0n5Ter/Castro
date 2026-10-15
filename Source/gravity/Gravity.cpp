@@ -1354,7 +1354,7 @@ Gravity::map_radial_gravity_to_grid(int level, RealVector& radial_grav, MultiFab
             loc[2] = 0.0_rt;
 #endif
 
-            Real r = distance(geomdata, loc);
+            Real r = geometry_util::distance(geomdata, loc);
 
             int index = static_cast<int>(r / dr);
 
@@ -1495,7 +1495,7 @@ Gravity::bin_radial_mass(const Box& bx,
         loc[2]= problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
         Real lo_k = problo[2] + static_cast<Real>(k) * dx[2] - problem::center[2];
 
-        Real r = distance(geomdata, loc);
+        Real r = geometry_util::distance(geomdata, loc);
         int index = static_cast<int>(r * drinv);
 
         // We may be coming in here with a masked out zone (in a zone on a coarse
@@ -2855,18 +2855,18 @@ Gravity::scaleByMetric(int level, MultiFab& Rhs, const Vector<MultiFab*>& coeffs
     for (MFIter mfi(Rhs, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.growntilebox(1);
-        const Box& xbx = mfi.nodaltilebox(0);
-#if AMREX_SPACEDIM >= 2
-        const Box& ybx = mfi.nodaltilebox(1);
-#endif
+
+        GpuArray<Array4<Real>, AMREX_SPACEDIM> edge_coefs;
+        GpuArray<Box, AMREX_SPACEDIM> edge_boxes;
+        for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+            edge_coefs[idir] = (*coeffs[idir]).array(mfi);
+            edge_boxes[idir] = mfi.nodaltilebox(idir);
+        }
 
         // Modify Rhs and coeffs with the appropriate metric terms.
         apply_metric(bx,
                      Rhs.array(mfi), (Rhs[mfi]).box(),
-                     (*coeffs[0]).array(mfi), xbx,
-#if AMREX_SPACEDIM >= 2
-                     (*coeffs[1]).array(mfi), ybx,
-#endif
+                     edge_coefs, edge_boxes,
                      problo, dx, coord_type);
     }
 }
@@ -2931,7 +2931,7 @@ Gravity::set_mass_offset (Real time, bool multi_level) const
         {
             auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(0));
             if (cs != nullptr) {
-                mass_offset = cs->volWgtSum("density", time, false, false);  // do not mask off fine grids
+                mass_offset = cs->volWgtSum("density", time, SumScope::AllRanks, CoveredZones::Include);  // do not mask off fine grids
             } else {
                 amrex::Abort("unable to access volWgtSum");
             }

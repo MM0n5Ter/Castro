@@ -104,23 +104,15 @@ void compute_hybrid_flux(const GpuArray<Real, NIFC>& state, const GeometryData& 
                          int idir, int i, int j, int k,
                          GpuArray<Real, NUM_STATE>& flux, bool cell_centered = false)
 {
-    bool ccx = true;
-    bool ccy = true;
-    bool ccz = true;
+    IndexType itype = IndexType::TheCellType();
 
-    if (idir == 0) {
-        ccx = cell_centered;
-    }
-    else if (idir == 1) {
-        ccy = cell_centered;
-    }
-    else {
-        ccz = cell_centered;
+    if (!cell_centered) {
+        itype.set(idir);
     }
 
     GpuArray<Real, 3> loc;
 
-    position(i, j, k, geomdata, loc, ccx, ccy, ccz);
+    position(i, j, k, geomdata, loc, itype);
 
     for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
         loc[dir] -= problem::center[dir];

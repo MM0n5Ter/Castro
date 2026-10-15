@@ -68,8 +68,7 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
         if (!(idir == 0)) {
             position(i, j, k, geomdata, loc);
         } else {
-            bool ccx = false;
-            position(i, j, k, geomdata, loc, ccx);
+            position(i, j, k, geomdata, loc, IndexType(IntVect::TheDimensionVector(0)));
         }
 
         r = loc[0];
@@ -81,8 +80,7 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
 
         if (idir == 0)
         {
-            auto ccx = false;
-            position(i, j, k, geomdata, loc, ccx);
+            position(i, j, k, geomdata, loc, IndexType(IntVect::TheDimensionVector(0)));
 
             r = loc[0] * loc[0];
 
@@ -107,14 +105,11 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
 
             if (AMREX_SPACEDIM >= 2)
             {
-                auto ccx = true;
-                auto ccy = false;
-                position(i, j, k, geomdata, loc, ccx, ccy);
+                position(i, j, k, geomdata, loc, IndexType(IntVect(AMREX_D_DECL(0, 1, 0))));
             }
             else
             {
-                auto ccx = false;
-                position(i, j, k, geomdata, loc, ccx);
+                position(i, j, k, geomdata, loc, IndexType(IntVect::TheDimensionVector(0)));
             }
 
             s = loc[1];

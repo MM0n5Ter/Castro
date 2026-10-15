@@ -100,14 +100,12 @@ bool mom_flux_has_p (const int mom_dir, const int flux_dir, const int coord)
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void position(int i, int j, int k,
               GeometryData const& geomdata, GpuArray<Real, 3>& loc,
-              bool ccx = true, bool ccy = true, bool ccz = true)
+              IndexType itype = IndexType::TheCellType())
 {
     // Given 3D indices (i,j,k), return the cell-centered spatial position.
-    // Optionally we can also be edge-centered in any of the directions.
+    // In any direction in which itype is nodal we are edge-centered instead.
 
     const int idx[3] = {i, j, k};
-
-    const bool cc[3] = {ccx, ccy, ccz};
 
     Real offset[AMREX_SPACEDIM];
 
@@ -118,7 +116,7 @@ void position(int i, int j, int k,
     const int*  domhi  = geomdata.domain.hiVect();
 
     for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        if (cc[dir]) {
+        if (itype.cellCentered(dir)) {
             // If we're cell-centered, we want to be in the middle of the zone.
             offset[dir] = problo[dir] + 0.5_rt * dx[dir];
         }
@@ -140,8 +138,8 @@ void position(int i, int j, int k,
 
             // For the hi end we need to deal correctly with
             // edge-centered indexing.
-            if ((cc[dir] && idx[dir] > domhi[dir]) ||
-                (!cc[dir] && idx[dir] > domhi[dir]+1)) {
+            if ((itype.cellCentered(dir) && idx[dir] > domhi[dir]) ||
+                (itype.nodeCentered(dir) && idx[dir] > domhi[dir]+1)) {
                 offset[dir] += problo[dir] - probhi[dir];
             }
         }
@@ -158,6 +156,9 @@ void position(int i, int j, int k,
 
 }
 
+
+namespace geometry_util
+{
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real distance(GeometryData const& geomdata, const GpuArray<Real, 3>& loc)
@@ -179,24 +180,17 @@ Real distance(GeometryData const& geomdata, const GpuArray<Real, 3>& loc)
     return std::abs(loc[0]);
 }
 
-
-namespace geometry_util
-{
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real volume(const int& i, const int& j, const int& k,
-            const GeometryData& geomdata)
+Real volume(Dim3 zone, const GeometryData& geomdata)
 {
     //
-    // Given 3D cell-centered indices (i,j,k), return the volume of the zone.
+    // Given the 3D cell-centered index of a zone, return its volume.
     // this function only provides Cartesian in 1D/2D/3D,
     // Cylindrical (R-Z) in 2D,
     // and Spherical in 1D and 2D (R-THETA).
     //
 
-    amrex::ignore_unused(i);
-    amrex::ignore_unused(j);
-    amrex::ignore_unused(k);
+    amrex::ignore_unused(zone);
 
     const auto* dx = geomdata.CellSize();
 
@@ -216,7 +210,7 @@ Real volume(const int& i, const int& j, const int& k,
 
         // 1-d cylindrical
 
-        Real rl = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
+        Real rl = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
         Real rr = rl + dx[0];
 
         vol = std::abs(std::numbers::pi * dx[0] * (rr + rl));
@@ -225,7 +219,7 @@ Real volume(const int& i, const int& j, const int& k,
 
         // Spherical
 
-        Real rl = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
+        Real rl = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
         Real rr = rl + dx[0];
 
         vol = std::abs((4.0_rt / 3.0_rt) * std::numbers::pi * dx[0] * (rl * rl + rl * rr + rr * rr));
@@ -246,8 +240,8 @@ Real volume(const int& i, const int& j, const int& k,
 
         // Cylindrical
 
-        Real r_l = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
-        Real r_r = geomdata.ProbLo()[0] + static_cast<Real>(i+1) * dx[0];
+        Real r_l = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
+        Real r_r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x+1) * dx[0];
 
         vol = std::abs(std::numbers::pi * (r_l + r_r) * dx[0] * dx[1]);
 
@@ -257,10 +251,10 @@ Real volume(const int& i, const int& j, const int& k,
 
         constexpr Real twoThirdsPi = 2.0_rt * std::numbers::pi / 3.0_rt;
 
-        Real r_l = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
-        Real r_r = geomdata.ProbLo()[0] + static_cast<Real>(i+1) * dx[0];
-        Real theta_l = geomdata.ProbLo()[1] + static_cast<Real>(j) * dx[1];
-        Real theta_r = geomdata.ProbLo()[1] + static_cast<Real>(j+1) * dx[1];
+        Real r_l = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
+        Real r_r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x+1) * dx[0];
+        Real theta_l = geomdata.ProbLo()[1] + static_cast<Real>(zone.y) * dx[1];
+        Real theta_r = geomdata.ProbLo()[1] + static_cast<Real>(zone.y+1) * dx[1];
 
         vol = std::abs(twoThirdsPi * (std::cos(theta_l) - std::cos(theta_r)) * dx[0] *
                        (r_r * r_r + r_r * r_l + r_l * r_l));
@@ -279,13 +273,10 @@ Real volume(const int& i, const int& j, const int& k,
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real area(const int& i, const int& j, const int& k,
-          const int& idir, const GeometryData& geomdata)
+Real area(Dim3 zone, const int& idir, const GeometryData& geomdata)
 {
 
-    amrex::ignore_unused(i);
-    amrex::ignore_unused(j);
-    amrex::ignore_unused(k);
+    amrex::ignore_unused(zone);
     amrex::ignore_unused(idir);
 
     const auto* dx = geomdata.CellSize();
@@ -306,7 +297,7 @@ Real area(const int& i, const int& j, const int& k,
 
         // 1-D cylindrical
 
-        Real r = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
+        Real r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
 
         a = std::abs(2.0_rt * std::numbers::pi * r);
 
@@ -314,7 +305,7 @@ Real area(const int& i, const int& j, const int& k,
 
         // Spherical
 
-        Real r = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
+        Real r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
 
         a = std::abs(4.0_rt * std::numbers::pi * r * r);
 
@@ -340,11 +331,11 @@ Real area(const int& i, const int& j, const int& k,
         // Cylindrical
 
         if (idir == 0) {
-            Real r = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
+            Real r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
             a = std::abs(2.0_rt * std::numbers::pi * r * dx[1]);
         }
         else {
-            Real r = geomdata.ProbLo()[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
+            Real r = geomdata.ProbLo()[0] + (static_cast<Real>(zone.x) + 0.5_rt) * dx[0];
             a = std::abs(2.0_rt * std::numbers::pi * r * dx[0]);
         }
 
@@ -353,15 +344,15 @@ Real area(const int& i, const int& j, const int& k,
         // Spherical
 
         if (idir == 0) {
-            Real r = geomdata.ProbLo()[0] + static_cast<Real>(i) * dx[0];
-            Real theta_l = geomdata.ProbLo()[1] + static_cast<Real>(j) * dx[1];
-            Real theta_r = geomdata.ProbLo()[1] + static_cast<Real>(j+1) * dx[1];
+            Real r = geomdata.ProbLo()[0] + static_cast<Real>(zone.x) * dx[0];
+            Real theta_l = geomdata.ProbLo()[1] + static_cast<Real>(zone.y) * dx[1];
+            Real theta_r = geomdata.ProbLo()[1] + static_cast<Real>(zone.y+1) * dx[1];
 
             a = std::abs(2.0_rt * std::numbers::pi * r * r * (std::cos(theta_l) - std::cos(theta_r)));
         }
         else {
-            Real r = geomdata.ProbLo()[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-            Real theta = geomdata.ProbLo()[1] + static_cast<Real>(j) * dx[1];
+            Real r = geomdata.ProbLo()[0] + (static_cast<Real>(zone.x) + 0.5_rt) * dx[0];
+            Real theta = geomdata.ProbLo()[1] + static_cast<Real>(zone.y) * dx[1];
 
             a = std::abs(2.0_rt * std::numbers::pi * std::sin(theta) * r * dx[0]);
         }

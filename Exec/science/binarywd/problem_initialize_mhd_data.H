@@ -12,7 +12,7 @@ Real A_x (int i, int j, int k,
     bool ccx = false;
     bool ccy = true;
     bool ccz = true;
-    position(i, j, k, geomdata, loc, ccx, ccy, ccz);
+    position(i, j, k, geomdata, loc, IndexType(IntVect(AMREX_D_DECL(!ccx, !ccy, !ccz))));
 
     Real x_P = loc[0] - problem::center_P_initial[0];
     Real y_P = loc[0] - problem::center_P_initial[1];
@@ -71,7 +71,7 @@ Real A_y (int i, int j, int k,
     bool ccx = true;
     bool ccy = false;
     bool ccz = true;
-    position(i, j, k, geomdata, loc, ccx, ccy, ccz);
+    position(i, j, k, geomdata, loc, IndexType(IntVect(AMREX_D_DECL(!ccx, !ccy, !ccz))));
 
     Real x_P = loc[0] - problem::center_P_initial[0];
     Real y_P = loc[0] - problem::center_P_initial[1];

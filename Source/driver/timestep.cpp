@@ -31,7 +31,7 @@ using namespace amrex;
 
 #ifdef RADIATION
 Real
-timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const GeometryData& geomdata)
+TimestepLimiter::estdt_rad (const MultiFab& stateMF, const GeometryData& geomdata, const MultiFab& radMF)
 {
     // Compute radiation + hydro limited timestep.
 

@@ -24,12 +24,12 @@ namespace {
     using SumTuple = SumReduceData::Type;
 
     // Sum a zone quantity over the tiles of mf. For each tile, make_kernel(mfi)
-    // returns the per-zone function evaluated by the reduction. Unless local
-    // is set, the result is summed over all ranks.
+    // returns the per-zone function evaluated by the reduction. With
+    // SumScope::AllRanks, the result is summed over all ranks.
 
     template <typename KernelMaker>
     Real
-    sum_over_tiles (const MultiFab& mf, bool local, KernelMaker&& make_kernel)
+    sum_over_tiles (const MultiFab& mf, SumScope scope, KernelMaker&& make_kernel)
     {
         SumReduceOps reduce_op;
         SumReduceData reduce_data(reduce_op);
@@ -47,7 +47,7 @@ namespace {
         SumTuple hv = reduce_data.value();
         Real sum = amrex::get<0>(hv);
 
-        if (!local) {
+        if (scope == SumScope::AllRanks) {
             ParallelDescriptor::ReduceRealSum(sum);
         }
 
@@ -57,26 +57,26 @@ namespace {
 }
 
 Real
-HydroSim::volWgtSum (const std::string& name, Real time, bool local, bool finemask)
+HydroSim::volWgtSum (const std::string& name, Real time, SumScope scope, CoveredZones covered)
 {
     auto mf = derive(name, time, 0);
 
     BL_ASSERT(mf);
 
-    return volWgtSum(*mf, 0, local, finemask);
+    return volWgtSum(*mf, 0, scope, covered);
 }
 
 Real
-HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
+HydroSim::volWgtSum (const MultiFab& mf, int comp, SumScope scope, CoveredZones covered)
 {
     BL_PROFILE("HydroSim::volWgtSum()");
 
-    bool mask_available = level < parent->finestLevel() && finemask;
+    bool mask_available = level < parent->finestLevel() && covered == CoveredZones::Exclude;
 
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    return sum_over_tiles(mf, local, [&] (const MFIter& mfi)
+    return sum_over_tiles(mf, scope, [&] (const MFIter& mfi)
     {
         auto const& fab = mf[mfi].array(comp);
         auto const& vol = volume.array(mfi);
@@ -97,7 +97,7 @@ HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
 }
 
 Real
-HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
+HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, SumScope scope)
 {
     BL_PROFILE("HydroSim::locWgtSum()");
 
@@ -109,7 +109,7 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
     auto dx     = geom.CellSizeArray();
     auto problo = geom.ProbLoArray();
 
-    return sum_over_tiles(mf, local, [&] (const MFIter& mfi)
+    return sum_over_tiles(mf, scope, [&] (const MFIter& mfi)
     {
         auto const& fab = mf[mfi].array(comp);
         auto const& vol = volume.array(mfi);
@@ -161,7 +161,7 @@ Real
 HydroSim::volProductSum (const MultiFab& mf1,
                        const MultiFab& mf2,
                        int comp1, int comp2,
-                       bool local)
+                       SumScope scope)
 {
     BL_PROFILE("HydroSim::volProductSum()");
 
@@ -170,7 +170,7 @@ HydroSim::volProductSum (const MultiFab& mf1,
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    return sum_over_tiles(mf1, local, [&] (const MFIter& mfi)
+    return sum_over_tiles(mf1, scope, [&] (const MFIter& mfi)
     {
         auto const& fab1 = mf1[mfi].array(comp1);
         auto const& fab2 = mf2[mfi].array(comp2);
@@ -190,7 +190,7 @@ Real
 HydroSim::locSquaredSum (const std::string& name,
                        Real               time,
                        int                idir,
-                       bool               local)
+                       SumScope           scope)
 {
     BL_PROFILE("HydroSim::locSquaredSum()");
 
@@ -206,7 +206,7 @@ HydroSim::locSquaredSum (const std::string& name,
     auto dx     = geom.CellSizeArray();
     auto problo = geom.ProbLoArray();
 
-    return sum_over_tiles(*mf, local, [&] (const MFIter& mfi)
+    return sum_over_tiles(*mf, scope, [&] (const MFIter& mfi)
     {
         auto const& fab = (*mf).array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
@@ -253,21 +253,19 @@ HydroSim::locSquaredSum (const std::string& name,
 
 
 #ifdef GRAVITY
-void
-HydroSim::gwstrain (Real time,
-                  Real& h_plus_1, Real& h_cross_1,
-                  Real& h_plus_2, Real& h_cross_2,
-                  Real& h_plus_3, Real& h_cross_3,
-                  bool local) {
+HydroSim::WaveStrain
+HydroSim::gwstrain (Real time, SumScope scope) {
 
     amrex::ignore_unused(time);
 
     BL_PROFILE("HydroSim::gwstrain()");
 
+    WaveStrain strain;
+
     // We have nothing to do if the user did not request the gravitational wave
     // strain (inferred from whether the observation distance is positive).
     if (hydrosim::gw_dist <= 0.0_rt) {
-        return;
+        return strain;
     }
 
     constexpr amrex::Real c_light_4 = amrex::Math::powi<4>(C::c_light);
@@ -451,7 +449,7 @@ HydroSim::gwstrain (Real time,
 
     // Now, do a global reduce over all processes.
 
-    if (!local) {
+    if (scope == SumScope::AllRanks) {
         amrex::ParallelDescriptor::ReduceRealSum(Qtt.begin(), 9);
     }
 
@@ -518,27 +516,27 @@ HydroSim::gwstrain (Real time,
             }
         }
 
-        // We are adding here so that this calculation makes sense on multiple levels.
-
         if (dir == 0) {
 
-            h_plus_1  += h[1][1];
-            h_cross_1 += h[2][1];
+            strain.plus[0]  = h[1][1];
+            strain.cross[0] = h[2][1];
 
         }
         else if (dir == 1) {
 
-            h_plus_2  += h[2][2];
-            h_cross_2 += h[0][2];
+            strain.plus[1]  = h[2][2];
+            strain.cross[1] = h[0][2];
 
         }
         else if (dir == 2) {
 
-            h_plus_3  += h[0][0];
-            h_cross_3 += h[1][0];
+            strain.plus[2]  = h[0][0];
+            strain.cross[2] = h[1][0];
 
         }
 
     }
+
+    return strain;
 }
 #endif

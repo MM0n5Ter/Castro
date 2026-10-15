@@ -21,7 +21,7 @@ HydroSim::sum_integrated_quantities ()
 
     BL_PROFILE("HydroSim::sum_integrated_quantities()");
 
-    bool local_flag = true;
+    const SumScope sum_scope = SumScope::ThisRank;
 
     int finest_level = parent->finestLevel();
     Real time        = state[State_Type].curTime();
@@ -75,31 +75,31 @@ HydroSim::sum_integrated_quantities ()
         MultiFab& R_new = hs_lev.get_new_data(Reactions_Type);
 #endif
 
-        mass   += hs_lev.volWgtSum(S_new, URHO, local_flag);
-        mom[0] += hs_lev.volWgtSum(S_new, UMX, local_flag);
-        mom[1] += hs_lev.volWgtSum(S_new, UMY, local_flag);
-        mom[2] += hs_lev.volWgtSum(S_new, UMZ, local_flag);
+        mass   += hs_lev.volWgtSum(S_new, URHO, sum_scope);
+        mom[0] += hs_lev.volWgtSum(S_new, UMX, sum_scope);
+        mom[1] += hs_lev.volWgtSum(S_new, UMY, sum_scope);
+        mom[2] += hs_lev.volWgtSum(S_new, UMZ, sum_scope);
 
-        ang_mom[0] += hs_lev.volWgtSum("angular_momentum_x", time, local_flag);
-        ang_mom[1] += hs_lev.volWgtSum("angular_momentum_y", time, local_flag);
-        ang_mom[2] += hs_lev.volWgtSum("angular_momentum_z", time, local_flag);
+        ang_mom[0] += hs_lev.volWgtSum("angular_momentum_x", time, sum_scope);
+        ang_mom[1] += hs_lev.volWgtSum("angular_momentum_y", time, sum_scope);
+        ang_mom[2] += hs_lev.volWgtSum("angular_momentum_z", time, sum_scope);
 
 #ifdef HYBRID_MOMENTUM
-        hyb_mom[0] += hs_lev.volWgtSum(S_new, UMR, local_flag);
-        hyb_mom[1] += hs_lev.volWgtSum(S_new, UML, local_flag);
-        hyb_mom[2] += hs_lev.volWgtSum(S_new, UMP, local_flag);
+        hyb_mom[0] += hs_lev.volWgtSum(S_new, UMR, sum_scope);
+        hyb_mom[1] += hs_lev.volWgtSum(S_new, UML, sum_scope);
+        hyb_mom[2] += hs_lev.volWgtSum(S_new, UMP, sum_scope);
 #endif
 
-        com[0] += hs_lev.locWgtSum(S_new, URHO, 0, local_flag);
-        com[1] += hs_lev.locWgtSum(S_new, URHO, 1, local_flag);
-        com[2] += hs_lev.locWgtSum(S_new, URHO, 2, local_flag);
+        com[0] += hs_lev.locWgtSum(S_new, URHO, 0, sum_scope);
+        com[1] += hs_lev.locWgtSum(S_new, URHO, 1, sum_scope);
+        com[2] += hs_lev.locWgtSum(S_new, URHO, 2, sum_scope);
 
-        rho_e += hs_lev.volWgtSum(S_new, UEINT, local_flag);
-        rho_K += hs_lev.volWgtSum("kineng", time, local_flag);
-        rho_E += hs_lev.volWgtSum(S_new, UEDEN, local_flag);
+        rho_e += hs_lev.volWgtSum(S_new, UEINT, sum_scope);
+        rho_K += hs_lev.volWgtSum("kineng", time, sum_scope);
+        rho_E += hs_lev.volWgtSum(S_new, UEDEN, sum_scope);
 #ifdef GRAVITY
         if (poisson_gravity) {
-            rho_phi += hs_lev.volProductSum(S_new, phi_new, URHO, 0, local_flag);
+            rho_phi += hs_lev.volProductSum(S_new, phi_new, URHO, 0, sum_scope);
         }
 #endif
 
@@ -457,8 +457,16 @@ HydroSim::sum_integrated_quantities ()
             HydroSim& hs_lev = getLevel(lev);
 
 #if (AMREX_SPACEDIM > 1)
-            // Gravitational wave signal. This is designed to add to these quantities so we can send them directly.
-            hs_lev.gwstrain(time, h_plus_1, h_cross_1, h_plus_2, h_cross_2, h_plus_3, h_cross_3, local_flag);
+            // Gravitational wave signal. Each level returns its own contribution,
+            // so we add them up here.
+            const auto strain = hs_lev.gwstrain(time, sum_scope);
+
+            h_plus_1  += strain.plus[0];
+            h_cross_1 += strain.cross[0];
+            h_plus_2  += strain.plus[1];
+            h_cross_2 += strain.cross[1];
+            h_plus_3  += strain.plus[2];
+            h_cross_3 += strain.cross[2];
 #endif
 
         }
@@ -568,7 +576,7 @@ HydroSim::sum_integrated_quantities ()
         for (int lev = 0; lev <= finest_level; ++lev) {
             const MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
             for (int i = 0; i < NumSpec; ++i) {
-                species_mass[i] += getLevel(lev).volWgtSum(S_new, USPEC + i, local_flag) / C::M_solar;
+                species_mass[i] += getLevel(lev).volWgtSum(S_new, USPEC + i, sum_scope) / C::M_solar;
             }
         }
 

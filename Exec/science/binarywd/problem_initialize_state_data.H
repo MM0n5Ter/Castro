@@ -190,8 +190,7 @@ void problem_initialize_state_data (int i, int j, int k,
 
         }
 
-        GpuArray<Real, 3> vel;
-        cross_product(omega, rot_loc, vel);
+        GpuArray<Real, 3> vel = cross_product(omega, rot_loc);
 
         state(i,j,k,UMX) += state(i,j,k,URHO) * vel[0];
         state(i,j,k,UMY) += state(i,j,k,URHO) * vel[1];

@@ -11,15 +11,17 @@ using namespace amrex::literals;
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+amrex::GpuArray<amrex::Real, 3>
 cross_product(amrex::GpuArray<amrex::Real, 3> const& a,
-              amrex::GpuArray<amrex::Real, 3> const& b,
-              amrex::GpuArray<amrex::Real, 3>& c) {
+              amrex::GpuArray<amrex::Real, 3> const& b) {
+
+  amrex::GpuArray<amrex::Real, 3> c;
 
   c[0] = a[1] * b[2] - a[2] * b[1];
   c[1] = a[2] * b[0] - a[0] * b[2];
   c[2] = a[0] * b[1] - a[1] * b[0];
 
+  return c;
 }
 
 

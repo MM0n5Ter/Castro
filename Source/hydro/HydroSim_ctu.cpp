@@ -27,18 +27,18 @@ HydroSim::cons_update_hydro(const Box& bx,
   amrex::ParallelFor(bx, NUM_STATE,
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
   {
-    Real volinv = 1.0 / geometry_util::volume(i, j, k, geomdata);
+    Real volinv = 1.0 / geometry_util::volume({i, j, k}, geomdata);
 
     U_new(i,j,k,n) = U_new(i,j,k,n) + dt *
-        ( flux0(i,  j,k,n) * geometry_util::area(i,   j, k, 0, geomdata)
-        - flux0(i+1,j,k,n) * geometry_util::area(i+1, j, k, 0, geomdata)
+        ( flux0(i,  j,k,n) * geometry_util::area({i,   j, k}, 0, geomdata)
+        - flux0(i+1,j,k,n) * geometry_util::area({i+1, j, k}, 0, geomdata)
 #if AMREX_SPACEDIM >= 2
-        + flux1(i,j,  k,n) * geometry_util::area(i, j,   k, 1, geomdata)
-        - flux1(i,j+1,k,n) * geometry_util::area(i, j+1, k, 1, geomdata)
+        + flux1(i,j,  k,n) * geometry_util::area({i, j,   k}, 1, geomdata)
+        - flux1(i,j+1,k,n) * geometry_util::area({i, j+1, k}, 1, geomdata)
 #endif
 #if AMREX_SPACEDIM == 3
-        + flux2(i,j,k,  n) * geometry_util::area(i, j, k,   2, geomdata)
-        - flux2(i,j,k+1,n) * geometry_util::area(i, j, k+1, 2, geomdata)
+        + flux2(i,j,k,  n) * geometry_util::area({i, j, k},   2, geomdata)
+        - flux2(i,j,k+1,n) * geometry_util::area({i, j, k+1}, 2, geomdata)
 #endif
         ) * volinv;
 
@@ -46,19 +46,19 @@ HydroSim::cons_update_hydro(const Box& bx,
     if (n == UEINT) {
 
       Real pdu = (qx(i+1,j,k,IFCPRES) + qx(i,j,k,IFCPRES)) *
-          (qx(i+1,j,k,IFCU) * geometry_util::area(i+1, j, k, 0, geomdata) -
-           qx(i,  j,k,IFCU) * geometry_util::area(i,   j, k, 0, geomdata));
+          (qx(i+1,j,k,IFCU) * geometry_util::area({i+1, j, k}, 0, geomdata) -
+           qx(i,  j,k,IFCU) * geometry_util::area({i,   j, k}, 0, geomdata));
 
 #if AMREX_SPACEDIM >= 2
       pdu += (qy(i,j+1,k,IFCPRES) + qy(i,j,k,IFCPRES)) *
-          (qy(i,j+1,k,IFCV) * geometry_util::area(i, j+1, k, 1, geomdata) -
-           qy(i,j,  k,IFCV) * geometry_util::area(i, j,   k, 1, geomdata));
+          (qy(i,j+1,k,IFCV) * geometry_util::area({i, j+1, k}, 1, geomdata) -
+           qy(i,j,  k,IFCV) * geometry_util::area({i, j,   k}, 1, geomdata));
 #endif
 
 #if AMREX_SPACEDIM == 3
       pdu += (qz(i,j,k+1,IFCPRES) + qz(i,j,k,IFCPRES)) *
-          (qz(i,j,k+1,IFCW) * geometry_util::area(i, j, k+1, 2, geomdata) -
-           qz(i,j,k  ,IFCW) * geometry_util::area(i, j, k,   2, geomdata));
+          (qz(i,j,k+1,IFCW) * geometry_util::area({i, j, k+1}, 2, geomdata) -
+           qz(i,j,k  ,IFCW) * geometry_util::area({i, j, k},   2, geomdata));
 #endif
 
       pdu = 0.5 * pdu * volinv;

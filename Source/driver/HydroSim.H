@@ -109,6 +109,22 @@ enum int_method : std::uint8_t {
     SimplifiedSpectralDeferredCorrections
 };
 
+// Scope of a level sum: summed over all ranks, or only over
+// the patches owned by this rank.
+
+enum class SumScope : std::uint8_t {
+    AllRanks = 0,
+    ThisRank
+};
+
+// Whether a level sum leaves out the zones covered by the
+// next finer level.
+
+enum class CoveredZones : std::uint8_t {
+    Exclude = 0,
+    Include
+};
+
 // Struct that returns information about
 // why an advance failed.
 
@@ -878,20 +894,22 @@ public:
 ///
 /// @param mf           MultiFab containing quantity
 /// @param comp         integer index of quantity in MultiFab
-/// @param local        boolean, is sum local (over each patch) or over entire MultiFab?
-/// @param finemask     boolean, should we build a mask to exclude finer levels?
+/// @param scope        sum over all ranks, or only over this rank's patches?
+/// @param covered      leave out the zones covered by the next finer level?
 ///
-    amrex::Real volWgtSum (const MultiFab& mf, int comp, bool local=false, bool finemask=true);
+    amrex::Real volWgtSum (const MultiFab& mf, int comp,
+                           SumScope scope=SumScope::AllRanks, CoveredZones covered=CoveredZones::Exclude);
 
 ///
 /// Volume weighted sum of given quantity
 ///
 /// @param name         Name of quantity
 /// @param time         current time
-/// @param local        boolean, is sum local (over each patch) or over entire MultiFab?
-/// @param finemask     boolean, should we build a mask to exclude finer levels?
+/// @param scope        sum over all ranks, or only over this rank's patches?
+/// @param covered      leave out the zones covered by the next finer level?
 ///
-    amrex::Real volWgtSum (const std::string& name, amrex::Real time, bool local=false, bool finemask=true);
+    amrex::Real volWgtSum (const std::string& name, amrex::Real time,
+                           SumScope scope=SumScope::AllRanks, CoveredZones covered=CoveredZones::Exclude);
 
 ///
 /// Sum weighted by volume multiplied by distance from center in given direction
@@ -899,9 +917,9 @@ public:
 /// @param mf       MultiFab containing quantity
 /// @param comp     integer index of quantity in MultiFab
 /// @param idir     Axis along which to compute distance from center
-/// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
+/// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real locWgtSum (const MultiFab& mf, int comp, int idir, bool local=false);
+    amrex::Real locWgtSum (const MultiFab& mf, int comp, int idir, SumScope scope=SumScope::AllRanks);
 
 ///
 /// Volume weighted sum of the product of two quantities
@@ -910,9 +928,10 @@ public:
 /// @param mf2      MultiFab containing second quantity
 /// @param comp1    integer index of quantity in first MultiFab
 /// @param comp2    integer index of quantity in second MultiFab
-/// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
+/// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real volProductSum (const MultiFab& mf1, const MultiFab& mf2, int comp1, int comp2, bool local=false);
+    amrex::Real volProductSum (const MultiFab& mf1, const MultiFab& mf2, int comp1, int comp2,
+                               SumScope scope=SumScope::AllRanks);
 
 
 ///
@@ -921,28 +940,30 @@ public:
 /// @param name     Name of quantity
 /// @param time     current time
 /// @param idir     Direction along which to weight
-/// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
+/// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real locSquaredSum (const std::string& name, amrex::Real time, int idir, bool local=false);
+    amrex::Real locSquaredSum (const std::string& name, amrex::Real time, int idir,
+                               SumScope scope=SumScope::AllRanks);
 
 #ifdef GRAVITY
+///
+/// Gravitational wave strain seen by an observer on each coordinate axis:
+/// plus[n] and cross[n] are the two polarizations for the observer on axis n
+///
+    struct WaveStrain {
+        amrex::Array<amrex::Real, 3> plus{};
+        amrex::Array<amrex::Real, 3> cross{};
+    };
+
 ///
 /// Calculate the gravitational wave signal
 ///
 /// @param time       current time
-/// @param h_plus_1   gravitational wave signal in x-direction
-/// @param h_cross_1  gravitational wave signal in x-direction
-/// @param h_plus_2   gravitational wave signal in y-direction
-/// @param h_cross_2  gravitational wave signal in y-direction
-/// @param h_plus_3   gravitational wave signal in z-direction
-/// @param h_cross_3  gravitational wave signal in z-direction
-/// @param local      is sum local
-
-    void gwstrain (Real time,
-                   Real& h_plus_1, Real& h_cross_1,
-                   Real& h_plus_2, Real& h_cross_2,
-                   Real& h_plus_3, Real& h_cross_3,
-                   bool local);
+/// @param scope      sum over all ranks, or only over this rank's patches?
+///
+/// @return the contribution of this level to the strain
+///
+    WaveStrain gwstrain (Real time, SumScope scope);
 #endif
 
 #ifdef GRAVITY

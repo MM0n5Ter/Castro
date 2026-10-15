@@ -31,7 +31,9 @@
 #include <burner.H>
 #endif
 
-namespace timestep {
+// Timestep estimates, one for each process that can limit the timestep
+
+struct TimestepLimiter {
 
     enum estdt_type : std::uint8_t { hydro = 0,
                                      mhd,
@@ -46,11 +48,11 @@ namespace timestep {
     // Estimate timestep given various constraints
 
     template <estdt_type T, typename... MFs>
-    AMREX_INLINE
+    static AMREX_INLINE
     dt_and_index
-    estdt (const amrex::GeometryData& geomdata,
+    estdt (const amrex::MultiFab& stateMF,
+           const amrex::GeometryData& geomdata,
            const amrex::MultiFab& maskMF,
-           const amrex::MultiFab& stateMF,
            const MFs&... mfs)
     {
         amrex::ignore_unused(maskMF, mfs...);
@@ -535,10 +537,10 @@ namespace timestep {
     ///
     /// Radiation hydro timestep
     ///
-    amrex::Real estdt_rad (const amrex::MultiFab& stateMF, const amrex::MultiFab& radMF,
-                           const amrex::GeometryData& geomdata);
+    static amrex::Real estdt_rad (const amrex::MultiFab& stateMF, const amrex::GeometryData& geomdata,
+                                  const amrex::MultiFab& radMF);
 #endif
 
-} // namespace timestep
+};
 
 #endif // TIMESTEP_H

@@ -1619,7 +1619,7 @@ HydroSim::estTimeStep (int is_new)
 #ifdef RADIATION
         if (Radiation::rad_hydro_combined) {
 
-            Real lestdt_hydro = timestep::estdt_rad(stateMF, radMF, geomdata);
+            Real lestdt_hydro = TimestepLimiter::estdt_rad(stateMF, geomdata, radMF);
             ParallelDescriptor::ReduceRealMin(lestdt_hydro);
             estdt_hydro = amrex::min(estdt_hydro, lestdt_hydro) * cfl;
             if (verbose) {
@@ -1631,9 +1631,9 @@ HydroSim::estTimeStep (int is_new)
 #endif
 
 #ifdef MHD
-          auto hydro_dt = timestep::estdt<timestep::mhd>(geomdata, maskMF, stateMF, Bx, By, Bz);
+          auto hydro_dt = TimestepLimiter::estdt<TimestepLimiter::mhd>(stateMF, geomdata, maskMF, Bx, By, Bz);
 #else
-          auto hydro_dt = timestep::estdt<timestep::hydro>(geomdata, maskMF, stateMF);
+          auto hydro_dt = TimestepLimiter::estdt<TimestepLimiter::hydro>(stateMF, geomdata, maskMF);
 #endif
 
           amrex::ParallelAllReduce::Min(hydro_dt, MPI_COMM_WORLD);
@@ -1666,7 +1666,7 @@ HydroSim::estTimeStep (int is_new)
 
     if (diffuse_temp)
     {
-        auto diffuse_dt = timestep::estdt<timestep::diffusion>(geomdata, maskMF, stateMF);
+        auto diffuse_dt = TimestepLimiter::estdt<TimestepLimiter::diffusion>(stateMF, geomdata, maskMF);
         ParallelAllReduce::Min(diffuse_dt, MPI_COMM_WORLD);
         estdt_diffusion = amrex::min(estdt_diffusion, diffuse_dt.value) * cfl;
 
@@ -1693,7 +1693,7 @@ HydroSim::estTimeStep (int is_new)
 
         // Compute burning-limited timestep.
 
-        auto burn_dt = timestep::estdt<timestep::burning>(geomdata, maskMF, stateMF);
+        auto burn_dt = TimestepLimiter::estdt<TimestepLimiter::burning>(stateMF, geomdata, maskMF);
 
         ParallelAllReduce::Min(burn_dt, MPI_COMM_WORLD);
         estdt_burn = amrex::min(estdt_burn, burn_dt.value);
@@ -3577,7 +3577,7 @@ HydroSim::apply_tagging_restrictions(TagBoxArray& tags, [[maybe_unused]] Real ti
             loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
 #endif
 
-            Real r = distance(geomdata, loc);
+            Real r = geometry_util::distance(geomdata, loc);
 
             Real max_dist_lo = 0.0;
             Real max_dist_hi = 0.0;

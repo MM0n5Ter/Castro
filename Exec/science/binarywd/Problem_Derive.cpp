@@ -177,8 +177,7 @@ void hs_derinertialangmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
 #endif
 
-        GpuArray<Real, 3> angular_vel;
-        cross_product(loc, inertial_vel, angular_vel);
+        GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
 
         der(i,j,k,0) = rho * angular_vel[0];
     });
@@ -223,8 +222,7 @@ void hs_derinertialangmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
 #endif
 
-        GpuArray<Real, 3> angular_vel;
-        cross_product(loc, inertial_vel, angular_vel);
+        GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
 
         der(i,j,k,0) = rho * angular_vel[1];
     });
@@ -269,8 +267,7 @@ void hs_derinertialangmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
 #endif
 
-        GpuArray<Real, 3> angular_vel;
-        cross_product(loc, inertial_vel, angular_vel);
+        GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
 
         der(i,j,k,0) = rho * angular_vel[2];
     });

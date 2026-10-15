@@ -109,11 +109,9 @@ rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
           r_vec[1] = 0.0_rt;
           r_vec[2] = 0.0_rt;
       }
-      GpuArray<Real, 3> omega_cross_r;
-      cross_product(omega, r_vec, omega_cross_r);
+      GpuArray<Real, 3> omega_cross_r = cross_product(omega, r_vec);
 
-      GpuArray<Real, 3> omega_cross_omega_cross_r;
-      cross_product(omega, omega_cross_r, omega_cross_omega_cross_r);
+      GpuArray<Real, 3> omega_cross_omega_cross_r = cross_product(omega, omega_cross_r);
 
       for (int idir = 0; idir < 3; idir++) {
           Sr[idir] -= omega_cross_omega_cross_r[idir];
@@ -121,8 +119,7 @@ rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
   }
 
   if (c2) {
-      GpuArray<Real, 3> omega_cross_v;
-      cross_product(omega, v, omega_cross_v);
+      GpuArray<Real, 3> omega_cross_v = cross_product(omega, v);
       for (int idir = 0; idir < 3; idir++) {
           Sr[idir] -= 2.0_rt * omega_cross_v[idir];
       }
@@ -148,8 +145,7 @@ rotational_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega,
 
   if (hydrosim::rotation_include_centrifugal == 1) {
 
-      GpuArray<Real, 3> omega_cross_r;
-      cross_product(omega, r_vec, omega_cross_r);
+      auto omega_cross_r = cross_product(omega, r_vec);
 
       for (int idir = 0; idir < 3; idir++) {
           phi -= 0.5_rt * omega_cross_r[idir] * omega_cross_r[idir];

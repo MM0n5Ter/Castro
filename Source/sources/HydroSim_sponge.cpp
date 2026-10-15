@@ -137,7 +137,7 @@ HydroSim::apply_sponge(const Box& bx,
     Real sponge_factor = 0.0_rt;
 
     if (sponge_lower_radius >= 0.0_rt && sponge_upper_radius > sponge_lower_radius) {
-      Real rad = distance(geomdata, r);
+      Real rad = geometry_util::distance(geomdata, r);
 
       if (rad < sponge_lower_radius) {
         sponge_factor = sponge_lower_factor;

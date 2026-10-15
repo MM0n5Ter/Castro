@@ -394,15 +394,13 @@ HydroSim::corrrsrc(const Box& bx,
       for (int dir = 0; dir < 3; ++dir) {
           for (int edge = 0; edge <= 1; ++edge) {
 
-              bool ccx = dir == 0 ? true : false;
-              bool ccy = dir == 1 ? true : false;
-              bool ccz = dir == 2 ? true : false;
+              IndexType edge_type(IntVect(AMREX_D_DECL(dir != 0, dir != 1, dir != 2)));
 
               int ie = dir == 0 ? i + edge : i;
               int je = dir == 1 ? j + edge : j;
               int ke = dir == 2 ? k + edge : k;
 
-              position(ie, je, ke, geomdata, loc, ccx, ccy, ccz);
+              position(ie, je, ke, geomdata, loc, edge_type);
 
               for (int n = 0; n < AMREX_SPACEDIM; ++n) {
                   loc[n] -= problem::center[n];

@@ -602,7 +602,7 @@ HydroSim::do_hscf_solve()
                             r[n] -= problem::center[n];
                         }
 
-                        Real dV = geometry_util::volume(i, j, k, geomdata);
+                        Real dV = geometry_util::volume(Dim3{i, j, k}, geomdata);
                         dM = state_arr(i,j,k,URHO) * dV;
 
                         auto omega = get_omega_vec(geomdata, j);

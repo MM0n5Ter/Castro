@@ -10,10 +10,8 @@ using namespace amrex;
 void
 apply_metric(const Box& bx,
              Array4<Real> const& rhs, const Box& rbx,
-             Array4<Real> const& ecx, const Box& xbx,
-#if AMREX_SPACEDIM >= 2
-             Array4<Real> const& ecy, const Box& ybx,
-#endif
+             const GpuArray<Array4<Real>, AMREX_SPACEDIM>& edge_coefs,
+             const GpuArray<Box, AMREX_SPACEDIM>& edge_boxes,
              const GpuArray<Real, AMREX_SPACEDIM>& problo,
              const GpuArray<Real, AMREX_SPACEDIM>& dx,
              const int coord_type)
@@ -34,16 +32,16 @@ apply_metric(const Box& bx,
             }
 
             // On x-edges
-            if (xbx.contains(idx)) {
+            if (edge_boxes[0].contains(idx)) {
                 Real r = problo[0] + static_cast<Real>(i) * dx[0];
-                ecx(i,j,k) *= r;
+                edge_coefs[0](i,j,k) *= r;
             }
 
 #if AMREX_SPACEDIM >= 2
             // On y-edges
-            if (ybx.contains(idx)) {
+            if (edge_boxes[1].contains(idx)) {
                 Real r = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-                ecy(i,j,k) *= r;
+                edge_coefs[1](i,j,k) *= r;
             }
 #endif
 

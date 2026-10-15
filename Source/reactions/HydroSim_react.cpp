@@ -277,7 +277,7 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
                 if (domain_is_plane_parallel) {
                     dist = rr[AMREX_SPACEDIM-1];
                 } else {
-                    dist = distance(geomdata, rr);
+                    dist = geometry_util::distance(geomdata, rr);
                 }
 
                 burn_state.T_fixed = interpolate(dist, model::itemp);
@@ -625,7 +625,7 @@ HydroSim::react_state(Real time, Real dt)
                 if (domain_is_plane_parallel) {
                     dist = rr[AMREX_SPACEDIM-1];
                 } else {
-                    dist = distance(geomdata, rr);
+                    dist = geometry_util::distance(geomdata, rr);
                 }
 
                 burn_state.T_fixed = interpolate(dist, model::itemp);

@@ -22,8 +22,6 @@ HydroSim::compute_moment_of_inertia()
 
     Real moment = 0.0;
 
-    bool local_flag = true;
-
     for (int lev = 0; lev <= finest_level; ++lev) {
 
         // Get the HydroSim level
@@ -31,7 +29,7 @@ HydroSim::compute_moment_of_inertia()
 
         // Add up the moment of inertia on this level
         int idir = -1; // So we do r**2, rather than any particular direction
-        moment += hs_lev.locSquaredSum("density", time, idir, local_flag);
+        moment += hs_lev.locSquaredSum("density", time, idir, SumScope::ThisRank);
 
     }
 

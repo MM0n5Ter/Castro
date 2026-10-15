@@ -21,11 +21,11 @@ void HydroSim::problem_post_init()
 
     Real actual_mass = 0.0;
 
-    bool local_flag = true;
+    const auto sum_scope = SumScope::ThisRank;
     Real time = state[State_Type].curTime();
 
     for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, local_flag);
+        actual_mass += getLevel(lev).volWgtSum("density", time, sum_scope);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
@@ -97,7 +97,7 @@ void HydroSim::problem_post_init()
     actual_mass = 0.0;
 
     for (int lev = 0; lev <= parent->finestLevel(); lev++) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, local_flag);
+        actual_mass += getLevel(lev).volWgtSum("density", time, sum_scope);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
