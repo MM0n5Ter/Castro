@@ -31,6 +31,21 @@ void face_to_center (const Box& bx, FArrayBox& derfab, const FArrayBox& datfab)
 }
 #endif
 
+// Set the density, temperature, specific internal energy and mass
+// fractions of an EOS state from the conserved state of zone (i,j,k).
+
+template <typename T>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void fill_eos_state (int i, int j, int k, Array4<Real const> const& dat, Real rhoInv, T& eos_state)
+{
+  eos_state.rho  = dat(i,j,k,URHO);
+  eos_state.T = dat(i,j,k,UTEMP);
+  eos_state.e = dat(i,j,k,UEINT) * rhoInv;
+  for (int n = 0; n < NumSpec; n++) {
+    eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
+  }
+}
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -54,12 +69,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -141,12 +151,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -176,12 +181,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -211,12 +211,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -247,12 +242,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -282,12 +272,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -320,12 +305,7 @@ extern "C"
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
         eos_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-        }
+        fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
         for (int n = 0; n < NumAux; n++) {
           eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;
@@ -492,12 +472,7 @@ extern "C"
 
           // calculate the sound speed
           eos_rep_t eos_state;
-          eos_state.rho  = dat(i,j,k,URHO);
-          eos_state.T = dat(i,j,k,UTEMP);
-          eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-          for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,USPEC+n) * rhoInv;
-          }
+          fill_eos_state(i, j, k, dat, rhoInv, eos_state);
 #if NAUX_NET > 0
           for (int n = 0; n < NumAux; n++) {
             eos_state.aux[n] = dat(i,j,k,UAUXV+n) * rhoInv;

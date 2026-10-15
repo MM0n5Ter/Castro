@@ -449,6 +449,12 @@ public:
     void save_data_for_retry();
 
 ///
+/// Zero the flux, mass flux, radial pressure and radiation flux
+/// accumulators that are summed over the subcycles of an advance.
+///
+    void zero_flux_accumulators ();
+
+///
 /// Should we retry advancing the simulation? By default, we
 /// don't do a retry unless the criteria are violated. This is
 /// used only for the CTU advance.
@@ -498,6 +504,13 @@ public:
 /// initialized at start of the level's advance.
 ///
     void finalize_advance();
+
+///
+/// The finest level advanced together with this one. Without subcycling
+/// the coarse level advances all levels at once; otherwise each level
+/// advances on its own.
+///
+    int finest_level_advanced () const;
 
 ///
 /// Performed at the start of ::do_advance, resets flags and
@@ -1076,6 +1089,17 @@ public:
     void sum_integrated_quantities ();
 
 ///
+/// Whether the integrated quantities are due at coarse step ``nstep``
+/// ending at ``cumtime``, either by step count (sum_interval) or because
+/// the step crossed a multiple of sum_per.
+///
+/// @param nstep    coarse level step number
+/// @param cumtime  simulation time at the end of the step
+/// @param dtlev    coarse level timestep
+///
+    bool integral_sums_due (int nstep, amrex::Real cumtime, amrex::Real dtlev) const;
+
+///
 /// Problem-specific diagnostics (called by sum_integrated_quantities)
 ///
     void problem_diagnostics ();
@@ -1139,6 +1163,12 @@ public:
 ///
     amrex::MultiFab fine_mask;
     amrex::MultiFab& build_fine_mask();
+
+///
+/// Without subcycling, zones covered by the next finer level are
+/// advanced there, so work on this level can skip them.
+///
+    bool skip_covered_zones () const;
 
 
 ///

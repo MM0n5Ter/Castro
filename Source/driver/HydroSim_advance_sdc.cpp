@@ -258,15 +258,15 @@ HydroSim::do_advance_sdc (Real time,
         // always require State_Type to have 1 ghost cell?
 
         // TODO: we also need to make these 4th order!
-        clean_state(S_old, prev_time, 0);
-        fill_grown_state(Sborder, prev_time, Sborder.nGrow());
-        handle_old_sources(old_source, Sborder, Sborder, prev_time, dt, apply_sources_to_state);
-        AmrLevel::FillPatch(*this, old_source, old_source.nGrow(), prev_time, Source_Type, 0, NSRC);
+        auto evaluate_sources_at = [&] (MultiFab& state, MultiFab& source, Real source_time) {
+            clean_state(state, source_time, 0);
+            fill_grown_state(Sborder, source_time, Sborder.nGrow());
+            handle_old_sources(source, Sborder, Sborder, source_time, dt, apply_sources_to_state);
+            AmrLevel::FillPatch(*this, source, source.nGrow(), source_time, Source_Type, 0, NSRC);
+        };
 
-        clean_state(S_new, cur_time, 0);
-        fill_grown_state(Sborder, cur_time, Sborder.nGrow());
-        handle_old_sources(new_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
-        AmrLevel::FillPatch(*this, new_source, new_source.nGrow(), cur_time, Source_Type, 0, NSRC);
+        evaluate_sources_at(S_old, old_source, prev_time);
+        evaluate_sources_at(S_new, new_source, cur_time);
     }
 
     status = finalize_do_advance(cur_time, dt);

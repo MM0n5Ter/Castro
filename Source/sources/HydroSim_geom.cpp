@@ -33,11 +33,7 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
 
   geom_src.setVal(0.0);
 
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(time, dt, state_in, geom_src);
-  } else {
-      fill_RTheta_geom_source(time, dt, state_in, geom_src);
-  }
+  fill_geom_source(time, dt, state_in, geom_src);
 
   Real mult_factor = 1.0;
 
@@ -93,11 +89,7 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
   // Subtract off the old-time value first
   Real old_time = time - dt;
 
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(old_time, dt, state_old, geom_src);
-  } else {
-      fill_RTheta_geom_source(old_time, dt, state_old, geom_src);
-  }
+  fill_geom_source(old_time, dt, state_old, geom_src);
 
   Real mult_factor = -0.5;
 
@@ -109,11 +101,7 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
 
   mult_factor = 0.5;
 
-  if (geom.Coord() == 1) {
-      fill_RZ_geom_source(time, dt, state_new, geom_src);
-  } else {
-      fill_RTheta_geom_source(time, dt, state_new, geom_src);
-  }
+  fill_geom_source(time, dt, state_new, geom_src);
 
   MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
 
@@ -134,6 +122,18 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
     }
 
 #endif
+}
+
+
+
+void
+HydroSim::fill_geom_source (Real time, Real dt, const MultiFab& cons_state, MultiFab& geom_src)
+{
+  if (geom.Coord() == 1) {
+      fill_RZ_geom_source(time, dt, cons_state, geom_src);
+  } else {
+      fill_RTheta_geom_source(time, dt, cons_state, geom_src);
+  }
 }
 
 

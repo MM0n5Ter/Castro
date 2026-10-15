@@ -10,6 +10,13 @@
 
 
 ///
+/// Whether the level Poisson solve on this level is corrected by the
+/// difference between the composite and level solutions
+///
+    bool applies_composite_correction () const;
+
+
+///
 /// Construct gravitational field at new timestep
 ///
 /// @param time             current time

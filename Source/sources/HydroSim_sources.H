@@ -29,6 +29,22 @@
 
 
 ///
+/// Add source terms to the valid zones of ``state`` and then clean the result
+///
+/// @param state    State
+/// @param source   Source terms
+/// @param time     time of the updated state
+/// @param dt       timestep
+///
+    void apply_source_and_clean (
+#ifdef MHD
+                                 amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
+#endif
+                                 amrex::MultiFab& state, const amrex::MultiFab& source,
+                                 amrex::Real time, amrex::Real dt);
+
+
+///
 /// Construct source terms at old time
 ///
 /// @param source   MultiFab to save sources to
@@ -139,27 +155,6 @@
 ///
     amrex::Vector<amrex::Real> evaluate_source_change(const amrex::MultiFab& source, amrex::Real dt,
                                                       bool local = false);
-
-
-///
-/// Print the change due to a given source term update.
-/// We assume here that the input array is lined up with
-/// the ``NUM_STATE`` components of ``State_Type`` because we are
-/// interested in printing changes to energy, mass, etc.
-///
-/// @param update       Real Vector of changes
-///
-    static void print_source_change(const amrex::Vector<amrex::Real>& update);
-
-
-///
-/// For the old-time or new-time sources update, evaluate the change in the state
-/// for all source terms, then print the results.
-///
-/// @param dt       timestep
-/// @param is_new   boolean, do we get the new or old state data?
-///
-    void print_all_source_changes(amrex::Real dt, bool is_new);
 
 
 ///
@@ -316,6 +311,19 @@
 
 
 ///
+/// Fill ``geom_src`` with the geometry sources of the current
+/// coordinate system (cylindrical R-Z or spherical R-Theta)
+///
+/// @param time        current time
+/// @param dt          timestep
+/// @param cons_state  state
+/// @param geom_src    MultiFab to fill with sources
+///
+    void fill_geom_source(amrex::Real time, amrex::Real dt,
+                          const amrex::MultiFab& cons_state, amrex::MultiFab& geom_src);
+
+
+///
 /// Fill ``ext_src`` with 2D cylindrical R-Z geometry sources
 ///
 /// @param time     current time
@@ -348,6 +356,17 @@
 ///
 
     advance_status pre_advance_operators (amrex::Real time, amrex::Real dt);
+
+#ifdef SHOCK_VAR
+///
+/// Compute the shock flag from the old-time state and store it in the
+/// ``USHOCK`` component of the old state and of ``Sborder``.
+///
+/// @param time     current time
+/// @param dt       timestep
+///
+    void store_old_shock_flag (amrex::Real time, amrex::Real dt);
+#endif
 
 ///
 /// Perform all operations that occur after computing the predictor sources

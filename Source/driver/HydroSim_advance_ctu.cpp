@@ -31,63 +31,44 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     // Advance simultaneously on all levels that are not subcycling
     // relative to this level.
 
-    int max_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    const int max_level_to_advance = finest_level_advanced();
 
     const Real prev_time = state[State_Type].prevTime();
     const Real  cur_time = state[State_Type].curTime();
 
+    // Store the outcome of a stage and report whether it failed.
+
+    auto failed = [&status] (const advance_status& stage_status) {
+        status = stage_status;
+        return !status.success;
+    };
+
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        // Perform initialization steps.
+        HydroSim& lev_data = getLevel(lev);
 
-        status = getLevel(lev).initialize_do_advance(time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Perform all pre-advance operations and then initialize
-        // the new-time state with the output of those operators.
-
-        status = getLevel(lev).pre_advance_operators(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
+        // Perform initialization steps, then all pre-advance operations,
+        // and initialize the new-time state with the output of those operators.
+        //
         // Construct the old-time sources from Sborder. This will already
         // be applied to S_new (with full dt weighting), to be corrected
         // later. Note that this does not affect the prediction of the
         // interface state; an explicit source will be traced there as
         // needed.
-
-        status = getLevel(lev).handle_old_sources(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
+        //
         // Perform any operations that occur after the sources but before the hydro.
-
-        status = getLevel(lev).pre_hydro_operators(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
+        //
         // Do the hydro update. We build directly off of Sborder, which
         // is the state that has already seen the burn.
 
+        if (failed(lev_data.initialize_do_advance(time, dt)) ||
+            failed(lev_data.pre_advance_operators(prev_time, dt)) ||
+            failed(lev_data.handle_old_sources(prev_time, dt)) ||
+            failed(lev_data.pre_hydro_operators(prev_time, dt)) ||
 #ifndef MHD
-        status = getLevel(lev).construct_ctu_hydro_source(prev_time, dt);
+            failed(lev_data.construct_ctu_hydro_source(prev_time, dt))) {
 #else
-        status = getLevel(lev).construct_ctu_mhd_source(prev_time, dt);
+            failed(lev_data.construct_ctu_mhd_source(prev_time, dt))) {
 #endif
-
-        if (status.success == false) {
             return status;
         }
     }
@@ -100,36 +81,17 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     }
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        HydroSim& lev_data = getLevel(lev);
+
         // Perform any operations that occur after the hydro but before
-        // the corrector sources.
+        // the corrector sources, then construct and apply new-time source
+        // terms. Do the second half of the reactions for Strang, or the
+        // full burn for simplified SDC, and perform finalization steps.
 
-        status = getLevel(lev).post_hydro_operators(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Construct and apply new-time source terms.
-
-        status = getLevel(lev).handle_new_sources(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Do the second half of the reactions for Strang, or the full burn for simplified SDC.
-
-        status = getLevel(lev).post_advance_operators(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-        // Perform finalization steps.
-
-        status = getLevel(lev).finalize_do_advance(cur_time, dt);
-
-        if (status.success == false) {
+        if (failed(lev_data.post_hydro_operators(cur_time, dt)) ||
+            failed(lev_data.handle_new_sources(cur_time, dt)) ||
+            failed(lev_data.post_advance_operators(cur_time, dt)) ||
+            failed(lev_data.finalize_do_advance(cur_time, dt))) {
             return status;
         }
     }
@@ -157,11 +119,7 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 
     if (do_retry) {
 
-        int max_level_to_advance = level;
-
-        if (parent->subcyclingMode() == "None" && level == 0) {
-            max_level_to_advance = parent->finestLevel();
-        }
+        const int max_level_to_advance = finest_level_advanced();
 
         for (int lev = level; lev <= max_level_to_advance; ++lev) {
             if (!(status.suggested_dt > 0.0_rt && status.suggested_dt < dt)) {
@@ -190,27 +148,7 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 
             // Clear the contribution to the fluxes from this step.
 
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).fluxes[dir]->setVal(0.0);
-            }
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).mass_fluxes[dir]->setVal(0.0);
-            }
-
-#if (AMREX_SPACEDIM <= 2)
-            if (!Geom().IsCartesian()) {
-                getLevel(lev).P_radial.setVal(0.0);
-            }
-#endif
-
-#ifdef RADIATION
-            if (Radiation::rad_hydro_combined) {
-                for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                    getLevel(lev).rad_fluxes[dir]->setVal(0.0);
-                }
-            }
-#endif
+            getLevel(lev).zero_flux_accumulators();
 
 #ifdef REACTIONS
             if (hydrosim::store_burn_weights) {
@@ -262,11 +200,13 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     sub_iteration = 0;
 
-    int max_level_to_advance = level;
+    const int max_level_to_advance = finest_level_advanced();
 
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    auto for_each_advanced_level = [&] (auto&& update_level) {
+        for (int lev = level; lev <= max_level_to_advance; ++lev) {
+            update_level(getLevel(lev));
+        }
+    };
 
     // Subcycle until we've reached the target time.
     // Compare against a slightly smaller number to
@@ -360,11 +300,11 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
         // Set the relevant time levels.
 
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
+        for_each_advanced_level([&] (HydroSim& lev_data) {
             for (int k = 0; k < num_state_type; k++) {
-                getLevel(lev).state[k].setTimeLevel(subcycle_time + dt_subcycle, dt_subcycle, 0.0);
+                lev_data.state[k].setTimeLevel(subcycle_time + dt_subcycle, dt_subcycle, 0.0);
             }
-        }
+        });
 
         // Do the advance and construct the relevant source terms. For CTU this
         // will include Strang-split reactions; for simplified SDC, we defer the
@@ -395,9 +335,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
         for (int n = 0; n < num_sub_iters; ++n) {
 
             if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-                for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                    getLevel(lev).sdc_iteration = n;
-                }
+                for_each_advanced_level([=] (HydroSim& lev_data) { lev_data.sdc_iteration = n; });
 
                 amrex::Print() << "Beginning SDC iteration " << n + 1 << " of " << num_sub_iters << "." << std::endl << std::endl;
             }
@@ -406,9 +344,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
             status = do_advance_ctu(subcycle_time, dt_subcycle);
 
-            for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                getLevel(lev).in_retry = false;
-            }
+            for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = false; });
 
             if (!status.success) {
                 if (!(use_retry)) {
@@ -443,16 +379,12 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
             if (redo_advance_ctu(dt_subcycle, status)) {
                 do_swap = false;
-                for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                    getLevel(lev).in_retry = true;
-                }
+                for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = true; });
 
                 continue;
             }
 {
-                for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                    getLevel(lev).in_retry = false;
-                }
+                for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = false; });
             }
 
         }
@@ -468,9 +400,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
         // the other one records the timestep as if it had not been
         // modified by the constraint of matching the final time.
 
-        for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            getLevel(lev).lastDt = dt_subcycle;
-        }
+        for_each_advanced_level([this] (HydroSim& lev_data) { lev_data.lastDt = dt_subcycle; });
 
     }
 
@@ -480,9 +410,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     // Record the number of subcycles we took for diagnostic purposes.
 
-    for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        getLevel(lev).num_subcycles_taken = sub_iteration;
-    }
+    for_each_advanced_level([this] (HydroSim& lev_data) { lev_data.num_subcycles_taken = sub_iteration; });
 
     if (sub_iteration > 1) {
 

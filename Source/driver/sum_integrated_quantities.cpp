@@ -276,39 +276,43 @@ HydroSim::sum_integrated_quantities ()
             rho_max   = foo_max[i++];
             ts_te_max = foo_max[i++];    // NOLINT(clang-analyzer-deadcode.DeadStores)
 
+            auto print_sum = [time] (const char* label, Real value) {
+                std::cout << "TIME= " << time << label << value << '\n';
+            };
+
             std::cout << '\n';
-            std::cout << "TIME= " << time << " MASS        = "   << mass      << '\n';
-            std::cout << "TIME= " << time << " XMOM        = "   << mom[0]    << '\n';
-            std::cout << "TIME= " << time << " YMOM        = "   << mom[1]    << '\n';
-            std::cout << "TIME= " << time << " ZMOM        = "   << mom[2]    << '\n';
-            std::cout << "TIME= " << time << " ANG MOM X   = "   << ang_mom[0] << '\n';
-            std::cout << "TIME= " << time << " ANG MOM Y   = "   << ang_mom[1] << '\n';
-            std::cout << "TIME= " << time << " ANG MOM Z   = "   << ang_mom[2] << '\n';
+            print_sum(" MASS        = ", mass);
+            print_sum(" XMOM        = ", mom[0]);
+            print_sum(" YMOM        = ", mom[1]);
+            print_sum(" ZMOM        = ", mom[2]);
+            print_sum(" ANG MOM X   = ", ang_mom[0]);
+            print_sum(" ANG MOM Y   = ", ang_mom[1]);
+            print_sum(" ANG MOM Z   = ", ang_mom[2]);
 #ifdef HYBRID_MOMENTUM
-            std::cout << "TIME= " << time << " HYB MOM R   = "   << hyb_mom[0] << '\n';
-            std::cout << "TIME= " << time << " HYB MOM L   = "   << hyb_mom[1] << '\n';
-            std::cout << "TIME= " << time << " HYB MOM P   = "   << hyb_mom[2] << '\n';
+            print_sum(" HYB MOM R   = ", hyb_mom[0]);
+            print_sum(" HYB MOM L   = ", hyb_mom[1]);
+            print_sum(" HYB MOM P   = ", hyb_mom[2]);
 #endif
-            std::cout << "TIME= " << time << " RHO*e       = "   << rho_e     << '\n';
-            std::cout << "TIME= " << time << " RHO*K       = "   << rho_K     << '\n';
-            std::cout << "TIME= " << time << " RHO*E       = "   << rho_E     << '\n';
+            print_sum(" RHO*e       = ", rho_e);
+            print_sum(" RHO*K       = ", rho_K);
+            print_sum(" RHO*E       = ", rho_E);
 #ifdef GRAVITY
-            std::cout << "TIME= " << time << " RHO*PHI     = "   << rho_phi   << '\n';
-            std::cout << "TIME= " << time << " TOTAL ENERGY= "   << total_energy << '\n';
+            print_sum(" RHO*PHI     = ", rho_phi);
+            print_sum(" TOTAL ENERGY= ", total_energy);
 #endif
-            std::cout << "TIME= " << time << " CENTER OF MASS X-LOC = " << com[0]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS X-VEL = " << com_vel[0] << '\n';
+            print_sum(" CENTER OF MASS X-LOC = ", com[0]);
+            print_sum(" CENTER OF MASS X-VEL = ", com_vel[0]);
 
-            std::cout << "TIME= " << time << " CENTER OF MASS Y-LOC = " << com[1]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS Y-VEL = " << com_vel[1] << '\n';
+            print_sum(" CENTER OF MASS Y-LOC = ", com[1]);
+            print_sum(" CENTER OF MASS Y-VEL = ", com_vel[1]);
 
-            std::cout << "TIME= " << time << " CENTER OF MASS Z-LOC = " << com[2]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS Z-VEL = " << com_vel[2] << '\n';
+            print_sum(" CENTER OF MASS Z-LOC = ", com[2]);
+            print_sum(" CENTER OF MASS Z-VEL = ", com_vel[2]);
 
-            std::cout << "TIME= " << time << " MAXIMUM TEMPERATURE  = " << T_max << '\n';
-            std::cout << "TIME= " << time << " MAXIMUM DENSITY      = " << rho_max << '\n';
+            print_sum(" MAXIMUM TEMPERATURE  = ", T_max);
+            print_sum(" MAXIMUM DENSITY      = ", rho_max);
 #ifdef REACTIONS
-            std::cout << "TIME= " << time << " MAXIMUM T_S / T_E    = " << ts_te_max << '\n';
+            print_sum(" MAXIMUM T_S / T_E    = ", ts_te_max);
 #endif
 
             std::ostream& data_log1 = *HydroSim::data_logs[0];

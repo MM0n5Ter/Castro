@@ -8,6 +8,38 @@
 
 using namespace amrex;
 
+// Index offsets, relative to the zone of an interface state in direction
+// idir_n, of the two faces in direction idir_t that bound the transverse
+// flux difference: lo is the face on the low side, hi the one on the high
+// side.  d = 0 is used for the plus state and d = -1 for the minus state,
+// which sees the transverse flux of the zone below the interface.
+
+static void
+transverse_face_offsets (int idir_t, int idir_n, int d, Dim3& lo, Dim3& hi)
+{
+    lo = Dim3{0, 0, 0};
+    hi = Dim3{0, 0, 0};
+
+    if (idir_t == 0) {
+        hi.x = 1;
+    } else if (idir_t == 1) {
+        hi.y = 1;
+    } else {
+        hi.z = 1;
+    }
+
+    if (idir_n == 0) {
+        lo.x += d;
+        hi.x += d;
+    } else if (idir_n == 1) {
+        lo.y += d;
+        hi.y += d;
+    } else {
+        lo.z += d;
+        hi.z += d;
+    }
+}
+
 // add the transverse flux difference in direction idir_t to the
 // interface states in direction idir_n
 
@@ -113,32 +145,9 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
     Real temp_guess = T_guess;
     Real abundance_tol = abundance_failure_tolerance;
 
-    int ilo = 0;
-    int jlo = 0;
-    int klo = 0;
-
-    int ihi = 0;
-    int jhi = 0;
-    int khi = 0;
-
-    if (idir_t == 0) {
-        ihi = 1;
-    } else if (idir_t == 1) {
-        jhi = 1;
-    } else {
-        khi = 1;
-    }
-
-    if (idir_n == 0) {
-        ilo += d;
-        ihi += d;
-    } else if (idir_n == 1) {
-        jlo += d;
-        jhi += d;
-    } else {
-        klo += d;
-        khi += d;
-    }
+    Dim3 lo;
+    Dim3 hi;
+    transverse_face_offsets(idir_t, idir_n, d, lo, hi);
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -148,13 +157,13 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         // (i, i+1) in the x-direction, and similarly for
         // the y- and z- directions.
 
-        const int il = i + ilo;
-        const int jl = j + jlo;  // NOLINT(misc-confusable-identifiers)
-        const int kl = k + klo;
+        const int il = i + lo.x;
+        const int jl = j + lo.y;  // NOLINT(misc-confusable-identifiers)
+        const int kl = k + lo.z;
 
-        const int ir = i + ihi;
-        const int jr = j + jhi;
-        const int kr = k + khi;
+        const int ir = i + hi.x;
+        const int jr = j + hi.y;
+        const int kr = k + hi.z;
 
         // Update all of the passively-advected quantities with the
         // transverse term and convert back to the primitive quantity.
@@ -582,87 +591,40 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
     Real temp_guess = T_guess;
     Real abundance_tol = abundance_failure_tolerance;
 
+    Dim3 lo_t1;
+    Dim3 hi_t1;
+    transverse_face_offsets(idir_t1, idir_n, d, lo_t1, hi_t1);
+
+    Dim3 lo_t2;
+    Dim3 hi_t2;
+    transverse_face_offsets(idir_t2, idir_n, d, lo_t2, hi_t2);
+
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        // the normal state
-        int iln = i;
-        int jln = j;
-        int kln = k;
+        // the normal state, offset for the plus/minus state
+        const int iln = i + lo_t1.x;
+        const int jln = j + lo_t1.y;
+        const int kln = k + lo_t1.z;
 
         // the first transverse state
-        int il_t1 = i;
-        int jl_t1 = j;
-        int kl_t1 = k;
+        const int il_t1 = i + lo_t1.x;
+        const int jl_t1 = j + lo_t1.y;
+        const int kl_t1 = k + lo_t1.z;
 
-        int ir_t1 = i;
-        int jr_t1 = j;
-        int kr_t1 = k;
+        const int ir_t1 = i + hi_t1.x;
+        const int jr_t1 = j + hi_t1.y;
+        const int kr_t1 = k + hi_t1.z;
 
         // the second transverse state
-        int il_t2 = i;
-        int jl_t2 = j;
-        int kl_t2 = k;
+        const int il_t2 = i + lo_t2.x;
+        const int jl_t2 = j + lo_t2.y;
+        const int kl_t2 = k + lo_t2.z;
 
-        int ir_t2 = i;
-        int jr_t2 = j;
-        int kr_t2 = k;
-
-        if (idir_n == 0) {
-
-            // x is the normal direction
-
-            // y is the first transverse state
-            ir_t1 += d;
-            jr_t1 += 1;
-
-            // z is the second transverse state
-            ir_t2 += d;
-            kr_t2 += 1;
-
-            // offset for the plus/minus state
-            iln += d;
-            il_t1 += d;
-            il_t2 += d;
-
-        }
-        else if (idir_n == 1) {
-
-            // y is the normal direction
-
-            // x is the first transverse state
-            ir_t1 += 1;
-            jr_t1 += d;
-
-            // z is the second transverse state
-            jr_t2 += d;
-            kr_t2 += 1;
-
-            // offset for the plus/minus state
-            jln += d;
-            jl_t1 += d;
-            jl_t2 += d;
-
-        }
-        else {
-
-            // z is the normal direction
-
-            // x is the first transverse state
-            ir_t1 += 1;
-            kr_t1 += d;
-
-            // y is the second transverse state
-            jr_t2 += 1;
-            kr_t2 += d;
-
-            // offset for the plus/minus state
-            kln += d;
-            kl_t1 += d;
-            kl_t2 += d;
-
-        }
+        const int ir_t2 = i + hi_t2.x;
+        const int jr_t2 = j + hi_t2.y;
+        const int kr_t2 = k + hi_t2.z;
 
         // Update all of the passively-advected quantities with the
         // transverse terms and convert back to the primitive quantity.

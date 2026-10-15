@@ -177,11 +177,7 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
 
     // If we're not subcycling, we only need to do the burn on leaf cells.
 
-    bool mask_covered_zones = false;
-
-    if (level < parent->finestLevel() && parent->subcyclingMode() == "None") {
-        mask_covered_zones = true;
-    }
+    const bool mask_covered_zones = skip_covered_zones();
 
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;
@@ -523,11 +519,7 @@ HydroSim::react_state(Real time, Real dt)
 
     // If we're not subcycling, we only need to do the burn on leaf cells.
 
-    bool mask_covered_zones = false;
-
-    if (level < parent->finestLevel() && parent->subcyclingMode() == "None") {
-        mask_covered_zones = true;
-    }
+    const bool mask_covered_zones = skip_covered_zones();
 
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;

@@ -12,6 +12,23 @@
 #include <eos.H>
 using namespace amrex;
 
+namespace {
+
+// the zone on the low side of the idir interface of zone (i,j,k)
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Dim3 lower_neighbor (int i, int j, int k, const int idir)
+{
+    if (idir == 0) {
+        return Dim3{i-1, j, k};
+    } else if (idir == 1) {
+        return Dim3{i, j-1, k};
+    } else {
+        return Dim3{i, j, k-1};
+    }
+}
+
+}
+
 void
 HydroSim::riemann_flux_and_state(const Box& bx,
                             Array4<Real> const& qm,
@@ -52,12 +69,14 @@ HydroSim::riemann_flux_and_state(const Box& bx,
     const int* hi_bc = phys_bc.hi();
 
     // do we want to force the flux to zero at the boundary?
-    const bool special_bnd_lo = (lo_bc[idir] == amrex::PhysBCType::symmetry ||
-                                 lo_bc[idir] == amrex::PhysBCType::slipwall ||
-                                 lo_bc[idir] == amrex::PhysBCType::noslipwall);
-    const bool special_bnd_hi = (hi_bc[idir] == amrex::PhysBCType::symmetry ||
-                                 hi_bc[idir] == amrex::PhysBCType::slipwall ||
-                                 hi_bc[idir] == amrex::PhysBCType::noslipwall);
+    auto is_wall = [] (int bc) {
+        return bc == amrex::PhysBCType::symmetry ||
+               bc == amrex::PhysBCType::slipwall ||
+               bc == amrex::PhysBCType::noslipwall;
+    };
+
+    const bool special_bnd_lo = is_wall(lo_bc[idir]);
+    const bool special_bnd_hi = is_wall(hi_bc[idir]);
 
     auto coord = geom.Coord();
 
@@ -145,30 +164,14 @@ HydroSim::riemann_flux_and_state(const Box& bx,
             // correct the fluxes using an HLL scheme if we are in a shock
             // and doing the hybrid approach
 
-            int is_shock = 0;
+            const Dim3 left = lower_neighbor(i, j, k, idir);
 
-            if (idir == 0) {
-                is_shock = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
-            } else if (idir == 1) {
-                is_shock = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
-            } else {
-                is_shock = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
-            }
+            int is_shock = static_cast<int>(shk(left) + shk(i,j,k));
 
             if (is_shock >= 1) {
 
-                Real cl;
-                Real cr;
-                if (idir == 0) {
-                    cl = qaux_arr(i-1,j,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                } else if (idir == 1) {
-                    cl = qaux_arr(i,j-1,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                } else {
-                    cl = qaux_arr(i,j,k-1,QC);
-                    cr = qaux_arr(i,j,k,QC);
-                }
+                Real cl = qaux_arr(left, QC);
+                Real cr = qaux_arr(i,j,k,QC);
 
                 Real ql_zone[NQ];
                 Real qr_zone[NQ];

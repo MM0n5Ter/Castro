@@ -824,6 +824,30 @@ Gravity::run_multilevel_solve (int crse_level, int finest_level_in,
 }
 
 void
+Gravity::fill_uniform_field (MultiFab& grav, const Geometry& geom, int ng)
+{
+    if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
+        // 2D spherical r-theta, we want g in the radial direction
+        grav.setVal(gravity::const_grav, 0, 1, ng);
+    } else {
+        // Set to constant value in the AMREX_SPACEDIM direction and zero in all others.
+        grav.setVal(gravity::const_grav, AMREX_SPACEDIM-1, 1, ng);
+    }
+}
+
+void
+Gravity::copy_to_grav_vector (const MultiFab& grav, MultiFab& grav_vector, int ng)
+{
+    for (int dir = 0; dir < 3; dir++) {
+        if (dir < AMREX_SPACEDIM) {
+            MultiFab::Copy(grav_vector, grav, dir, dir, 1, ng);
+        } else {
+            grav_vector.setVal(0.,dir,1,ng);
+        }
+    }
+}
+
+void
 Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 {
     BL_PROFILE("Gravity::get_old_grav_vector()");
@@ -852,13 +876,7 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     if (gravity::gravity_type == "UniformField") {
 
-        if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            // 2D spherical r-theta, we want g in the radial direction
-            grav.setVal(gravity::const_grav, 0, 1, ng);
-        } else {
-            // Set to constant value in the AMREX_SPACEDIM direction and zero in all others.
-            grav.setVal(gravity::const_grav, AMREX_SPACEDIM-1, 1, ng);
-        }
+        fill_uniform_field(grav, geom, ng);
 
     } else if (gravity::gravity_type == "SphericalMonopole") {
 
@@ -877,13 +895,7 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     // Do the copy to the output vector.
 
-    for (int dir = 0; dir < 3; dir++) {
-        if (dir < AMREX_SPACEDIM) {
-            MultiFab::Copy(grav_vector, grav, dir, dir, 1, ng);
-        } else {
-            grav_vector.setVal(0.,dir,1,ng);
-        }
-    }
+    copy_to_grav_vector(grav, grav_vector, ng);
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_type != "UniformField") {
@@ -928,13 +940,7 @@ Gravity::get_new_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     if (gravity::gravity_type == "UniformField") {
 
-        if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            // 2D spherical r-theta, we want g in the radial direction
-            grav.setVal(gravity::const_grav, 0, 1, ng);
-        } else {
-            // Set to constant value in the AMREX_SPACEDIM direction
-            grav.setVal(gravity::const_grav, AMREX_SPACEDIM-1, 1, ng);
-        }
+        fill_uniform_field(grav, geom, ng);
 
     } else if (gravity::gravity_type == "SphericalMonopole") {
 
@@ -954,13 +960,7 @@ Gravity::get_new_grav_vector(int level, MultiFab& grav_vector, Real time)
 
     // Do the copy to the output vector.
 
-    for (int dir = 0; dir < 3; dir++) {
-        if (dir < AMREX_SPACEDIM) {
-            MultiFab::Copy(grav_vector, grav, dir, dir, 1, ng);
-        } else {
-            grav_vector.setVal(0.,dir,1,ng);
-        }
-    }
+    copy_to_grav_vector(grav, grav_vector, ng);
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_type != "UniformField" && ng>0) {

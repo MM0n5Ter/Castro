@@ -513,6 +513,27 @@ public:
                                      const amrex::Vector<amrex::MultiFab*>& res,
                                      amrex::Real time);
 
+private:
+
+///
+/// Fill ``grav`` with the constant field of the UniformField gravity type
+///
+/// @param grav     Gravity field with AMREX_SPACEDIM components
+/// @param geom     Geometry of the level
+/// @param ng       Number of ghost cells to fill
+///
+    static void fill_uniform_field (amrex::MultiFab& grav, const amrex::Geometry& geom, int ng);
+
+///
+/// Copy the AMREX_SPACEDIM components of ``grav`` into the three-component
+/// ``grav_vector``, zeroing the components beyond AMREX_SPACEDIM
+///
+/// @param grav         Gravity field with AMREX_SPACEDIM components
+/// @param grav_vector  Three-component gravity vector
+/// @param ng           Number of ghost cells to copy
+///
+    static void copy_to_grav_vector (const amrex::MultiFab& grav, amrex::MultiFab& grav_vector, int ng);
+
 };
 
 ///

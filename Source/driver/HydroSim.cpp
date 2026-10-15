@@ -554,33 +554,25 @@ HydroSim::read_params ()
 
    if (sum_interval > 0 && ParallelDescriptor::IOProcessor()) {
 
+       auto open_log = [] (int log_index, const std::string& file_name) {
+           data_logs[log_index]->open(file_name, std::ios::out | std::ios::app);
+           if (!data_logs[log_index]->good()) {
+               amrex::FileOpenFailed(file_name);
+           }
+       };
+
        data_logs.resize(4);
 
-       data_logs[0] = std::make_unique<std::fstream>();
-       data_logs[0]->open("grid_diag.out", std::ios::out | std::ios::app);
-       if (!data_logs[0]->good()) {
-           amrex::FileOpenFailed("grid_diag.out");
+       for (auto& log : data_logs) {
+           log = std::make_unique<std::fstream>();
        }
 
-       data_logs[1] = std::make_unique<std::fstream>();
+       open_log(0, "grid_diag.out");
 #ifdef GRAVITY
-       data_logs[1]->open("gravity_diag.out", std::ios::out | std::ios::app);
-       if (!data_logs[1]->good()) {
-           amrex::FileOpenFailed("gravity_diag.out");
-       }
+       open_log(1, "gravity_diag.out");
 #endif
-
-       data_logs[2] = std::make_unique<std::fstream>();
-       data_logs[2]->open("species_diag.out", std::ios::out | std::ios::app);
-       if (!data_logs[2]->good()) {
-           amrex::FileOpenFailed("species_diag.out");
-       }
-
-       data_logs[3] = std::make_unique<std::fstream>();
-       data_logs[3]->open("amr_diag.out", std::ios::out | std::ios::app);
-       if (!data_logs[3]->good()) {
-           amrex::FileOpenFailed("amr_diag.out");
-       }
+       open_log(2, "species_diag.out");
+       open_log(3, "amr_diag.out");
 
    }
 
@@ -641,35 +633,25 @@ HydroSim::read_params ()
             info.SetDerefine(derefine);
         }
 
-        if (ppr.countval("value_greater")) {
+        // Threshold tests: the first key present in the indicator selects the test.
+        auto add_threshold_tag = [&] (const char* key, AMRErrorTag::TEST test) {
+            if (!ppr.countval(key)) {
+                return false;
+            }
             Vector<Real> value;
-            ppr.getarr("value_greater", value, 0, ppr.countval("value_greater"));
+            ppr.getarr(key, value, 0, ppr.countval(key));
             std::string field;
             ppr.get("field_name", field);
-            error_tags.emplace_back(value, AMRErrorTag::GREATER, field, info);
-        }
-        else if (ppr.countval("value_less")) {
-            Vector<Real> value;
-            ppr.getarr("value_less", value, 0, ppr.countval("value_less"));
-            std::string field;
-            ppr.get("field_name", field);
-            error_tags.emplace_back(value, AMRErrorTag::LESS, field, info);
-        }
-        else if (ppr.countval("gradient")) {
-            Vector<Real> value;
-            ppr.getarr("gradient", value, 0, ppr.countval("gradient"));
-            std::string field;
-            ppr.get("field_name", field);
-            error_tags.emplace_back(value, AMRErrorTag::GRAD, field, info);
-        }
-        else if (ppr.countval("relative_gradient")) {
-            Vector<Real> value;
-            ppr.getarr("relative_gradient", value, 0, ppr.countval("relative_gradient"));
-            std::string field;
-            ppr.get("field_name", field);
-            error_tags.emplace_back(value, AMRErrorTag::RELGRAD, field, info);
-        }
-        else {
+            error_tags.emplace_back(value, test, field, info);
+            return true;
+        };
+
+        const bool tagged = add_threshold_tag("value_greater", AMRErrorTag::GREATER) ||
+                            add_threshold_tag("value_less", AMRErrorTag::LESS) ||
+                            add_threshold_tag("gradient", AMRErrorTag::GRAD) ||
+                            add_threshold_tag("relative_gradient", AMRErrorTag::RELGRAD);
+
+        if (!tagged) {
             amrex::Abort("Unrecognized refinement indicator for " + ref_indicator);
         }
     }
@@ -1572,6 +1554,25 @@ HydroSim::initialTimeStep ()
     return init_dt;
 }
 
+namespace {
+
+// Index tuple used when reporting the zone that limits a timestep.
+std::string
+zone_index_label ()
+{
+    std::string idx_str = "(i";
+#if AMREX_SPACEDIM >= 2
+    idx_str += ",j";
+#endif
+#if AMREX_SPACEDIM == 3
+    idx_str += ",k";
+#endif
+    idx_str += ")";
+    return idx_str;
+}
+
+}
+
 Real
 HydroSim::estTimeStep (int is_new)
 {
@@ -1596,11 +1597,7 @@ HydroSim::estTimeStep (int is_new)
 
     // If we're not subcycling, we only need to do timestep estimation on leaf cells.
 
-    bool mask_covered_zones = false;
-
-    if (level < parent->finestLevel() && parent->subcyclingMode() == "None") {
-        mask_covered_zones = true;
-    }
+    const bool mask_covered_zones = skip_covered_zones();
 
     MultiFab tmp_maskMF;
     const MultiFab& maskMF = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_maskMF;
@@ -1641,16 +1638,7 @@ HydroSim::estTimeStep (int is_new)
           estdt_hydro = amrex::min(estdt_hydro, hydro_dt.value) * cfl;
           if (verbose) {
               amrex::Print() << "...estimated hydro-limited timestep at level " << level << ": " << estdt_hydro << std::endl;
-              std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-              idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-              idx_str += ",k";
-#endif
-              idx_str += ")";
-
-              amrex::Print() << "...hydro-limited CFL timestep constrained at " << idx_str << " = " << hydro_dt.index << std::endl;
+              amrex::Print() << "...hydro-limited CFL timestep constrained at " << zone_index_label() << " = " << hydro_dt.index << std::endl;
           }
 
 #ifdef RADIATION
@@ -1682,16 +1670,7 @@ HydroSim::estTimeStep (int is_new)
 
         if (verbose) {
             amrex::Print() << "...estimated diffusion-limited timestep at level " << level << ": " << estdt_diffusion << std::endl;
-            std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-            idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            idx_str += ",k";
-#endif
-            idx_str += ")";
-
-            amrex::Print() << "...diffusion-limited timestep constrained at " << idx_str << " = " << diffuse_dt.index << std::endl;
+            amrex::Print() << "...diffusion-limited timestep constrained at " << zone_index_label() << " = " << diffuse_dt.index << std::endl;
 
         }
     }
@@ -1719,16 +1698,7 @@ HydroSim::estTimeStep (int is_new)
 
         if (verbose) {
             amrex::Print() << "...estimated burning-limited timestep at level " << level << ": " << estdt_burn << std::endl;
-            std::string idx_str = "(i";
-#if AMREX_SPACEDIM >= 2
-            idx_str += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            idx_str += ",k";
-#endif
-            idx_str += ")";
-
-            amrex::Print() << "...burning-limited timestep constrained at " << idx_str << " = " << burn_dt.index << std::endl;
+            amrex::Print() << "...burning-limited timestep constrained at " << zone_index_label() << " = " << burn_dt.index << std::endl;
         }
 
         // Determine if this is more restrictive than the hydro limiting
@@ -1745,6 +1715,19 @@ HydroSim::estTimeStep (int is_new)
     }
 
     return estdt;
+}
+
+// Split the coarse timestep dt_0 among the levels according to their
+// subcycling factors.
+static void
+set_level_dts (Real dt_0, const Vector<int>& n_cycle, Vector<Real>& dt_level, int finest_level)
+{
+    int n_factor = 1;
+    for (int i = 0; i <= finest_level; i++)
+    {
+        n_factor *= n_cycle[i];
+        dt_level[i] = dt_0/n_factor;
+    }
 }
 
 void
@@ -1838,47 +1821,50 @@ HydroSim::computeNewDt (int                    finest_level,
     // Optionally, limit dt's by the value of
     // plot_per or small_plot_per.
     //
+    auto limit_dt_to_output_interval = [&] (Real output_per, const std::string& output_name)
+    {
+        const Real cur_time = state[State_Type].curTime();
+
+        // Calculate the new dt by comparing to the dt needed to get
+        // to the next multiple of the output period.
+
+        const Real dtMod = std::fmod(cur_time, output_per);
+
+        Real newOutputDt;
+
+        // Note that if we are just about exactly on a multiple of the period,
+        // then we need to be careful to avoid floating point issues.
+
+        if (std::abs(dtMod - output_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
+            newOutputDt = output_per + (output_per - dtMod);
+        }
+        else {
+            newOutputDt = output_per - dtMod;
+        }
+
+        if (newOutputDt < dt_0) {
+            lastDtPlotLimited = 1;
+            lastDtBeforePlotLimiting = dt_0;
+            dt_0 = newOutputDt;
+
+            // Avoid taking timesteps that are so small that
+            // they may cause problems in the hydrodynamics.
+
+            const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
+            dt_0 = std::max(dt_0, epsDt);
+
+            if (verbose) {
+                amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next " << output_name << " interval.\n";
+            }
+        }
+    };
+
     if (plot_per_is_exact) {
 
         const Real plot_per = parent->plotPer();
 
         if (plot_per > 0.0) {
-
-            const Real cur_time = state[State_Type].curTime();
-
-            // Calculate the new dt by comparing to the dt needed to get
-            // to the next multiple of plot_per.
-
-            const Real dtMod = std::fmod(cur_time, plot_per);
-
-            Real newPlotDt;
-
-            // Note that if we are just about exactly on a multiple of plot_per,
-            // then we need to be careful to avoid floating point issues.
-
-            if (std::abs(dtMod - plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                newPlotDt = plot_per + (plot_per - dtMod);
-            }
-            else {
-                newPlotDt = plot_per - dtMod;
-            }
-
-            if (newPlotDt < dt_0) {
-                lastDtPlotLimited = 1;
-                lastDtBeforePlotLimiting = dt_0;
-                dt_0 = newPlotDt;
-
-                // Avoid taking timesteps that are so small that
-                // they may cause problems in the hydrodynamics.
-
-                const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
-                dt_0 = std::max(dt_0, epsDt);
-
-                if (verbose) {
-                  amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next plot interval.\n";
-                }
-            }
-
+            limit_dt_to_output_interval(plot_per, "plot");
         }
 
     }
@@ -1888,35 +1874,7 @@ HydroSim::computeNewDt (int                    finest_level,
         const Real small_plot_per = parent->smallplotPer();
 
         if (small_plot_per > 0.0) {
-
-            const Real cur_time = state[State_Type].curTime();
-
-            // Same logic as for plot_per_is_exact.
-
-            const Real dtMod = std::fmod(cur_time, small_plot_per);
-
-            Real newSmallPlotDt;
-
-            if (std::abs(dtMod - small_plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                newSmallPlotDt = small_plot_per + (small_plot_per - dtMod);
-            }
-            else {
-                newSmallPlotDt = small_plot_per - dtMod;
-            }
-
-            if (newSmallPlotDt < dt_0) {
-                lastDtPlotLimited = 1;
-                lastDtBeforePlotLimiting = dt_0;
-                dt_0 = newSmallPlotDt;
-
-                const Real epsDt = 1.e-4 * lastDtBeforePlotLimiting;
-                dt_0 = std::max(dt_0, epsDt);
-
-                if (verbose) {
-                    amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next smallplot interval.\n";
-                }
-            }
-
+            limit_dt_to_output_interval(small_plot_per, "smallplot");
         }
 
     }
@@ -1935,12 +1893,7 @@ HydroSim::computeNewDt (int                    finest_level,
         }
     }
 
-    n_factor = 1;
-    for (int i = 0; i <= finest_level; i++)
-    {
-        n_factor *= n_cycle[i];
-        dt_level[i] = dt_0/n_factor;
-    }
+    set_level_dts(dt_0, n_cycle, dt_level, finest_level);
 }
 
 void
@@ -1983,12 +1936,7 @@ HydroSim::computeInitialDt (int                   finest_level,
         }
     }
 
-    n_factor = 1;
-    for (i = 0; i <= finest_level; i++)
-    {
-        n_factor *= n_cycle[i];
-        dt_level[i] = dt_0/n_factor;
-    }
+    set_level_dts(dt_0, n_cycle, dt_level, finest_level);
 }
 
 void
@@ -2067,30 +2015,7 @@ HydroSim::post_timestep (int iteration_local)
         Real dtlev = parent->dtLevel(0);
         Real cumtime = parent->cumTime() + dtlev;
 
-        bool sum_int_test = false;
-
-        if (sum_interval > 0) {
-
-          if (nstep%sum_interval == 0) {
-            sum_int_test = true;
-          }
-
-        }
-
-        bool sum_per_test = false;
-
-        if (sum_per > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
-
-          if (num_per_old != num_per_new) {
-            sum_per_test = true;
-          }
-
-        }
-
-        if (sum_int_test || sum_per_test) {
+        if (integral_sums_due(nstep, cumtime, dtlev)) {
           sum_integrated_quantities();
         }
 
@@ -2168,6 +2093,25 @@ HydroSim::post_timestep (int iteration_local)
         }
 
     }
+}
+
+bool
+HydroSim::integral_sums_due (int nstep, Real cumtime, Real dtlev) const
+{
+    const bool sum_int_test = sum_interval > 0 && nstep % sum_interval == 0;
+
+    bool sum_per_test = false;
+
+    if (sum_per > 0.0) {
+
+        const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
+        const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
+
+        sum_per_test = num_per_old != num_per_new;
+
+    }
+
+    return sum_int_test || sum_per_test;
 }
 
 void
@@ -2354,32 +2298,26 @@ HydroSim::post_regrid (int lbase,
     // respect the consistency between certain state variables
     // (e.g. UEINT and UEDEN) that we demand in every zone.
 
-    if (state[State_Type].hasOldData()) {
-
-        MultiFab& S_old = get_old_data(State_Type);
+    auto clean_time_level = [this] (bool is_new)
+    {
+        MultiFab& S = is_new ? get_new_data(State_Type) : get_old_data(State_Type);
+        const Real time = is_new ? state[State_Type].curTime() : state[State_Type].prevTime();
 
         clean_state(
 #ifdef MHD
-                    get_old_data(Mag_Type_x),
-                    get_old_data(Mag_Type_y),
-                    get_old_data(Mag_Type_z),
+                    is_new ? get_new_data(Mag_Type_x) : get_old_data(Mag_Type_x),
+                    is_new ? get_new_data(Mag_Type_y) : get_old_data(Mag_Type_y),
+                    is_new ? get_new_data(Mag_Type_z) : get_old_data(Mag_Type_z),
 #endif
-                    S_old, state[State_Type].prevTime(), S_old.nGrow());
+                    S, time, S.nGrow());
+    };
 
+    if (state[State_Type].hasOldData()) {
+        clean_time_level(false);
     }
 
     if (state[State_Type].hasNewData()) {
-
-        MultiFab& S_new = get_new_data(State_Type);
-
-        clean_state(
-#ifdef MHD
-                    get_new_data(Mag_Type_x),
-                    get_new_data(Mag_Type_y),
-                    get_new_data(Mag_Type_z),
-#endif
-                    S_new, state[State_Type].curTime(), S_new.nGrow());
-
+        clean_time_level(true);
     }
 }
 
@@ -2465,38 +2403,16 @@ HydroSim::post_init (Real /*stop_time*/)
 #endif
 #endif
 
-        int nstep = parent->levelSteps(0);
-        Real dtlev = parent->dtLevel(0);
-        Real cumtime = parent->cumTime();
-        if (cumtime != 0.0) {
-            cumtime += dtlev;
-        }
+    int nstep = parent->levelSteps(0);
+    Real dtlev = parent->dtLevel(0);
+    Real cumtime = parent->cumTime();
+    if (cumtime != 0.0) {
+        cumtime += dtlev;
+    }
 
-        bool sum_int_test = false;
-
-        if (sum_interval > 0) {
-
-          if (nstep%sum_interval == 0) {
-            sum_int_test = true;
-          }
-        }
-
-        bool sum_per_test = false;
-
-        if (sum_per > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - dtlev) / sum_per));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_per));
-
-          if (num_per_old != num_per_new) {
-            sum_per_test = true;
-          }
-
-        }
-
-        if (sum_int_test || sum_per_test) {
-          sum_integrated_quantities();
-        }
+    if (integral_sums_due(nstep, cumtime, dtlev)) {
+        sum_integrated_quantities();
+    }
 
 #ifdef GRAVITY
     if (level == 0 && moving_center == 1) {
@@ -2670,6 +2586,17 @@ HydroSim::FluxRegFineAdd() {
 // then be followed by a normal computation of the new-time gravity and new-time
 // sources, which will not need to be corrected later.
 
+// Copy the register faces normal to direction dir into a face-centered MultiFab.
+static void
+copy_register_faces (const FluxRegister& reg, int dir, MultiFab& dst)
+{
+    for (OrientationIter fi; fi.isValid(); ++fi) {
+        if (fi().coordDir() == dir) {
+            reg[fi()].copyTo(dst, 0, 0, 0, dst.nComp());
+        }
+    }
+}
+
 void
 HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 {
@@ -2758,12 +2685,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
             // Start with a MultiFab version of the flux register.
 
-            for (OrientationIter fi; fi.isValid(); ++fi) {
-                const FabSet& fs = (*reg)[fi()];
-                if (fi().coordDir() == idir) {
-                    fs.copyTo(temp_fluxes[idir], 0, 0, 0, temp_fluxes[idir].nComp());
-                }
-            }
+            copy_register_faces(*reg, idir, temp_fluxes[idir]);
 
         }
 
@@ -2889,13 +2811,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
                 tmp_fluxes.setVal(0.0);
 
-                for (OrientationIter fi; fi.isValid(); ++fi)
-                {
-                    const FabSet& fs = (*reg)[fi()];
-                    if (fi().coordDir() == 0) {
-                        fs.copyTo(tmp_fluxes, 0, 0, 0, tmp_fluxes.nComp());
-                    }
-                }
+                copy_register_faces(*reg, 0, tmp_fluxes);
 
                 MultiFab::Add(crse_lev.P_radial, tmp_fluxes, 0, 0, crse_lev.P_radial.nComp(), 0);
 
@@ -2928,12 +2844,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
                     temp_fluxes.setVal(0.0);
 
-                    for (OrientationIter fi; fi.isValid(); ++fi) {
-                        const FabSet& fs = (*reg)[fi()];
-                        if (fi().coordDir() == idir) {
-                            fs.copyTo(temp_fluxes, 0, 0, 0, temp_fluxes.nComp());
-                        }
-                    }
+                    copy_register_faces(*reg, idir, temp_fluxes);
 
                     MultiFab::Add(*crse_lev.rad_fluxes[idir], temp_fluxes, 0, 0, crse_lev.rad_fluxes[idir]->nComp(), 0);
 
@@ -4437,6 +4348,12 @@ HydroSim::getCPUTime()
   return T;
 }
 
+
+bool
+HydroSim::skip_covered_zones () const
+{
+    return level < parent->finestLevel() && parent->subcyclingMode() == "None";
+}
 
 MultiFab&
 HydroSim::build_fine_mask()

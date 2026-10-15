@@ -53,11 +53,7 @@ HydroSim::advance (Real time,
 
     Real dt_new = dt;
 
-    int max_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        max_level_to_advance = parent->finestLevel();
-    }
+    const int max_level_to_advance = finest_level_advanced();
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
         getLevel(lev).initialize_advance(time, dt, amr_iteration);
@@ -113,6 +109,41 @@ HydroSim::advance (Real time,
     return dt_new;
 }
 
+
+int
+HydroSim::finest_level_advanced () const
+{
+    if (parent->subcyclingMode() == "None" && level == 0) {
+        return parent->finestLevel();
+    }
+
+    return level;
+}
+
+
+// Re-estimate the timestep of this level from its old (is_new = 0) or
+// new (is_new = 1) state, and report whether dt exceeds what the
+// estimate allows. The estimator's output is only shown on failure.
+static bool
+timestep_check_failed (HydroSim& lev, int is_new, Real dt)
+{
+    std::string estTimeStep_output;
+
+    Real est_dt;
+
+    {
+        CoutRedirection redirection;
+        est_dt = lev.estTimeStep(is_new);
+        estTimeStep_output = redirection.getCapturedOutput();
+    }
+
+    if (hydrosim::change_max * est_dt < dt) {
+        std::cout << estTimeStep_output;
+        return true;
+    }
+
+    return false;
+}
 
 advance_status
 HydroSim::initialize_do_advance (Real time, Real dt)
@@ -229,22 +260,10 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     }
 
     if (hydrosim::check_dt_before_advance && !is_first_step_on_this_level) {
-        int is_new = 0;
+        const int is_new = 0;
 
-        // We only display the estTimeStep output if the validity check fails
-        std::string estTimeStep_output;
-
-        Real old_dt;
-
-        {
-            CoutRedirection redirection;
-            old_dt = estTimeStep(is_new);
-            estTimeStep_output = redirection.getCapturedOutput();
-        }
-
-        if (hydrosim::change_max * old_dt < dt) {
+        if (timestep_check_failed(*this, is_new, dt)) {
             status.success = false;
-            std::cout << estTimeStep_output;
             status.reason = "pre-advance timestep validity check failed";
         }
     }
@@ -287,22 +306,10 @@ HydroSim::finalize_do_advance (Real time, Real dt)
             }
 
             if (do_validity_check) {
-                int is_new = 1;
+                const int is_new = 1;
 
-                // We only display the estTimeStep output if the validity check fails
-                std::string estTimeStep_output;
-
-                Real new_dt;
-
-                {
-                    CoutRedirection redirection;
-                    new_dt = estTimeStep(is_new);
-                    estTimeStep_output = redirection.getCapturedOutput();
-                }
-
-                if (hydrosim::change_max * new_dt < dt) {
+                if (timestep_check_failed(*this, is_new, dt)) {
                     status.success = false;
-                    std::cout << estTimeStep_output;
                     status.reason = "post-advance timestep validity check failed";
                     return status;
                 }
@@ -520,26 +527,23 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
     if (time_integration_method == SpectralDeferredCorrections) {
 
-      k_new.resize(SDC_NODES);
+      // one zeroed state-sized MultiFab per node, from first_node on;
+      // the nodes before it are aliases set up by the caller
+      auto define_node_data = [&] (Vector<std::unique_ptr<MultiFab>>& node_data, int first_node) {
+        node_data.resize(SDC_NODES);
+        for (int n = first_node; n < SDC_NODES; ++n) {
+          node_data[n] = std::make_unique<MultiFab>(grids, dmap, NUM_STATE, 0);
+          node_data[n]->setVal(0.0);
+        }
+      };
 
+      define_node_data(k_new, 1);
       k_new[0] = std::make_unique<MultiFab>(S_old, amrex::make_alias, 0, NUM_STATE);
-      for (int n = 1; n < SDC_NODES; ++n) {
-        k_new[n] = std::make_unique<MultiFab>(grids, dmap, NUM_STATE, 0);
-        k_new[n]->setVal(0.0);
-      }
 
-      A_old.resize(SDC_NODES);
-      for (int n = 0; n < SDC_NODES; ++n) {
-        A_old[n] = std::make_unique<MultiFab>(grids, dmap, NUM_STATE, 0);
-        A_old[n]->setVal(0.0);
-      }
+      define_node_data(A_old, 0);
 
-      A_new.resize(SDC_NODES);
+      define_node_data(A_new, 1);
       A_new[0] = std::make_unique<MultiFab>(*A_old[0], amrex::make_alias, 0, NUM_STATE);
-      for (int n = 1; n < SDC_NODES; ++n) {
-        A_new[n] = std::make_unique<MultiFab>(grids, dmap, NUM_STATE, 0);
-        A_new[n]->setVal(0.0);
-      }
 
       // We use Sreact a few ways for the SDC integration.  First, we
       // use it to store the initial guess to the nonlinear solve.
@@ -551,11 +555,7 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
       Sreact.define(grids, dmap, NUM_STATE, 2);
 
 #ifdef REACTIONS
-      R_old.resize(SDC_NODES);
-      for (int n = 0; n < SDC_NODES; ++n) {
-        R_old[n] = std::make_unique<MultiFab>(grids, dmap, NUM_STATE, 0);
-        R_old[n]->setVal(0.0);
-      }
+      define_node_data(R_old, 0);
 #endif
 
     }
@@ -563,6 +563,21 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
     // Zero out the current fluxes.
 
+    zero_flux_accumulators();
+
+#ifdef REACTIONS
+    if (store_burn_weights == 1) {
+        burn_weights.setVal(0.0);
+    }
+#endif
+
+}
+
+
+
+void
+HydroSim::zero_flux_accumulators ()
+{
     for (int dir = 0; dir < 3; ++dir) {
         fluxes[dir]->setVal(0.0);
         mass_fluxes[dir]->setVal(0.0);
@@ -581,13 +596,6 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
         }
     }
 #endif
-
-#ifdef REACTIONS
-    if (store_burn_weights == 1) {
-        burn_weights.setVal(0.0);
-    }
-#endif
-
 }
 
 

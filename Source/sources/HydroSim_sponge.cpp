@@ -9,6 +9,13 @@
 
 using namespace amrex;
 
+// Smooth transition from lower (at offset 0) to upper (at offset width).
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real cosine_ramp (Real lower, Real upper, Real offset, Real width)
+{
+  return lower + 0.5_rt * (upper - lower) * (1.0_rt - std::cos(std::numbers::pi * offset / width));
+}
+
 void
 HydroSim::assemble_old_sponge_source(MultiFab& source, MultiFab& state_in,
                                     Real time, Real dt)
@@ -133,9 +140,8 @@ HydroSim::apply_sponge(const Box& bx,
         sponge_factor = sponge_lower_factor;
 
       } else if (rad >= sponge_lower_radius && rad <= sponge_upper_radius) {
-        sponge_factor = sponge_lower_factor +
-          0.5_rt * (sponge_upper_factor - sponge_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (rad - sponge_lower_radius) / delta_r));
+        sponge_factor = cosine_ramp(sponge_lower_factor, sponge_upper_factor,
+                                    rad - sponge_lower_radius, delta_r);
 
       } else {
         sponge_factor = sponge_upper_factor;
@@ -152,9 +158,8 @@ HydroSim::apply_sponge(const Box& bx,
         sponge_factor = sponge_lower_factor;
 
       } else if (rho <= sponge_upper_density && rho >= sponge_lower_density) {
-        sponge_factor = sponge_lower_factor +
-          0.5_rt * (sponge_upper_factor - sponge_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (rho - sponge_upper_density) / delta_rho));
+        sponge_factor = cosine_ramp(sponge_lower_factor, sponge_upper_factor,
+                                    rho - sponge_upper_density, delta_rho);
 
       } else {
         sponge_factor = sponge_upper_factor;
@@ -189,9 +194,8 @@ HydroSim::apply_sponge(const Box& bx,
         sponge_factor = sponge_lower_factor;
 
       } else if (p <= sponge_upper_pressure && p >= sponge_lower_pressure) {
-        sponge_factor = sponge_lower_factor +
-          0.5_rt * (sponge_upper_factor - sponge_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (p - sponge_upper_pressure) / delta_p));
+        sponge_factor = cosine_ramp(sponge_lower_factor, sponge_upper_factor,
+                                    p - sponge_upper_pressure, delta_p);
 
       } else {
         sponge_factor = sponge_upper_factor;

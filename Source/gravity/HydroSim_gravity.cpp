@@ -9,6 +9,18 @@
 
 using namespace amrex;
 
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real kinetic_energy (const GpuArray<Real, NUM_STATE>& s, Real rho_inv)
+{
+    return 0.5_rt * (s[UMX] * s[UMX] + s[UMY] * s[UMY] + s[UMZ] * s[UMZ]) * rho_inv;
+}
+
+bool
+HydroSim::applies_composite_correction () const
+{
+    return gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level();
+}
+
 void
 HydroSim::assemble_old_gravity (Real time)
 {
@@ -55,7 +67,7 @@ HydroSim::assemble_old_gravity (Real time)
         MultiFab comp_phi;
         Vector<std::unique_ptr<MultiFab> > comp_gphi(AMREX_SPACEDIM);
 
-        if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+        if (applies_composite_correction()) {
 
             comp_phi.define(phi_old.boxArray(), phi_old.DistributionMap(), phi_old.nComp(), phi_old.nGrow());
             MultiFab::Copy(comp_phi, phi_old, 0, 0, phi_old.nComp(), phi_old.nGrow());
@@ -82,7 +94,7 @@ HydroSim::assemble_old_gravity (Real time)
                                amrex::GetVecOfPtrs(gravity->get_grad_phi_prev(level)),
                                is_new);
 
-        if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+        if (applies_composite_correction()) {
 
             // Subtract the level solve from the composite solution.
 
@@ -194,7 +206,7 @@ HydroSim::assemble_new_gravity (Real time)
             // Subtract off the (composite - level) contribution for the purposes
             // of the level solve. We'll add it back later.
 
-            if (gravity->ApplyCompositeCorrection() && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
+            if (applies_composite_correction()) {
                 phi_new.minus(composite_level_phi_diff, 0, 1, 0);
             }
 
@@ -359,7 +371,7 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
                 snew[n] = uold(i,j,k,n);
             }
 
-            Real old_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
+            Real old_ke = kinetic_energy(snew, rhoInv);
 
             GpuArray<Real, 3> Sr;
             for (int n = 0; n < 3; ++n) {
@@ -397,7 +409,7 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             } else if (hydrosim::grav_coupling_type == 3) {
 
-                Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
+                Real new_ke = kinetic_energy(snew, rhoInv);
                 SrE = new_ke - old_ke;
 
             } else if (hydrosim::grav_coupling_type == 4) {
@@ -522,7 +534,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
                     snew[n] = unew(i,j,k,n);
                 }
 
-                Real old_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoninv;
+                Real old_ke = kinetic_energy(snew, rhoninv);
 
                 // Define old source terms
 
@@ -610,7 +622,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
                     // Instead of calculating the energy source term explicitly,
                     // we simply update the kinetic energy.
 
-                    Real new_ke = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoninv;
+                    Real new_ke = kinetic_energy(snew, rhoninv);
                     SrEcorr = new_ke - old_ke;
 
                 } else if (hydrosim::grav_coupling_type == 4) {

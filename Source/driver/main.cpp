@@ -60,6 +60,26 @@ void override_parameters ()
     }
 }
 
+// Print a line stamping the start or end of the run with the current UTC time.
+
+static void
+print_run_stamp (const char* event)
+{
+    time_t time_type;
+
+    time(&time_type);
+
+    const struct tm* time_pointer = gmtime(&time_type);
+
+    amrex::Print() << std::setfill('0') << "\n" << event << " run at "
+                   << std::setw(2) << time_pointer->tm_hour << ":"
+                   << std::setw(2) << time_pointer->tm_min << ":"
+                   << std::setw(2) << time_pointer->tm_sec << " UTC on "
+                   << time_pointer->tm_year + 1900 << "-"
+                   << std::setw(2) << time_pointer->tm_mon + 1 << "-"
+                   << std::setw(2) << time_pointer->tm_mday << "." << std::endl;
+}
+
 int
 main (int   argc,
       char* argv[])
@@ -124,21 +144,7 @@ main (int   argc,
 
     // Print the current date and time.
 
-    time_t time_type;
-
-    const struct tm* time_pointer = nullptr;
-
-    time(&time_type);
-
-    time_pointer = gmtime(&time_type);
-
-    amrex::Print() << std::setfill('0') << "\nStarting run at "
-                   << std::setw(2) << time_pointer->tm_hour << ":"
-                   << std::setw(2) << time_pointer->tm_min << ":"
-                   << std::setw(2) << time_pointer->tm_sec << " UTC on "
-                   << time_pointer->tm_year + 1900 << "-"
-                   << std::setw(2) << time_pointer->tm_mon + 1 << "-"
-                   << std::setw(2) << time_pointer->tm_mday << "." << std::endl;
+    print_run_stamp("Starting");
 
     //
     // Initialize random seed after we're running in parallel.
@@ -203,17 +209,7 @@ main (int   argc,
     long numPtsCoarseGrid = amrptr->getLevel(0).boxArray().numPts();
     Real fom = HydroSim::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
 
-    time(&time_type);
-
-    time_pointer = gmtime(&time_type);
-
-    amrex::Print() << std::setfill('0') << "\nEnding run at "
-                   << std::setw(2) << time_pointer->tm_hour << ":"
-                   << std::setw(2) << time_pointer->tm_min << ":"
-                   << std::setw(2) << time_pointer->tm_sec << " UTC on "
-                   << time_pointer->tm_year + 1900 << "-"
-                   << std::setw(2) << time_pointer->tm_mon + 1 << "-"
-                   << std::setw(2) << time_pointer->tm_mday << "." << std::endl;
+    print_run_stamp("Ending");
 
     delete amrptr;
     //

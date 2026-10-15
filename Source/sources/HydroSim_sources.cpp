@@ -17,6 +17,21 @@ HydroSim::apply_source_to_state(MultiFab& target_state, const MultiFab& source, 
     MultiFab::Saxpy(target_state, dt, source, 0, 0, source.nComp(), ng);
 }
 
+void
+HydroSim::apply_source_and_clean (
+#ifdef MHD
+                                MultiFab& Bx, MultiFab& By, MultiFab& Bz,
+#endif
+                                MultiFab& state, const MultiFab& source, Real time, Real dt)
+{
+    apply_source_to_state(state, source, dt, 0);
+    clean_state(
+#ifdef MHD
+                Bx, By, Bz,
+#endif
+                state, time, 0);
+}
+
 bool
 HydroSim::source_flag(int src)
 {
@@ -121,12 +136,11 @@ HydroSim::handle_old_sources(
     }
 
     if (apply_to_state) {
-        apply_source_to_state(state_new, source, dt, 0);
-        clean_state(
+        apply_source_and_clean(
 #ifdef MHD
-                     Bx, By, Bz,
+                               Bx, By, Bz,
 #endif
-                     state_new, time, 0);
+                               state_new, source, time, dt);
     }
 
     // Fill the ghost cells (but only for CTU; the time would not be correct for true SDC, so
@@ -141,8 +155,7 @@ HydroSim::handle_old_sources(
     // these source terms changed the state.
 
     if (apply_to_state && print_update_diagnostics) {
-      bool is_new = false;
-      print_all_source_changes(dt, is_new);
+      evaluate_and_print_source_change(get_old_data(Source_Type), dt, "old-time sources");
     }
 
     if (verbose > 0)
@@ -214,12 +227,11 @@ HydroSim::handle_new_sources(
     }
 
     if (apply_to_state) {
-        apply_source_to_state(state_new, source, dt, 0);
-        clean_state(
+        apply_source_and_clean(
 #ifdef MHD
-                     Bx, By, Bz,
+                               Bx, By, Bz,
 #endif
-                     state_new, time, 0);
+                               state_new, source, time, dt);
     }
 
 
@@ -227,8 +239,7 @@ HydroSim::handle_new_sources(
     // these source terms changed the state.
 
     if (print_update_diagnostics) {
-      bool is_new = true;
-      print_all_source_changes(dt, is_new);
+      evaluate_and_print_source_change(get_new_data(Source_Type), dt, "new-time sources");
     }
 
     if (verbose > 0)
@@ -446,33 +457,10 @@ HydroSim::evaluate_source_change(const MultiFab& source, Real dt, bool local)
 
 }
 
-// Print the change due to a given source term update.
-// We assume here that the input array is lined up with
-// the NUM_STATE components of State_Type because we are
-// interested in printing changes to energy, mass, etc.
-
-void
-HydroSim::print_source_change(const Vector<Real>& update)
-{
-
-  if (ParallelDescriptor::IOProcessor()) {
-
-    std::cout << "       mass added: " << update[URHO] << std::endl;
-    std::cout << "       xmom added: " << update[UMX] << std::endl;
-    std::cout << "       ymom added: " << update[UMY] << std::endl;
-    std::cout << "       zmom added: " << update[UMZ] << std::endl;
-    std::cout << "       eint added: " << update[UEINT] << std::endl;
-    std::cout << "       ener added: " << update[UEDEN] << std::endl;
-
-    std::cout << std::endl;
-
-  }
-
-
-}
-
 // Calculate the changes to the state due to a source term,
-// and also print the results.
+// and also print the results.  We assume here that the source
+// is lined up with the NUM_STATE components of State_Type
+// because we are interested in printing changes to energy, mass, etc.
 
 void
 HydroSim::evaluate_and_print_source_change (const MultiFab& source, Real dt, const std::string& source_name)
@@ -489,7 +477,14 @@ HydroSim::evaluate_and_print_source_change (const MultiFab& source, Real dt, con
             if (std::abs(update[URHO]) != 0.0 || std::abs(update[UEDEN]) != 0.0) {
                 std::cout << std::endl << "  Contributions to the state from " << source_name << ":" << std::endl;
 
-                print_source_change(update);
+                std::cout << "       mass added: " << update[URHO] << std::endl;
+                std::cout << "       xmom added: " << update[UMX] << std::endl;
+                std::cout << "       ymom added: " << update[UMY] << std::endl;
+                std::cout << "       zmom added: " << update[UMZ] << std::endl;
+                std::cout << "       eint added: " << update[UEINT] << std::endl;
+                std::cout << "       ener added: " << update[UEDEN] << std::endl;
+
+                std::cout << std::endl;
             }
         }
 
@@ -498,43 +493,13 @@ HydroSim::evaluate_and_print_source_change (const MultiFab& source, Real dt, con
 #endif
 }
 
-// For the old-time or new-time sources update, evaluate the change in the state
-// for all source terms, then print the results.
+#ifdef SHOCK_VAR
+// Compute the shock flag from the time-level n data and store it in
+// the USHOCK component of the old state and of Sborder.
 
 void
-HydroSim::print_all_source_changes(Real dt, bool is_new)
+HydroSim::store_old_shock_flag (Real time, Real dt)
 {
-    const MultiFab& source = is_new ? get_new_data(Source_Type) : get_old_data(Source_Type);
-
-    std::string source_name = is_new? "new-time sources" : "old-time sources";
-
-    evaluate_and_print_source_change(source, dt, source_name);
-}
-
-// Perform all operations that occur prior to computing the predictor sources
-// and the hydro advance.
-
-advance_status
-HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    advance_status status {};
-
-    // If we are using gravity, solve for the potential and
-    // gravitational field.  note: since reactions don't change
-    // density, we can do this before or after the burn.
-
-#ifdef GRAVITY
-    assemble_old_gravity(time);
-#endif
-
-#ifdef SHOCK_VAR
-    // we want to compute the shock flag that will be used
-    // (optionally) in disabling reactions in shocks.  We compute this
-    // only once per timestep using the time-level n data.
-
     // We need to compute the old sources -- note that we will
     // recompute the old sources after the burn, so this is done here
     // only for evaluating the shock flag.
@@ -593,6 +558,34 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
     if (Sborder.nGrow() > 0) {
       AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, USHOCK, 1, USHOCK);
     }
+}
+#endif
+
+// Perform all operations that occur prior to computing the predictor sources
+// and the hydro advance.
+
+advance_status
+HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    advance_status status {};
+
+    // If we are using gravity, solve for the potential and
+    // gravitational field.  note: since reactions don't change
+    // density, we can do this before or after the burn.
+
+#ifdef GRAVITY
+    assemble_old_gravity(time);
+#endif
+
+#ifdef SHOCK_VAR
+    // we want to compute the shock flag that will be used
+    // (optionally) in disabling reactions in shocks.  We compute this
+    // only once per timestep using the time-level n data.
+
+    store_old_shock_flag(time, dt);
 
 #endif
 

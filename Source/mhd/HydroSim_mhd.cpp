@@ -118,38 +118,30 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           const Box& nby = amrex::surroundingNodes(bx, 1);
           const Box& nbz = amrex::surroundingNodes(bx, 2);
 
-          const Box& nbxf = amrex::grow(nbx, IntVect(0, 1, 1));
-          const Box& nbyf = amrex::grow(nby, IntVect(1, 0, 1));
-          const Box& nbzf = amrex::grow(nbz, IntVect(1, 1, 0));
+          const Array<Box, AMREX_SPACEDIM> face_boxes{nbx, nby, nbz};
+          const Array<IntVect, AMREX_SPACEDIM> flux_grow{IntVect(0, 1, 1), IntVect(1, 0, 1), IntVect(1, 1, 0)};
 
           // need to revisit these box sizes
-          const Box& nbxe = amrex::grow(nbx, IntVect(2, 3, 3));
-          const Box& nbye = amrex::grow(nby, IntVect(3, 2, 3));
-          const Box& nbze = amrex::grow(nbz, IntVect(3, 3, 2));
+          const Array<IntVect, AMREX_SPACEDIM> efield_grow{IntVect(2, 3, 3), IntVect(3, 2, 3), IntVect(3, 3, 2)};
 
-          flux[0].resize(nbxf, NUM_STATE+3);
+          Array<Elixir, AMREX_SPACEDIM> elix_flux;
+          Array<Elixir, AMREX_SPACEDIM> elix_E;
+
+          for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+              flux[d].resize(amrex::grow(face_boxes[d], flux_grow[d]), NUM_STATE+3);
+              elix_flux[d] = flux[d].elixir();
+
+              E[d].resize(amrex::grow(face_boxes[d], efield_grow[d]));
+              elix_E[d] = E[d].elixir();
+          }
+
           auto flxx_arr = flux[0].array();
-          auto elix_flxx = flux[0].elixir();
-
-          E[0].resize(nbxe);
-          auto Ex_arr = E[0].array();
-          auto elix_Ex = E[0].elixir();
-
-          flux[1].resize(nbyf, NUM_STATE+3);
           auto flxy_arr = flux[1].array();
-          auto elix_flxy = flux[1].elixir();
-
-          E[1].resize(nbye);
-          auto Ey_arr = E[1].array();
-          auto elix_Ey = E[1].elixir();
-
-          flux[2].resize(nbzf, NUM_STATE+3);
           auto flxz_arr = flux[2].array();
-          auto elix_flxz = flux[2].elixir();
 
-          E[2].resize(nbze);
+          auto Ex_arr = E[0].array();
+          auto Ey_arr = E[1].array();
           auto Ez_arr = E[2].array();
-          auto elix_Ez = E[2].elixir();
 
 
           // Calculate primitives based on conservatives
