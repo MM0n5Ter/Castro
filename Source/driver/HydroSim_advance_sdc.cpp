@@ -59,6 +59,10 @@ HydroSim::do_advance_sdc (Real time,
 
     const bool final_iteration = sdc_iteration == sdc_order+sdc_extra-1;
 
+    AMREX_ALWAYS_ASSERT(static_cast<int>(k_new.size()) >= SDC_NODES &&
+                        static_cast<int>(A_old.size()) >= SDC_NODES &&
+                        static_cast<int>(A_new.size()) >= SDC_NODES);
+
     // we loop over all nodes, even the last, since we need to compute
     // the advective update source at each node
 

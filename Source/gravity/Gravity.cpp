@@ -838,6 +838,8 @@ Gravity::fill_uniform_field (MultiFab& grav, const Geometry& geom, int ng)
 void
 Gravity::copy_to_grav_vector (const MultiFab& grav, MultiFab& grav_vector, int ng)
 {
+    AMREX_ALWAYS_ASSERT(grav_vector.nComp() >= 3);
+
     for (int dir = 0; dir < 3; dir++) {
         if (dir < AMREX_SPACEDIM) {
             MultiFab::Copy(grav_vector, grav, dir, dir, 1, ng);

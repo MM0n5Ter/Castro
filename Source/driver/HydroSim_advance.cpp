@@ -520,6 +520,7 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
       };
 
       define_node_data(k_new, 1);
+      AMREX_ALWAYS_ASSERT(S_old.nComp() >= NUM_STATE);
       k_new[0] = std::make_unique<MultiFab>(S_old, amrex::make_alias, 0, NUM_STATE);
 
       define_node_data(A_old, 0);
@@ -599,7 +600,9 @@ HydroSim::finalize_advance()
 
     if (do_reflux == 1 && update_sources_after_reflux == 1 && parent->subcyclingMode() != "None") {
         for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
-            MultiFab::Copy(*mass_fluxes[idir], *fluxes[idir], URHO, 0, 1, 0);
+            if (mass_fluxes[idir] && fluxes[idir]) {
+                MultiFab::Copy(*mass_fluxes[idir], *fluxes[idir], URHO, 0, 1, 0);
+            }
         }
     }
 

@@ -2580,6 +2580,7 @@ copy_register_faces (const FluxRegister& reg, int dir, MultiFab& dst)
 {
     for (OrientationIter fi; fi.isValid(); ++fi) {
         if (fi().coordDir() == dir) {
+            AMREX_ALWAYS_ASSERT(reg[fi()].nComp() >= dst.nComp());
             reg[fi()].copyTo(dst, 0, 0, 0, dst.nComp());
         }
     }
@@ -4464,6 +4465,8 @@ HydroSim::save_data_for_retry ()
         // we'll use a trick where we temporarily change the
         // the arena used by the main state and then immediately
         // restore it.
+
+        AMREX_ALWAYS_ASSERT(prev_state[k] != nullptr);
 
         if (!prev_state[k]->hasOldData()) {
 

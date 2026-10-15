@@ -317,6 +317,8 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
         FArrayBox R_center(The_Async_Arena());
         FArrayBox tmp(The_Async_Arena());
 
+        AMREX_ALWAYS_ASSERT(Sreact.nGrow() >= 1);
+
         for (MFIter mfi(U_state); mfi.isValid(); ++mfi)
         {
 
