@@ -1053,7 +1053,7 @@ void HypreExtMultiDiffOp::boundaryDterm(int level,
                        bcv.array(bdcomp),
                        msk.array(),
                        (*d2coefs[level])[idim][mfi].array(),
-                       geom[level].CellSize());
+                       geom[level].CellSizeArray());
       }
       else {
           HDIFFOP::hdterm(Dterm[idim][mfi].array(),
@@ -1063,7 +1063,7 @@ void HypreExtMultiDiffOp::boundaryDterm(int level,
                         bcv.array(bdcomp),
                         msk.array(),
                         (*d2coefs[level])[idim][mfi].array(),
-                        geom[level].CellSize());
+                        geom[level].CellSizeArray());
       }
     }
   }

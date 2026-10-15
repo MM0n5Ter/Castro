@@ -197,7 +197,7 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
       Real divu = dudx[0] + dudy[1] + dudz[2];
 
       // Note that for single group, fspace_advection_type is always 1
-      Real af[NGROUPS];
+      GpuArray<Real, NGROUPS> af;
 
       for (int g = 0; g < NGROUPS; g++) {
 
@@ -298,12 +298,12 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
       int nstep_fsp_tmp = 1;
 
       if (NGROUPS > 1) {
-        Real ustar[NGROUPS];
+        GpuArray<Real, NGROUPS> ustar;
         for (int g = 0; g < NGROUPS; g++) {
           ustar[g] = Erout(i,j,k,g) / Erscale[g];
         }
 
-        update_one_species(NGROUPS, ustar, af, dlognu.begin(), dt, nstep_fsp_tmp);
+        update_one_species(NGROUPS, ustar, af, dlognu, dt, nstep_fsp_tmp);
 
         for (int g = 0; g < NGROUPS; g++) {
           Erout(i,j,k,g) = ustar[g] * Erscale[g];

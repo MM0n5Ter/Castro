@@ -138,7 +138,7 @@ class HypreDiffOp {
   void hbcoef (const amrex::Box& bx,
                amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                amrex::Array4<amrex::Real const> const& b,
-               amrex::Real beta, const amrex::Real* dx,
+               amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx,
                int idir);
 
   void hbmat (const amrex::Box& bx,
@@ -146,7 +146,7 @@ class HypreDiffOp {
               int cdir, int bct, amrex::Real bcl,
               amrex::Array4<int const> const& mask,
               amrex::Array4<amrex::Real const> const& b,
-              amrex::Real beta, const amrex::Real* dx);
+              amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx);
 
   void hbmat3 (const amrex::Box& bx,
                int ori_lo, int idir,
@@ -175,7 +175,7 @@ class HypreDiffOp {
                      amrex::Array4<amrex::Real const> const& bcval,
                      amrex::Array4<int const> const& mask,
                      amrex::Array4<amrex::Real const> const& b,
-                     amrex::Real beta, const amrex::Real* dx);
+                     amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx);
 
   static void hbvec3 (const amrex::Box& bx,
                       int ori_lo, int idir,
@@ -210,7 +210,7 @@ class HypreDiffOp {
   std::unique_ptr<amrex::MultiFab> acoefs;
   std::unique_ptr<amrex::MultiFab> bcoefs[AMREX_SPACEDIM];
   amrex::Real alpha, beta;
-  amrex::Real dx[AMREX_SPACEDIM];
+  amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx;
   amrex::Real reltol, abstol;
 
   std::unique_ptr<amrex::MultiFab> SPa; ///< LO_SANCHEZ_POMRANING alpha

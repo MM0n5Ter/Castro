@@ -902,15 +902,15 @@ void Radiation::compute_eta(MultiFab& eta, MultiFab& etainv,
     }
 }
 
-void Radiation::internal_energy_update(Real& relative, Real& absolute,
-                                       MultiFab& frhoes,
-                                       MultiFab& frhoem,
-                                       MultiFab& eta,
-                                       MultiFab& etainv,
-                                       MultiFab& dflux_old,
-                                       MultiFab& dflux_new,
-                                       MultiFab& exch,
-                                       Real delta_t)
+Radiation::EnergyResidual
+Radiation::internal_energy_update(MultiFab& frhoes,
+                                  MultiFab& frhoem,
+                                  MultiFab& eta,
+                                  MultiFab& etainv,
+                                  MultiFab& dflux_old,
+                                  MultiFab& dflux_new,
+                                  MultiFab& exch,
+                                  Real delta_t)
 {
   BL_PROFILE("Radiation::internal_energy_update");
 
@@ -961,28 +961,34 @@ void Radiation::internal_energy_update(Real& relative, Real& absolute,
 
   ReduceTuple hv = reduce_data.value();
 
-  relative = amrex::get<0>(hv);
-  absolute = amrex::get<1>(hv);
+  EnergyResidual res;
 
-  ParallelDescriptor::ReduceRealMax(relative);
-  ParallelDescriptor::ReduceRealMax(absolute);
+  res.relative = amrex::get<0>(hv);
+  res.absolute = amrex::get<1>(hv);
+
+  ParallelDescriptor::ReduceRealMax(res.relative);
+  ParallelDescriptor::ReduceRealMax(res.absolute);
+
+  return res;
 }
 
-void Radiation::internal_energy_update(Real& relative, Real& absolute,
-                                       MultiFab& frhoes,
-                                       MultiFab& frhoem,
-                                       MultiFab& eta,
-                                       MultiFab& etainv,
-                                       MultiFab& dflux_old,
-                                       MultiFab& dflux_new,
-                                       MultiFab& exch,
-                                       MultiFab& Dterm,
-                                       Real delta_t)
+Radiation::EnergyResidual
+Radiation::internal_energy_update(MultiFab& frhoes,
+                                  MultiFab& frhoem,
+                                  MultiFab& eta,
+                                  MultiFab& etainv,
+                                  MultiFab& dflux_old,
+                                  MultiFab& dflux_new,
+                                  MultiFab& exch,
+                                  MultiFab& Dterm,
+                                  Real delta_t)
 {
   BL_PROFILE("Radiation::internal_energy_update_d");
 
-  relative = 0.0;
-  absolute = 0.0;
+  EnergyResidual res;
+
+  res.relative = 0.0;
+  res.absolute = 0.0;
 
   ReduceOps<ReduceOpMax, ReduceOpMax> reduce_op;
   ReduceData<Real, Real> reduce_data(reduce_op);
@@ -1036,26 +1042,27 @@ void Radiation::internal_energy_update(Real& relative, Real& absolute,
 
   ReduceTuple hv = reduce_data.value();
 
-  relative = amrex::get<0>(hv);
-  absolute = amrex::get<1>(hv);
+  res.relative = amrex::get<0>(hv);
+  res.absolute = amrex::get<1>(hv);
 
-  ParallelDescriptor::ReduceRealMax(relative);
-  ParallelDescriptor::ReduceRealMax(absolute);
+  ParallelDescriptor::ReduceRealMax(res.relative);
+  ParallelDescriptor::ReduceRealMax(res.absolute);
 
+  return res;
 }
 
-void Radiation::nonconservative_energy_update(Real& relative, Real& absolute,
-                                              MultiFab& frhoes,
-                                              MultiFab& frhoem,
-                                              MultiFab& eta,
-                                              MultiFab& etainv,
-                                              MultiFab& Er_new,
-                                              MultiFab& dflux_old,
-                                              MultiFab& dflux_new,
-                                              MultiFab& temp,
-                                              MultiFab& fkp,
-                                              MultiFab& state,
-                                              Real delta_t)
+Radiation::EnergyResidual
+Radiation::nonconservative_energy_update(MultiFab& frhoes,
+                                         MultiFab& frhoem,
+                                         MultiFab& eta,
+                                         MultiFab& etainv,
+                                         MultiFab& Er_new,
+                                         MultiFab& dflux_old,
+                                         MultiFab& dflux_new,
+                                         MultiFab& temp,
+                                         MultiFab& fkp,
+                                         MultiFab& state,
+                                         Real delta_t)
 {
   BL_PROFILE("Radiation::nonconservative_energy_update");
 
@@ -1130,11 +1137,15 @@ void Radiation::nonconservative_energy_update(Real& relative, Real& absolute,
 
   ReduceTuple hv = reduce_data.value();
 
-  absolute = amrex::get<0>(hv);
-  relative = amrex::get<1>(hv);
+  EnergyResidual res;
 
-  ParallelDescriptor::ReduceRealMax(relative);
-  ParallelDescriptor::ReduceRealMax(absolute);
+  res.absolute = amrex::get<0>(hv);
+  res.relative = amrex::get<1>(hv);
+
+  ParallelDescriptor::ReduceRealMax(res.relative);
+  ParallelDescriptor::ReduceRealMax(res.absolute);
+
+  return res;
 }
 
 void Radiation::state_update(MultiFab& state, MultiFab& frhoes)
@@ -2129,9 +2140,9 @@ void Radiation::reflux(int level)
 // Computes the scaled gradient for use in flux limiters
 
 void Radiation::scaledGradient(int level,
-                               Array<MultiFab, AMREX_SPACEDIM>& R,
                                MultiFab& kappa_r, int kcomp,
                                MultiFab& Er, int igroup,
+                               Array<MultiFab, AMREX_SPACEDIM>& R,
                                int nGrow_Er, int Rcomp)
 {
   BL_PROFILE("Radiation::scaledGradient");

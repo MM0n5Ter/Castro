@@ -9,10 +9,17 @@
 
 using namespace amrex;
 
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void cell_center_metric(int i, int j, int k, const GeometryData& geomdata,
-                        Real& r, Real& s)
+struct MetricFactors
 {
+    Real r;
+    Real s;
+};
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+MetricFactors cell_center_metric(int i, int j, int k, const GeometryData& geomdata)
+{
+    Real r, s;
+
     if (geomdata.Coord() == 0)
     {
         r = 1.0_rt;
@@ -47,14 +54,17 @@ void cell_center_metric(int i, int j, int k, const GeometryData& geomdata,
        s = 1.0_rt;
 #endif
     }
+
+    return {r, s};
 }
 
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geomdata,
-                         Real& r, Real& s)
+MetricFactors edge_center_metric (int i, int j, int k, int idir, const GeometryData& geomdata)
 {
+    Real r, s;
+
     if (geomdata.Coord() == 0)
     {
         r = 1.0_rt;
@@ -121,16 +131,20 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
             s = std::sin(s);
         }
     }
+
+    return {r, s};
 }
 
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void face_metric (int i, int j, int k, int lo, int hi,
-                  const GeometryData& geomdata, int ori_dir, int ori_lo, Real& r)
+Real face_metric (int i, int j, int k, int lo, int hi,
+                  const GeometryData& geomdata, int ori_dir, int ori_lo)
 {
     const Real* problo = geomdata.ProbLo();
     const Real* dx = geomdata.CellSize();
+
+    Real r;
 
     if (ori_dir == 0) {
 
@@ -179,15 +193,23 @@ void face_metric (int i, int j, int k, int lo, int hi,
         }
 
     }
+
+    return r;
 }
 
 
 
+struct GasRadiationTotals
+{
+  Real ptot;
+  Real ctot;
+  Real gamc_tot;
+};
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-compute_ptot_ctot(const Real* lam, const Real* q,
-                  Real cg,
-                  Real& ptot, Real& ctot, Real& gamc_tot) {
+GasRadiationTotals
+compute_ptot_ctot(const GpuArray<Real, NGROUPS>& lam, const GpuArray<Real, NQ>& q,
+                  Real cg) {
 
   Real csrad2 = 0.0_rt;
   Real prad = 0.0_rt;
@@ -205,12 +227,16 @@ compute_ptot_ctot(const Real* lam, const Real* q,
     csrad2 += gamr * (lam[g]*q[QERAD+g]) / q[QRHO];
   }
 
-  ptot = q[QPRES] + prad;
+  GasRadiationTotals tot;
 
-  ctot = cg*cg + csrad2;
-  gamc_tot = ctot * q[QRHO] / ptot;
+  tot.ptot = q[QPRES] + prad;
 
-  ctot = std::sqrt(ctot);
+  tot.ctot = cg*cg + csrad2;
+  tot.gamc_tot = tot.ctot * q[QRHO] / tot.ptot;
+
+  tot.ctot = std::sqrt(tot.ctot);
+
+  return tot;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE

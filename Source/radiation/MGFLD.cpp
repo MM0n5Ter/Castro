@@ -13,12 +13,12 @@
 
 using namespace amrex;
 
-void Radiation::check_convergence_er(Real& relative, Real& absolute, Real& err_er,
-                                     const MultiFab& Er_new, const MultiFab& Er_pi,
-                                     const MultiFab& kappa_p,
-                                     const MultiFab& etaTz,
-                                     const MultiFab& temp_new,
-                                     Real delta_t)
+Radiation::InnerResidual
+Radiation::check_convergence_er(const MultiFab& Er_new, const MultiFab& Er_pi,
+                                const MultiFab& kappa_p,
+                                const MultiFab& etaTz,
+                                const MultiFab& temp_new,
+                                Real delta_t)
 {
   BL_PROFILE("Radiation::check_convergence_er (MGFLD)");
 
@@ -64,17 +64,21 @@ void Radiation::check_convergence_er(Real& relative, Real& absolute, Real& err_e
 
   ReduceTuple hv = reduce_data.value();
 
-  relative = amrex::get<0>(hv);
-  absolute = amrex::get<1>(hv);
-  err_er   = amrex::get<2>(hv);
+  InnerResidual res;
 
-  Real data[3] = {relative, absolute, err_er};
+  res.relative = amrex::get<0>(hv);
+  res.absolute = amrex::get<1>(hv);
+  res.err_er   = amrex::get<2>(hv);
+
+  Real data[3] = {res.relative, res.absolute, res.err_er};
 
   ParallelDescriptor::ReduceRealMax(data, 3);
 
-  relative = data[0];
-  absolute = data[1];
-  err_er   = data[2];
+  res.relative = data[0];
+  res.absolute = data[1];
+  res.err_er   = data[2];
+
+  return res;
 }
 
 
@@ -84,10 +88,10 @@ void Radiation::check_convergence_matt(const MultiFab& rhoe_new, const MultiFab&
                                        const MultiFab& rho,
                                        const MultiFab& kappa_p, const MultiFab& jg,
                                        const MultiFab& dedT,
+                                       Real delta_t,
                                        Real& rel_rhoe, Real& abs_rhoe,
                                        Real& rel_FT,   Real& abs_FT,
-                                       Real& rel_T,    Real& abs_T,
-                                       Real delta_t)
+                                       Real& rel_T,    Real& abs_T)
 {
   ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax> reduce_op;
   ReduceData<Real, Real, Real, Real, Real, Real> reduce_data(reduce_op);
@@ -399,7 +403,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
           Real Teff = amrex::max(temp_new_arr(i,j,k), 1.e-50_rt);
 
           Real B1, dBdT1;
-          BdBdTIndefInteg(Teff, 0.0_rt, B1, dBdT1);
+          amrex::Tie(B1, dBdT1) = BdBdTIndefInteg(Teff, 0.0_rt);
 
           for (int g = 0; g < NGROUPS; ++g) {
 
@@ -414,7 +418,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
 
               Real B0 = B1;
               Real dBdT0 = dBdT1;
-              BdBdTIndefInteg(Teff, xnup, B1, dBdT1);
+              amrex::Tie(B1, dBdT1) = BdBdTIndefInteg(Teff, xnup);
               Real Bg = B1 - B0;
               Real dBdT = dBdT1 - dBdT0;
 
@@ -745,10 +749,11 @@ void Radiation::local_accel(MultiFab& Er_new, const MultiFab& Er_pi,
 }
 
 
-void Radiation::state_energy_update(MultiFab& state, const MultiFab& rhoe,
-                                    const MultiFab& temp,
-                                    const BoxArray& grids,
-                                    Real& derat, Real& dT, int level)
+GpuTuple<Real, Real>
+Radiation::state_energy_update(MultiFab& state, const MultiFab& rhoe,
+                               const MultiFab& temp,
+                               const BoxArray& grids,
+                               int level)
 {
   BL_PROFILE("Radiation::state_energy_update (MGFLD)");
 
@@ -818,11 +823,13 @@ void Radiation::state_energy_update(MultiFab& state, const MultiFab& rhoe,
   }
 
   ReduceTuple hv = reduce_data.value();
-  derat = amrex::get<0>(hv);
-  dT = amrex::get<1>(hv);
+  Real derat = amrex::get<0>(hv);
+  Real dT = amrex::get<1>(hv);
 
   ParallelDescriptor::ReduceRealMax(derat);
   ParallelDescriptor::ReduceRealMax(dT);
+
+  return {derat, dT};
 }
 
 
@@ -1890,8 +1897,7 @@ void Radiation::rhstoEr(MultiFab& rhs, Real dt, int level)
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
         {
-            Real r, s;
-            cell_center_metric(i, j, k, geomdata, r, s);
+            const Real r = cell_center_metric(i, j, k, geomdata).r;
 
             rhs_arr(i,j,k) *= dt / r;
         });

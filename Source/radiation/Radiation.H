@@ -10,6 +10,7 @@
 #include <RadSolve.H>
 #include <AMReX_FluxRegister.H>
 #include <AMReX_Array.H>
+#include <AMReX_Tuple.H>
 
 #include <radiation_params.H>
 
@@ -334,8 +335,16 @@ public:
 
 
 ///
-/// @param relative
-/// @param absolute
+/// largest relative and absolute change of the matter energy in one update
+///
+  struct EnergyResidual
+  {
+      amrex::Real relative;
+      amrex::Real absolute;
+  };
+
+
+///
 /// @param frhoes
 /// @param frhoem
 /// @param eta
@@ -345,16 +354,13 @@ public:
 /// @param exchange
 /// @param delta_t
 ///
-  void internal_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                              amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                              amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
-                              amrex::MultiFab& exchange, amrex::Real delta_t);
+  EnergyResidual internal_energy_update(amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
+                                        amrex::MultiFab& eta, amrex::MultiFab& etainv,
+                                        amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
+                                        amrex::MultiFab& exchange, amrex::Real delta_t);
 
 
 ///
-/// @param relative
-/// @param absolute
 /// @param frhoes
 /// @param frhoem
 /// @param eta
@@ -365,17 +371,14 @@ public:
 /// @param Dterm
 /// @param delta_t
 ///
-  void internal_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                              amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                              amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
-                              amrex::MultiFab& exchange, amrex::MultiFab& Dterm,
-                              amrex::Real delta_t);
+  EnergyResidual internal_energy_update(amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
+                                        amrex::MultiFab& eta, amrex::MultiFab& etainv,
+                                        amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
+                                        amrex::MultiFab& exchange, amrex::MultiFab& Dterm,
+                                        amrex::Real delta_t);
 
 
 ///
-/// @param relative
-/// @param absolute
 /// @param frhoes
 /// @param frhoem
 /// @param eta
@@ -388,13 +391,12 @@ public:
 /// @param state
 /// @param delta_t
 ///
-  void nonconservative_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                                     amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                                     amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                                     amrex::MultiFab& Er_new,
-                                     amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
-                                     amrex::MultiFab& temp, amrex::MultiFab& fkp,
-                                     amrex::MultiFab& state, amrex::Real delta_t);
+  EnergyResidual nonconservative_energy_update(amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
+                                               amrex::MultiFab& eta, amrex::MultiFab& etainv,
+                                               amrex::MultiFab& Er_new,
+                                               amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
+                                               amrex::MultiFab& temp, amrex::MultiFab& fkp,
+                                               amrex::MultiFab& state, amrex::Real delta_t);
 
 
 ///
@@ -443,19 +445,19 @@ public:
 /// Computes the scaled gradient for use in flux limiters & Eddington factors
 ///
 /// @param level
-/// @param amrex::Array<amrex::MultiFab
-/// @param R
 /// @param kappa_r
 /// @param kcomp
 /// @param Er
 /// @param igroup
+/// @param amrex::Array<amrex::MultiFab
+/// @param R
 /// @param nGrow_Er
 /// @param Rcomp
 ///
   void scaledGradient(int level,
-                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& R,
                       amrex::MultiFab& kappa_r, int kcomp,
                       amrex::MultiFab& Er, int igroup,
+                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& R,
                       int nGrow_Er=0, int Rcomp=0);
 
 ///
@@ -604,9 +606,17 @@ public:
 ///
 
 ///
-/// @param relative_in
-/// @param absolute_in
-/// @param error_er
+/// change of the group radiation energies over one inner iteration, and the
+/// temperature error it implies
+///
+  struct InnerResidual
+  {
+      amrex::Real relative;
+      amrex::Real absolute;
+      amrex::Real err_er;
+  };
+
+///
 /// @param Er_new
 /// @param Er_pi
 /// @param kappa_p
@@ -614,12 +624,11 @@ public:
 /// @param temp_new
 /// @param delta_t
 ///
-  void check_convergence_er(amrex::Real& relative_in, amrex::Real& absolute_in, amrex::Real& error_er,
-                            const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
-                            const amrex::MultiFab& kappa_p,
-                            const amrex::MultiFab& etaTz,
-                            const amrex::MultiFab& temp_new,
-                            amrex::Real delta_t);
+  InnerResidual check_convergence_er(const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
+                                     const amrex::MultiFab& kappa_p,
+                                     const amrex::MultiFab& etaTz,
+                                     const amrex::MultiFab& temp_new,
+                                     amrex::Real delta_t);
 
 ///
 /// @param rhoe_new
@@ -632,13 +641,13 @@ public:
 /// @param kappa_p
 /// @param jg
 /// @param dedT
+/// @param delta_t
 /// @param rel_rhoe
 /// @param abs_rhoe
 /// @param rel_FT
 /// @param abs_FT
 /// @param rel_T
 /// @param abs_T
-/// @param delta_t
 ///
   void check_convergence_matt(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& rhoe_star,
                               const amrex::MultiFab& rhoe_step, const amrex::MultiFab& Er_new,
@@ -646,10 +655,10 @@ public:
                               const amrex::MultiFab& rho,
                               const amrex::MultiFab& kappa_p, const amrex::MultiFab& jg,
                               const amrex::MultiFab& dedT,
+                              amrex::Real delta_t,
                               amrex::Real& rel_rhoe, amrex::Real& abs_rhoe,
                               amrex::Real& rel_FT,   amrex::Real& abs_FT,
-                              amrex::Real& rel_T,    amrex::Real& abs_T,
-                              amrex::Real delta_t);
+                              amrex::Real& rel_T,    amrex::Real& abs_T);
 
 ///
 /// @param coupT
@@ -745,13 +754,15 @@ public:
 /// @param rhoe
 /// @param temp
 /// @param grids
-/// @param derat
-/// @param dT
 /// @param level
 ///
-  void state_energy_update(amrex::MultiFab& state, const amrex::MultiFab& rhoe,
-                           const amrex::MultiFab& temp, const amrex::BoxArray& grids,
-                           amrex::Real& derat, amrex::Real& dT, int level);
+/// returns the largest relative change of the internal energy and of the
+/// temperature on the level's uncovered cells
+///
+  amrex::GpuTuple<amrex::Real, amrex::Real>
+  state_energy_update(amrex::MultiFab& state, const amrex::MultiFab& rhoe,
+                      const amrex::MultiFab& temp, const amrex::BoxArray& grids,
+                      int level);
 
 ///
 /// @param rhoe_new

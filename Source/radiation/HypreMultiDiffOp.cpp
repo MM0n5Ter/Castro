@@ -1720,8 +1720,7 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
-        Real r;
-        face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo, r);
+        const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
         Real bfm, bfv;
         Real bfm2, h2, th2;
@@ -2612,7 +2611,7 @@ void HypreMultiDiffOp::loadLevelVectors(int level,
                                cdir, bct, bho, bcl,
                                fs.array(bdcomp), msk.array(),
                                (*bcoefs[level])[idim][mfi].array(),
-                               beta, geom[level].CellSize());
+                               beta, geom[level].CellSizeArray());
           }
         }
         // There is no else here, since we would then be at an
@@ -2727,7 +2726,7 @@ void HypreMultiDiffOp::loadLevelVectorB(int level,
                                cdir, bct, bho, bcl,
                                fs.array(bdcomp), msk.array(),
                                (*bcoefs[level])[idim][mfi].array(),
-                               beta, geom[level].CellSize());
+                               beta, geom[level].CellSizeArray());
           }
         }
         // There is no else here, since we would then be at an
@@ -3857,7 +3856,7 @@ void HypreMultiDiffOp::boundaryFlux(int level,
                                   fs.array(bdcomp),
                                   msk.array(),
                                   (*bcoefs[level])[idim][mfi].array(),
-                                  beta, geom[level].CellSize(),
+                                  beta, geom[level].CellSizeArray(),
                                   flux_factor, oitr(),
                                   geom[level].data(), inhom,
                                   sp_arr);
@@ -3870,7 +3869,7 @@ void HypreMultiDiffOp::boundaryFlux(int level,
                                  fs.array(bdcomp),
                                  msk.array(),
                                  (*bcoefs[level])[idim][mfi].array(),
-                                 beta, geom[level].CellSize(), inhom);
+                                 beta, geom[level].CellSizeArray(), inhom);
                 }
             }
         }

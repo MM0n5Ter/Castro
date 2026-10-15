@@ -23,7 +23,7 @@ namespace HDIFFOP
                 Array4<Real const> const bcval,
                 Array4<int const> const mask,
                 Array4<Real const> const b,
-                Real beta, const Real* dx, int inhom)
+                Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx, int inhom)
     {
         Real h;
 
@@ -209,7 +209,7 @@ namespace HDIFFOP
                  Array4<Real const> const bcval,
                  Array4<int const> const mask,
                  Array4<Real const> const b,
-                 Real beta, const Real* const dx, Real c,
+                 Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx, Real c,
                  const Orientation& ori,
                  const GeometryData& geomdata, int inhom,
                  Array4<Real const> const spa)
@@ -291,8 +291,7 @@ namespace HDIFFOP
 
         amrex::LoopOnCpu(reg, [=] (int i, int j, int k) noexcept
         {
-            Real r;
-            face_metric(i, j, k, reg.loVect()[0], reg.hiVect()[0], geomdata, ori.coordDir(), ori.isLow(), r);
+            const Real r = face_metric(i, j, k, reg.loVect()[0], reg.hiVect()[0], geomdata, ori.coordDir(), ori.isLow());
 
             Real bfv, bfm, bfm2, h2, th2;
             int bct;
@@ -375,7 +374,7 @@ namespace HDIFFOP
                  Array4<Real const> const bcval,
                  Array4<int const> const mask,
                  Array4<Real const> const d,
-                 const Real* dx)
+                 const GpuArray<Real, AMREX_SPACEDIM>& dx)
     {
         Real h;
 
@@ -479,7 +478,7 @@ namespace HDIFFOP
                   Array4<Real const> const bcval,
                   Array4<int const> const mask,
                   Array4<Real const> const d,
-                  const Real* const dx)
+                  const GpuArray<Real, AMREX_SPACEDIM>& dx)
     {
         Real h;
 

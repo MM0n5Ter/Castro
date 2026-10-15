@@ -143,8 +143,7 @@ void RadSolve::cellCenteredApplyMetrics(int level, MultiFab& cc)
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
         {
-            Real r, s;
-            cell_center_metric(i, j, k, geomdata, r, s);
+            const auto [r, s] = cell_center_metric(i, j, k, geomdata);
 
             cc_arr(i,j,k) *= r * s;
         });
@@ -217,8 +216,7 @@ void RadSolve::levelACoeffs(int level,
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
       {
-          Real r, s;
-          cell_center_metric(i, j, k, geomdata, r, s);
+          auto [r, s] = cell_center_metric(i, j, k, geomdata);
 
           if (AMREX_SPACEDIM == 1) {
               s = 1.e0_rt;
@@ -242,7 +240,7 @@ void RadSolve::levelACoeffs(int level,
 }
 
 void RadSolve::levelSPas(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda, int igroup,
-                         int lo_bc[3], int hi_bc[3])
+                         const Array<int, 3>& lo_bc, const Array<int, 3>& hi_bc)
 {
   const BoxArray& grids = parent->boxArray(level);
   const DistributionMapping& dmap = parent->DistributionMap(level);
@@ -357,8 +355,7 @@ void RadSolve::levelBCoeffs(int level,
         {
             if (idim == 0) {
 
-                Real r, s;
-                edge_center_metric(i, j, k, idim, geomdata, r, s);
+                auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
                 if (AMREX_SPACEDIM == 1) {
                     s = 1.e0_rt;
@@ -370,8 +367,7 @@ void RadSolve::levelBCoeffs(int level,
             }
             else if (idim == 1) {
 
-                Real r, s;
-                edge_center_metric(i, j, k, idim, geomdata, r, s);
+                auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
                 if (AMREX_SPACEDIM == 1) {
                     s = 1.e0_rt;
@@ -383,8 +379,7 @@ void RadSolve::levelBCoeffs(int level,
             }
             else {
 
-                Real r, s;
-                edge_center_metric(i, j, k, idim, geomdata, r, s);
+                auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
                 if (AMREX_SPACEDIM == 1) {
                     s = 1.e0_rt;
@@ -438,11 +433,11 @@ void RadSolve::levelDCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                Real r, s;
+                Real r;
 
                 if (idim == 0) {
 
-                    edge_center_metric(i, j, k, idim, geomdata, r, s);
+                    r = edge_center_metric(i, j, k, idim, geomdata).r;
 
                     if (vel_arr(i-1,j,k,0) + vel_arr(i,j,k,0) > 0.e0_rt) {
                         dcoefs_arr(i,j,k) = dcf_arr(i-1,j,k) * vel_arr(i-1,j,k,0) * lambda_arr(i,j,k);
@@ -459,7 +454,7 @@ void RadSolve::levelDCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
                 }
                 else if (idim == 1) {
 
-                    edge_center_metric(i, j, k, idim, geomdata, r, s);
+                    r = edge_center_metric(i, j, k, idim, geomdata).r;
 
                     if (vel_arr(i,j-1,k,1) + vel_arr(i,j,k,1) > 0.e0_rt) {
                         dcoefs_arr(i,j,k) = dcf_arr(i,j-1,k) * vel_arr(i,j-1,k,1) * lambda_arr(i,j,k);
@@ -476,7 +471,7 @@ void RadSolve::levelDCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
                 }
                 else {
 
-                    edge_center_metric(i, j, k, idim, geomdata, r, s);
+                    r = edge_center_metric(i, j, k, idim, geomdata).r;
 
                     if (vel_arr(i,j,k-1,2) + vel_arr(i,j,k,2) > 0.e0_rt) {
                         dcoefs_arr(i,j,k) = dcf_arr(i,j,k-1) * vel_arr(i,j,k-1,2) * lambda_arr(i,j,k);
@@ -500,11 +495,7 @@ void RadSolve::levelDCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
     }
 }
 
-void RadSolve::levelRhs(int level, MultiFab& rhs,
-                        MultiFab& temp,
-                        MultiFab& fkp, MultiFab& eta, MultiFab& etainv,
-                        MultiFab& rhoem, MultiFab& rhoes,
-                        MultiFab& dflux_old, MultiFab& Er_old, MultiFab& Edot,
+void RadSolve::levelRhs(int level, MultiFab& rhs, const GrayEnergyCoupling& coupling,
                         Real delta_t, Real sigma, Real c, Real theta,
                         FluxRegister* fine_corr, Real scale,
                         int igroup, Real nu, Real dnu)
@@ -538,15 +529,15 @@ void RadSolve::levelRhs(int level, MultiFab& rhs,
       const Box& bx = mfi.tilebox();
 
       auto rhs_arr = rhs[mfi].array();
-      auto temp_arr = temp[mfi].array();
-      auto fkp_arr = fkp[mfi].array();
-      auto eta_arr = eta[mfi].array();
-      auto etainv_arr = etainv[mfi].array();
-      auto rhoem_arr = rhoem[mfi].array();
-      auto rhoes_arr = rhoes[mfi].array();
-      auto dflux_old_arr = dflux_old[mfi].array();
-      auto Er_old_arr = Er_old[mfi].array(0);
-      auto Edot_arr = Edot[mfi].array();
+      auto temp_arr = coupling.temp[mfi].array();
+      auto fkp_arr = coupling.fkp[mfi].array();
+      auto eta_arr = coupling.eta[mfi].array();
+      auto etainv_arr = coupling.etainv[mfi].array();
+      auto rhoem_arr = coupling.rhoem[mfi].array();
+      auto rhoes_arr = coupling.rhoes[mfi].array();
+      auto dflux_old_arr = coupling.dflux_old[mfi].array();
+      auto Er_old_arr = coupling.Er_old[mfi].array(0);
+      auto Edot_arr = coupling.Edot[mfi].array();
 
       const Real dtm = 1.0_rt / delta_t;
 
@@ -558,8 +549,7 @@ void RadSolve::levelRhs(int level, MultiFab& rhs,
           Real es = eta_arr(i,j,k) * (rhoem_arr(i,j,k) - rhoes_arr(i,j,k));
           Real ekt = (1.0_rt - theta) * eta_arr(i,j,k);
 
-          Real r, s;
-          cell_center_metric(i, j, k, geomdata, r, s);
+          auto [r, s] = cell_center_metric(i, j, k, geomdata);
 
           if (AMREX_SPACEDIM == 1) {
               s = 1.0_rt;
@@ -664,11 +654,8 @@ void RadSolve::levelFluxFaceToCenter(int level, const Array<MultiFab, AMREX_SPAC
             {
                 int it = idim * NGROUPS + iflx;
 
-                Real r_left, s_left;
-                edge_center_metric(i, j, k, idim, geomdata, r_left, s_left);
-
-                Real r_right, s_right;
-                edge_center_metric(i+1, j, k, idim, geomdata, r_right, s_right);
+                const Real r_left = edge_center_metric(i, j, k, idim, geomdata).r;
+                const Real r_right = edge_center_metric(i+1, j, k, idim, geomdata).r;
 
                 if (idim == 0) {
                     t(i,j,k,it) = (f(i,j,k) / (r_left + 1.e-50_rt) + f(i+1,j,k) / r_right) * 0.5_rt;
@@ -874,14 +861,12 @@ void RadSolve::levelDterm(int level, MultiFab& Dterm, MultiFab& Er, int igroup)
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
               if (dir == 0 && (geomdata.Coord() == CoordSys::SPHERICAL || geomdata.Coord() == CoordSys::RZ)) {
-                  Real r, s;
-                  edge_center_metric(i, j, k, dir, geomdata, r, s);
+                  const Real r = edge_center_metric(i, j, k, dir, geomdata).r;
 
                   d(i,j,k) = d(i,j,k) / (r + 1.0e-50_rt);
               }
               else if (dir == 1 && geomdata.Coord() == CoordSys::RZ) {
-                  Real r, s;
-                  cell_center_metric(i, j, k, geomdata, r, s);
+                  const Real r = cell_center_metric(i, j, k, geomdata).r;
 
                   d(i,j,k) = d(i,j,k) / r;
               }
@@ -949,8 +934,7 @@ void RadSolve::computeBCoeffs(MultiFab& bcoefs, int idim,
       {
           if (idim == 0) {
 
-              Real r, s;
-              edge_center_metric(i, j, k, idim, geomdata, r, s);
+              auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
               if (AMREX_SPACEDIM == 1) {
                   s = 1.e0_rt;
@@ -962,8 +946,7 @@ void RadSolve::computeBCoeffs(MultiFab& bcoefs, int idim,
           }
           else if (idim == 1) {
 
-              Real r, s;
-              edge_center_metric(i, j, k, idim, geomdata, r, s);
+              auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
               if (AMREX_SPACEDIM == 1) {
                   s = 1.e0_rt;
@@ -975,8 +958,7 @@ void RadSolve::computeBCoeffs(MultiFab& bcoefs, int idim,
           }
           else {
 
-              Real r, s;
-              edge_center_metric(i, j, k, idim, geomdata, r, s);
+              auto [r, s] = edge_center_metric(i, j, k, idim, geomdata);
 
               if (AMREX_SPACEDIM == 1) {
                   s = 1.e0_rt;
@@ -1019,11 +1001,10 @@ void RadSolve::levelACoeffs(int level, MultiFab& kpp,
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
       {
-          Real r, s;
-          cell_center_metric(i, j, k, geomdata, r, s);
+          const MetricFactors metric = cell_center_metric(i, j, k, geomdata);
 
           acoefs_arr(i,j,k) = c * kpp_arr(i,j,k) + 1.e0_rt / dt_ptc;
-          acoefs_arr(i,j,k) = r * s * acoefs_arr(i,j,k);
+          acoefs_arr(i,j,k) = metric.r * metric.s * acoefs_arr(i,j,k);
       });
   }
 
@@ -1040,12 +1021,7 @@ void RadSolve::levelACoeffs(int level, MultiFab& kpp,
 }
 
 
-void RadSolve::levelRhs(int level, MultiFab& rhs, const MultiFab& jg,
-                        const MultiFab& mugT,
-                        const MultiFab& coupT,
-                        const MultiFab& etaT,
-                        const MultiFab& Er_step, const MultiFab& rhoe_step,
-                        const MultiFab& Er_star, const MultiFab& rhoe_star,
+void RadSolve::levelRhs(int level, MultiFab& rhs, const GroupEnergyCoupling& coupling,
                         Real delta_t, int igroup, int it, Real ptc_tau)
 {
   BL_PROFILE("RadSolve::levelRhs (MGFLD version)");
@@ -1064,14 +1040,14 @@ void RadSolve::levelRhs(int level, MultiFab& rhs, const MultiFab& jg,
       const Box& bx = ri.tilebox();
 
       auto rhs_arr = rhs[ri].array();
-      auto jg_arr = jg[ri].array();
-      auto mugT_arr = mugT[ri].array();
-      auto coupT_arr = coupT[ri].array();
-      auto etaT_arr = etaT[ri].array();
-      auto Er_step_arr = Er_step[ri].array();
-      auto rhoe_step_arr = rhoe_step[ri].array();
-      auto Er_star_arr = Er_star[ri].array();
-      auto rhoe_star_arr = rhoe_star[ri].array();
+      auto jg_arr = coupling.jg[ri].array();
+      auto mugT_arr = coupling.muTg[ri].array();
+      auto coupT_arr = coupling.coupT[ri].array();
+      auto etaT_arr = coupling.etaT[ri].array();
+      auto Er_step_arr = coupling.Er_step[ri].array();
+      auto rhoe_step_arr = coupling.rhoe_step[ri].array();
+      auto Er_star_arr = coupling.Er_star[ri].array();
+      auto rhoe_star_arr = coupling.rhoe_star[ri].array();
 
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -1082,8 +1058,7 @@ void RadSolve::levelRhs(int level, MultiFab& rhs, const MultiFab& jg,
                            + dt1 * (Er_step_arr(i,j,k,igroup) - Hg * (rhoe_star_arr(i,j,k) - rhoe_step_arr(i,j,k))
                                     + ptc_tau * Er_star_arr(i,j,k,igroup));
 
-          Real r, s;
-          cell_center_metric(i, j, k, geomdata, r, s);
+          const Real r = cell_center_metric(i, j, k, geomdata).r;
 
           rhs_arr(i,j,k) *= r;
 

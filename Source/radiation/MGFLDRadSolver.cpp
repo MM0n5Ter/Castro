@@ -59,7 +59,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
       MGFLD_compute_rosseland(kpr_lag, S_lag);
 
       for (int igroup=0; igroup<nGroups; ++igroup) {
-        scaledGradient(level, lambda, kpr_lag, igroup, Er_lag, igroup, 1, igroup);
+        scaledGradient(level, kpr_lag, igroup, Er_lag, igroup, lambda, 1, igroup);
         // lambda now contains scaled gradient
         fluxLimiter(level, lambda, igroup);
         // lambda now contains flux limiter
@@ -143,7 +143,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
   getBndryDataMG(mgbd, Er_new, time, level);
 
   bool have_Sanchez_Pomraning = false;
-  int lo_bc[3]={0}, hi_bc[3]={0};
+  Array<int, 3> lo_bc{}, hi_bc{};
   for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
     lo_bc[idim] = rad_bc.lo(idim);
     hi_bc[idim] = rad_bc.hi(idim);
@@ -155,7 +155,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
 
   RadSolve* const solver = hydrosim->rad_solver.get();
 
-  Real relative_in, absolute_in, error_er;
+  InnerResidual inner;
   Real rel_rhoe, abs_rhoe;
   Real rel_T, abs_T;
   Real rel_FT, abs_FT;
@@ -215,7 +215,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
       Er_star.FillBoundary(parent->Geom(level).periodicity());
 
       for (int igroup=0; igroup<nGroups; ++igroup) {
-        scaledGradient(level, lambda, kappa_r, igroup, Er_star, igroup, 1, igroup);
+        scaledGradient(level, kappa_r, igroup, Er_star, igroup, lambda, 1, igroup);
         // lambda now contains scaled gradient
         fluxLimiter(level, lambda, igroup);
         // lambda now contains flux limiter
@@ -246,7 +246,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
           Er_pi.FillBoundary(parent->Geom(level).periodicity());
 
           for (int igroup=0; igroup<nGroups; ++igroup) {
-            scaledGradient(level, lambda, kappa_r, igroup, Er_pi, igroup, 1, igroup);
+            scaledGradient(level, kappa_r, igroup, Er_pi, igroup, lambda, 1, igroup);
             // lambda now contains scaled gradient
             fluxLimiter(level, lambda, igroup);
             // lambda now contains flux limiter
@@ -278,9 +278,9 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
 
           MultiFab rhs(grids,dmap,1,0);
 
-          solver->levelRhs(level, rhs, jg, mugT,
-                           coupT, etaT,
-                           Er_step, rhoe_step, Er_star, rhoe_star,
+          const RadSolve::GroupEnergyCoupling coupling{jg, mugT, coupT, etaT,
+                                                       Er_step, rhoe_step, Er_star, rhoe_star};
+          solver->levelRhs(level, rhs, coupling,
                            delta_t, igroup, it, ptc_tau);
 
           // solve Er equation and put solution in Er_new(igroup)
@@ -296,41 +296,41 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
       } // end loop over groups
 
       // Check for convergence *before* acceleration step:
-      check_convergence_er(relative_in, absolute_in, error_er, Er_new, Er_pi,
-                           kappa_p, etaTz, temp_new, delta_t);
+      inner = check_convergence_er(Er_new, Er_pi,
+                                   kappa_p, etaTz, temp_new, delta_t);
 
       if (verbose >= 2) {
         int oldprec = std::cout.precision(3);
         amrex::Print() << "Outer = " << it << ", Inner = " << innerIteration
-                       << ", inner err =  " << std::setw(8) << relative_in << " (rel),  "
-                       << std::setw(8) << absolute_in << " (abs)" << std::endl;
+                       << ", inner err =  " << std::setw(8) << inner.relative << " (rel),  "
+                       << std::setw(8) << inner.absolute << " (abs)" << std::endl;
         std::cout.precision(oldprec);
       }
 
-      if (relative_in < 1.e-15) {
+      if (inner.relative < 1.e-15) {
         inner_converged = true;
       }
       else if (innerIteration < minInIter) {
         inner_converged = false;
       }
-      else if ( (relative_in <= reltol_in || absolute_in <= absInTol)
-                && error_er <= reltol ) {
+      else if ( (inner.relative <= reltol_in || inner.absolute <= absInTol)
+                && inner.err_er <= reltol ) {
         inner_converged = true;
       }
 
       if (!inner_converged) {
         Real accel_fac=1.+1.e-6;
         if (skipAccelAllowed &&
-            relative_in>accel_fac*relative_in_prev &&
-            absolute_in>accel_fac*absolute_in_prev) {
+            inner.relative>accel_fac*relative_in_prev &&
+            inner.absolute>accel_fac*absolute_in_prev) {
           accel_allowed = false;
-          if (relative_in>10.*relative_in_prev &&
-              absolute_in>10.*absolute_in_prev) {
+          if (inner.relative>10.*relative_in_prev &&
+              inner.absolute>10.*absolute_in_prev) {
             MultiFab::Copy(Er_new, Er_star, 0, 0, nGroups, 0);
           }
         }
-        relative_in_prev = relative_in;
-        absolute_in_prev = absolute_in;
+        relative_in_prev = inner.relative;
+        absolute_in_prev = inner.absolute;
 
         if (accel_allowed) {
           if (accelerate == 1) {
@@ -350,8 +350,8 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     if (verbose == 1) {
       int oldprec = std::cout.precision(3);
       amrex::Print() << "Outer = " << it << ", Inner = " << innerIteration
-                     << ", inner tol =  " << std::setw(8) << relative_in << "  "
-                     << std::setw(8) << absolute_in << std::endl;
+                     << ", inner tol =  " << std::setw(8) << inner.relative << "  "
+                     << std::setw(8) << inner.absolute << std::endl;
       std::cout.precision(oldprec);
     }
 
@@ -407,9 +407,8 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
 
     check_convergence_matt(rhoe_new, rhoe_star, rhoe_step, Er_new,
                            temp_new, temp_star,
-                           rho, kappa_p, jg, dedT,
-                           rel_rhoe, abs_rhoe, rel_FT, abs_FT, rel_T, abs_T,
-                           delta_t);
+                           rho, kappa_p, jg, dedT, delta_t,
+                           rel_rhoe, abs_rhoe, rel_FT, abs_FT, rel_T, abs_T);
 
     Real relative_out, absolute_out;
 
@@ -529,11 +528,8 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     }
   }
 
-  Real derat = 0.0;
-  Real dTrat = 0.0;
-
   // update state with new fluid energy and temperature
-  state_energy_update(S_new, rhoe_new, temp_new, grids, derat, dTrat, level);
+  const auto [derat, dTrat] = state_energy_update(S_new, rhoe_new, temp_new, grids, level);
 
   delta_e_rat_level[level] = derat;
   delta_T_rat_level[level] = dTrat;

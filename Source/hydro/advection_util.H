@@ -213,25 +213,21 @@ void conservative_to_primitive(int i, int j, int k,
     qaux(QGAM1GAS) = eos_state.gam1;
     qaux(QCSNDGAS) = eos_state.cs;
 
-    Real lams[NGROUPS];
+    GpuArray<Real, NGROUPS> lams;
     for (int g = 0; g < NGROUPS; g++) {
         lams[g] = coupled.lam(i,j,k,g);
     }
-    Real qs[NQ];
+    GpuArray<Real, NQ> qs;
     for (int n = 0; n < NQ; n++) {
         qs[n] = q(n);
     }
-    Real ptot;
-    Real ctot;
-    Real gamc_tot;
-    compute_ptot_ctot(lams, qs,
-                      qaux(QCSNDGAS),
-                      ptot, ctot, gamc_tot);
+    const GasRadiationTotals tot = compute_ptot_ctot(lams, qs,
+                                                     qaux(QCSNDGAS));
 
-    q(QPTOTAL) = ptot;
+    q(QPTOTAL) = tot.ptot;
 
-    qaux(QC) = ctot;
-    qaux(QGAM1) = gamc_tot;
+    qaux(QC) = tot.ctot;
+    qaux(QGAM1) = tot.gamc_tot;
 
     q(QRHOEITOT) = q(QRHOEI);
     for (int g = 0; g < NGROUPS; g++) {

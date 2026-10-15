@@ -96,7 +96,8 @@ weno5(const Real vm2, const Real vm1, const Real v, const Real vp1, const Real v
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-dudt(Real* u, Real* a, const Real* dx, const int n, Real* dudt_tmp) {
+dudt(const GpuArray<Real, NGROUPS>& u, const GpuArray<Real, NGROUPS>& a,
+     const GpuArray<Real, NGROUPS>& dx, const int n, GpuArray<Real, NGROUPS>& dudt_tmp) {
 
   // compute the RHS for the g'th energy group out of n note, since
   // this is advection in frequency space, we will need to assume some
@@ -190,7 +191,8 @@ dudt(Real* u, Real* a, const Real* dx, const int n, Real* dudt_tmp) {
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
-update_one_species(const int n, Real* u, Real* a, const Real* dx, const Real tend, int& nstepmax) {
+update_one_species(const int n, GpuArray<Real, NGROUPS>& u, const GpuArray<Real, NGROUPS>& a,
+                   const GpuArray<Real, NGROUPS>& dx, const Real tend, int& nstepmax) {
 
   Real dt = 1.e50_rt;
   Real acfl;
@@ -210,12 +212,12 @@ update_one_species(const int n, Real* u, Real* a, const Real* dx, const Real ten
     dt = tend;
   }
 
-  Real u1[NGROUPS];
-  Real u2[NGROUPS];
-  Real u3[NGROUPS];
-  Real u4[NGROUPS];
-  Real u5[NGROUPS];
-  Real dudt_tmp[NGROUPS];
+  GpuArray<Real, NGROUPS> u1;
+  GpuArray<Real, NGROUPS> u2;
+  GpuArray<Real, NGROUPS> u3;
+  GpuArray<Real, NGROUPS> u4;
+  GpuArray<Real, NGROUPS> u5;
+  GpuArray<Real, NGROUPS> dudt_tmp;
 
   for (int istep = 1; istep <= nstep; istep++) {
     if (rk_order == 5) {

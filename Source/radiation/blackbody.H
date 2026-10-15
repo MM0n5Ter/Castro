@@ -1,6 +1,8 @@
 #ifndef blackbody_H
 #define blackbody_H
 
+#include <AMReX_Tuple.H>
+
 #include <fundamental_constants.H>
 
 namespace blackbody {
@@ -111,7 +113,7 @@ Real integsmall(Real x)
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void BdBdTIndefInteg (Real T, Real nu, Real& B, Real& dBdT)
+amrex::GpuTuple<Real, Real> BdBdTIndefInteg (Real T, Real nu)
 {
     // This routine evaluates the incomplete integral of the Planck function:
     // integ(x) = int_{0}^{x} b(x') dx'
@@ -135,6 +137,8 @@ void BdBdTIndefInteg (Real T, Real nu, Real& B, Real& dBdT)
     // with respect to temperature.
 
     Real x = C::hplanck * nu / (C::k_B * T);
+
+    Real B, dBdT;
 
     if (x > blackbody::xlarge) {
 
@@ -177,6 +181,8 @@ void BdBdTIndefInteg (Real T, Real nu, Real& B, Real& dBdT)
         dBdT = blackbody::bk_const * std::pow(T, 3) * (4.0_rt * integ - part);
 
     }
+
+    return {B, dBdT};
 }
 
 

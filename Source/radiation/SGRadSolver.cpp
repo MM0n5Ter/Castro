@@ -106,7 +106,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   }
 
   if (update_limiter == 0) {
-    scaledGradient(level, lambda, kappa_r, 0, Er_old, 0);
+    scaledGradient(level, kappa_r, 0, Er_old, 0, lambda);
     // lambda now contains scaled gradient
 
     fluxLimiter(level, lambda);
@@ -114,7 +114,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   }
   else if (update_limiter < 0) {
     MultiFab& Er_lag = hydrosim->get_old_data(Rad_Type);
-    scaledGradient(level, lambda, kappa_r, 0, Er_lag, 0);
+    scaledGradient(level, kappa_r, 0, Er_lag, 0, lambda);
     fluxLimiter(level, lambda);
   }
 
@@ -125,7 +125,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   getBndryData(bd, Er_new, time, level);
 
   bool have_Sanchez_Pomraning = false;
-  int lo_bc[3]={0}, hi_bc[3]={0};
+  Array<int, 3> lo_bc{}, hi_bc{};
   for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
     lo_bc[idim] = rad_bc.lo(idim);
     hi_bc[idim] = rad_bc.hi(idim);
@@ -144,7 +144,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
 
   solver->levelBndry(bd);
 
-  Real relative, absolute;
+  EnergyResidual residual;
   int it = 0;
   int use_conservative_form = (matter_update_type == 0) ? 1 : 0;
   int converged;
@@ -183,7 +183,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
     solver->levelACoeffs(level, fkp, eta, etainv, c, delta_t, 1.0);
 
     if (update_limiter > 0 && it <= update_limiter + 1) {
-      scaledGradient(level, lambda, kappa_r, 0, Er_new, 0);
+      scaledGradient(level, kappa_r, 0, Er_new, 0, lambda);
       // lambda now contains scaled gradient
       fluxLimiter(level, lambda);
       // lambda now contains flux limiter
@@ -206,9 +206,9 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
       MultiFab rhs(grids,dmap,1,0);
 
       dflux_new.setVal(0.0); // used as work space in place of edot
-      solver->levelRhs(level, rhs, temp,
-                       fkp, eta, etainv, frhoem, frhoes,
-                       dflux_old, Er_old, dflux_new,
+      const RadSolve::GrayEnergyCoupling coupling{temp, fkp, eta, etainv, frhoem, frhoes,
+                                                  dflux_old, Er_old, dflux_new};
+      solver->levelRhs(level, rhs, coupling,
                        delta_t, sigma, 0.0, 1.0,
                        NULL);
 
@@ -240,23 +240,20 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
       compute_exchange(exch, Er_new, fkp);
 
       if (has_dcoefs) {
-        internal_energy_update(relative, absolute,
-                               frhoes, frhoem, eta, etainv,
-                               dflux_old, dflux_new,
-                               exch, Dterm, delta_t);
+        residual = internal_energy_update(frhoes, frhoem, eta, etainv,
+                                          dflux_old, dflux_new,
+                                          exch, Dterm, delta_t);
       }
       else {
-        internal_energy_update(relative, absolute,
-                               frhoes, frhoem, eta, etainv,
-                               dflux_old, dflux_new,
-                               exch, delta_t);
+        residual = internal_energy_update(frhoes, frhoem, eta, etainv,
+                                          dflux_old, dflux_new,
+                                          exch, delta_t);
       }
     }
     else {
-      nonconservative_energy_update(relative, absolute,
-                                    frhoes, frhoem, eta, etainv,
-                                    Er_new, dflux_old, dflux_new,
-                                    temp, fkp, S_new, delta_t);
+      residual = nonconservative_energy_update(frhoes, frhoem, eta, etainv,
+                                               Er_new, dflux_old, dflux_new,
+                                               temp, fkp, S_new, delta_t);
       if (has_dcoefs) {
         amrex::Error("Radiation::single_group_update: must do conservative energy update when has_dcoefs is true");
       }
@@ -268,9 +265,9 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
         std::cout << "Radiation Update:  Iteration " << it;
       else
         std::cout << "Nonconservative:   Iteration " << it;
-      std::cout << ", Relative = " << relative << std::endl;
+      std::cout << ", Relative = " << residual.relative << std::endl;
       std::cout << "                              "
-           << "  Absolute = " << absolute << std::endl;
+           << "  Absolute = " << residual.absolute << std::endl;
       std::cout.precision(oldprec);
     }
 
@@ -285,7 +282,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
        }
     }
 
-    converged = (relative <= reltol || absolute <= abstol || it >= maxiter);
+    converged = (residual.relative <= reltol || residual.absolute <= abstol || it >= maxiter);
 
     if (converged && !use_conservative_form) {
       use_conservative_form = 1;
@@ -301,14 +298,14 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   if (verbose == 1 && ParallelDescriptor::IOProcessor()) {
     int oldprec = std::cout.precision(20);
     std::cout << "Radiation Update:  Iteration " << it
-        << ", Relative = " << relative << std::endl;
+        << ", Relative = " << residual.relative << std::endl;
     std::cout << "                              "
-        << "  Absolute = " << absolute << std::endl;
+        << "  Absolute = " << residual.absolute << std::endl;
     std::cout.precision(oldprec);
   }
 
   if (it == maxiter &&
-      (relative > reltol && absolute > abstol)) {
+      (residual.relative > reltol && residual.absolute > abstol)) {
     if (verbose > 0 && ParallelDescriptor::IOProcessor()) {
       std::cout << "Implicit Update Failed to Converge" << std::endl;
       amrex::Abort("You Lose");

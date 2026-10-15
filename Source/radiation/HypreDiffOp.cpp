@@ -371,7 +371,7 @@ void HypreDiffOp::hacoef (const Box& bx,
 void HypreDiffOp::hbcoef (const Box& bx,
                         Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         Array4<Real const> const& b,
-                        Real beta, const Real* dx,
+                        Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx,
                         int idir)
 {
 
@@ -420,7 +420,7 @@ void HypreDiffOp::hbmat (const Box& bx,
                        int cdir, int bct, Real bcl,
                        Array4<int const> const& mask,
                        Array4<Real const> const& b,
-                       Real beta, const Real* dx)
+                       Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx)
 {
     bool xlo = false;
     bool ylo = false;
@@ -673,8 +673,7 @@ void HypreDiffOp::hbmat3 (const Box& bx,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
-        Real r;
-        face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo, r);
+        const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
         int bct;
         Real bfm, bfv;
@@ -1249,8 +1248,7 @@ void HypreDiffOp::hbvec3 (const Box& bx,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
-        Real r;
-        face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo, r);
+        const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
         int bct;
         Real bfv, h2, th2;
@@ -1506,7 +1504,7 @@ void HypreDiffOp::hbvec (const Box& bx,
                        Array4<Real const> const& bcval,
                        Array4<int const> const& mask,
                        Array4<Real const> const& b,
-                       Real beta, const Real* dx)
+                       Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx)
 {
     bool xlo = false;
     bool ylo = false;

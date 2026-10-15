@@ -122,17 +122,25 @@ class RadSolve {
 
 
 ///
+/// matter-radiation coupling terms of the gray right-hand side
+///
+  struct GrayEnergyCoupling
+  {
+      amrex::MultiFab& temp;
+      amrex::MultiFab& fkp;
+      amrex::MultiFab& eta;
+      amrex::MultiFab& etainv;
+      amrex::MultiFab& rhoem;
+      amrex::MultiFab& rhoes;
+      amrex::MultiFab& dflux_old;
+      amrex::MultiFab& Er_old;
+      amrex::MultiFab& Edot;
+  };
+
+///
 /// @param level
 /// @param rhs
-/// @param temp
-/// @param fkp
-/// @param eta
-/// @param etainv
-/// @param rhoem
-/// @param rhoes
-/// @param dflux_old
-/// @param Er_old
-/// @param Edot
+/// @param coupling
 /// @param delta_t
 /// @param sigma
 /// @param c
@@ -143,11 +151,7 @@ class RadSolve {
 /// @param nu
 /// @param dnu
 ///
-  void levelRhs(int level, amrex::MultiFab& rhs,
-                amrex::MultiFab& temp,
-                amrex::MultiFab& fkp, amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                amrex::MultiFab& rhoem, amrex::MultiFab& rhoes,
-                amrex::MultiFab& dflux_old, amrex::MultiFab& Er_old, amrex::MultiFab& Edot,
+  void levelRhs(int level, amrex::MultiFab& rhs, const GrayEnergyCoupling& coupling,
                 amrex::Real delta_t, amrex::Real sigma, amrex::Real c, amrex::Real theta,
                 amrex::FluxRegister* fine_corr, amrex::Real scale = 1.0,
                 int igroup = -1, amrex::Real nu = -1.0, amrex::Real dnu = -1.0);
@@ -237,32 +241,34 @@ class RadSolve {
                     amrex::Real delta_t, amrex::Real c, int igroup, amrex::Real ptc_tau);
 
 ///
+/// emission, coupling and iteration states of the multigroup right-hand side
+///
+  struct GroupEnergyCoupling
+  {
+      const amrex::MultiFab& jg;
+      const amrex::MultiFab& muTg;
+      const amrex::MultiFab& coupT;
+      const amrex::MultiFab& etaT;
+      const amrex::MultiFab& Er_step;
+      const amrex::MultiFab& rhoe_step;
+      const amrex::MultiFab& Er_star;
+      const amrex::MultiFab& rhoe_star;
+  };
+
+///
 /// @param level
 /// @param rhs
-/// @param jg
-/// @param muTg
-/// @param muYg
-/// @param coupT
-/// @param etaT
-/// @param Er_step
-/// @param rhoe_step
-/// @param Er_star
-/// @param rhoe_star
+/// @param coupling
 /// @param delta_t
 /// @param igroup
 /// @param it
 /// @param ptc_tau
 ///
-  void levelRhs(int level, amrex::MultiFab& rhs, const amrex::MultiFab& jg,
-                const amrex::MultiFab& muTg,
-                const amrex::MultiFab& coupT,
-                const amrex::MultiFab& etaT,
-                const amrex::MultiFab& Er_step, const amrex::MultiFab& rhoe_step,
-                const amrex::MultiFab& Er_star, const amrex::MultiFab& rhoe_star,
+  void levelRhs(int level, amrex::MultiFab& rhs, const GroupEnergyCoupling& coupling,
                 amrex::Real delta_t, int igroup, int it, amrex::Real ptc_tau);
 
   void levelSPas(int level, amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& lambda, int igroup,
-                 int lo_bc[], int hi_bc[]);
+                 const amrex::Array<int, 3>& lo_bc, const amrex::Array<int, 3>& hi_bc);
 
 ///
 /// </ MGFLD routines>
