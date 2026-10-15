@@ -69,9 +69,15 @@ print_run_stamp (const char* event)
 {
     time_t time_type;
 
-    time(&time_type);
+    if (time(&time_type) == static_cast<time_t>(-1)) {
+        amrex::Abort("Error: unable to read the system clock.");
+    }
 
     const struct tm* time_pointer = gmtime(&time_type);
+
+    if (time_pointer == nullptr) {
+        amrex::Abort("Error: unable to convert the system time to UTC.");
+    }
 
     amrex::Print() << std::setfill('0') << "\n" << event << " run at "
                    << std::setw(2) << time_pointer->tm_hour << ":"

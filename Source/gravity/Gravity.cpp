@@ -908,6 +908,9 @@ Gravity::get_old_grav_vector(int level, MultiFab& grav_vector, Real time)
 #endif
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+    if (cs == nullptr) {
+        amrex::Abort("unable to access using_point_mass");
+    }
     if (cs->using_point_mass()) {
         MultiFab& phi = LevelData[level]->get_old_data(Potential_Type);
         add_point_mass_field(level,phi,grav_vector);
@@ -973,6 +976,9 @@ Gravity::get_new_grav_vector(int level, MultiFab& grav_vector, Real time)
 #endif
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+    if (cs == nullptr) {
+        amrex::Abort("unable to access using_point_mass");
+    }
     if (cs->using_point_mass()) {
         MultiFab& phi = LevelData[level]->get_new_data(Potential_Type);
         add_point_mass_field(level,phi,grav_vector);

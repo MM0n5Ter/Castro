@@ -84,6 +84,9 @@ void Radiation::get_groups(int verbose)
   if (ParallelDescriptor::IOProcessor()) {
 
     std::ofstream groupfile("group_structure.dat");
+    if (!groupfile.good()) {
+      amrex::FileOpenFailed("group_structure.dat");
+    }
 
     groupfile << "# total number of groups = " << nGroups << std::endl;
     groupfile << "# group center, group weight" << group_units << std::endl;

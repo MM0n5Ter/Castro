@@ -63,7 +63,8 @@ namespace
     int current_version = 12;
 
     // Read a single value from a file inside the checkpoint directory.
-    // Returns false, leaving value untouched, if the file is not there.
+    // Returns false, leaving value untouched, if the file is not there;
+    // a file that is there but does not hold a value is an error.
     template <typename T>
     bool read_checkpoint_value (const std::string& path, T& value)
     {
@@ -73,7 +74,9 @@ namespace
             return false;
         }
 
-        file >> value;
+        if (!(file >> value)) {
+            amrex::Error("unable to read a value from " + path);
+        }
 
         return true;
     }
@@ -98,6 +101,9 @@ HydroSim::restart (Amr&     papa,
                 // first line: Checkpoint version: ?
                 std::getline(HydroSimHeaderFile, label, ':');
                 HydroSimHeaderFile >> input_version;
+                if (HydroSimHeaderFile.fail()) {
+                    amrex::Error("unable to read the checkpoint version from " + FullPathHydroSimHeaderFile);
+                }
             } else {
                 input_version = 0;
             }
@@ -433,6 +439,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathHydroSimHeaderFile = dir;
       FullPathHydroSimHeaderFile += "/HydroSimHeader";
       std::ofstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
+      if (!HydroSimHeaderFile.good()) {
+          amrex::FileOpenFailed(FullPathHydroSimHeaderFile);
+      }
 
       HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
   }
@@ -444,6 +453,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathStateList = dir;
       FullPathStateList += "/state_names.txt";
       std::ofstream StateListFile(FullPathStateList);
+      if (!StateListFile.good()) {
+          amrex::FileOpenFailed(FullPathStateList);
+      }
 
       for (int n = 0; n < NUM_STATE; n++) {
         StateListFile << desc_lst[State_Type].name(n) << "\n";
@@ -460,6 +472,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathdtHeaderFile = dir;
       FullPathdtHeaderFile += "/dtHeader";
       std::ofstream dtHeaderFile(FullPathdtHeaderFile);
+      if (!dtHeaderFile.good()) {
+          amrex::FileOpenFailed(FullPathdtHeaderFile);
+      }
 
       dtHeaderFile << lastDtBeforePlotLimiting << std::endl;
 
@@ -470,6 +485,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathCPUFile = dir;
       FullPathCPUFile += "/CPUtime";
       std::ofstream CPUFile(FullPathCPUFile);
+      if (!CPUFile.good()) {
+          amrex::FileOpenFailed(FullPathCPUFile);
+      }
 
       CPUFile << std::setprecision(17) << getCPUTime();
   }
@@ -481,6 +499,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathPMFile = dir;
       FullPathPMFile += "/point_mass";
       std::ofstream PMFile(FullPathPMFile);
+      if (!PMFile.good()) {
+          amrex::FileOpenFailed(FullPathPMFile);
+      }
 
       PMFile << std::setprecision(17) << point_mass << std::endl;
 
@@ -493,6 +514,9 @@ HydroSim::checkPoint(const std::string& dir,
       std::string FullPathRotationFile = dir;
       FullPathRotationFile += "/Rotation";
       std::ofstream RotationFile(FullPathRotationFile);
+      if (!RotationFile.good()) {
+          amrex::FileOpenFailed(FullPathRotationFile);
+      }
 
       RotationFile << std::scientific;
       RotationFile.precision(19);
@@ -1131,6 +1155,9 @@ HydroSim::plotFileOutput(const std::string& dir,
           std::string FullPathGroupFile = dir;
           FullPathGroupFile += "/RadiationGroups";
           groupfile.open(FullPathGroupFile.c_str(), std::ios::out);
+          if (!groupfile.good()) {
+              amrex::FileOpenFailed(FullPathGroupFile);
+          }
 
           radiation->write_groups(groupfile);
 
@@ -1266,6 +1293,9 @@ HydroSim::plotFileOutput(const std::string& dir,
         std::string FullPathPMFile = dir;
         FullPathPMFile += "/point_mass";
         PMFile.open(FullPathPMFile.c_str(), std::ios::out);
+        if (!PMFile.good()) {
+            amrex::FileOpenFailed(FullPathPMFile);
+        }
 
         PMFile << std::setprecision(17) << point_mass << std::endl;
 

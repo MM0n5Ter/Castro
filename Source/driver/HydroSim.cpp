@@ -2084,12 +2084,18 @@ HydroSim::post_timestep (int iteration_local)
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
         std::ofstream dump_file("dump_and_stop");
+        if (!dump_file.good()) {
+            amrex::FileOpenFailed("dump_and_stop");
+        }
     }
 
     // Write out a file that indicates the job has completed.
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
         std::ofstream jobIsDoneFile("jobIsDone");
+        if (!jobIsDoneFile.good()) {
+            amrex::FileOpenFailed("jobIsDone");
+        }
     }
 }
 
