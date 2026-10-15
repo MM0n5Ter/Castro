@@ -173,20 +173,6 @@
                                           const std::string& source_name);
 
 
-
-///
-/// Center source terms in time, storing in ``S_new``
-///
-/// @param S_new    MultiFab to store centered sources in
-/// @param src_old  Old source term
-/// @param src_new  New source term
-/// @param dt       timestep
-///
-    static void time_center_source_terms (amrex::MultiFab& S_new,
-                                          amrex::MultiFab& src_old,
-                                          amrex::MultiFab& src_new,
-                                          amrex::Real dt = 1.0);
-
 #ifdef SPONGE
 
 ///

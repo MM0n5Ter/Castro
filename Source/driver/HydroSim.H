@@ -891,16 +891,6 @@ public:
     amrex::Real locWgtSum (const MultiFab& mf, int comp, int idir, bool local=false);
 
 ///
-/// Sum weighted by volume multiplied by distance from center in given direction
-///
-/// @param name     Name of quantity
-/// @param time     current time
-/// @param idir     Axis along which to compute distance from center
-/// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
-///
-    amrex::Real locWgtSum (const std::string& name, amrex::Real time, int idir, bool local=false);
-
-///
 /// Volume weighted sum of the product of two quantities
 ///
 /// @param mf1      MultiFab containing first quantity
@@ -910,16 +900,6 @@ public:
 /// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
 ///
     amrex::Real volProductSum (const MultiFab& mf1, const MultiFab& mf2, int comp1, int comp2, bool local=false);
-
-///
-/// Volume weighted sum of the product of two quantities
-///
-/// @param name1    Name of first quantity
-/// @param name2    Name of second quantity
-/// @param time     current time
-/// @param local    boolean, is sum local (over each patch) or over entire MultiFab?
-///
-    amrex::Real volProductSum (const std::string& name1, const std::string& name2, amrex::Real time, bool local=false);
 
 
 ///
@@ -1184,17 +1164,6 @@ public:
 
 protected:
 
-
-///
-/// Build a mask where ghost cells overlapping interior cells in the same
-/// multifab are set to 0, and all others are set to 1.
-///
-    amrex::Vector<std::unique_ptr<amrex::iMultiFab> > ib_mask;
-
-///
-/// @param ng number of ghost cells
-///
-    amrex::iMultiFab& build_interior_boundary_mask (int ng);
 
 #ifdef GRAVITY
     int get_numpts();

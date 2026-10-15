@@ -771,16 +771,6 @@ HydroSim::variableSetUp ()
 #endif
 
   //
-  // Gravitational forcing
-  //
-#ifdef GRAVITY
-  //    derive_lst.add("rhog",IndexType::TheCellType(),1,
-  //                   BL_FORT_PROC_CALL(HS_RHOG,hs_rhog),the_same_box);
-  //    derive_lst.addComponent("rhog",desc_lst,State_Type, URHO, 1);
-  //    derive_lst.addComponent("rhog",desc_lst,Gravity_Type,0,AMREX_SPACEDIM);
-#endif
-
-  //
   // Entropy (S)
   //
   derive_lst.add("entropy",IndexType::TheCellType(),1,hs_derentropy,the_same_box);

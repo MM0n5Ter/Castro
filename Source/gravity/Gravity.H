@@ -145,24 +145,6 @@ public:
 
 
 ///
-/// Return given component of ``grad_phi_prev`` at given level
-///
-/// @param level        level index
-/// @param comp         component index
-///
-  amrex::MultiFab* get_grad_phi_prev_comp(int level,int comp);
-
-
-///
-/// Return ``grad_phi_curr`` at given level plus the given vector
-///
-/// @param level        level index
-/// @param addend       Vector of MultiFabs to add to grad phi
-///
-  void add_to_grad_phi_curr(int level, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& addend);
-
-
-///
 /// Swap ``grad_phi_prev`` with ``grad_phi_curr`` at given level at set new ``grad_phi_curr`` to 1.e50.
 ///
 /// @param level        level index
@@ -449,7 +431,6 @@ public:
   amrex::Vector<amrex::MultiFab*> area;
 
   int Density;
-  int finest_level_allocated;
 
   amrex::BCRec*       phys_bc;
 
@@ -467,9 +448,6 @@ public:
 #ifdef GR_GRAV
   amrex::Vector< RealVector > radial_pres;
 #endif
-  static int   stencil_type;
-
-  static amrex::Real max_inscribed_radius;
 
 #if (AMREX_SPACEDIM < 3)
 

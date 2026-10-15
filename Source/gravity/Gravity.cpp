@@ -83,7 +83,6 @@ Gravity::Gravity(Amr* Parent, int _finest_level, BCRec* _phys_bc, int _density)
 
      Density = _density;
      read_params();
-     finest_level_allocated = -1;
 
      radial_grav_old.resize(MAX_LEV);
      radial_grav_new.resize(MAX_LEV);
@@ -324,8 +323,6 @@ Gravity::register_level (int                   level,
         }
 
     }
-
-    finest_level_allocated = level;
 }
 
 std::string Gravity::get_gravity_type()
@@ -359,24 +356,10 @@ Gravity::get_grad_phi_prev(int level)
   return grad_phi_prev[level];
 }
 
-MultiFab*
-Gravity::get_grad_phi_prev_comp(int level, int comp)
-{
-  return grad_phi_prev[level][comp].get();
-}
-
 Vector<std::unique_ptr<MultiFab> >&
 Gravity::get_grad_phi_curr(int level)
 {
   return grad_phi_curr[level];
-}
-
-void
-Gravity::add_to_grad_phi_curr(int level, Vector<std::unique_ptr<MultiFab> >& addend)
-{
-    for (int n = 0; n < AMREX_SPACEDIM; n++) {
-        grad_phi_curr[level][n]->plus(*addend[n],0,1,0);
-    }
 }
 
 void

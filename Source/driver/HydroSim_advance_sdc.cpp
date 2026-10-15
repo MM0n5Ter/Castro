@@ -204,7 +204,7 @@ HydroSim::do_advance_sdc (Real time,
 
             amrex::Print() << "... doing the SDC update, iteration = " << sdc_iteration << " from node " << m << " to " << m+1 << std::endl;
 
-            do_sdc_update(m, m+1, dt); //(dt_sdc[m+1] - dt_sdc[m])*dt);
+            do_sdc_update(m, m+1, dt);
 
             // we now have a new value of k_new[m+1], do a clean_state on it
             clean_state(*(k_new[m+1]), cur_time, 0);
@@ -289,7 +289,6 @@ HydroSim::do_advance_sdc (Real time,
         fill_grown_state(Sborder, cur_time, 2);
     }
 
-    FArrayBox U_center;
     FArrayBox R_center;
     FArrayBox tmp;
 

@@ -1009,7 +1009,6 @@ void HypreDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
   }
   else if (solver_flag == 1) {
     HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &solver);
-    //HYPRE_StructPFMGSetMemoryUse(solver, 0);
     HYPRE_StructPFMGSetSkipRelax(solver, 0);
     HYPRE_StructPFMGSetMaxIter(solver, maxiter);
     HYPRE_StructPFMGSetRelChange(solver, 0);
@@ -1024,14 +1023,7 @@ void HypreDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
   }
   else if (solver_flag == 2) {
     HYPRE_StructJacobiCreate(MPI_COMM_WORLD, &solver);
-    //HYPRE_StructPFMGSetMemoryUse(solver, 0);
-    //HYPRE_StructPFMGSetSkipRelax(solver, 0);
     HYPRE_StructJacobiSetMaxIter(solver, maxiter);
-    //HYPRE_StructPFMGSetRelChange(solver, 0);
-    //HYPRE_StructPFMGSetTol(solver, reltol);
-    //HYPRE_StructPFMGSetNumPreRelax(solver, 1);
-    //HYPRE_StructPFMGSetNumPostRelax(solver, 1);
-    //HYPRE_StructPFMGSetLogging(solver, 1);
     HYPRE_StructJacobiSetup(solver, A, b, x);
   }
   else if (solver_flag == 3 || solver_flag == 4) {

@@ -782,7 +782,6 @@ HydroSim::~HydroSim ()  // NOLINT(modernize-use-equals-default)
 {
 #ifdef RADIATION
     if (radiation != nullptr) {
-      //radiation->cleanup(level);
       radiation->close(level);
     }
 #endif
@@ -2426,7 +2425,6 @@ HydroSim::post_init (Real /*stop_time*/)
        // Make this call just to fill the initial state data.
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
-          BoxArray ba = getLevel(k).boxArray();
           MultiFab& grav_new = getLevel(k).get_new_data(Gravity_Type);
           gravity->get_new_grav_vector(k,grav_new,cur_time);
        }
@@ -2446,11 +2444,6 @@ HydroSim::post_init (Real /*stop_time*/)
       }
 
       do_energy_diagnostics();
-
-      // re-estimate the initial timestep using the initialized
-      // fine-level data and radiation field.
-      //if (level == 0)
-      //post_init_estDT();
     }
 #endif
 
@@ -2565,11 +2558,6 @@ HydroSim::post_grown_restart ()
       }
 
       do_energy_diagnostics();
-
-      // re-estimate the initial timestep using the initialized
-      // fine-level data and radiation field.
-      //if (level == 0)
-      //post_init_estDT();
     }
 #endif
 }
@@ -4466,32 +4454,6 @@ HydroSim::build_fine_mask()
     }
 
     return fine_mask;
-}
-
-iMultiFab&
-HydroSim::build_interior_boundary_mask (int ng)
-{
-    BL_PROFILE("HydroSim::build_interior_boundary_mask()");
-
-    for (const auto & ibm : ib_mask)
-    {
-        if (ibm->nGrow() == ng) {
-            return *ibm;
-        }
-    }
-
-    //  If we got here, we need to build a new one
-    ib_mask.push_back(std::make_unique<iMultiFab>(grids, dmap, 1, ng));
-
-    iMultiFab& imf = *ib_mask.back();
-
-    int ghost_covered_by_valid = 0;
-    int other_cells = 1; // uncovered ghost, valid, and outside domain cells are set to 1
-
-    imf.BuildMask(geom.Domain(), geom.periodicity(),
-                  ghost_covered_by_valid, other_cells, other_cells, other_cells);
-
-    return imf;
 }
 
 // Fill a version of the state with ng ghost zones from the state data.

@@ -31,8 +31,6 @@ MGRadBndry::MGRadBndry(const BoxArray& _grids,
 
   const BoxArray& grids = boxes();
   const Box& domain = geom.Domain();
-//  const Real* dx = geom.CellSize();
-//  const Real* xlo = geom.ProbLo();
 
   // It is desirable that the type array be set up after static init.
   // This is part of the reason this step is not in NGBndry.
@@ -47,11 +45,6 @@ MGRadBndry::MGRadBndry(const BoxArray& _grids,
           const Box& face_box = bndry[face][bi].box();
           bctypearray[face][igrid].reset(new BaseFab<int>(face_box));
           // We don't care about the bndry values here, only the type array.
-#if 0
-          FORT_RADBNDRY2(BL_TO_FORTRAN(bndry[face][bi]),
-                         bctypearray[face][igrid]->dataPtr(),
-                         ARLIM(domain.loVect()), ARLIM(domain.hiVect()), dx, xlo, time);
-#endif
         }
       }
     }
@@ -60,11 +53,6 @@ MGRadBndry::MGRadBndry(const BoxArray& _grids,
 
 void MGRadBndry::init(const int _ngroups)
 {
-  // obsolete implementation of the Marshak boundary condition requires
-  // us to scale incoming fluxes by c here, since the solver classes
-  // do not themselves know about c.  This c compensates
-  // for the c in the diffusion coefficient at the boundaries:
-
   ngroups = _ngroups;
 
   ParmParse pp("radiation");
@@ -181,9 +169,6 @@ void MGRadBndry::setBndryConds(const BCRec& bc,
 void MGRadBndry::setBndryFluxConds(const BCRec& bc, const BC_Mode phys_bc_mode)
 {
   const BoxArray& grids = boxes();
-//  int ngrds = grids.size();
-  const Real* dx = geom.CellSize();
-  const Real* xlo = geom.ProbLo();
   const Box& domain = geom.Domain();
 
   // variables for multigroup
@@ -192,14 +177,10 @@ void MGRadBndry::setBndryFluxConds(const BCRec& bc, const BC_Mode phys_bc_mode)
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-//    Vector<Real> &bloc = bcloc[face];
-//    Vector<RadBoundCond> &bctag = bcond[face];
 
     int dir = face.coordDir();
     int p_bc = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
 
-    int p_bcflag = (phys_bc_mode == Inhomogeneous_BC && !correction)
-      ? bcflag[face] : 0;
     if(phys_bc_mode == Inhomogeneous_BC && !correction) {
       for(int igroup = 0; igroup < ngroups; igroup++) {
         value_nu[igroup] = bcval[face][igroup];
@@ -229,18 +210,6 @@ void MGRadBndry::setBndryFluxConds(const BCRec& bc, const BC_Mode phys_bc_mode)
             std::cout << "MGRadBndry ERROR 2: feature not implemented" << std::endl;
           }
           exit(2);
-
-#if 0
-          FArrayBox& bnd_fab = bndry[face][bi];
-          BaseFab<int>& tfab = *(bctypearray[face][i]);
-
-          FORT_RADBNDRY2(BL_TO_FORTRAN(bnd_fab),
-                         tfab.dataPtr(), AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-#endif
-          if (p_bcflag == 0) {
-            // Homogeneous case.  We called RADBNDRY2 only to set tfab right.
-            //setValue(face, i, value);
-          }
         }
       }
     }

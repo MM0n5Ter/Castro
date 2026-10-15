@@ -5,23 +5,6 @@
 
 using namespace amrex;
 
-#if (AMREX_SPACEDIM == 2)
-#define NUMDERIV 2
-#endif
-
-#if (AMREX_SPACEDIM == 3)
-#define NUMDERIV 5
-#endif
-
-#define DEF_LIMITS(fab,fabdat,fablo,fabhi)   \
-const int* fablo = (fab).loVect();           \
-const int* fabhi = (fab).hiVect();           \
-REAL* fabdat = (fab).dataPtr();
-#define DEF_CLIMITS(fab,fabdat,fablo,fabhi)  \
-const int* fablo = (fab).loVect();           \
-const int* fabhi = (fab).hiVect();           \
-const REAL* fabdat = (fab).dataPtr();
-
 RadInterpBndryData::RadInterpBndryData(const BoxArray& _grids, const DistributionMapping& _dmap,
                                        int _ncomp, const Geometry& geom)
     : RadBndryData(_grids,_dmap,_ncomp,geom)
@@ -95,9 +78,6 @@ RadInterpBndryData::setBndryValues(BndryRegister& crse, int c_start,
       // first interpolate from coarse to fine on bndry
     const Box& fine_domain = geom.Domain();
       // mask turned off if covered by fine grid
-    Real *derives = 0;
-    int  tmplen = 0;
-    //for (int grd = 0; grd < ngrd; grd++) {
     for(MFIter mfi(fine); mfi.isValid(); ++mfi) {
         BL_ASSERT(grids[mfi.index()] == mfi.validbox());
         int grd = mfi.index();
@@ -105,19 +85,6 @@ RadInterpBndryData::setBndryValues(BndryRegister& crse, int c_start,
         Box crse_bx = amrex::coarsen(fine_bx,ratio);
         auto cblo = crse_bx.loVect3d();
         auto cbhi = crse_bx.hiVect3d();
-        int mxlen = crse_bx.longside() + 2;
-        if (std::pow(mxlen,(float)AMREX_SPACEDIM-1) > tmplen) {
-            delete [] derives;
-#if (AMREX_SPACEDIM == 1)
-            derives = new Real[1];
-#else
-            tmplen = mxlen;
-#  if (AMREX_SPACEDIM > 2)
-            tmplen *= mxlen;
-#  endif
-            derives = new Real[tmplen*NUMDERIV];
-#endif
-        }
         auto lo = fine_bx.loVect3d();
         auto hi = fine_bx.hiVect3d();
         const FArrayBox& fine_grd = fine[mfi];
@@ -357,7 +324,6 @@ RadInterpBndryData::setBndryValues(BndryRegister& crse, int c_start,
             }
         }
     }
-    delete[] derives;
 
     // now copy boundary values stored in ghost cells of fine
     // into bndry.  This only does something for physical boundaries,

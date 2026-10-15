@@ -122,8 +122,6 @@ HydroSim::rsrc(const Box& bx,
 
     src[UEDEN] += SrE;
 
-    snew[UEDEN] += dt * src[UEDEN];
-
     // Add to the outgoing source array.
 
     for (int n = 0; n < NSRC; n++) {

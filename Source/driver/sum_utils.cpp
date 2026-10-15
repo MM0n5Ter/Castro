@@ -76,16 +76,6 @@ HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
 }
 
 Real
-HydroSim::locWgtSum (const std::string& name, Real time, int idir, bool local)
-{
-    auto mf = derive(name, time, 0);
-
-    BL_ASSERT(mf);
-
-    return locWgtSum(*mf, 0, idir, local);
-}
-
-Real
 HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
 {
     BL_PROFILE("HydroSim::locWgtSum()");
@@ -163,20 +153,6 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
     }
 
     return sum;
-}
-
-Real
-HydroSim::volProductSum (const std::string& name1,
-                       const std::string& name2,
-                       Real time, bool local)
-{
-    auto mf1 = derive(name1, time, 0);
-    auto mf2 = derive(name2, time, 0);
-
-    BL_ASSERT(mf1);
-    BL_ASSERT(mf2);
-
-    return volProductSum(*mf1, *mf2, 0, 0, local);
 }
 
 Real

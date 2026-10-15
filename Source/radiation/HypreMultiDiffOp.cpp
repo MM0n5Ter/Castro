@@ -2772,30 +2772,8 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
-    //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 0
-    // Barry used these four settings, at least for level solves:
-    HYPRE_BoomerAMGSetInterpType(solver, 6);
-    HYPRE_BoomerAMGSetCoarsenType(solver, 8);
-    HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
-    HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
-    //HYPRE_BoomerAMGSetStrongThreshold(solver, 0.6);
-    //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
-    //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
-    int num_sweeps[4] = {2, 2, 2, 1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
-    //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_flag == 101) {
     int nparts = fine_level - crse_level + 1;
@@ -2836,7 +2814,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_SStructFACSetPRefinements(sstruct_solver, nparts, prefinements);
     HYPRE_SStructFACSetRelChange(sstruct_solver, 0);
     HYPRE_SStructFACSetRelaxType(sstruct_solver, 1);
-    //HYPRE_SStructFACSetRelaxType(sstruct_solver, 2);
     HYPRE_SStructFACSetRelaxType(sstruct_solver, 2);
     HYPRE_SStructFACSetNumPreRelax(sstruct_solver, n_pre);
     HYPRE_SStructFACSetNumPostRelax(sstruct_solver, n_post);
@@ -2880,7 +2857,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_ParCSRGMRESSetKDim(solver, kdim);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_ParCSRGMRESSetup(solver, par_A, par_b, par_x);
   }
@@ -2897,7 +2873,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_SStructGMRESSetKDim(sstruct_solver, kdim);
     HYPRE_SStructGMRESSetMaxIter(sstruct_solver, maxiter);
     HYPRE_SStructGMRESSetTol(sstruct_solver, reltol);
-    //HYPRE_SStructGMRESSetLogging(sstruct_solver, 1);
 
     HYPRE_SStructGMRESSetup(sstruct_solver, A, b, x);
   }
@@ -2913,7 +2888,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver);
     HYPRE_ParCSRPCGSetMaxIter(solver, maxiter);
     HYPRE_ParCSRPCGSetTol(solver, reltol);
-    //HYPRE_ParCSRPCGSetLogging(solver, 1);
 
     HYPRE_ParCSRPCGSetup(solver, par_A, par_b, par_x);
   }
@@ -2921,7 +2895,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_SStructPCGCreate(MPI_COMM_WORLD, &sstruct_solver);
     HYPRE_SStructPCGSetMaxIter(sstruct_solver, maxiter);
     HYPRE_SStructPCGSetTol(sstruct_solver, reltol);
-    //HYPRE_SStructPCGSetLogging(sstruct_solver, 1);
 
     HYPRE_SStructPCGSetup(sstruct_solver, A, b, x);
   }
@@ -2946,16 +2919,10 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_ParCSRGMRESSetKDim(solver, kdim);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_BoomerAMGCreate(&precond);
     HYPRE_BoomerAMGSetMaxIter(precond, 1);
     HYPRE_BoomerAMGSetTol(precond, reltol);
-    //HYPRE_BoomerAMGSetStrongThreshold(precond, 0.6);
-    //HYPRE_BoomerAMGSetPrintLevel(precond, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(precond, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(precond, 6);
-    //HYPRE_BoomerAMGSetLogging(precond, 2);
     HYPRE_ParCSRGMRESSetPrecond(solver,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSolve,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSetup,
@@ -3007,7 +2974,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_ParCSRGMRESSetKDim(solver, kdim);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_BoomerAMGCreate(&precond);
     HYPRE_BoomerAMGSetMaxIter(precond, 1);
@@ -3028,7 +2994,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
       HYPRE_BoomerAMGSetNumPaths(precond, num_paths);
     }
     HYPRE_BoomerAMGSetPrintLevel(precond, print_level);
-    //HYPRE_BoomerAMGSetLogging(precond, 2);
     HYPRE_ParCSRGMRESSetPrecond(solver,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSolve,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSetup,
@@ -3062,22 +3027,12 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &sstruct_solver);
     HYPRE_SStructSplitSetMaxIter(sstruct_solver, maxiter);
-#if 0
-    HYPRE_SStructSplitSetStructSolverNumIterations(sstruct_solver, struct_iter);
-#endif
     HYPRE_SStructSplitSetTol(sstruct_solver, reltol);
-    //HYPRE_SStructSplitSetZeroGuess(sstruct_solver);
-    //HYPRE_SStructSplitSetLogging(sstruct_solver, 1);
     if (struct_flag == 0) {
       HYPRE_SStructSplitSetStructSolver(sstruct_solver, HYPRE_SMG);
     }
     else if (struct_flag == 1) {
       HYPRE_SStructSplitSetStructSolver(sstruct_solver, HYPRE_PFMG);
-    }
-    else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(sstruct_solver, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructSplitSetup(sstruct_solver, A, b, x);
@@ -3118,24 +3073,12 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &sstruct_precond);
     HYPRE_SStructSplitSetMaxIter(sstruct_precond, split_iter);
-#if 0
-    HYPRE_SStructSplitSetStructSolverNumIterations(sstruct_precond, struct_iter);
-#endif
     HYPRE_SStructSplitSetTol(sstruct_precond, 0.0);
-    //HYPRE_SStructSplitSetMaxIter(sstruct_precond, 1);
-    //HYPRE_SStructSplitSetTol(sstruct_precond, reltol);
-    //HYPRE_SStructSplitSetLogging(sstruct_precond, 1);
-    //HYPRE_SStructSplitSetZeroGuess(sstruct_precond);
     if (struct_flag == 0) {
       HYPRE_SStructSplitSetStructSolver(sstruct_precond, HYPRE_SMG);
     }
     else if (struct_flag == 1) {
       HYPRE_SStructSplitSetStructSolver(sstruct_precond, HYPRE_PFMG);
-    }
-    else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(sstruct_precond, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructGMRESSetPrecond(sstruct_solver,
@@ -3185,7 +3128,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
         std::cout << "hmdop.pfmg_relax_type = " << pfmg_relax_type << std::endl;
       }
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &struct_solver);
-      //HYPRE_StructPFMGSetMemoryUse(struct_solver, 0);
       HYPRE_StructPFMGSetSkipRelax(struct_solver, 0);
       HYPRE_StructPFMGSetMaxIter(struct_solver, maxiter);
       HYPRE_StructPFMGSetRelChange(struct_solver, 0);
@@ -3218,7 +3160,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     pp.query("struct_flag", struct_flag);
 
     HYPRE_StructGMRESCreate(MPI_COMM_WORLD, &struct_solver);
-    //HYPRE_StructGMRESSetKDim(struct_solver, kdim);
     HYPRE_GMRESSetKDim((HYPRE_Solver) struct_solver, kdim);
     HYPRE_StructGMRESSetMaxIter(struct_solver, maxiter);
     HYPRE_StructGMRESSetTol(struct_solver, reltol);
@@ -3256,7 +3197,6 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
         std::cout << "hmdop.pfmg_post_relax = " << pfmg_post_relax << std::endl;
       }
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &struct_precond);
-      //HYPRE_StructPFMGSetMemoryUse(struct_precond, 0);
       HYPRE_StructPFMGSetSkipRelax(struct_precond, 0);
       HYPRE_StructPFMGSetMaxIter(struct_precond, 1);
       HYPRE_StructPFMGSetRelChange(struct_precond, 0);
@@ -3285,37 +3225,16 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_SStructMatrixGetObject(A, (void**) &par_A);
     HYPRE_SStructVectorGetObject(b, (void**) &par_b);
     HYPRE_SStructVectorGetObject(x, (void**) &par_x);
-#if 0
-    HYPRE_SStructMatrixPrint("A", A, 0);
-    HYPRE_SStructVectorPrint("B", b, 0);
-    std::cout << "HypreMultiDiffOp: creating solver" << std::endl;
-#endif
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
-    //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 1
     // Barry used these four settings, at least for level solves:
     HYPRE_BoomerAMGSetInterpType(solver, 6);
     HYPRE_BoomerAMGSetCoarsenType(solver, 8);
     HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
     HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
-    //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
-    //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
-    int num_sweeps[4] = {2,2,2,1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
-    //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_flag == 151 || solver_flag == 153) {
     HYPRE_ParCSRMatrix par_A;

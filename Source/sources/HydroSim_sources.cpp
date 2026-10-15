@@ -17,17 +17,6 @@ HydroSim::apply_source_to_state(MultiFab& target_state, const MultiFab& source, 
     MultiFab::Saxpy(target_state, dt, source, 0, 0, source.nComp(), ng);
 }
 
-void
-HydroSim::time_center_source_terms(MultiFab& S_new, MultiFab& src_old, MultiFab &src_new, Real dt)
-{
-  BL_PROFILE("HydroSim::time_center_source_terms()");
-
-  // Subtract off half of the old source term, and add half of the new.
-
-  MultiFab::Saxpy(S_new,-0.5*dt,src_old,0,0,S_new.nComp(),0);
-  MultiFab::Saxpy(S_new, 0.5*dt,src_new,0,0,S_new.nComp(),0);
-}
-
 bool
 HydroSim::source_flag(int src)
 {
@@ -685,10 +674,6 @@ HydroSim::post_advance_operators (Real time, Real dt)  // NOLINT(readability-con
 #ifndef TRUE_SDC
 #ifdef REACTIONS
     status = handle_new_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
 #endif
 #endif
 

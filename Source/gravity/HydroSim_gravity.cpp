@@ -337,9 +337,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
             // Temporary array for seeing what the new state would be if the update were applied here.
 
             GpuArray<Real, NUM_STATE> snew;
-            for (int n = 0; n < NUM_STATE; ++n) {
-                snew[n] = 0.0_rt;
-            }
 
             // Temporary array for holding the update to the state.
 
@@ -419,8 +416,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
             }
 
             src[UEDEN] = SrE;
-
-            snew[UEDEN] += dt * SrE;
 
             // Add to the outgoing source array.
 
@@ -657,8 +652,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
                 }
 
                 src[UEDEN] = SrEcorr;
-
-                snew[UEDEN] += dt * SrEcorr;
 
                 // Add to the outgoing source array.
 
