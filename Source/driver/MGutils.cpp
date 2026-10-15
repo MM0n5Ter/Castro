@@ -1,5 +1,9 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>
+#include <AMReX_Amr.H>
+
+#include <MGutils.H>
+#include <hydrosim_limits.H>
 
 using namespace amrex;
 
@@ -49,4 +53,25 @@ apply_metric(const Box& bx,
         amrex::Print() << "Bogus coord_type in apply_metric " << coord_type << std::endl;
         amrex::Error("Error:: MGutils.cpp :: hs_apply_metric");
     }
+}
+
+LevelSolverBase::LevelSolverBase(Amr* Parent, BCRec* _phys_bc)
+  :
+    parent(Parent),
+    LevelData(MAX_LEV),
+    volume(MAX_LEV),
+    area(MAX_LEV),
+    phys_bc(_phys_bc)
+{
+    AMREX_ALWAYS_ASSERT(parent->maxLevel() < MAX_LEV);
+}
+
+void
+LevelSolverBase::store_level (int level, AmrLevel* level_data, MultiFab& _volume, MultiFab* _area)
+{
+    LevelData[level] = level_data;
+
+    volume[level] = &_volume;
+
+    area[level] = _area;
 }

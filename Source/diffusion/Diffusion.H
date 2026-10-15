@@ -5,12 +5,13 @@
 #include <AMReX_MLLinOp.H>
 
 #include <diffusion_params.H>
+#include <MGutils.H>
 
 ///
 /// @class Diffusion
 /// @brief
 ///
-class Diffusion {
+class Diffusion : public LevelSolverBase {
 
 public:
 
@@ -20,7 +21,7 @@ public:
 /// @param _phys_bc
 ///
   Diffusion(amrex::Amr* Parent, amrex::BCRec* _phys_bc);
-  ~Diffusion () = default;
+  ~Diffusion () override = default;
 
 ///
 /// Remove copy/move constructors/assignment operators.
@@ -61,32 +62,14 @@ public:
   void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
                amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
 
-  void set_solver_bc_types();
+  void set_solver_bc_types() override;
 
 protected:
-
-///
-/// Pointers to amr,amrlevel.
-///
-  amrex::Amr*             parent;
-  amrex::Vector<amrex::AmrLevel*> LevelData;
-
 
 ///
 /// BoxArray at each level
 ///
   amrex::Vector<amrex::BoxArray> grids;
-
-///
-/// Volume and area fractions.
-///
-  amrex::Vector<amrex::MultiFab*> volume;
-  amrex::Vector<amrex::MultiFab*> area;
-
-  amrex::BCRec*       phys_bc;
-
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_hibc;
 
 
 ///

@@ -5,6 +5,7 @@
 #include <AMReX_MLLinOp.H>
 
 #include <gravity_params.H>
+#include <MGutils.H>
 
 // This vector can be accessed on the GPU.
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
@@ -36,7 +37,7 @@ namespace multipole {
 /// @class Gravity
 /// @brief
 ///
-class Gravity {
+class Gravity : public LevelSolverBase {
 
 public:
 
@@ -53,7 +54,7 @@ public:
 ///
 /// Deconstructor
 ///
-  ~Gravity ();
+  ~Gravity () override;
 
 ///
 /// Remove copy/move constructors/assignment operators.
@@ -383,13 +384,7 @@ public:
 ///
 /// Make multigrid boundary conditions
 ///
-  void set_solver_bc_types();
-
-///
-/// Pointers to amr,amrlevel.
-///
-  amrex::Amr*             parent;
-  amrex::Vector<amrex::AmrLevel*> LevelData;
+  void set_solver_bc_types() override;
 
 ///
 /// Pointers to grad_phi at previous and current time
@@ -424,18 +419,7 @@ public:
 ///
   amrex::Real max_rhs;
 
-///
-/// Volume and area fractions.
-///
-  amrex::Vector<amrex::MultiFab*> volume;
-  amrex::Vector<amrex::MultiFab*> area;
-
   int Density;
-
-  amrex::BCRec*       phys_bc;
-
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_hibc;
 
   int   radial_npts_level;
 

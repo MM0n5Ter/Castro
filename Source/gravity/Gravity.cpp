@@ -63,23 +63,17 @@ AMREX_GPU_MANAGED Array2D<Real, 0, multipole::l_max_storage, 0, multipole::l_max
 
 Gravity::Gravity(Amr* Parent, int _finest_level, BCRec* _phys_bc, int _density)
   :
-    parent(Parent),
-    LevelData(MAX_LEV),
+    LevelSolverBase(Parent, _phys_bc),
     grad_phi_curr(MAX_LEV),
     grad_phi_prev(MAX_LEV),
     grids(Parent->boxArray()),
     dmap(Parent->DistributionMap()),
     abs_tol(MAX_LEV),
     rel_tol(MAX_LEV),
-    level_final_residual(MAX_LEV),
-    volume(MAX_LEV),
-    area(MAX_LEV),
-    phys_bc(_phys_bc)
+    level_final_residual(MAX_LEV)
 {
 
      amrex::ignore_unused(_finest_level);
-
-     AMREX_ALWAYS_ASSERT(parent->maxLevel() < MAX_LEV);
 
      Density = _density;
      read_params();
@@ -284,11 +278,7 @@ Gravity::register_level (int                   level,
         amrex::Print() << "Installing Gravity level " << level << '\n';
     }
 
-    LevelData[level] = level_data;
-
-    volume[level] = &_volume;
-
-    area[level] = _area;
+    store_level(level, level_data, _volume, _area);
 
     level_final_residual[level] = 0.0;
 

@@ -11,15 +11,9 @@ using namespace amrex;
 
 Diffusion::Diffusion(Amr* Parent, BCRec* _phys_bc)
   :
-    parent(Parent),
-    LevelData(MAX_LEV),
-    grids(MAX_LEV),
-    volume(MAX_LEV),
-    area(MAX_LEV),
-    phys_bc(_phys_bc)
+    LevelSolverBase(Parent, _phys_bc),
+    grids(MAX_LEV)
 {
-    AMREX_ALWAYS_ASSERT(parent->maxLevel() < MAX_LEV);
-
     set_solver_bc_types();
 }
 
@@ -41,11 +35,7 @@ Diffusion::register_level (int                   level,
         amrex::Print() << "Installing Diffusion level " << level << '\n';
     }
 
-    LevelData[level] = level_data;
-
-    volume[level] = &_volume;
-
-    area[level] = _area;
+    store_level(level, level_data, _volume, _area);
 
     BoxArray ba(LevelData[level]->boxArray());
     grids[level] = ba;
