@@ -32,7 +32,25 @@ void Radiation::get_groups(int verbose)
     pp.get("lowestGroupHz", lowest);
 
     Real groupGrowFactor;
-    if (pp.query("groupGrowFactor", groupGrowFactor)) {
+    if (!(pp.query("groupGrowFactor", groupGrowFactor))) {
+      Real highest;
+      pp.get("highestGroupHz", highest);
+
+      Real loglowest = std::log10(lowest);
+      Real loghighest = std::log10(highest);
+      Real dlognu = (loghighest - loglowest) / Real(nGroups);
+
+      for (int i=0; i<nGroups; i++) {
+        xnu[i] = std::pow(10.0, loglowest+i*dlognu);
+        nugroup[i] = std::pow(10.0, loglowest+(i+0.5)*dlognu);
+      }
+      xnu[nGroups] = highest;
+
+      for (int i=0; i<nGroups; i++) {
+        dnugroup[i] = xnu[i+1] - xnu[i];
+        dlognugroup[i] = std::log(xnu[i+1]) - std::log(xnu[i]);
+      }
+    } else {
       xnu[0] = lowest;
 
       Real firstGroupWidthHz;
@@ -54,25 +72,6 @@ void Radiation::get_groups(int verbose)
         dnugroup[i] = dnugroup[i-1] * groupGrowFactor;
         xnu[i+1] = xnu[i] + dnugroup[i];
         nugroup[i] = std::sqrt(xnu[i]*xnu[i+1]);
-        dlognugroup[i] = std::log(xnu[i+1]) - std::log(xnu[i]);
-      }
-    }
-    else {
-      Real highest;
-      pp.get("highestGroupHz", highest);
-
-      Real loglowest = std::log10(lowest);
-      Real loghighest = std::log10(highest);
-      Real dlognu = (loghighest - loglowest) / Real(nGroups);
-
-      for (int i=0; i<nGroups; i++) {
-        xnu[i] = std::pow(10.0, loglowest+i*dlognu);
-        nugroup[i] = std::pow(10.0, loglowest+(i+0.5)*dlognu);
-      }
-      xnu[nGroups] = highest;
-
-      for (int i=0; i<nGroups; i++) {
-        dnugroup[i] = xnu[i+1] - xnu[i];
         dlognugroup[i] = std::log(xnu[i+1]) - std::log(xnu[i]);
       }
     }

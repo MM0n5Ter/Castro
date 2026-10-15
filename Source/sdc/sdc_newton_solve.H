@@ -138,7 +138,7 @@ namespace newton {
         int iter = 0;
 
         Real err = 1.e30_rt;
-        bool converged = false;
+        auto converged = false;
 
         while (!converged && iter < MAX_ITER) {
 

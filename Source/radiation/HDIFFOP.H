@@ -30,7 +30,7 @@ namespace HDIFFOP
         bool x_left = false;
         bool x_right = false;
         bool y_left = false;
-        bool y_right = false;
+        auto y_right = false;
         bool z_left = false;
         bool z_right = false;
 
@@ -182,7 +182,9 @@ namespace HDIFFOP
                 }
             }
         }
-        else if (z_right) {
+        else if (!(z_right)) {
+            std::cout << "hbflx: impossible face orientation" << std::endl;
+        } else {
             int k = reg_khi;
             for (int j = reg_jlo; j <= reg_jhi; ++j) {
                 for (int i = reg_ilo; i <= reg_ihi; ++i) {
@@ -194,9 +196,6 @@ namespace HDIFFOP
                     }
                 }
             }
-        }
-        else {
-            std::cout << "hbflx: impossible face orientation" << std::endl;
         }
     }
 

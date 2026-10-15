@@ -43,10 +43,10 @@ HydroSim::source_flag(int src)
 #endif
 
     case ext_src:
-        if (add_ext_src) {
-            return true;
-        } else {
+        if (!(add_ext_src)) {
             return false;
+        } else {
+            return true;
         }
 #ifndef MHD
     case thermo_src:
@@ -61,10 +61,10 @@ HydroSim::source_flag(int src)
 #endif
 
     case geom_src:
-        if (geom.Coord() == 0 || use_geom_source == 0) {
-          return false;
-        } else {
+        if (!(geom.Coord() == 0 || use_geom_source == 0)) {
           return true;
+        } else {
+          return false;
         }
 
 #ifdef DIFFUSION

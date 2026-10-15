@@ -203,11 +203,10 @@ Real BIndefInteg(Real T, Real nu)
     else {
 
         Real integ;
-        if (x > blackbody::xmagic) {
-            integ = integlarge(x);
-        }
-        else {
+        if (!(x > blackbody::xmagic)) {
             integ = integsmall(x);
+        } else {
+            integ = integlarge(x);
         }
 
         B = blackbody::bk_const * std::pow(T, 4) * integ;

@@ -107,10 +107,10 @@ void lagrange_iterate (Real& r, Real mass_1, Real mass_2, Real r1, Real r2, Real
         rc = 0.5_rt * (rm + rp);
         Real fc = fL(mass_1, mass_2, r1, r2, rc, a);
 
-        if (fm * fc < 0.0_rt) {
-            rp = rc;
-        } else {
+        if (!(fm * fc < 0.0_rt)) {
             rm = rc;
+        } else {
+            rp = rc;
         }
 
         // Check to see if we've convernged.

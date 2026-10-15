@@ -120,7 +120,16 @@ FaceValue(AuxVarBox& evalue, AuxVarBox& cintrp,
           const Mask& msk, const Box& reg,
           const IntVect& vin, int r, int bho, int flevel)
 {
-  if (bho == 1) {
+  if (!(bho == 1)) {
+    Real efacb = 1.0 / (1 + r);
+    Real efac1 = r / (1.0 + r);
+    for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
+      if (msk(v) == RadBndryData::not_covered) {
+        evalue(v).push(&cintrp(v),    efacb);
+        evalue(v).push(flevel, v-vin, efac1);
+      }
+    }
+  } else {
     Real efacb = 3.0 / ((1 + r) * (3 + r));
     Real efac1 = ( 1.5 * r) / (1 + r);
     Real efac2 = (-0.5 * r) / (3 + r);
@@ -130,16 +139,6 @@ FaceValue(AuxVarBox& evalue, AuxVarBox& cintrp,
         evalue(v).push(&cintrp(v),    efacb);
         evalue(v).push(flevel, v-vin, efac1);
         evalue(v).push(flevel, v-vi2, efac2);
-      }
-    }
-  }
-  else {
-    Real efacb = 1.0 / (1 + r);
-    Real efac1 = r / (1.0 + r);
-    for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-      if (msk(v) == RadBndryData::not_covered) {
-        evalue(v).push(&cintrp(v),    efacb);
-        evalue(v).push(flevel, v-vin, efac1);
       }
     }
   }

@@ -71,11 +71,10 @@ void Radiation::read_static_params()
     SolverType = static_cast<Solver_Type>(solver_type);
   }
 
-  if (Radiation::SolverType == Radiation::MGFLDSolver) {
-    do_multigroup = 1;
-  }
-  else {
+  if (!(Radiation::SolverType == Radiation::MGFLDSolver)) {
     do_multigroup = 0;
+  } else {
+    do_multigroup = 1;
   }
 
   // check that we're not using a single group solver if NGROUPS > 1
@@ -96,12 +95,11 @@ void Radiation::read_static_params()
 
   if (SolverType == SGFLDSolver) {
     radiation::fspace_advection_type = 1;
-    if (radiation::comoving) {
-      Er_Lorentz_term = 0;
-    }
-    else {
+    if (!(radiation::comoving)) {
       Er_Lorentz_term = 1;
       pp.query("Er_Lorentz_term", Er_Lorentz_term);
+    } else {
+      Er_Lorentz_term = 0;
     }
   }
 
@@ -175,38 +173,38 @@ void Radiation::read_static_params()
       }
       if (radiation::plot_kappa_p) {
           icomp_kp = plotvar_names.size();
-          if (!do_multigroup) {
-              plotvar_names.push_back("kappa_P");
-          } else {
+          if (!(!do_multigroup)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "kappa_P" << g;
                   plotvar_names.push_back(ss.str());
               }
+          } else {
+              plotvar_names.push_back("kappa_P");
           }
       }
       if (radiation::plot_kappa_r) {
           icomp_kr = plotvar_names.size();
-          if (!do_multigroup) {
-              plotvar_names.push_back("kappa_R");
-          } else {
+          if (!(!do_multigroup)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "kappa_R" << g;
                   plotvar_names.push_back(ss.str());
               }
+          } else {
+              plotvar_names.push_back("kappa_R");
           }
       }
       if (radiation::plot_lab_Er) {
           icomp_lab_Er = plotvar_names.size();
-          if (!do_multigroup) {
-              plotvar_names.push_back("Erlab");
-          } else {
+          if (!(!do_multigroup)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "Erlab" << g;
                   plotvar_names.push_back(ss.str());
               }
+          } else {
+              plotvar_names.push_back("Erlab");
           }
       }
       if (radiation::plot_lab_flux) {
@@ -332,15 +330,14 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
 
   update_opacity    = 1000;
 
-  if (SolverType == SGFLDSolver || SolverType == MGFLDSolver) {
-    update_planck     = 1000;
-    update_rosseland  = 1000;
-    update_limiter    = 1000;
-  }
-  else {
+  if (!(SolverType == SGFLDSolver || SolverType == MGFLDSolver)) {
     update_planck     = 50;
     update_rosseland  = 50;
     update_limiter    = 4;
+  } else {
+    update_planck     = 1000;
+    update_rosseland  = 1000;
+    update_limiter    = 1000;
   }
   pp.query("update_planck", update_planck);
   pp.query("update_rosseland", update_rosseland);
@@ -594,11 +591,10 @@ void Radiation::restart(int level, const BoxArray& grids,
     if (aString.find("delta_e_rat") == 0) {
       is >> delta_e_rat_level[level];
     }
-    else if (aString.find("delta_T_rat") == 0) {
-      is >> delta_T_rat_level[level];
-    }
-    else {
+    else if (!(aString.find("delta_T_rat") == 0)) {
       Path = aString;
+    } else {
+      is >> delta_T_rat_level[level];
     }
   } while (Path.empty());
 
@@ -1284,10 +1280,7 @@ void Radiation::getBndryDataMG(MGRadBndry& mgbd, MultiFab& Er,
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
-  if(level == 0) {
-    mgbd.setBndryValues(Er, 0, 0, Radiation::nGroups, rad_bc);
-  }
-  else {
+  if (!(level == 0)) {
     BoxArray cgrids(grids);
     IntVect crse_ratio = parent->refRatio(level-1);
     cgrids.coarsen(crse_ratio);
@@ -1297,6 +1290,8 @@ void Radiation::getBndryDataMG(MGRadBndry& mgbd, MultiFab& Er,
 
     mgbd.setBndryValues(crse_br, 0, Er, 0,
                         0, Radiation::nGroups, crse_ratio, rad_bc);
+  } else {
+    mgbd.setBndryValues(Er, 0, 0, Radiation::nGroups, rad_bc);
   }
 
   mgbd.setTime(time);
@@ -1310,10 +1305,7 @@ void Radiation::getBndryDataMG_ga(MGRadBndry& mgbd, MultiFab& Er, int level)
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
-  if(level == 0) {
-    mgbd.setBndryValues(Er, 0, 0, 1, rad_bc);
-  }
-  else {
+  if (!(level == 0)) {
     BoxArray cgrids(grids);
     IntVect crse_ratio = parent->refRatio(level-1);
     cgrids.coarsen(crse_ratio);
@@ -1322,6 +1314,8 @@ void Radiation::getBndryDataMG_ga(MGRadBndry& mgbd, MultiFab& Er, int level)
 
     mgbd.setBndryValues(crse_br, 0, Er, 0,
                         0, 1, crse_ratio, rad_bc);
+  } else {
+    mgbd.setBndryValues(Er, 0, 0, 1, rad_bc);
   }
 
   mgbd.setBndryFluxConds(rad_bc);
@@ -1339,7 +1333,7 @@ void Radiation::filBndry(BndryRegister& bdry, int level, Real time)
 
   Real old_time = hydrosim->get_state_data(Rad_Type).prevTime();
   Real new_time = hydrosim->get_state_data(Rad_Type).curTime();
-  Real eps = (new_time > old_time) ? 0.001*(new_time - old_time) : 1.0;
+  Real eps = (!((new_time > old_time)) ? (1.0) : (0.001*(new_time - old_time)));
 
   BL_ASSERT( (time > old_time-eps) && (time < new_time + eps));
 
@@ -1399,13 +1393,12 @@ void Radiation::filBndry(BndryRegister& bdry, int level, Real time)
     if (time > new_time - eps) {
       bdry.copyFrom(snew_tmp, n_ghost, 0, 0, 1);
     }
-    else if (time < old_time + eps) {
-      bdry.copyFrom(sold_tmp, n_ghost, 0, 0, 1);
-    }
-    else {
+    else if (!(time < old_time + eps)) {
       Real a = (new_time - time) / (new_time - old_time);
       Real b = (time - old_time) / (new_time - old_time);
       bdry.linComb(a, sold_tmp, 0, b, snew_tmp, 0, 0, 1, n_ghost);
+    } else {
+      bdry.copyFrom(sold_tmp, n_ghost, 0, 0, 1);
     }
   }
 }

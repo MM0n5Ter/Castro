@@ -87,13 +87,12 @@ void RadBndry::init()
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
     int dir = face.coordDir();
-    if (face.isLow()) {
-      bcflag[face] = lo_bcflag[dir];
-      bcval[face]  = lo_bcval[dir];
-    }
-    else {
+    if (!(face.isLow())) {
       bcflag[face] = hi_bcflag[dir];
       bcval[face]  = hi_bcval[dir];
+    } else {
+      bcflag[face] = lo_bcflag[dir];
+      bcval[face]  = lo_bcval[dir];
     }
   }
 }
@@ -102,11 +101,10 @@ void RadBndry::init(Real bv)
 {
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-    if (face.isLow()) {
+    if (!(face.isLow())) {
       bcflag[face] = 0;
       bcval[face]  = bv;
-    }
-    else {
+    } else {
       bcflag[face] = 0;
       bcval[face]  = bv;
     }

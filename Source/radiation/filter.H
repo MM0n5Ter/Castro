@@ -10,11 +10,10 @@ namespace filter
         if (i == 0) {
             return 0.50_rt;
         }
-        else if (i == 1) {
-            return 0.25_rt;
-        }
-        else {
+        else if (!(i == 1)) {
             return 0.0_rt;
+        } else {
+            return 0.25_rt;
         }
     }
 
@@ -71,11 +70,10 @@ namespace filter
         else if (i == 1) {
             return -2.0_rt / 16.0_rt;
         }
-        else if (i == 2) {
-            return 1.0_rt / 16.0_rt;
-        }
-        else {
+        else if (!(i == 2)) {
             return 0.0_rt;
+        } else {
+            return 1.0_rt / 16.0_rt;
         }
     }
 
@@ -92,11 +90,10 @@ namespace filter
         else if (i == 1) {
             return -4.0_rt / 16.0_rt;
         }
-        else if (i == 2) {
-            return 1.0_rt / 16.0_rt;
-        }
-        else {
+        else if (!(i == 2)) {
             return 0.0_rt;
+        } else {
+            return 1.0_rt / 16.0_rt;
         }
     }
 
@@ -159,11 +156,10 @@ namespace filter
         else if (i == 2) {
             return -3.0_rt / 64.0_rt;
         }
-        else if (i == 3) {
-            return 1.0_rt / 64.0_rt;
-        }
-        else {
+        else if (!(i == 3)) {
             return 0.0_rt;
+        } else {
+            return 1.0_rt / 64.0_rt;
         }
     }
 
@@ -278,11 +274,10 @@ namespace filter
         else if (i == 3 && j == 3) {
             return 8.0_rt / 256.0_rt;
         }
-        else if (i == 4 && j == 3) {
-            return 1.0_rt / 256.0_rt;
-        }
-        else {
+        else if (!(i == 4 && j == 3)) {
             return 0.0_rt;
+        } else {
+            return 1.0_rt / 256.0_rt;
         }
     }
 

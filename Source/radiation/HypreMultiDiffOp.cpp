@@ -20,7 +20,7 @@ using namespace amrex;
 
 static int ispow2(int i)
 {
-  return (i == 1) ? 1 : (((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2));
+  return (!((i == 1)) ? ((((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2))) : (1));
 }
 
 Real HypreMultiDiffOp::flux_factor = 1.0;
@@ -179,12 +179,12 @@ BndryAuxVar::BndryAuxVar(const BoxArray& _grids,
   // For Location type EXTERIOR use CrseBndryAuxVar instead:
   BL_ASSERT(loc == INTERIOR || loc == GHOST);
 
-  int inormal = (loc == INTERIOR) ? 0 : 1;
+  int inormal = (!((loc == INTERIOR)) ? (1) : (0));
 
   for (OrientationIter oitr; oitr; ++oitr) {
     Orientation ori = oitr();
     aux[ori].resize(grids.size());
-    int ishift = ori.isLow() ? 1-inormal : inormal-1;
+    int ishift = (!(ori.isLow()) ? (inormal-1) : (1-inormal));
     for (int i = firstLocal(); isValid(i); i = nextLocal(i)) {
       Box b = amrex::adjCell(grids[i], ori);
       aux[ori][i].reset(new AuxVarBox(b.shift(ori.coordDir(), ishift)));
@@ -499,7 +499,7 @@ void CrseBndryAuxVar::buildFaceData(IntVect& rat, int ncomp)
       for (int j = 0; j < n; j++) {
           Box face_box = aux[ori][i][j]->box();
         // face_box is known to be "adjacent cell", convert to face:
-        face_box.shiftHalf(ori.coordDir(), (ori.isLow() ? 1 : -1));
+        face_box.shiftHalf(ori.coordDir(), ((!(ori.isLow()) ? (-1) : (1))));
         face_box.refine(rat);
         face_data[ori][i][j].reset(new FArrayBox(face_box, ncomp));
       }
@@ -590,7 +590,9 @@ void HypreMultiDiffOp::vectorGetBoxValues(HYPRE_SStructVector x,
 
   BL_ASSERT(f.box() == reg);
   Real* vec = f.dataPtr(fcomp);
-  if (sgr.size() > 0) {
+  if (!(sgr.size() > 0)) {
+    HYPRE_SStructVectorGetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
+  } else {
     f.setVal<RunOn::Host>(0.0, fcomp);
     FArrayBox svecfab;
     for (int j = 0; j < sgr.size(); j++) {
@@ -604,9 +606,6 @@ void HypreMultiDiffOp::vectorGetBoxValues(HYPRE_SStructVector x,
         vec[ir] = svec[is];
       }
     }
-  }
-  else {
-    HYPRE_SStructVectorGetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
   }
 }
 
@@ -2256,7 +2255,11 @@ void HypreMultiDiffOp::loadMatrix()
           // Treat an exposed grid edge here as a boundary condition
           // for the linear solver:
 
-          if (reg[oitr()] == domain[oitr()]) {
+          if (!(reg[oitr()] == domain[oitr()])) {
+              hmmat(reg, matfab.array(), cdir, bct, bho, bcl,
+                    msk.array(), (*bcoefs[level])[idim][mfi].array(),
+                    beta, geom[level].CellSize());
+          } else {
             Array4<const int> tfp{};
             int bctype = bct;
             if (bd[level]->mixedBndry(oitr())) {
@@ -2274,11 +2277,6 @@ void HypreMultiDiffOp::loadMatrix()
                    beta, geom[level].CellSize(), geom[level].data(),
                    flux_factor, pSPa);
           }
-          else {
-              hmmat(reg, matfab.array(), cdir, bct, bho, bcl,
-                    msk.array(), (*bcoefs[level])[idim][mfi].array(),
-                    beta, geom[level].CellSize());
-          }
         }
         else {
 
@@ -2295,7 +2293,10 @@ void HypreMultiDiffOp::loadMatrix()
 
       // initialize matrix
 
-      if (subgrids[level][i].size() > 0) {
+      if (!(subgrids[level][i].size() > 0)) {
+        HYPRE_SStructMatrixSetBoxValues(A, part, loV(reg), hiV(reg), 0,
+                                        size, stencil_indices, mat);
+      } else {
         for (int j = 0; j < subgrids[level][i].size(); j++) {
           const Box& sreg = subgrids[level][i][j];
           smatfab.resize(sreg,size);
@@ -2310,10 +2311,6 @@ void HypreMultiDiffOp::loadMatrix()
           HYPRE_SStructMatrixSetBoxValues(A, part, loV(sreg), hiV(sreg), 0,
                                           size, stencil_indices, smat);
         }
-      }
-      else {
-        HYPRE_SStructMatrixSetBoxValues(A, part, loV(reg), hiV(reg), 0,
-                                        size, stencil_indices, mat);
       }
     }
 
@@ -3056,11 +3053,10 @@ void HypreMultiDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
       if (struct_flag == 0) {
         std::cout << "hmdop.struct_flag     = HYPRE_SMG" << std::endl;
       }
-      else if (struct_flag == 1) {
-        std::cout << "hmdop.struct_flag     = HYPRE_PFMG" << std::endl;
-      }
-      else {
+      else if (!(struct_flag == 1)) {
         std::cout << "hmdop.struct_flag     = HYPRE_Jacobi" << std::endl;
+      } else {
+        std::cout << "hmdop.struct_flag     = HYPRE_PFMG" << std::endl;
       }
     }
 
@@ -3424,11 +3420,10 @@ void HypreMultiDiffOp::clearSolver()
     int struct_flag = 1;
 #endif
     pp.query("struct_flag", struct_flag);
-    if (struct_flag == 0) {
-      HYPRE_StructSMGDestroy((HYPRE_StructSolver) solver);
-    }
-    else {
+    if (!(struct_flag == 0)) {
       HYPRE_StructPFMGDestroy((HYPRE_StructSolver) solver);
+    } else {
+      HYPRE_StructSMGDestroy((HYPRE_StructSolver) solver);
     }
   }
   else if (solver_flag == 109) {
@@ -3862,11 +3857,10 @@ Real HypreMultiDiffOp::getAbsoluteResidual()
 #endif
     pp.query("struct_flag", struct_flag);
     HYPRE_StructSolver& struct_solver = *(HYPRE_StructSolver*)&solver;
-    if (struct_flag == 0) {
-      HYPRE_StructSMGGetFinalRelativeResidualNorm(struct_solver, &res);
-    }
-    else {
+    if (!(struct_flag == 0)) {
       HYPRE_StructPFMGGetFinalRelativeResidualNorm(struct_solver, &res);
+    } else {
+      HYPRE_StructSMGGetFinalRelativeResidualNorm(struct_solver, &res);
     }
   }
   else if (solver_flag == 109) {

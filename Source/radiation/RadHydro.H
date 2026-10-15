@@ -202,12 +202,12 @@ update_one_species(const int n, Real* u, Real* a, const Real* dx, const Real ten
     dt = amrex::min(dt, dx[i]/acfl*cfl_fspace);
   }
 
-  if (dt >= tend) {
-    nstep = 1;
-    dt = tend;
-  } else {
+  if (!(dt >= tend)) {
     nstep = std::ceil(tend/dt);
     dt = tend / static_cast<Real>(nstep);
+  } else {
+    nstep = 1;
+    dt = tend;
   }
 
   Real u1[NGROUPS];

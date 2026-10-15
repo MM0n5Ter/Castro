@@ -20,7 +20,7 @@ Real flatten(int i, int j, int k,
 
     Real dp = q_arr(i+1,j,k,pres_comp) - q_arr(i-1,j,k,pres_comp);
 
-    int ishft = dp > 0.0_rt ? 1 : -1;
+    int ishft = (!(dp > 0.0_rt) ? (-1) : (1));
 
     Real denom = std::max(small_pres, std::abs(q_arr(i+2,j,k,pres_comp) - q_arr(i-2,j,k,pres_comp)));
     Real zeta = std::abs(dp) / denom;

@@ -317,19 +317,17 @@ HydroSim::variableSetUp ()
 
   MFInterpolater* interp = nullptr;
 
-  if (state_interp_order == 0) {
-    interp = &mf_pc_interp;
-  }
-  else {
+  if (!(state_interp_order == 0)) {
     if (lin_limit_state_interp == 2) {
       interp = &mf_linear_slope_minmax_interp;
     }
-    else if (lin_limit_state_interp == 1) {
+    else if (!(lin_limit_state_interp == 1)) {
+      interp = &mf_cell_cons_interp;
+    } else {
       interp = &mf_lincc_interp;
     }
-    else {
-      interp = &mf_cell_cons_interp;
-    }
+  } else {
+    interp = &mf_pc_interp;
   }
 
   // Note that the default is state_data_extrap = false,

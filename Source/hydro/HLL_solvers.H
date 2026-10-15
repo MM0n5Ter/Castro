@@ -443,17 +443,17 @@ namespace HLL {
             po = pl;
             gamco = gamcl;
 
-        } else if (ustar < 0.0_rt) {
+        } else if (!(ustar < 0.0_rt)) {
+            ro = 0.5_rt*(rl + rr);
+            uo = 0.5_rt*(ul + ur);
+            po = 0.5_rt*(pl + pr);
+            gamco = 0.5_rt*(gamcl + gamcr);
+        } else {
             ro = rr;
             uo = ur;
             po = pr;
             gamco = gamcr;
 
-        } else {
-            ro = 0.5_rt*(rl + rr);
-            uo = 0.5_rt*(ul + ur);
-            po = 0.5_rt*(pl + pr);
-            gamco = 0.5_rt*(gamcl + gamcr);
         }
 
         ro = std::max(small_dens, ro);

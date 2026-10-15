@@ -68,17 +68,16 @@ void evalLegendre (int l, Real& plVal, Real& plPrev1, Real& plPrev2, Real x)
         plVal = 1.0_rt;
 
     }
-    else if (l == 1) {
-
-        plPrev1 = plVal;
-        plVal  = x;
-
-    }
-    else {
+    else if (!(l == 1)) {
 
         plPrev2 = plPrev1;
         plPrev1 = plVal;
         plVal  = ((2*l - 1) * x * plPrev1 - (l-1) * plPrev2) / l;
+
+    } else {
+
+        plPrev1 = plVal;
+        plVal  = x;
 
     }
 }
@@ -109,23 +108,22 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
             Real dMIn0 = 0.0_rt;
             Real dMOut0 = 0.0_rt;
 
-            if (index <= n) {
-
-                rho_r_in = rho * (std::pow(r, l));
-
-                dMIn0 = plVal * rho_r_in * vol * multipole::volumeScale;
-                if (parity) {
-                    dMIn0 = dMIn0 * multipole::mirror_m0(l);
-                }
-
-            }
-            else {
+            if (!(index <= n)) {
 
                 rho_r_out = rho * (std::pow(r, -l-1));
 
                 dMOut0 = plVal * rho_r_out * vol * multipole::volumeScale;
                 if (parity) {
                     dMOut0 = dMOut0 * multipole::mirror_m0(l);
+                }
+
+            } else {
+
+                rho_r_in = rho * (std::pow(r, l));
+
+                dMIn0 = plVal * rho_r_in * vol * multipole::volumeScale;
+                if (parity) {
+                    dMIn0 = dMIn0 * multipole::mirror_m0(l);
                 }
 
             }
@@ -155,22 +153,7 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
                 Real dMOutC = 0.0_rt;
                 Real dMOutS = 0.0_rt;
 
-                if (index <= n) {
-
-                    rho_r_in = rho * (std::pow(r, l));
-
-                    dMInC = plmVal * std::cos(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
-                    if (parity) {
-                        dMInC = dMInC * multipole::mirror_mC_mS(l,m);
-                    }
-
-                    dMInS = plmVal * std::sin(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
-                    if (parity) {
-                        dMInS = dMInS * multipole::mirror_mC_mS(l,m);
-                    }
-
-                }
-                else {
+                if (!(index <= n)) {
 
                     rho_r_out = rho * (std::pow(r, -l-1));
 
@@ -182,6 +165,20 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
                     dMOutS = plmVal * std::sin(m * phiAngle) * rho_r_out * vol * multipole::legNormTable(l,m);
                     if (parity) {
                         dMOutS = dMOutS * multipole::mirror_mC_mS(l,m);
+                    }
+
+                } else {
+
+                    rho_r_in = rho * (std::pow(r, l));
+
+                    dMInC = plmVal * std::cos(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
+                    if (parity) {
+                        dMInC = dMInC * multipole::mirror_mC_mS(l,m);
+                    }
+
+                    dMInS = plmVal * std::sin(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
+                    if (parity) {
+                        dMInS = dMInS * multipole::mirror_mC_mS(l,m);
                     }
 
                 }

@@ -18,7 +18,7 @@ using namespace amrex;
 
 static int ispow2(int i)
 {
-  return (i == 1) ? 1 : (((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2));
+  return (!((i == 1)) ? ((((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2))) : (1));
 }
 
 Real HypreDiffOp::flux_factor = 1.0;
@@ -1786,9 +1786,7 @@ void HypreDiffOp::solve(MultiFab& dest, int icomp, MultiFab& rhs, BC_Mode inhom)
       volume += grids[i].numPts();
     }
 
-    Real reltol_new = (bnorm > 0.0
-                       ? abstol / bnorm * std::sqrt(volume)
-                       : reltol);
+    Real reltol_new = ((!(bnorm > 0.0) ? (reltol) : (abstol / bnorm * std::sqrt(volume))));
 
     if (reltol_new > reltol) {
       if (solver_flag == 0) {

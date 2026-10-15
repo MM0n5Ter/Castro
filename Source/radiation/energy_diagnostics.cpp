@@ -19,7 +19,7 @@ HydroSim::do_energy_diagnostics()
   int finest_level = parent->finestLevel();
 
   int v = verbose;
-  v = (do_radiation && radiation->verbose > v) ? radiation->verbose : v;
+  v = (!((do_radiation && radiation->verbose > v)) ? (v) : (radiation->verbose));
 
   if (do_radiation && (v > 2 || (level == 0 && v > 0))) {
     Real prev_time = state[State_Type].prevTime();
@@ -30,15 +30,14 @@ HydroSim::do_energy_diagnostics()
     for (int lev = 0; lev <= finest_level; lev++) {
       m += getLevel(lev).volWgtSum("density", prev_time + dt);
       s += getLevel(lev).volWgtSum("rho_E",   prev_time + dt);
-      if (!Radiation::do_multigroup) {
-          r += getLevel(lev).volWgtSum("rad", prev_time + dt);
-      }
-      else {
+      if (!(!Radiation::do_multigroup)) {
           std::string rad_name;
           for (int igroup = 0; igroup < Radiation::nGroups; igroup++) {
               rad_name = "rad" + std::to_string(igroup);
               r += getLevel(lev).volWgtSum(rad_name, prev_time + dt);
           }
+      } else {
+          r += getLevel(lev).volWgtSum("rad", prev_time + dt);
       }
       if (lev < finest_level) {
           // If using deferred sync, also include flux register energy

@@ -65,14 +65,11 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
     {
         GpuArray<Real, 3> loc;
 
-        if (idir == 0)
-        {
+        if (!(idir == 0)) {
+            position(i, j, k, geomdata, loc);
+        } else {
             bool ccx = false;
             position(i, j, k, geomdata, loc, ccx);
-        }
-        else
-        {
-            position(i, j, k, geomdata, loc);
         }
 
         r = loc[0];
@@ -84,7 +81,7 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
 
         if (idir == 0)
         {
-            bool ccx = false;
+            auto ccx = false;
             position(i, j, k, geomdata, loc, ccx);
 
             r = loc[0] * loc[0];
@@ -110,13 +107,13 @@ void edge_center_metric (int i, int j, int k, int idir, const GeometryData& geom
 
             if (AMREX_SPACEDIM >= 2)
             {
-                bool ccx = true;
-                bool ccy = false;
+                auto ccx = true;
+                auto ccy = false;
                 position(i, j, k, geomdata, loc, ccx, ccy);
             }
             else
             {
-                bool ccx = false;
+                auto ccx = false;
                 position(i, j, k, geomdata, loc, ccx);
             }
 
@@ -149,14 +146,13 @@ void face_metric (int i, int j, int k, int lo, int hi,
         }
         else {
 
-            if (ori_lo == 1) {
-
-                r = problo[0] + lo * dx[0];
-
-            }
-            else {
+            if (!(ori_lo == 1)) {
 
                 r = problo[0] + (hi + 1) * dx[0];
+
+            } else {
+
+                r = problo[0] + lo * dx[0];
 
             }
 

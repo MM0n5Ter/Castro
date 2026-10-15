@@ -21,10 +21,7 @@ RadSolve::RadSolve (Amr* Parent, int level, const BoxArray& grids, const Distrib
 {
     read_params();
 
-    if (radsolve::level_solver_flag < 100) {
-        hd.reset(new HypreDiffOp(grids, dmap, parent->Geom(level), radsolve::level_solver_flag));
-    }
-    else {
+    if (!(radsolve::level_solver_flag < 100)) {
         if (radsolve::use_hypre_nonsymmetric_terms == 0) {
             hm.reset(new HypreMultiDiffOp(level, level, radsolve::level_solver_flag));
             hm->addLevel(level, parent->Geom(level), grids, dmap,
@@ -40,6 +37,8 @@ RadSolve::RadSolve (Amr* Parent, int level, const BoxArray& grids, const Distrib
                           IntVect::TheUnitVector());
             hem->buildMatrixStructure();
         }
+    } else {
+        hd.reset(new HypreDiffOp(grids, dmap, parent->Geom(level), radsolve::level_solver_flag));
     }
 }
 

@@ -164,10 +164,10 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
         }
 
         for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            if (status.suggested_dt > 0.0_rt && status.suggested_dt < dt) {
-                getLevel(lev).dt_subcycle = status.suggested_dt;
-            } else {
+            if (!(status.suggested_dt > 0.0_rt && status.suggested_dt < dt)) {
                 getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
+            } else {
+                getLevel(lev).dt_subcycle = status.suggested_dt;
             }
         }
 
@@ -274,7 +274,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     Real eps = 1.0e-14;
 
-    bool do_swap = false;
+    auto do_swap = false;
 
     Real last_dt_subcycle = 1.e200;
 
@@ -411,10 +411,10 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
             }
 
             if (!status.success) {
-                if (use_retry) {
-                    amrex::Print() << "Advance was unsuccessful with reason: " << status.reason << "; proceeding to a retry." << std::endl << std::endl;
-                } else {
+                if (!(use_retry)) {
                     amrex::Abort("Advance was unsuccessful.");
+                } else {
+                    amrex::Print() << "Advance was unsuccessful with reason: " << status.reason << "; proceeding to a retry." << std::endl << std::endl;
                 }
                 break;
             }
@@ -449,7 +449,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
                 continue;
             }
-            else {
+{
                 for (int lev = level; lev <= max_level_to_advance; ++lev) {
                     getLevel(lev).in_retry = false;
                 }

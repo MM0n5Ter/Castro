@@ -219,7 +219,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     // the point where we can bail out later in the advance, so let's just
     // go directly into a retry now if we're too far away from the needed dt.
 
-    bool is_first_step_on_this_level = true;
+    auto is_first_step_on_this_level = true;
 
     for (int lev = level; lev >= 0; --lev) {
         if (getLevel(lev).iteration > 1) {
@@ -279,7 +279,7 @@ HydroSim::finalize_do_advance (Real time, Real dt)
             // But don't do this check if we're using simplified SDC and we're not yet
             // on the final SDC iteration, since we're not yet at the final advance.
 
-            bool do_validity_check = true;
+            auto do_validity_check = true;
 
             if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
                 sdc_iteration < sdc_iters - 1) {
@@ -673,15 +673,14 @@ HydroSim::finalize_advance()
     Real fom_advance = static_cast<Real>(num_pts_advanced) / wall_time / 1.e6;
 
     if (verbose >= 1) {
-        if (max_level_to_advance > 0) {
+        if (!(max_level_to_advance > 0)) {
+            amrex::Print() << "  Zones advanced per microsecond at this level: "
+                           << fom_advance << std::endl << std::endl;
+        } else {
             if (level == 0) {
                 amrex::Print() << "  Zones advanced per microsecond from level " << level << " to level "
                                << max_level_to_advance << ": " << fom_advance << std::endl << std::endl;
             }
-        }
-        else {
-            amrex::Print() << "  Zones advanced per microsecond at this level: "
-                           << fom_advance << std::endl << std::endl;
         }
     }
 }

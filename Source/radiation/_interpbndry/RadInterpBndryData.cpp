@@ -196,7 +196,7 @@ RadInterpBndryData::setBndryValues(BndryRegister& crse, int c_start,
                         int k = (dir == 2) ? flo[2] : ratioz * kc;
 
                         for (int jc = clo[1]; jc <= chi[1]; ++jc) {
-                            int j = (dir == 1) ? flo[1] : ratioy * jc;
+                            int j = (!((dir == 1)) ? (ratioy * jc) : (flo[1]));
 
                             for (int ic = clo[0]; ic <= chi[0]; ++ic) {
                                 int i = (dir == 0) ? flo[0] : ratiox * ic;
@@ -326,7 +326,7 @@ RadInterpBndryData::setBndryValues(BndryRegister& crse, int c_start,
 
                                 for (int koff = 0; koff < ratioz; ++koff) {
                                     Real zz = (koff - 0.5_rt * ratioz + 0.5_rt) / ratioz;
-                                    int kk = (dir == 2) ? flo[2] : ratioz * kc + koff;
+                                    int kk = (!((dir == 2)) ? (ratioz * kc + koff) : (flo[2]));
 
                                     for (int joff = 0; joff < ratioy; ++joff) {
                                         Real yy = (joff - 0.5_rt * ratioy + 0.5_rt) / ratioy;

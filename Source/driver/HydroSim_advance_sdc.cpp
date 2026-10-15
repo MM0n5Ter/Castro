@@ -55,7 +55,7 @@ HydroSim::do_advance_sdc (Real time,
     MultiFab& old_source = get_old_data(Source_Type);
     MultiFab& new_source = get_new_data(Source_Type);
 
-    bool apply_sources_to_state = false;
+    auto apply_sources_to_state = false;
 
     // we loop over all nodes, even the last, since we need to compute
     // the advective update source at each node
@@ -152,10 +152,10 @@ HydroSim::do_advance_sdc (Real time,
 
 
             // Construct the primitive variables.
-            if (sdc_order == 4) {
-                cons_to_prim_fourth(time);
-            } else {
+            if (!(sdc_order == 4)) {
                 cons_to_prim(time);
+            } else {
+                cons_to_prim_fourth(time);
             }
 
             if (do_hydro) {

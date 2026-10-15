@@ -123,12 +123,11 @@ Real FLDalpha(Real lam)
     if (R < 1.e-6_rt) {
         alpha = 0.25_rt;
     }
-    else if (R > 300.0_rt) {
-        alpha = 0.5_rt;
-    }
-    else {
+    else if (!(R > 300.0_rt)) {
         Real cr = std::cosh(R);
         alpha = cr * std::log(cr) / (2.0_rt * R * std::sinh(R));
+    } else {
+        alpha = 0.5_rt;
     }
 
     return alpha;

@@ -43,7 +43,9 @@ GpuArray<Real, 3> get_omega_vec(const GeometryData& geomdata,
 
     // If coord == 2, i.e. Spherical2D, then it is assumed that rotational axis is in z-axis
     // then we convert back to r and theta direction.
-    if (coord == 2) {
+    if (!(coord == 2)) {
+        omega_vec[hydrosim::rot_axis - 1] = omega;
+    } else {
         Real theta;
         if (hydrosim::fixed_rotational_latitude >= 0.0_rt) {
             theta = hydrosim::fixed_rotational_latitude;
@@ -52,8 +54,6 @@ GpuArray<Real, 3> get_omega_vec(const GeometryData& geomdata,
         }
         omega_vec[0] = std::cos(theta) * omega;
         omega_vec[1] = -std::sin(theta) * omega;
-    } else {
-        omega_vec[hydrosim::rot_axis - 1] = omega;
     }
 
     return omega_vec;

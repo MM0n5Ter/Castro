@@ -97,16 +97,15 @@ void MGRadBndry::init(const int _ngroups)
     Orientation face(fi());
     int dir = face.coordDir();
     bcval[face].resize(ngroups);
-    if (face.isLow()) {
-      bcflag[face] = lo_bcflag[dir];
-      for(int igroup = 0; igroup < ngroups; igroup++) {
-        bcval[face][igroup] = lo_bcval[dir][igroup];
-      }
-    }
-    else {
+    if (!(face.isLow())) {
       bcflag[face] = hi_bcflag[dir];
       for(int igroup = 0; igroup < ngroups; igroup++) {
         bcval[face][igroup] = hi_bcval[dir][igroup];
+      }
+    } else {
+      bcflag[face] = lo_bcflag[dir];
+      for(int igroup = 0; igroup < ngroups; igroup++) {
+        bcval[face][igroup] = lo_bcval[dir][igroup];
       }
     }
   }

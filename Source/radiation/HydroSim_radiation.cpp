@@ -36,18 +36,17 @@ HydroSim::final_radiation_call (MultiFab& S_new, int iteration, int ncycle)
             }
             radiation->MGFLD_implicit_update(level, iteration, ncycle);
         }
-        else if (Radiation::SolverType == Radiation::SGFLDSolver) {
+        else if (!(Radiation::SolverType == Radiation::SGFLDSolver)) {
+            MultiFab& Er_old = get_old_data(Rad_Type);
+            MultiFab& Er_new = get_new_data(Rad_Type);
+            MultiFab::Copy(Er_new, Er_old, 0, 0, Er_old.nComp(), 0);
+            radiation->single_group_update(level, iteration, ncycle);
+        } else {
             if (! Radiation::rad_hydro_combined) {
                 MultiFab& Er_old = get_old_data(Rad_Type);
                 MultiFab& Er_new = get_new_data(Rad_Type);
                 MultiFab::Copy(Er_new, Er_old, 0, 0, Er_old.nComp(), 0);
             }
-            radiation->single_group_update(level, iteration, ncycle);
-        }
-        else {
-            MultiFab& Er_old = get_old_data(Rad_Type);
-            MultiFab& Er_new = get_new_data(Rad_Type);
-            MultiFab::Copy(Er_new, Er_old, 0, 0, Er_old.nComp(), 0);
             radiation->single_group_update(level, iteration, ncycle);
         }
 

@@ -154,14 +154,14 @@ compute_flux_q(const int i, const int j, const int k, const int idir,
             qface(i,j,k,QU) = qint.un;
             qface(i,j,k,QV) = qint.ut;
             qface(i,j,k,QW) = qint.utt;
-        } else if (idir == 1) {
-            qface(i,j,k,QV) = qint.un;
-            qface(i,j,k,QU) = qint.ut;
-            qface(i,j,k,QW) = qint.utt;
-        } else {
+        } else if (!(idir == 1)) {
             qface(i,j,k,QW) = qint.un;
             qface(i,j,k,QU) = qint.ut;
             qface(i,j,k,QV) = qint.utt;
+        } else {
+            qface(i,j,k,QV) = qint.un;
+            qface(i,j,k,QU) = qint.ut;
+            qface(i,j,k,QW) = qint.utt;
         }
 
         qface(i,j,k,QTEMP) = 0.0_rt;
