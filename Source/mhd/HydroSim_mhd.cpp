@@ -35,7 +35,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 #endif
     {
 
-      FArrayBox flux[AMREX_SPACEDIM], E[AMREX_SPACEDIM];
+      Array<FArrayBox, AMREX_SPACEDIM> flux, E;
 
       FArrayBox q;
       FArrayBox qaux;
@@ -44,8 +44,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
       FArrayBox flatcoef;
       FArrayBox flatg;
 
-      FArrayBox qleft[AMREX_SPACEDIM];
-      FArrayBox qright[AMREX_SPACEDIM];
+      Array<FArrayBox, AMREX_SPACEDIM> qleft;
+      Array<FArrayBox, AMREX_SPACEDIM> qright;
 
       FArrayBox flxx1D;
       FArrayBox flxy1D;

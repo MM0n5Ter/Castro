@@ -36,20 +36,20 @@ HydroSim::corner_couple(const Box& bx,
   // cl and cr are the offsets to the indices for the conserved state fluxes
   // they will be offset in d2 to capture the flux difference
 
-  int cl[3] = {};
-  int cr[3] = {};
+  GpuArray<int, 3> cl{};
+  GpuArray<int, 3> cr{};
 
   // b is for indexing into the magnetic field that is in the d1
   // (normal) direction
 
-  int b[3] = {};
+  GpuArray<int, 3> b{};
 
   // for indexing the electric field
 
-  int err[3] = {};
-  int elr[3] = {};
-  int erl[3] = {};
-  int ell[3] = {};
+  GpuArray<int, 3> err{};
+  GpuArray<int, 3> elr{};
+  GpuArray<int, 3> erl{};
+  GpuArray<int, 3> ell{};
 
   // update the state on interface direction d1 with the input flux in direction d2
 

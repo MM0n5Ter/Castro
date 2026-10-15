@@ -196,7 +196,7 @@ HydroSim::trace_plm(const Box& bx, const int idir,
     Real alpha0ut = dq[IEVEC_UT];
     Real alpha0utt = dq[IEVEC_UTT];
 
-    Real e[3];
+    GpuArray<Real, 3> e;
     e[0] = un - cc;
     e[1] = un;
     e[2] = un + cc;

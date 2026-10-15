@@ -109,7 +109,7 @@ HydroSim::apply_sponge(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real src[NSRC] = {0.0};
+    GpuArray<Real, NSRC> src{};
 
     GpuArray<Real, 3> r;
 

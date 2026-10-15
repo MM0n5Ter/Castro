@@ -17,7 +17,7 @@ HydroSim::electric_edge_x(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    GpuArray<Real, NQ> q_zone;
 
     // Compute Ex(i, j-1/2, k-1/2)
 
@@ -31,7 +31,7 @@ HydroSim::electric_edge_x(const Box& bx,
       q_zone[n] = q_arr(i,j-1,k-1,n);
     }
     Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     Real a = 2.0_rt * (-flxy(i,j,k-1,UMAGZ) - Ecen);
 
     // now compute dEx/dy_{i,j-3/4,k}
@@ -39,7 +39,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     Real b = 2.0_rt *(-flxy(i,j,k,UMAGZ) - Ecen);
 
     // Upwind in the z direction to get dEx/dy i, j-3/4, k-1/2
@@ -62,7 +62,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     a = 2.0_rt * (Ecen + flxy(i,j,k-1,UMAGZ));
 
     // now compute dEx/dy_{i,j-1/4,k}
@@ -70,7 +70,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     b = 2.0_rt * (Ecen + flxy(i,j,k,UMAGZ));
 
     // finally upwind in the z direction to get dEx/dy i, j-1/4, k-1/2
@@ -99,7 +99,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     a = 2.0_rt * (flxz(i,j-1,k,UMAGY) - Ecen);
 
     // now compute dEx/dz_{i,j,k-3/4}
@@ -107,7 +107,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     b = 2.0_rt * (flxz(i,j,k,UMAGY) - Ecen);
 
     // upwind in the y direction to get dEx/dz i, j-1/2, k-3/4
@@ -128,7 +128,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     a = 2.0_rt * (Ecen - flxz(i,j-1,k,UMAGY));
 
     // now compute dEx/dz_{i,j,k-1/4}
@@ -136,7 +136,7 @@ HydroSim::electric_edge_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 0);
+    electric(q_zone.data(), Ecen, 0);
     b = 2.0_rt * (Ecen - flxz(i,j,k,UMAGY));
 
     // upwind in the y direction to get dEx/dz i, j-1/2, k-1/4
@@ -175,7 +175,7 @@ HydroSim::electric_edge_y(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    GpuArray<Real, NQ> q_zone;
 
     // Compute Ey(i-1/2, j, k-1/2)
 
@@ -187,7 +187,7 @@ HydroSim::electric_edge_y(const Box& bx,
       q_zone[n] = q_arr(i-1,j,k-1,n);
     }
     Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     Real a = 2.0_rt * (-flxz(i-1,j,k,UMAGX) - Ecen);
 
     // now compute dEy/dz_{i,j,k-3/4}
@@ -195,7 +195,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     Real b = 2.0_rt * (-flxz(i,j,k,UMAGX) - Ecen);
 
     // upwind in the x direction to get dEy/dz i-1/2, j, k-3/4
@@ -217,7 +217,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     a = 2.0_rt * (Ecen + flxz(i-1,j,k,UMAGX));
 
     // now compute dEy/dz_{i,j,k-1/4}
@@ -225,7 +225,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     b = 2.0_rt * (Ecen + flxz(i,j,k,UMAGX));
 
     // upwind in the x direction to get dEy/dz i-1/2, j, k-1/4
@@ -253,7 +253,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     a = 2.0_rt * (flxx(i,j,k-1,UMAGZ) - Ecen);
 
     // next compute dEy/dz_{i-3/4,j,k}
@@ -261,7 +261,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     b = 2.0_rt * (flxx(i,j,k,UMAGZ) - Ecen);
 
     // upwind in the z direction to get dEy/dx i-3/4, j, k-1/2
@@ -282,7 +282,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     a = 2.0_rt * (Ecen - flxx(i,j,k-1,UMAGZ));
 
     // next compute dEy/dx_{i-1/4,j,k}
@@ -290,7 +290,7 @@ HydroSim::electric_edge_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
+    electric(q_zone.data(), Ecen, 1);
     b = 2.0_rt * (Ecen - flxx(i,j,k,UMAGZ));
 
     // upwind in the z direction for i-1/4, j, k-1/2
@@ -330,7 +330,7 @@ HydroSim::electric_edge_z(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    GpuArray<Real, NQ> q_zone;
 
     // Compute Ez(i-1/2, j-1/2, k)
 
@@ -342,7 +342,7 @@ HydroSim::electric_edge_z(const Box& bx,
       q_zone[n] = q_arr(i-1,j-1,k,n);
     }
     Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     Real a = 2.0_rt * (-flxx(i,j-1,k,UMAGY) - Ecen);
 
     //  next dEz/dx_{i-3/4,j,k}
@@ -350,7 +350,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     Real b = 2.0_rt * (-flxx(i,j,k,UMAGY) - Ecen);
 
     // upwind in the y direction to get dEz/dx i-3/4, j-1/2, k
@@ -372,7 +372,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     a = 2.0_rt * (Ecen + flxx(i,j-1,k,UMAGY));
 
     // next dEz/dx_{i-1/4,j,k}
@@ -380,7 +380,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     b = 2.0_rt * (Ecen + flxx(i,j,k,UMAGY));
 
     // upwind in the y direction to get dEz/dx i-1/4, j-1/2, k
@@ -408,7 +408,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     a = 2.0_rt * (flxy(i-1,j,k,UMAGX) - Ecen);
 
     // now compute dEz/dy_{i,j-3/4,k}
@@ -416,7 +416,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     b = 2.0_rt * (flxy(i,j,k,UMAGX) - Ecen);
 
     // upwind in the x direction to get dEz/dy i-1/2, j-3/4, k
@@ -437,7 +437,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     a = 2.0_rt * (Ecen - flxy(i-1,j,k,UMAGX));
 
     // now compute dEz/dy_{i,j-1/4,k}
@@ -445,7 +445,7 @@ HydroSim::electric_edge_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       q_zone[n] = q_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
+    electric(q_zone.data(), Ecen, 2);
     b = 2.0_rt * (Ecen - flxy(i,j,k,UMAGX));
 
     // Upwind in the x direction for i-1/2, j-1/4, k

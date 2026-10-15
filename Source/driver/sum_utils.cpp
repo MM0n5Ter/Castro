@@ -119,7 +119,7 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
-            Real loc[3];
+            GpuArray<Real, 3> loc;
 
             loc[0] = problo[0] + (0.5_rt + i) * dx[0];
 

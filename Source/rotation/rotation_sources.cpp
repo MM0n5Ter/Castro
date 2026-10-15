@@ -18,12 +18,12 @@ HydroSim::rsrc(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real Sr[3] = {};
-    Real src[NSRC] = {};
+    GpuArray<Real, 3> Sr{};
+    GpuArray<Real, NSRC> src{};
 
     // Temporary array for seeing what the new state would be if the update were applied here.
 
-    Real snew[NUM_STATE] = {};
+    GpuArray<Real, NUM_STATE> snew{};
 
     GpuArray<Real, 3> loc;
     position(i, j, k, geomdata, loc);
@@ -50,7 +50,7 @@ HydroSim::rsrc(const Box& bx,
     v[2] = uold(i,j,k,UMZ) * rhoInv;
 
     bool coriolis = true;
-    rotational_acceleration(loc, v, omega, coord, coriolis, Sr);
+    rotational_acceleration(loc, v, omega, coord, coriolis, Sr.data());
 
     for (auto& e : Sr) {
         e *= rho;

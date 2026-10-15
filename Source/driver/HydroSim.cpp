@@ -2668,7 +2668,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
         // We also apply a similar check to ensure that 0 < X < 1 after the reflux.
 
-        MultiFab temp_fluxes[AMREX_SPACEDIM];
+        Array<MultiFab, AMREX_SPACEDIM> temp_fluxes;
 
         for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -4218,7 +4218,7 @@ HydroSim::define_new_center(const MultiFab& S, Real time)
     FillPatch(*this,mf,0,time,State_Type,URHO,1);
 
 #if AMREX_SPACEDIM >= 2
-    int mi[3] = {0};
+    Array<int, 3> mi{};
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       mi[i] = max_index[i];
     }
@@ -4247,7 +4247,7 @@ HydroSim::define_new_center(const MultiFab& S, Real time)
         });
 
         // This puts the "center" at the cell center
-        Real new_center[3];
+        Array<Real, 3> new_center;
         for (int d = 0; d < AMREX_SPACEDIM; d++) {
             new_center[d] = geom.ProbLo(d) +  (static_cast<Real>(mi[d]) + 0.5_rt) * dx[d];
         }

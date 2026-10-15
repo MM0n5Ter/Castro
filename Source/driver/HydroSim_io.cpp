@@ -94,9 +94,9 @@ HydroSim::restart (Amr&     papa,
             FullPathHydroSimHeaderFile += "/HydroSimHeader";
             std::ifstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
             if (HydroSimHeaderFile.good()) {
-                char foo[256];
+                std::string label;
                 // first line: Checkpoint version: ?
-                HydroSimHeaderFile.getline(foo, 256, ':');
+                std::getline(HydroSimHeaderFile, label, ':');
                 HydroSimHeaderFile >> input_version;
             } else {
                 input_version = 0;

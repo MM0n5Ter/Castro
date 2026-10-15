@@ -215,7 +215,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
           // fourth order method
           // -----------------------------------------------------------------
 
-          Box ibx[AMREX_SPACEDIM];
+          amrex::Array<Box, AMREX_SPACEDIM> ibx;
           ibx[0] = amrex::grow(amrex::surroundingNodes(bx, 0), IntVect(AMREX_D_DECL(0,1,1)));
 #if AMREX_SPACEDIM >= 2
           ibx[1] = amrex::grow(amrex::surroundingNodes(bx, 1), IntVect(AMREX_D_DECL(1,0,1)));

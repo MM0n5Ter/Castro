@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <iomanip>
 
 #include <HydroSim.H>
@@ -30,13 +31,13 @@ HydroSim::sum_integrated_quantities ()
     }
     int timestep     = parent->levelSteps(0);
     Real mass        = 0.0;
-    Real mom[3]      = { 0.0 };
-    Real ang_mom[3]  = { 0.0 };
+    std::array<Real, 3> mom{};
+    std::array<Real, 3> ang_mom{};
 #ifdef HYBRID_MOMENTUM
-    Real hyb_mom[3]  = { 0.0 };
+    std::array<Real, 3> hyb_mom{};
 #endif
-    Real com[3]      = { 0.0 };
-    Real com_vel[3]  = { 0.0 };
+    std::array<Real, 3> com{};
+    std::array<Real, 3> com_vel{};
     Real rho_e       = 0.0;
     Real rho_K       = 0.0;
     Real rho_E       = 0.0;
@@ -212,29 +213,29 @@ HydroSim::sum_integrated_quantities ()
 #endif
 #endif
 
-        Real foo[nfoo] = {mass, mom[0], mom[1], mom[2],
-                          com[0], com[1], com[2],
-                          ang_mom[0], ang_mom[1], ang_mom[2],
+        std::array<Real, nfoo> foo = {mass, mom[0], mom[1], mom[2],
+                                      com[0], com[1], com[2],
+                                      ang_mom[0], ang_mom[1], ang_mom[2],
 #ifdef HYBRID_MOMENTUM
-                          hyb_mom[0], hyb_mom[1], hyb_mom[2],
+                                      hyb_mom[0], hyb_mom[1], hyb_mom[2],
 #endif
 #ifdef GRAVITY
-                          rho_e, rho_K, rho_E, rho_phi};
+                                      rho_e, rho_K, rho_E, rho_phi};
 #else
-                          rho_e, rho_K, rho_E};
+                                      rho_e, rho_K, rho_E};
 #endif
 
         const int nfoo_max = 3;
 
-        Real foo_max[nfoo_max] = {T_max, rho_max, ts_te_max};
+        std::array<Real, nfoo_max> foo_max = {T_max, rho_max, ts_te_max};
 
 #ifdef BL_LAZY
         Lazy::QueueReduction( [=] () mutable {
 #endif
 
-        ParallelDescriptor::ReduceRealSum(foo, nfoo, ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::ReduceRealSum(foo.data(), nfoo, ParallelDescriptor::IOProcessorNumber());
 
-        ParallelDescriptor::ReduceRealMax(foo_max, nfoo_max, ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::ReduceRealMax(foo_max.data(), nfoo_max, ParallelDescriptor::IOProcessorNumber());
 
         if (ParallelDescriptor::IOProcessor()) {
 

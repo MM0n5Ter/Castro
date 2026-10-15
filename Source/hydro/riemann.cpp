@@ -181,9 +181,9 @@ HydroSim::riemann_flux_and_state(const Box& bx,
         Real cl = qaux_arr(left, QC);
         Real cr = qaux_arr(i,j,k,QC);
 
-        Real ql_zone[NQ];
-        Real qr_zone[NQ];
-        Real flx_zone[NUM_STATE];
+        GpuArray<Real, NQ> ql_zone;
+        GpuArray<Real, NQ> qr_zone;
+        GpuArray<Real, NUM_STATE> flx_zone;
 
         for (int n = 0; n < NQ; n++) {
             ql_zone[n] = qm(i,j,k,n);
@@ -197,9 +197,9 @@ HydroSim::riemann_flux_and_state(const Box& bx,
             flx_zone[n] = flx(i,j,k,n);
         }
 
-        HLL::HLL(ql_zone, qr_zone, cl, cr,
+        HLL::HLL(ql_zone.data(), qr_zone.data(), cl, cr,
                  idir, coord,
-                 flx_zone);
+                 flx_zone.data());
 
         for (int n = 0; n < NUM_STATE; n++) {
             flx(i,j,k,n) = flx_zone[n];
