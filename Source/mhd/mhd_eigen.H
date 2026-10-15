@@ -3,10 +3,16 @@
 
 #include <mhd_util.H>
 
+// the left eigenvectors (rows of left) and right eigenvectors
+// (columns of right) of the characteristic matrix in one direction
+struct Eigenvectors {
+  Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> left;
+  Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> right;
+};
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-evals(Array1D<Real, 0, NEVEC-1>& lam,
-      const Real as_in,
+Array1D<Real, 0, NEVEC-1>
+evals(const Real as_in,
       Array1D<Real, 0, NQ-1>& Q,
       const int dir) {
 
@@ -44,6 +50,7 @@ evals(Array1D<Real, 0, NEVEC-1>& lam,
   }
 
   // eigenvalues
+  Array1D<Real, 0, NEVEC-1> lam;
   lam(0) = Q(QUN) - std::sqrt(cf);
   lam(1) = Q(QUN) - std::sqrt(cad);
   lam(2) = Q(QUN) - std::sqrt(cs);
@@ -52,17 +59,20 @@ evals(Array1D<Real, 0, NEVEC-1>& lam,
   lam(5) = Q(QUN) + std::sqrt(cad);
   lam(6) = Q(QUN) + std::sqrt(cf);
 
+  return lam;
 }
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-evecx(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
-      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
-      const Real as_in,
+Eigenvectors
+evecx(const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
   // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Ax
+
+  Eigenvectors evec;
+  auto& leig = evec.left;
+  auto& reig = evec.right;
 
   // The characteristic speeds of the system
 
@@ -254,18 +264,21 @@ evecx(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
   reig(IEVEC_BTT, 5) = bety*S*std::sqrt(Q(QRHO));
   reig(IEVEC_BTT, 6) = AAs*betz;
 
+  return evec;
 }
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-evecy(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
-      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
-      const Real as_in,
+Eigenvectors
+evecy(const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
 
   // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Ay
+
+  Eigenvectors evec;
+  auto& leig = evec.left;
+  auto& reig = evec.right;
 
   // The characteristic speeds of the system
 
@@ -455,17 +468,20 @@ evecy(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
   reig(IEVEC_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
   reig(IEVEC_BTT, 6) = AAs*betz;
 
+  return evec;
 }
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-evecz(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
-      Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig,
-      const Real as_in,
+Eigenvectors
+evecz(const Real as_in,
       Array1D<Real, 0, NQ-1>& Q) {
 
   // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Az
+
+  Eigenvectors evec;
+  auto& leig = evec.left;
+  auto& reig = evec.right;
 
   // The characteristic speeds of the system
 
@@ -655,14 +671,17 @@ evecz(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
   reig(IEVEC_BTT, 5) = betx*S*std::sqrt(Q(QRHO));
   reig(IEVEC_BTT, 6) = AAs*bety;
 
+  return evec;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-check_evecs(Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& leig,
-            Array2D<Real, 0, NEVEC-1, 0, NEVEC-1>& reig) {
+check_evecs(Eigenvectors const& evec) {
 
   // this checks if the eigenvectors are properly orthornomal
+
+  auto const& leig = evec.left;
+  auto const& reig = evec.right;
 
   for (int n = 0; n < NEVEC; n++) {
     for (int m = 0; m < NEVEC; m++) {

@@ -7,10 +7,7 @@ using namespace amrex;
 
 void
 HydroSim::corner_couple(const Box& bx,
-                      Array4<Real> const& qr_out,
-                      Array4<Real> const& ql_out,
-                      Array4<Real const> const& ur,
-                      Array4<Real const> const& ul,
+                      InterfaceStates const& states,
                       Array4<Real const> const& flxd2,
                       Array4<Real const> const& Ed1,
                       Array4<Real const> const& Ed3,
@@ -24,6 +21,11 @@ HydroSim::corner_couple(const Box& bx,
   // This implements step 3 of the CTU algorithm.
   // the normal direction (for the interface states) is d1
   // the transverse direction (for the flux difference) is d2
+
+  auto const& ur = states.u_right;
+  auto const& ul = states.u_left;
+  auto const& qr_out = states.q_right;
+  auto const& ql_out = states.q_left;
 
   GpuArray<Real, 3> dx;
   for (int i = 0; i < AMREX_SPACEDIM; ++i) {
@@ -95,8 +97,8 @@ HydroSim::corner_couple(const Box& bx,
 
     // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state)
 
-    Real utmp[NUM_STATE+3];
-    Real qtmp[NQ];
+    GpuArray<Real, NUM_STATE+3> utmp;
+    GpuArray<Real, NQ> qtmp;
 
     for (int n = 0; n < NUM_STATE; n++) {
       if (n != UTEMP) {
@@ -169,8 +171,8 @@ HydroSim::corner_couple(const Box& bx,
 
     // conservative state
 
-    Real utmp[NUM_STATE+3];
-    Real qtmp[NQ];
+    GpuArray<Real, NUM_STATE+3> utmp;
+    GpuArray<Real, NQ> qtmp;
 
     for (int n = 0; n < NUM_STATE; n++) {
       if (n != UTEMP) {
@@ -205,10 +207,7 @@ HydroSim::corner_couple(const Box& bx,
 
 void
 HydroSim::half_step(const Box& bx,
-                  Array4<Real> const& qr_out,
-                  Array4<Real> const& ql_out,
-                  Array4<Real const> const& ur,
-                  Array4<Real const> const& ul,
+                  InterfaceStates const& states,
                   Array4<Real const> const& flxd1,
                   Array4<Real const> const& flxd2,
                   Array4<Real const> const& Ed,
@@ -217,6 +216,11 @@ HydroSim::half_step(const Box& bx,
                   const int d, const int d1, const int d2, const Real dt) {
 
   // Final transverse flux corrections to the conservative state
+
+  auto const& ur = states.u_right;
+  auto const& ul = states.u_left;
+  auto const& qr_out = states.q_right;
+  auto const& ql_out = states.q_left;
 
   GpuArray<Real, 3> dx;
   for (int i = 0; i < AMREX_SPACEDIM; ++i) {
@@ -298,8 +302,8 @@ HydroSim::half_step(const Box& bx,
 
     // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state)
 
-    Real utmp[NUM_STATE+3];
-    Real qtmp[NQ];
+    GpuArray<Real, NUM_STATE+3> utmp;
+    GpuArray<Real, NQ> qtmp;
 
     for (int n = 0; n < NUM_STATE; n++) {
       if (n != UTEMP) {
@@ -381,8 +385,8 @@ HydroSim::half_step(const Box& bx,
 
     // left interface (e.g., U_{i+1/2,j,k,L} or the "+" state)
 
-    Real utmp[NUM_STATE+3];
-    Real qtmp[NQ];
+    GpuArray<Real, NUM_STATE+3> utmp;
+    GpuArray<Real, NQ> qtmp;
 
     // first the conserved state
 

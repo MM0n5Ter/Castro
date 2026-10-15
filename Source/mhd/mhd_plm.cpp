@@ -6,17 +6,17 @@ using namespace amrex;
 #include <slope.H>
 void
 HydroSim::plm(const Box& bx,
-            const int idir,
             Array4<Real const> const& s,
             Array4<Real const> const& qaux,
             Array4<Real const> const& flatcoef,
             Array4<Real const> const& Bx,
             Array4<Real const> const& By,
             Array4<Real const> const& Bz,
-            Array4<Real> const& qleft,
-            Array4<Real> const& qright,
             Array4<Real const> const& srcQ,
-            const Real dt) {
+            const int idir,
+            const Real dt,
+            Array4<Real> const& qleft,
+            Array4<Real> const& qright) {
 
   // these loops are over cell-centers and for each cell-center, we find the left and
   // right interface states
@@ -97,21 +97,18 @@ HydroSim::plm(const Box& bx,
 
     Real as = qaux(i,j,k,QC);
 
-    Array1D<Real, 0, NEVEC-1> lam;
+    const Array1D<Real, 0, NEVEC-1> lam = evals(as, q_zone, idir);
 
-    evals(lam, as, q_zone, idir);
-
-    Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> leig;
-    Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> reig;
+    Eigenvectors evec;
 
     if (idir == 0) {
-      evecx(leig, reig, as, q_zone);
+      evec = evecx(as, q_zone);
 
     } else if (idir == 1) {
-      evecy(leig, reig, as, q_zone);
+      evec = evecy(as, q_zone);
 
     } else {
-      evecz(leig, reig, as, q_zone);
+      evec = evecz(as, q_zone);
     }
 
     // MHD Source Terms
@@ -165,7 +162,7 @@ HydroSim::plm(const Box& bx,
         ZoneStencil W{};
         for (int n = 0; n < NEVEC; n++) {
             for (int idx = 0; idx < nslp; ++idx) {
-                W[idx] += leig(ii, n) * Q[n][idx];
+                W[idx] += evec.left(ii, n) * Q[n][idx];
             }
         }
 
@@ -175,7 +172,7 @@ HydroSim::plm(const Box& bx,
         // now add this charactistic variable's contribution to the
         // primitive variable slope
         for (int n = 0; n < NEVEC; n++) {
-          dq[n] += dW * reig(n, ii);
+          dq[n] += dW * evec.right(n, ii);
         }
       }
 
@@ -200,12 +197,12 @@ HydroSim::plm(const Box& bx,
       Real Ldq = 0.0;
 
       for (int n = 0; n < NEVEC; n++) {
-        Ldq += leig(ii,n) * dq[n];
+        Ldq += evec.left(ii,n) * dq[n];
       }
 
       for (int n = 0; n < NEVEC; n++) {
-        summ_p[n] += (1.0_rt - dtdx * lam(ii)) * Ldq * reig(n,ii);
-        summ_m[n] -= (1.0_rt + dtdx * lam(ii)) * Ldq * reig(n,ii);
+        summ_p[n] += (1.0_rt - dtdx * lam(ii)) * Ldq * evec.right(n,ii);
+        summ_m[n] -= (1.0_rt + dtdx * lam(ii)) * Ldq * evec.right(n,ii);
       }
     }
 

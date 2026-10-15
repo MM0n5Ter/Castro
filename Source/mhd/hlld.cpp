@@ -5,11 +5,11 @@
 using namespace amrex;
 
 void
-HydroSim::hlld(const Box& bx,
-             Array4<Real const> const& qleft,
-             Array4<Real const> const& qright,
-             Array4<Real> const& flx,
-             const int dir) {
+mhd::hlld(const Box& bx,
+          Array4<Real const> const& qleft,
+          Array4<Real const> const& qright,
+          Array4<Real> const& flx,
+          const int dir) {
 
   // Riemann solve:
 
@@ -91,9 +91,7 @@ HydroSim::hlld(const Box& bx,
     qR(QPRES) = amrex::max(small_pres, qR(QPRES));
 
     Array1D<Real, 0, NUM_STATE+2> uL;
-    Real gam1_L;
-
-    PToC(qL, uL, gam1_L);
+    const Real gam1_L = PToC(qL, uL);
 
     // Compute the fluxes.  Here use total p not just p_g
     Real BL2 = qL(QMAGX) * qL(QMAGX) + qL(QMAGY) * qL(QMAGY) + qL(QMAGZ) * qL(QMAGZ);
@@ -115,9 +113,7 @@ HydroSim::hlld(const Box& bx,
     FL(UTEMP) = 0.0_rt;
 
     Array1D<Real, 0, NUM_STATE+2> uR;
-    Real gam1_R;
-
-    PToC(qR, uR, gam1_R);
+    const Real gam1_R = PToC(qR, uR);
 
     Real BR2 = qR(QMAGX) * qR(QMAGX) + qR(QMAGY) * qR(QMAGY) + qR(QMAGZ) * qR(QMAGZ);
     Real UBR = qR(QMAGX) * qR(QU) + qR(QMAGY) * qR(QV) + qR(QMAGZ) * qR(QW);

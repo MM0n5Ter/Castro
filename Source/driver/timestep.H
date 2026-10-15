@@ -234,13 +234,13 @@ struct TimestepLimiter {
 
                 if (e > 0_rt) {
                   Real cad = bcx*bcx * rhoInv;
-                  eos_soundspeed_mhd(cx, as, ca, cad);
+                  cx = eos_soundspeed_mhd(as, ca, cad);
 
                   cad = bcy*bcy * rhoInv;
-                  eos_soundspeed_mhd(cy, as, ca, cad);
+                  cy = eos_soundspeed_mhd(as, ca, cad);
 
                   cad = bcz*bcz * rhoInv;
-                  eos_soundspeed_mhd(cz, as, ca, cad);
+                  cz = eos_soundspeed_mhd(as, ca, cad);
 
                 } else {
                   cx = 0.0_rt;

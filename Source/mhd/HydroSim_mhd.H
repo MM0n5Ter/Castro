@@ -5,31 +5,31 @@
 
     void
     plm(const amrex::Box& bx,
-        const int idir,
         amrex::Array4<amrex::Real const> const& s,
         amrex::Array4<amrex::Real const> const& qaux,
         amrex::Array4<amrex::Real const> const& flatcoef,
         amrex::Array4<amrex::Real const> const& Bx,
         amrex::Array4<amrex::Real const> const& By,
         amrex::Array4<amrex::Real const> const& Bz,
-        amrex::Array4<amrex::Real> const& qleft,
-        amrex::Array4<amrex::Real> const& qright,
         amrex::Array4<amrex::Real const> const& srcQ,
-        const amrex::Real dt);
+        const int idir,
+        const amrex::Real dt,
+        amrex::Array4<amrex::Real> const& qleft,
+        amrex::Array4<amrex::Real> const& qright);
 
     void
     ppm_mhd(const amrex::Box& bx,
-            const int idir,
             amrex::Array4<amrex::Real const> const& q_arr,
             amrex::Array4<amrex::Real const> const& qaux,
             amrex::Array4<amrex::Real const> const& flatcoef,
             amrex::Array4<amrex::Real const> const& Bx,
             amrex::Array4<amrex::Real const> const& By,
             amrex::Array4<amrex::Real const> const& Bz,
-            amrex::Array4<amrex::Real> const& qleft,
-            amrex::Array4<amrex::Real> const& qright,
             amrex::Array4<amrex::Real const> const& srcQ,
-            const amrex::Real dt);
+            const int idir,
+            const amrex::Real dt,
+            amrex::Array4<amrex::Real> const& qleft,
+            amrex::Array4<amrex::Real> const& qright);
 
     void
     cons_update_mhd(const amrex::Box& bx, const Real dt,
@@ -37,11 +37,6 @@
                amrex::Array4<amrex::Real const> const& flux0,
                amrex::Array4<amrex::Real const> const& flux1,
                amrex::Array4<amrex::Real const> const& flux2);
-
-    static void
-    PrimToCons(const amrex::Box& bx,
-               amrex::Array4<amrex::Real const> const& q_arr,
-               amrex::Array4<amrex::Real> const& u_arr);
 
     void
     prim_half(const amrex::Box& bx,
@@ -53,33 +48,20 @@
               const amrex::Real dt);
 
 
-    static void
-    electric_edge_x(const amrex::Box& bx,
-                    amrex::Array4<amrex::Real const> const& q_arr,
-                    amrex::Array4<amrex::Real> const& E,
-                    amrex::Array4<amrex::Real const> const& flxy,
-                    amrex::Array4<amrex::Real const> const& flxz);
-
-    static void
-    electric_edge_y(const amrex::Box& bx,
-                    amrex::Array4<amrex::Real const> const& q_arr,
-                    amrex::Array4<amrex::Real> const& E,
-                    amrex::Array4<amrex::Real const> const& flxx,
-                    amrex::Array4<amrex::Real const> const& flxz);
-
-    static void
-    electric_edge_z(const amrex::Box& bx,
-                    amrex::Array4<amrex::Real const> const& q_arr,
-                    amrex::Array4<amrex::Real> const& E,
-                    amrex::Array4<amrex::Real const> const& flxx,
-                    amrex::Array4<amrex::Real const> const& flxy);
+    // the conserved right/left interface states on the faces of one
+    // direction, and the primitive states that the transverse updates
+    // of corner_couple and half_step write from them
+    struct InterfaceStates
+    {
+        amrex::Array4<amrex::Real const> u_right;
+        amrex::Array4<amrex::Real const> u_left;
+        amrex::Array4<amrex::Real> q_right;
+        amrex::Array4<amrex::Real> q_left;
+    };
 
     void
     corner_couple(const amrex::Box& bx,
-                  amrex::Array4<amrex::Real> const& qr_out,
-                  amrex::Array4<amrex::Real> const& ql_out,
-                  amrex::Array4<amrex::Real const> const& ur,
-                  amrex::Array4<amrex::Real const> const& ul,
+                  InterfaceStates const& states,
                   amrex::Array4<amrex::Real const> const& flxd2,
                   amrex::Array4<amrex::Real const> const& Ed1,
                   amrex::Array4<amrex::Real const> const& Ed3,
@@ -88,23 +70,13 @@
 
     void
     half_step(const amrex::Box& bx,
-              amrex::Array4<amrex::Real> const& qr_out,
-              amrex::Array4<amrex::Real> const& ql_out,
-              amrex::Array4<amrex::Real const> const& ur,
-              amrex::Array4<amrex::Real const> const& ul,
+              InterfaceStates const& states,
               amrex::Array4<amrex::Real const> const& flxd1,
               amrex::Array4<amrex::Real const> const& flxd2,
               amrex::Array4<amrex::Real const> const& Ed,
               amrex::Array4<amrex::Real const> const& Ed1,
               amrex::Array4<amrex::Real const> const& Ed2,
               const int d, const int d1, const int d2, const amrex::Real dt);
-
-    static void
-    hlld(const amrex::Box& bx,
-         amrex::Array4<amrex::Real const> const& qleft,
-         amrex::Array4<amrex::Real const> const& qright,
-         amrex::Array4<amrex::Real> const& flx,
-         const int dir);
 
 
 #endif

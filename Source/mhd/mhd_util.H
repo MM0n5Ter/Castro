@@ -8,8 +8,8 @@ using namespace amrex;
 
 // sound speed calc for ideal MHD
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-eos_soundspeed_mhd(Real& c, Real as, Real ca, Real bd) {
+Real
+eos_soundspeed_mhd(Real as, Real ca, Real bd) {
 
   // inputs:
   // as = P_g * gam1/rho
@@ -17,13 +17,15 @@ eos_soundspeed_mhd(Real& c, Real as, Real ca, Real bd) {
   // bd = B_direction^2/rho
 
   // Fast Magneto-Sonic Wave
-  c = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*bd));
-  c = std::sqrt(c);
+  Real c = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*bd));
+  return std::sqrt(c);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-qflux(Real* qflx, const Real* flx, const Real* q_zone) {
+qflux(GpuArray<Real, NQ>& qflx,
+      GpuArray<Real, NUM_STATE+3> const& flx,
+      GpuArray<Real, NQ> const& q_zone) {
 
   // Calculate the C to P Jacobian applied to the fluxes
 
@@ -75,21 +77,21 @@ qflux(Real* qflx, const Real* flx, const Real* q_zone) {
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-electric(const Real* q_zone, Real& E_zone, const int comp) {
+Real
+electric(GpuArray<Real, NQ> const& q_zone, const int comp) {
 
-  // this takes the cell-center primitive state, q_zone, and computes the cell-center
-  // electric field, E_zone, using Faraday's law:
+  // this takes the cell-center primitive state, q_zone, and returns component
+  // comp of the cell-center electric field, using Faraday's law:
   // E = -v X B
 
   if (comp == 0) {
-    E_zone = -q_zone[QV] * q_zone[QMAGZ] + q_zone[QW] * q_zone[QMAGY];
+    return -q_zone[QV] * q_zone[QMAGZ] + q_zone[QW] * q_zone[QMAGY];
 
   } else if (comp == 1) {
-    E_zone = -q_zone[QW] * q_zone[QMAGX] + q_zone[QU] * q_zone[QMAGZ];
+    return -q_zone[QW] * q_zone[QMAGX] + q_zone[QU] * q_zone[QMAGZ];
 
   } else {
-    E_zone = -q_zone[QU] * q_zone[QMAGY] + q_zone[QV] * q_zone[QMAGX];
+    return -q_zone[QU] * q_zone[QMAGY] + q_zone[QV] * q_zone[QMAGX];
   }
 
 }
@@ -97,7 +99,7 @@ electric(const Real* q_zone, Real& E_zone, const int comp) {
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-ConsToPrim(Real* q_zone, const Real* U_zone) {
+ConsToPrim(GpuArray<Real, NQ>& q_zone, GpuArray<Real, NUM_STATE+3> const& U_zone) {
 
   // calculate the primitive variables from the conserved
   // U has NUM_STATE+3 components
@@ -149,10 +151,12 @@ ConsToPrim(Real* q_zone, const Real* U_zone) {
 
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
+Real
 PToC(Array1D<Real, 0, NQ-1>& q,
-     Array1D<Real, 0, NUM_STATE+2>& U,
-     Real& gam1) {
+     Array1D<Real, 0, NUM_STATE+2>& U) {
+
+  // fills the conserved state U from the primitive state q and
+  // returns the first adiabatic exponent from the EOS call
 
   // first the conserved state
   U(URHO) = q(QRHO);
@@ -192,7 +196,7 @@ PToC(Array1D<Real, 0, NQ-1>& q,
 
   U(UTEMP) = eos_state.T;
 
-  gam1 = eos_state.gam1;
+  return eos_state.gam1;
 
 }
 
@@ -214,6 +218,48 @@ epsilon_ijk(const int i, const int j, const int k) {
   }
 
   return val;
+}
+
+namespace mhd {
+
+// conserved state from the primitive state, zone by zone
+void
+PrimToCons(const amrex::Box& bx,
+           amrex::Array4<amrex::Real const> const& q_arr,
+           amrex::Array4<amrex::Real> const& u_arr);
+
+// edge-centered electric field components from the cell-centered
+// primitive state and the face fluxes in the two transverse directions
+
+void
+electric_edge_x(const amrex::Box& bx,
+                amrex::Array4<amrex::Real const> const& q_arr,
+                amrex::Array4<amrex::Real> const& E,
+                amrex::Array4<amrex::Real const> const& flxy,
+                amrex::Array4<amrex::Real const> const& flxz);
+
+void
+electric_edge_y(const amrex::Box& bx,
+                amrex::Array4<amrex::Real const> const& q_arr,
+                amrex::Array4<amrex::Real> const& E,
+                amrex::Array4<amrex::Real const> const& flxx,
+                amrex::Array4<amrex::Real const> const& flxz);
+
+void
+electric_edge_z(const amrex::Box& bx,
+                amrex::Array4<amrex::Real const> const& q_arr,
+                amrex::Array4<amrex::Real> const& E,
+                amrex::Array4<amrex::Real const> const& flxx,
+                amrex::Array4<amrex::Real const> const& flxy);
+
+// HLLD fluxes in direction dir from the left and right interface states
+void
+hlld(const amrex::Box& bx,
+     amrex::Array4<amrex::Real const> const& qleft,
+     amrex::Array4<amrex::Real const> const& qright,
+     amrex::Array4<amrex::Real> const& flx,
+     const int dir);
+
 }
 
 #endif

@@ -52,9 +52,9 @@ HydroSim::cons_update_mhd(const Box& bx, const Real dt,
 
 
 void
-HydroSim::PrimToCons(const Box& bx,
-                   Array4<Real const> const& q_arr,
-                   Array4<Real> const& u_arr) {
+mhd::PrimToCons(const Box& bx,
+                Array4<Real const> const& q_arr,
+                Array4<Real> const& u_arr) {
 
   // calculate the conserved variables from the primitive
 
@@ -123,9 +123,9 @@ HydroSim::prim_half(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real divF[NUM_STATE+3];
-    Real divF_q[NQ];
-    Real q_zone[NQ];
+    GpuArray<Real, NUM_STATE+3> divF;
+    GpuArray<Real, NQ> divF_q;
+    GpuArray<Real, NQ> q_zone;
 
     for (int n = 0; n < NUM_STATE+3; n++) {
       divF[n] = (flxx(i+1,j,k,n) - flxx(i,j,k,n)) / dx[0];

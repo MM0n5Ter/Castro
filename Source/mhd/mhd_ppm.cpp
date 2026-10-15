@@ -8,17 +8,17 @@ using namespace amrex;
 
 void
 HydroSim::ppm_mhd(const Box& bx,
-                const int idir,
                 Array4<Real const> const& q_arr,
                 Array4<Real const> const& qaux,
                 Array4<Real const> const& flatcoef,
                 Array4<Real const> const& Bx,
                 Array4<Real const> const& By,
                 Array4<Real const> const& Bz,
-                Array4<Real> const& qleft,
-                Array4<Real> const& qright,
                 Array4<Real const> const& srcQ,
-                const Real dt) {
+                const int idir,
+                const Real dt,
+                Array4<Real> const& qleft,
+                Array4<Real> const& qright) {
 
   // these loops are over cell-centers and for each cell-center, we find the left and
   // right interface states
@@ -82,21 +82,18 @@ HydroSim::ppm_mhd(const Box& bx,
 
     Real as = qaux(i,j,k,QC);
 
-    Array1D<Real, 0, NEVEC-1> lam;
+    const Array1D<Real, 0, NEVEC-1> lam = evals(as, q_zone, idir);
 
-    evals(lam, as, q_zone, idir);
-
-    Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> leig;
-    Array2D<Real, 0, NEVEC-1, 0, NEVEC-1> reig;
+    Eigenvectors evec;
 
     if (idir == 0) {
-      evecx(leig, reig, as, q_zone);
+      evec = evecx(as, q_zone);
 
     } else if (idir == 1) {
-      evecy(leig, reig, as, q_zone);
+      evec = evecy(as, q_zone);
 
     } else {
-      evecz(leig, reig, as, q_zone);
+      evec = evecz(as, q_zone);
     }
 
     // do the parabolic reconstruction and compute the integrals under
@@ -217,16 +214,16 @@ HydroSim::ppm_mhd(const Box& bx,
       // loop over variables in Im[n][ii]
       for (int n = 0; n < NEVEC; n++) {
         if (lam(ii) <= 0.0_rt) {
-          LdQ += leig(ii,n) * (q_ref_right[n] - Im[n][ii]);
+          LdQ += evec.left(ii,n) * (q_ref_right[n] - Im[n][ii]);
         } else {
           // in this case, the integral Im is a slope
-          LdQ += (lam(0) - lam(ii)) * leig(ii,n) * Im[n][ii];
+          LdQ += (lam(0) - lam(ii)) * evec.left(ii,n) * Im[n][ii];
         }
       }
 
       // add the contribution of this wave to each variable
       for (int n = 0; n < NEVEC; n++) {
-        summ_m[n] += LdQ * reig(n,ii);
+        summ_m[n] += LdQ * evec.right(n,ii);
       }
     }
 
@@ -270,16 +267,16 @@ HydroSim::ppm_mhd(const Box& bx,
       // loop over variables in Im[n][ii]
       for (int n = 0; n < NEVEC; n++) {
         if (lam(ii) >= 0.0_rt) {
-          LdQ += leig(ii,n) * (q_ref_left[n] - Ip[n][ii]);
+          LdQ += evec.left(ii,n) * (q_ref_left[n] - Ip[n][ii]);
         } else {
           // in this case, the integral Ip is a slope
-          LdQ += (lam(NEVEC-1) - lam(ii)) * leig(ii,n) * Ip[n][ii];
+          LdQ += (lam(NEVEC-1) - lam(ii)) * evec.left(ii,n) * Ip[n][ii];
         }
       }
 
       // add the contribution of this wave to each variable
       for (int n = 0; n < NEVEC; n++) {
-        summ_p[n] += LdQ * reig(n,ii);
+        summ_p[n] += LdQ * evec.right(n,ii);
       }
     }
 

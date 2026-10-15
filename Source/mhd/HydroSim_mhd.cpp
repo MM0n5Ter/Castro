@@ -2,6 +2,7 @@
 
 #include <advection_util.H>
 #include <flatten.H>
+#include <mhd_util.H>
 
 using namespace amrex;
 
@@ -231,18 +232,18 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
             if (ppm_type == 0) {
-              plm(bxi, idir,
+              plm(bxi,
                   q_arr, qaux_arr, flatcoef_arr,
-                  Bx_arr, By_arr, Bz_arr,
-                  qleft[idir].array(), qright[idir].array(),
-                  src_q_arr, dt);
+                  Bx_arr, By_arr, Bz_arr, src_q_arr,
+                  idir, dt,
+                  qleft[idir].array(), qright[idir].array());
 
             } else {
-              ppm_mhd(bxi, idir,
+              ppm_mhd(bxi,
                       q_arr, qaux_arr, flatcoef_arr,
-                      Bx_arr, By_arr, Bz_arr,
-                      qleft[idir].array(), qright[idir].array(),
-                      src_q_arr, dt);
+                      Bx_arr, By_arr, Bz_arr, src_q_arr,
+                      idir, dt,
+                      qleft[idir].array(), qright[idir].array());
             }
           }
 
@@ -261,7 +262,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flxx1D_arr = flxx1D.array();
           auto elix_flxx1D = flxx1D.elixir();
 
-          hlld(bfx, qleft[0].array(), qright[0].array(), flxx1D_arr, 0);
+          mhd::hlld(bfx, qleft[0].array(), qright[0].array(), flxx1D_arr, 0);
 
           // y-dir
           // [lo(1)-3, lo(2)-2, lo(3)-3] [hi(1)+3, hi(2)+3, hi(3)+3]
@@ -271,7 +272,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flxy1D_arr = flxy1D.array();
           auto elix_flxy1D = flxy1D.elixir();
 
-          hlld(bfy, qleft[1].array(), qright[1].array(), flxy1D_arr, 1);
+          mhd::hlld(bfy, qleft[1].array(), qright[1].array(), flxy1D_arr, 1);
 
           // z-dir
           // [lo(1)-3, lo(2)-3, lo(3)-2] [hi(1)+3, hi(2)+3, hi(3)+3]
@@ -281,7 +282,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flxz1D_arr = flxz1D.array();
           auto elix_flxz1D = flxz1D.elixir();
 
-          hlld(bfz, qleft[2].array(), qright[2].array(), flxz1D_arr, 2);
+          mhd::hlld(bfz, qleft[2].array(), qright[2].array(), flxz1D_arr, 2);
 
 
           // Prim to Cons
@@ -294,8 +295,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto ux_right_arr = ux_right.array();
           auto elix_ux_right = ux_right.elixir();
 
-          PrimToCons(gbx, qx_left_arr, ux_left_arr);
-          PrimToCons(gbx, qx_right_arr, ux_right_arr);
+          mhd::PrimToCons(gbx, qx_left_arr, ux_left_arr);
+          mhd::PrimToCons(gbx, qx_right_arr, ux_right_arr);
 
           uy_left.resize(gbx, NUM_STATE+3);
           auto uy_left_arr = uy_left.array();
@@ -305,8 +306,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto uy_right_arr = uy_right.array();
           auto elix_uy_right = uy_right.elixir();
 
-          PrimToCons(gbx, qy_left_arr, uy_left_arr);
-          PrimToCons(gbx, qy_right_arr, uy_right_arr);
+          mhd::PrimToCons(gbx, qy_left_arr, uy_left_arr);
+          mhd::PrimToCons(gbx, qy_right_arr, uy_right_arr);
 
           uz_left.resize(gbx, NUM_STATE+3);
           auto uz_left_arr = uz_left.array();
@@ -316,8 +317,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto uz_right_arr = uz_right.array();
           auto elix_uz_right = uz_right.elixir();
 
-          PrimToCons(gbx, qz_left_arr, uz_left_arr);
-          PrimToCons(gbx, qz_right_arr, uz_right_arr);
+          mhd::PrimToCons(gbx, qz_left_arr, uz_left_arr);
+          mhd::PrimToCons(gbx, qz_right_arr, uz_right_arr);
 
           // CTU Step 2
           // Use "1D" fluxes To interpolate Temporary Edge Centered Electric Fields
@@ -327,7 +328,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eebx.growHi(1);
           eebx.growHi(2);
 
-          electric_edge_x(eebx, q_arr, Ex_arr, flxy1D_arr, flxz1D_arr);
+          mhd::electric_edge_x(eebx, q_arr, Ex_arr, flxy1D_arr, flxz1D_arr);
 
 
           // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+3, hi(2)+2, hi(3)+3]
@@ -335,7 +336,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eeby.growHi(0);
           eeby.growHi(2);
 
-          electric_edge_y(eeby, q_arr, Ey_arr, flxx1D_arr, flxz1D_arr);
+          mhd::electric_edge_y(eeby, q_arr, Ey_arr, flxx1D_arr, flxz1D_arr);
 
 
           // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+3, hi(2)+3, hi(3)+2]
@@ -343,7 +344,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eebz.growHi(0);
           eebz.growHi(1);
 
-          electric_edge_z(eebz, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
+          mhd::electric_edge_z(eebz, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
 
 
           // CTU Steps 3, 4, and 5
@@ -363,9 +364,12 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto qtmp_right_arr = qtmp_right.array();
           auto elix_qtmp_right = qtmp_right.elixir();
 
-          corner_couple(ccbx,
-                        qtmp_right_arr, qtmp_left_arr,
-                        ux_right_arr, ux_left_arr,
+          // each direction's corner coupling and half step write qtmp_left/right
+          const InterfaceStates x_states{ux_right_arr, ux_left_arr, qtmp_right_arr, qtmp_left_arr};
+          const InterfaceStates y_states{uy_right_arr, uy_left_arr, qtmp_right_arr, qtmp_left_arr};
+          const InterfaceStates z_states{uz_right_arr, uz_left_arr, qtmp_right_arr, qtmp_left_arr};
+
+          corner_couple(ccbx, x_states,
                         flxy1D_arr, Ex_arr, Ez_arr,
                         0, 1, 2, dt);
 
@@ -375,12 +379,10 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_xy_arr = flx_xy.array();
           auto elix_flx_xy = flx_xy.elixir();
 
-          hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xy_arr, 0);
+          mhd::hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xy_arr, 0);
 
           // affected by Z Flux
-          corner_couple(ccbx,
-                        qtmp_right_arr, qtmp_left_arr,
-                        ux_right_arr, ux_left_arr,
+          corner_couple(ccbx, x_states,
                         flxz1D_arr, Ex_arr, Ey_arr,
                         0, 2, 1, dt);
 
@@ -389,7 +391,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_xz_arr = flx_xz.array();
           auto elix_flx_xz = flx_xz.elixir();
 
-          hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xz_arr, 0);
+          mhd::hlld(ccbx, qtmp_left_arr, qtmp_right_arr, flx_xz_arr, 0);
 
 
           // Y direction
@@ -398,9 +400,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           // [lo(1)-2, lo(2)-1, lo(3)-2] [hi(1)+2, hi(2)+2, hi(3)+2]
           const Box& ccby = amrex::grow(nby, IntVect(2, 1, 2));
 
-          corner_couple(ccby,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uy_right_arr, uy_left_arr,
+          corner_couple(ccby, y_states,
                         flxx1D_arr, Ey_arr, Ez_arr,
                         1, 0, 2, dt);
 
@@ -409,13 +409,11 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_yx_arr = flx_yx.array();
           auto elix_flx_yx = flx_yx.elixir();
 
-          hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yx_arr, 1);
+          mhd::hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yx_arr, 1);
 
           // affected by Z Flux
 
-          corner_couple(ccby,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uy_right_arr, uy_left_arr,
+          corner_couple(ccby, y_states,
                         flxz1D_arr, Ey_arr, Ex_arr,
                         1, 2, 0, dt);
 
@@ -424,7 +422,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_yz_arr = flx_yz.array();
           auto elix_flx_yz = flx_yz.elixir();
 
-          hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yz_arr, 1);
+          mhd::hlld(ccby, qtmp_left_arr, qtmp_right_arr, flx_yz_arr, 1);
 
           // Z direction
 
@@ -432,9 +430,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           // [lo(1)-2, lo(2)-2, lo(3)-1] [hi(1)+2, hi(2)+2, hi(3)+2]
           const Box& ccbz = amrex::grow(nbz, IntVect(2, 2, 1));
 
-          corner_couple(ccbz,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uz_right_arr, uz_left_arr,
+          corner_couple(ccbz, z_states,
                         flxx1D_arr, Ez_arr, Ey_arr,
                         2, 0, 1, dt);
 
@@ -443,13 +439,11 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_zx_arr = flx_zx.array();
           auto elix_flx_zx = flx_zx.elixir();
 
-          hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zx_arr, 2);
+          mhd::hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zx_arr, 2);
 
           // affected by Y Flux
 
-          corner_couple(ccbz,
-                        qtmp_right_arr, qtmp_left_arr,
-                        uz_right_arr, uz_left_arr,
+          corner_couple(ccbz, z_states,
                         flxy1D_arr, Ez_arr, Ex_arr,
                         2, 1, 0, dt);
 
@@ -458,7 +452,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           auto flx_zy_arr = flx_zy.array();
           auto elix_flx_zy = flx_zy.elixir();
 
-          hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zy_arr, 2);
+          mhd::hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zy_arr, 2);
 
 
           // CTU Step 6
@@ -488,7 +482,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eebx2.growHi(1);
           eebx2.growHi(2);
 
-          electric_edge_x(eebx2, q_arr, Ex_arr, flxy1D_arr, flxz1D_arr);
+          mhd::electric_edge_x(eebx2, q_arr, Ex_arr, flxy1D_arr, flxz1D_arr);
 
 
           // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+2, hi(2)+1, hi(3)+2]
@@ -496,7 +490,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eeby2.growHi(0);
           eeby2.growHi(2);
 
-          electric_edge_y(eeby2, q_arr, Ey_arr, flxx1D_arr, flxz1D_arr);
+          mhd::electric_edge_y(eeby2, q_arr, Ey_arr, flxx1D_arr, flxz1D_arr);
 
 
           // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+2, hi(2)+2, hi(3)+1]
@@ -504,7 +498,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eebz2.growHi(0);
           eebz2.growHi(1);
 
-          electric_edge_z(eebz2, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
+          mhd::electric_edge_z(eebz2, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
 
 
           // CTU Step 7, 8, and 9
@@ -515,9 +509,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           // [lo(1), lo(2)-1, lo(3)-1][hi(1)+1, hi(2)+1, hi(3)+1]
           const Box& nbx1 = amrex::grow(nbx, IntVect(0, 1, 1));
 
-          half_step(nbx1,
-                    qtmp_right_arr, qtmp_left_arr,
-                    ux_right_arr, ux_left_arr,
+          half_step(nbx1, x_states,
                     flx_yz_arr, flx_zy_arr,
                     Ex_arr, Ey_arr, Ez_arr,
                     0, 1, 2, dt);
@@ -527,31 +519,27 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           // We need to compute these on a box 1 larger in the transverse directions
           // than we'd need for hydro alone due to the electric update
 
-          hlld(nbx1, qtmp_left_arr, qtmp_right_arr, flux[0].array(), 0);
+          mhd::hlld(nbx1, qtmp_left_arr, qtmp_right_arr, flux[0].array(), 0);
 
           // for y direction
           const Box& nby1 = amrex::grow(nby, IntVect(1, 0, 1));
 
-          half_step(nby1,
-                    qtmp_right_arr, qtmp_left_arr,
-                    uy_right_arr, uy_left_arr,
+          half_step(nby1, y_states,
                     flx_xz_arr, flx_zx_arr,
                     Ey_arr, Ex_arr, Ez_arr,
                     1, 0, 2, dt);
 
-          hlld(nby1, qtmp_left_arr, qtmp_right_arr, flux[1].array(), 1);
+          mhd::hlld(nby1, qtmp_left_arr, qtmp_right_arr, flux[1].array(), 1);
 
           // for z direction
           const Box& nbz1 = amrex::grow(nbz, IntVect(1, 1, 0));
 
-          half_step(nbz1,
-                    qtmp_right_arr, qtmp_left_arr,
-                    uz_right_arr, uz_left_arr,
+          half_step(nbz1, z_states,
                     flx_xy_arr, flx_yx_arr,
                     Ez_arr, Ex_arr, Ey_arr,
                     2, 0, 1, dt);
 
-          hlld(nbz1, qtmp_left_arr, qtmp_right_arr, flux[2].array(), 2);
+          mhd::hlld(nbz1, qtmp_left_arr, qtmp_right_arr, flux[2].array(), 2);
 
 
           // CTU Step 10
@@ -570,21 +558,21 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           eebxf.growHi(1, 1);
           eebxf.growHi(2, 1);
 
-          electric_edge_x(eebxf, q2D_arr, Ex_arr, flxy_arr, flxz_arr);
+          mhd::electric_edge_x(eebxf, q2D_arr, Ex_arr, flxy_arr, flxz_arr);
 
           // [lo(1), lo(2), lo(3)][hi(1)+1, hi(2), hi(3)+1]
           Box eebyf = mfi.tilebox();
           eebyf.growHi(0, 1);
           eebyf.growHi(2, 1);
 
-          electric_edge_y(eebyf, q2D_arr, Ey_arr, flxx_arr, flxz_arr);
+          mhd::electric_edge_y(eebyf, q2D_arr, Ey_arr, flxx_arr, flxz_arr);
 
           // [lo(1), lo(2), lo(3)][hi(1)+1, hi(2)+1 ,hi(3)]
           Box eebzf = mfi.tilebox();
           eebzf.growHi(0, 1);
           eebzf.growHi(1, 1);
 
-          electric_edge_z(eebzf, q2D_arr, Ez_arr, flxx_arr, flxy_arr);
+          mhd::electric_edge_z(eebzf, q2D_arr, Ez_arr, flxx_arr, flxy_arr);
 
           // clean the final fluxes
 
