@@ -17,11 +17,11 @@
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
-sdc_vode_solve(const Real dt_m,
-               GpuArray<Real, NUM_STATE> const& U_old,
-               GpuArray<Real, NUM_STATE>& U_new,
+sdc_vode_solve(GpuArray<Real, NUM_STATE> const& U_old,
                GpuArray<Real, NUM_STATE> const& C,
-               const int sdc_iteration) {
+               const Real dt_m,
+               const int sdc_iteration,
+               GpuArray<Real, NUM_STATE>& U_new) {
 
     // The purpose of this function is to solve the system the
     // approximate system dU/dt = R + C using the VODE ODE

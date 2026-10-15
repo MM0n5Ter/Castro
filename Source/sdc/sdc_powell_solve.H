@@ -25,8 +25,6 @@ namespace powell {
         //
         // using 1-based indexing
 
-        GpuArray<Real, NUM_STATE> R_full;
-
         // we'll use the passed-in burn_t as our working state.  We need to
         // sync it with the input state x.  The single_zone_react_source[]
         // routine works off of burn_state.y[]
@@ -40,7 +38,7 @@ namespace powell {
 
         // get the reactive term for this state
 
-        single_zone_react_source(burn_state, R_full);
+        const auto R_full = single_zone_react_source(burn_state);
 
         // now Z is evaluated with the current guess for U
         // we use ydot_a here to be U^n + dt_m C
@@ -90,10 +88,7 @@ namespace powell {
         // we don't actually need this reactive term, but it will
         // ensure that the state is all synced.
 
-        {
-            GpuArray<Real, NUM_STATE> R_full;
-            single_zone_react_source(burn_state, R_full);
-        }
+        single_zone_react_source(burn_state);
 
         // Instead of the decomposition into dw/dU and dR/dw, we instead use the
         // form from the simplified-SDC.  Note:
@@ -111,11 +106,11 @@ namespace powell {
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
-    sdc_powell_solve(const Real dt_m,
-                     GpuArray<Real, NUM_STATE> const& U_old,
-                     GpuArray<Real, NUM_STATE> & U_new,
+    sdc_powell_solve(GpuArray<Real, NUM_STATE> const& U_old,
                      GpuArray<Real, NUM_STATE> const& C,
-                     const int sdc_iteration) {
+                     const Real dt_m,
+                     const int sdc_iteration,
+                     GpuArray<Real, NUM_STATE> & U_new) {
 
         // the purpose of this function is to solve the system
         //  U - dt R(U) = U_old + dt C

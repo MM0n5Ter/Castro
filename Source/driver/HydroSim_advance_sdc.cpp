@@ -191,8 +191,7 @@ HydroSim::do_advance_sdc (Real time,
 
             // we already have the node state with ghost cells in Sborder,
             // so we can just use that as the starting point
-            bool input_is_average = true;
-            assemble_old_react_source(Sborder, *(R_old[0]), input_is_average);
+            assemble_old_react_source(Sborder, *(R_old[0]), ZoneValues::Average);
 
             // copy to the other nodes -- since the state is the same on all
             // nodes for sdc_iteration == 0
@@ -243,8 +242,7 @@ HydroSim::do_advance_sdc (Real time,
         // TODO: do we need a clean state here?
         MultiFab::Copy(S_new, *(k_new[m]), 0, 0, S_new.nComp(), 0);
         fill_grown_state(Sreact, cur_time, 2);
-        bool input_is_average = true;
-        assemble_old_react_source(Sreact, *(R_old[m]), input_is_average);
+        assemble_old_react_source(Sreact, *(R_old[m]), ZoneValues::Average);
     }
 #endif
 
@@ -319,7 +317,7 @@ HydroSim::do_advance_sdc (Real time,
 
             Array4<const Real> const Sreact_arr = Sreact.array(mfi);
 
-            hs_store_reaction_state(obx, Sreact_arr, R_center_arr);
+            sdc_stage::store_reaction_state(obx, Sreact_arr, R_center_arr);
 
             // convert R_new from centers to averages in place
             tmp.resize(bx, 1, The_Async_Arena());
@@ -336,7 +334,7 @@ HydroSim::do_advance_sdc (Real time,
             Array4<Real> const R_new_arr = R_new.array(mfi);
 
             // we don't worry about the difference between centers and averages
-            hs_store_reaction_state(bx, R_old_arr, R_new_arr);
+            sdc_stage::store_reaction_state(bx, R_old_arr, R_new_arr);
         }
 
     }

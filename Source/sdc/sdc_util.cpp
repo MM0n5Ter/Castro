@@ -3,14 +3,14 @@
 using namespace amrex;
 
 void
-HydroSim::hs_sdc_update_advection_o2_lobatto(const Box& bx,
-                                           Real dt_m, Real dt,
-                                           Array4<const Real> const& k_m,
-                                           Array4<Real> const& k_n,
-                                           Array4<const Real> const& A_m,
-                                           Array4<const Real> const& A_0_old,
-                                           Array4<const Real> const& A_1_old,
-                                           int m_start)
+sdc_stage::update_advection_o2_lobatto(const Box& bx,
+                                       Real dt_m, Real dt,
+                                       Array4<const Real> const& k_m,
+                                       Array4<Real> const& k_n,
+                                       Array4<const Real> const& A_m,
+                                       Array4<const Real> const& A_0_old,
+                                       Array4<const Real> const& A_1_old,
+                                       int m_start)
 {
     // update k_m to k_n via advection -- this is a second-order accurate update
     // for the Gauss-Lobatto discretization of the time nodes
@@ -33,15 +33,15 @@ HydroSim::hs_sdc_update_advection_o2_lobatto(const Box& bx,
 
 
 void
-HydroSim::hs_sdc_update_advection_o2_radau(const Box& bx,
-                                         Real dt_m, Real dt,
-                                         Array4<const Real> const& k_m,
-                                         Array4<Real> const& k_n,
-                                         Array4<const Real> const& A_m,
-                                         Array4<const Real> const& A_0_old,
-                                         Array4<const Real> const& A_1_old,
-                                         Array4<const Real> const& A_2_old,
-                                         int m_start)
+sdc_stage::update_advection_o2_radau(const Box& bx,
+                                     Real dt_m, Real dt,
+                                     Array4<const Real> const& k_m,
+                                     Array4<Real> const& k_n,
+                                     Array4<const Real> const& A_m,
+                                     Array4<const Real> const& A_0_old,
+                                     Array4<const Real> const& A_1_old,
+                                     Array4<const Real> const& A_2_old,
+                                     int m_start)
 {
     // update k_m to k_n via advection -- this is a second-order accurate update
     // for the Radau discretization of the time nodes
@@ -74,15 +74,15 @@ HydroSim::hs_sdc_update_advection_o2_radau(const Box& bx,
 }
 
 void
-HydroSim::hs_sdc_update_advection_o4_lobatto(const Box& bx,
-                                           Real dt_m, Real dt,
-                                           Array4<const Real> const& k_m,
-                                           Array4<Real> const& k_n,
-                                           Array4<const Real> const& A_m,
-                                           Array4<const Real> const& A_0_old,
-                                           Array4<const Real> const& A_1_old,
-                                           Array4<const Real> const& A_2_old,
-                                           int m_start)
+sdc_stage::update_advection_o4_lobatto(const Box& bx,
+                                       Real dt_m, Real dt,
+                                       Array4<const Real> const& k_m,
+                                       Array4<Real> const& k_n,
+                                       Array4<const Real> const& A_m,
+                                       Array4<const Real> const& A_0_old,
+                                       Array4<const Real> const& A_1_old,
+                                       Array4<const Real> const& A_2_old,
+                                       int m_start)
 {
     // update k_m to k_n via advection -- this is a fourth order accurate update
 
@@ -118,16 +118,16 @@ HydroSim::hs_sdc_update_advection_o4_lobatto(const Box& bx,
 }
 
 void
-HydroSim::hs_sdc_update_advection_o4_radau(const Box& bx,
-                                         Real dt_m, Real dt,
-                                         Array4<const Real> const& k_m,
-                                         Array4<Real> const& k_n,
-                                         Array4<const Real> const& A_m,
-                                         Array4<const Real> const& A_0_old,
-                                         Array4<const Real> const& A_1_old,
-                                         Array4<const Real> const& A_2_old,
-                                         Array4<const Real> const& A_3_old,
-                                         int m_start)
+sdc_stage::update_advection_o4_radau(const Box& bx,
+                                     Real dt_m, Real dt,
+                                     Array4<const Real> const& k_m,
+                                     Array4<Real> const& k_n,
+                                     Array4<const Real> const& A_m,
+                                     Array4<const Real> const& A_0_old,
+                                     Array4<const Real> const& A_1_old,
+                                     Array4<const Real> const& A_2_old,
+                                     Array4<const Real> const& A_3_old,
+                                     int m_start)
 {
     // update k_m to k_n via advection -- this is a fourth-order accurate update
 
@@ -180,15 +180,15 @@ HydroSim::hs_sdc_update_advection_o4_radau(const Box& bx,
 
 #ifdef REACTIONS
 void
-HydroSim::hs_sdc_compute_C2_lobatto(const Box& bx,
-                                  Real dt_m, Real dt,
-                                  Array4<const Real> const& A_m,
-                                  Array4<const Real> const& A_0_old,
-                                  Array4<const Real> const& A_1_old,
-                                  Array4<const Real> const& R_0_old,
-                                  Array4<const Real> const& R_1_old,
-                                  Array4<Real> const& C,
-                                  int m_start)
+sdc_stage::compute_C2_lobatto(const Box& bx,
+                              Real dt_m, Real dt,
+                              Array4<const Real> const& A_m,
+                              Array4<const Real> const& A_0_old,
+                              Array4<const Real> const& A_1_old,
+                              Array4<const Real> const& R_0_old,
+                              Array4<const Real> const& R_1_old,
+                              Array4<Real> const& C,
+                              int m_start)
 {
     // compute the source term C for the 2nd order Lobatto update
     // Here, dt_m is the timestep between time-nodes m and m+1
@@ -209,20 +209,20 @@ HydroSim::hs_sdc_compute_C2_lobatto(const Box& bx,
             0.5_rt * (R_0_old(i,j,k,n) + R_1_old(i,j,k,n));
     });
 
-} // end hs_sdc_compute_C2_lobatto
+} // end compute_C2_lobatto
 
 void
-HydroSim::hs_sdc_compute_C2_radau(const Box& bx,
-                                Real dt_m, Real dt,
-                                Array4<const Real> const& A_m,
-                                Array4<const Real> const& A_0_old,
-                                Array4<const Real> const& A_1_old,
-                                Array4<const Real> const& A_2_old,
-                                Array4<const Real> const& R_0_old,
-                                Array4<const Real> const& R_1_old,
-                                Array4<const Real> const& R_2_old,
-                                Array4<Real> const& C,
-                                int m_start)
+sdc_stage::compute_C2_radau(const Box& bx,
+                            Real dt_m, Real dt,
+                            Array4<const Real> const& A_m,
+                            Array4<const Real> const& A_0_old,
+                            Array4<const Real> const& A_1_old,
+                            Array4<const Real> const& A_2_old,
+                            Array4<const Real> const& R_0_old,
+                            Array4<const Real> const& R_1_old,
+                            Array4<const Real> const& R_2_old,
+                            Array4<Real> const& C,
+                            int m_start)
 {
     // compute the source term C for the 2nd order Radau update
 
@@ -258,20 +258,20 @@ HydroSim::hs_sdc_compute_C2_radau(const Box& bx,
                  (A_2_old(i,j,k,n) + R_2_old(i,j,k,n)));
         });
     }
-} // end hs_sdc_compute_C2_radau
+} // end compute_C2_radau
 
 void
-HydroSim::hs_sdc_compute_C4_lobatto(const Box& bx,
-                                  Real dt_m, Real dt,
-                                  Array4<const Real> const& A_m,
-                                  Array4<const Real> const& A_0_old,
-                                  Array4<const Real> const& A_1_old,
-                                  Array4<const Real> const& A_2_old,
-                                  Array4<const Real> const& R_0_old,
-                                  Array4<const Real> const& R_1_old,
-                                  Array4<const Real> const& R_2_old,
-                                  Array4<Real> const& C,
-                                  int m_start)
+sdc_stage::compute_C4_lobatto(const Box& bx,
+                              Real dt_m, Real dt,
+                              Array4<const Real> const& A_m,
+                              Array4<const Real> const& A_0_old,
+                              Array4<const Real> const& A_1_old,
+                              Array4<const Real> const& A_2_old,
+                              Array4<const Real> const& R_0_old,
+                              Array4<const Real> const& R_1_old,
+                              Array4<const Real> const& R_2_old,
+                              Array4<Real> const& C,
+                              int m_start)
 {
     // compute the 'C' term for the 4th-order solve with reactions
     // note: this 'C' is cell-averages
@@ -313,23 +313,23 @@ HydroSim::hs_sdc_compute_C4_lobatto(const Box& bx,
         amrex::Abort("error in hs_sdc_compute_C4 -- should not be here");
     }
 
-} // end subroutine hs_sdc_compute_C4_lobatto
+} // end subroutine compute_C4_lobatto
 
 
 void
-HydroSim::hs_sdc_compute_C4_radau(const Box& bx,
-                                Real dt_m, Real dt,
-                                Array4<const Real> const& A_m,
-                                Array4<const Real> const& A_0_old,
-                                Array4<const Real> const& A_1_old,
-                                Array4<const Real> const& A_2_old,
-                                Array4<const Real> const& A_3_old,
-                                Array4<const Real> const& R_0_old,
-                                Array4<const Real> const& R_1_old,
-                                Array4<const Real> const& R_2_old,
-                                Array4<const Real> const& R_3_old,
-                                Array4<Real> const& C,
-                                int m_start)
+sdc_stage::compute_C4_radau(const Box& bx,
+                            Real dt_m, Real dt,
+                            Array4<const Real> const& A_m,
+                            Array4<const Real> const& A_0_old,
+                            Array4<const Real> const& A_1_old,
+                            Array4<const Real> const& A_2_old,
+                            Array4<const Real> const& A_3_old,
+                            Array4<const Real> const& R_0_old,
+                            Array4<const Real> const& R_1_old,
+                            Array4<const Real> const& R_2_old,
+                            Array4<const Real> const& R_3_old,
+                            Array4<Real> const& C,
+                            int m_start)
 {
     // compute the 'C' term for the 4th-order solve with reactions
     // note: this 'C' is cell-averages
@@ -384,14 +384,14 @@ HydroSim::hs_sdc_compute_C4_radau(const Box& bx,
     {
         amrex::Abort("error in hs_sdc_compute_C4 -- should not be here");
     }
-} //  end hs_sdc_compute_C4_radau
+} //  end compute_C4_radau
 
 void
-HydroSim::hs_sdc_conservative_update(const Box& bx, Real const dt_m,
-                                   Array4<const Real> const& U_old,
-                                   Array4<Real> const& U_new,
-                                   Array4<const Real> const& C,
-                                   Array4<const Real> const& R_new)
+sdc_stage::conservative_update(const Box& bx, Real const dt_m,
+                               Array4<const Real> const& U_old,
+                               Array4<Real> const& U_new,
+                               Array4<const Real> const& C,
+                               Array4<const Real> const& R_new)
 {
     // given <U>_old, <R>_new, and <C>, compute <U>_new
 
@@ -401,17 +401,17 @@ HydroSim::hs_sdc_conservative_update(const Box& bx, Real const dt_m,
     {
         U_new(i,j,k,n) = U_old(i,j,k,n) + dt_m * R_new(i,j,k,n) + dt_m * C(i,j,k,n);
     });
-} // end subroutine hs_sdc_conservative_update
+} // end subroutine conservative_update
 #endif
 
 
-void HydroSim::hs_sdc_compute_initial_guess(const Box& bx,
-                                          Array4<const Real> const& U_old,
-                                          Array4<const Real> const& U_new,
-                                          Array4<const Real> const& Adv_old,
-                                          Array4<const Real> const& React_old,
-                                          Array4<Real> const& U_guess,
-                                          Real const dt_m, int const sdc_iter)
+void sdc_stage::compute_initial_guess(const Box& bx,
+                                      Array4<const Real> const& U_old,
+                                      Array4<const Real> const& U_new,
+                                      Array4<const Real> const& Adv_old,
+                                      Array4<const Real> const& React_old,
+                                      Array4<Real> const& U_guess,
+                                      Real const dt_m, int const sdc_iter)
 {
     // compute the initial guess for the Newton solve
     // Here dt_m is the timestep to update from time node m to m+1
@@ -437,7 +437,7 @@ void HydroSim::hs_sdc_compute_initial_guess(const Box& bx,
 
 
 #ifdef REACTIONS
-void HydroSim::hs_store_reaction_state(const Box& bx,
+void sdc_stage::store_reaction_state(const Box& bx,
                                      Array4<const Real> const& React_old,
                                      Array4<Real> const& R_store)
 {

@@ -30,7 +30,7 @@ HydroSim::handle_old_reactions (Real time, Real dt) {  // NOLINT(readability-con
     }
 
     // The result of the reactions is added directly to Sborder.
-    burn_success = react_state(Sborder, R_old, time, 0.5 * dt, 0);
+    burn_success = react_state(Sborder, R_old, time, 0.5 * dt, BurnHalf::First);
 
     if (burn_success != 1) {
         status.success = false;
@@ -109,7 +109,7 @@ HydroSim::handle_new_reactions (Real time, Real dt)
         return status;
     }
 
-    burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, 1);
+    burn_success = react_state(S_new, R_new, time - 0.5 * dt, 0.5 * dt, BurnHalf::Second);
 
     if (burn_success != 1) {
         status.success = false;
@@ -129,10 +129,133 @@ HydroSim::handle_new_reactions (Real time, Real dt)
     return status;
 }
 
+// Are there any zones in State that can burn?
+
+static bool
+valid_zones_to_burn(const MultiFab& State)
+{
+
+    // The default values of the limiters are 0 and 1.e200, respectively.
+
+    Real small = 1.e-10;
+    Real large = 1.e199;
+
+    // Check whether we are limiting on either rho or T.
+
+    bool limit_small_rho = react_rho_min >= small;
+    bool limit_large_rho = react_rho_max <= large;
+
+    bool limit_rho = limit_small_rho || limit_large_rho;
+
+    bool limit_small_T = react_T_min >= small;
+    bool limit_large_T = react_T_max <= large;
+
+    bool limit_T = limit_small_T || limit_large_T;
+
+    bool limit = limit_rho || limit_T;
+
+    if (!limit) {
+      return true;
+    }
+
+    // if we're limiting on rho, collect the minimum and/or maximum
+
+    amrex::Vector<Real> small_limiters;
+    amrex::Vector<Real> large_limiters;
+
+    bool local = true;
+
+    Real smalldens = small;
+    Real largedens = large;
+
+    if (limit_small_rho) {
+      smalldens = State.min(URHO, 0, local);
+      small_limiters.push_back(smalldens);
+    }
+
+    if (limit_large_rho) {
+      largedens = State.max(URHO, 0, local);
+      large_limiters.push_back(largedens);
+    }
+
+    // if we're limiting on T, collect the minimum and/or maximum
+
+    Real small_T = small;
+    Real large_T = large;
+
+    if (limit_small_T) {
+      small_T = State.min(UTEMP, 0, local);
+      small_limiters.push_back(small_T);
+    }
+
+    if (limit_large_T) {
+      large_T = State.max(UTEMP, 0, local);
+      large_limiters.push_back(large_T);
+    }
+
+    // Now do the reductions. We're being careful here
+    // to limit the amount of work and communication,
+    // because regularly doing this check only makes sense
+    // if it is negligible compared to the amount of work
+    // needed to just do the burn as normal.
+
+    int small_size = static_cast<int>(small_limiters.size());
+
+    if (small_size > 0) {
+        amrex::ParallelDescriptor::ReduceRealMin(small_limiters.dataPtr(), small_size);
+
+        if (limit_small_rho) {
+            smalldens = small_limiters[0];
+            if (limit_small_T) {
+                small_T = small_limiters[1];
+            }
+        } else {
+            small_T = small_limiters[0];
+        }
+    }
+
+    int large_size = static_cast<int>(large_limiters.size());
+
+    if (large_size > 0) {
+        amrex::ParallelDescriptor::ReduceRealMax(large_limiters.dataPtr(), large_size);
+
+        if (limit_large_rho) {
+            largedens = large_limiters[0];
+            if (limit_large_T) {
+                large_T = large_limiters[1];
+            }
+        } else {
+            large_T = large_limiters[0];
+        }
+    }
+
+    // Finally check on whether min <= rho <= max
+    // and min <= T <= max. The defaults are small
+    // and large respectively, so if the limiters
+    // are not on, these checks will not be triggered.
+
+    if (largedens >= react_rho_min &&
+        smalldens <= react_rho_max &&
+        large_T >= react_T_min &&
+        small_T <= react_T_max) {
+        return true;
+    }
+
+    // If we got to this point, we did not survive the limiters,
+    // so there are no zones to burn.
+
+    if (verbose > 1) {
+        amrex::Print() << "  No valid zones to burn, skipping react_state()." << std::endl;
+    }
+
+    return false;
+
+}
+
 // Strang version
 
 int
-HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int strang_half)
+HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const BurnHalf half)
 {
 
     amrex::ignore_unused(time);
@@ -163,6 +286,9 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
     }
 
     const int ng = s.nGrow();
+
+    // the burn weights store each half of the timestep in its own component
+    const int strang_half = static_cast<int>(half);
 
     if (verbose) {
         amrex::Print() << "... Entering burner on level " << level << " and doing half-timestep of burning." << std::endl << std::endl;
@@ -862,127 +988,5 @@ HydroSim::react_state(Real time, Real dt)
 
 }
 #endif
-
-
-bool
-HydroSim::valid_zones_to_burn(const MultiFab& State)
-{
-
-    // The default values of the limiters are 0 and 1.e200, respectively.
-
-    Real small = 1.e-10;
-    Real large = 1.e199;
-
-    // Check whether we are limiting on either rho or T.
-
-    bool limit_small_rho = react_rho_min >= small;
-    bool limit_large_rho = react_rho_max <= large;
-
-    bool limit_rho = limit_small_rho || limit_large_rho;
-
-    bool limit_small_T = react_T_min >= small;
-    bool limit_large_T = react_T_max <= large;
-
-    bool limit_T = limit_small_T || limit_large_T;
-
-    bool limit = limit_rho || limit_T;
-
-    if (!limit) {
-      return true;
-    }
-
-    // if we're limiting on rho, collect the minimum and/or maximum
-
-    amrex::Vector<Real> small_limiters;
-    amrex::Vector<Real> large_limiters;
-
-    bool local = true;
-
-    Real smalldens = small;
-    Real largedens = large;
-
-    if (limit_small_rho) {
-      smalldens = State.min(URHO, 0, local);
-      small_limiters.push_back(smalldens);
-    }
-
-    if (limit_large_rho) {
-      largedens = State.max(URHO, 0, local);
-      large_limiters.push_back(largedens);
-    }
-
-    // if we're limiting on T, collect the minimum and/or maximum
-
-    Real small_T = small;
-    Real large_T = large;
-
-    if (limit_small_T) {
-      small_T = State.min(UTEMP, 0, local);
-      small_limiters.push_back(small_T);
-    }
-
-    if (limit_large_T) {
-      large_T = State.max(UTEMP, 0, local);
-      large_limiters.push_back(large_T);
-    }
-
-    // Now do the reductions. We're being careful here
-    // to limit the amount of work and communication,
-    // because regularly doing this check only makes sense
-    // if it is negligible compared to the amount of work
-    // needed to just do the burn as normal.
-
-    int small_size = static_cast<int>(small_limiters.size());
-
-    if (small_size > 0) {
-        amrex::ParallelDescriptor::ReduceRealMin(small_limiters.dataPtr(), small_size);
-
-        if (limit_small_rho) {
-            smalldens = small_limiters[0];
-            if (limit_small_T) {
-                small_T = small_limiters[1];
-            }
-        } else {
-            small_T = small_limiters[0];
-        }
-    }
-
-    int large_size = static_cast<int>(large_limiters.size());
-
-    if (large_size > 0) {
-        amrex::ParallelDescriptor::ReduceRealMax(large_limiters.dataPtr(), large_size);
-
-        if (limit_large_rho) {
-            largedens = large_limiters[0];
-            if (limit_large_T) {
-                large_T = large_limiters[1];
-            }
-        } else {
-            large_T = large_limiters[0];
-        }
-    }
-
-    // Finally check on whether min <= rho <= max
-    // and min <= T <= max. The defaults are small
-    // and large respectively, so if the limiters
-    // are not on, these checks will not be triggered.
-
-    if (largedens >= react_rho_min &&
-        smalldens <= react_rho_max &&
-        large_T >= react_T_min &&
-        small_T <= react_T_max) {
-        return true;
-    }
-
-    // If we got to this point, we did not survive the limiters,
-    // so there are no zones to burn.
-
-    if (verbose > 1) {
-        amrex::Print() << "  No valid zones to burn, skipping react_state()." << std::endl;
-    }
-
-    return false;
-
-}
 
 #endif

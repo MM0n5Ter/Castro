@@ -20,6 +20,14 @@ namespace newton {
     constexpr int MAX_ITER = 100;
     constexpr int MAX_NSUB = 64;
 
+    // outcome of a zone solve: the weighted norm of the last Newton
+    // correction and the newton_status code
+
+    struct zone_solve {
+        Real err;
+        int ierr;
+    };
+
 #ifdef REACTIONS
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -36,9 +44,7 @@ namespace newton {
         // burn_state.rho, burn_state.e, and burn_state.xn[] and then call
         // the EOS to get the temperature.
 
-        GpuArray<Real, NUM_STATE> R_full;
-
-        single_zone_react_source(burn_state, R_full);
+        const auto R_full = single_zone_react_source(burn_state);
 
         // we are solving J dU = -f
         // where f is evaluated with the current guess for U
@@ -72,14 +78,13 @@ namespace newton {
 
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
-    sdc_newton_solve(const Real dt_m,
-                     GpuArray<Real, NUM_STATE> const& U_old,
-                     GpuArray<Real, NUM_STATE> & U_new,
+    zone_solve
+    sdc_newton_solve(GpuArray<Real, NUM_STATE> const& U_old,
                      GpuArray<Real, NUM_STATE> const& C,
+                     const Real dt_m,
                      const int sdc_iteration,
-                     Real& err_out,
-                     int& ierr) {
+                     const Real err_prev,
+                     GpuArray<Real, NUM_STATE> & U_new) {
 
         // the purpose of this function is to solve the system
         //  U - dt R(U) = U_old + dt C
@@ -90,7 +95,9 @@ namespace newton {
         // iteration initially.
         //
         // upon exit, U_new will be returned with the value that satisfied
-        // the nonlinear function
+        // the nonlinear function.  The error norm is only measured once
+        // the linear system has been solved, so if the Jacobian is
+        // singular we return err_prev unchanged
 
 
         amrex::ignore_unused(sdc_iteration);
@@ -105,7 +112,7 @@ namespace newton {
 
         Array1D<Real, 1, NumSpec+1> f;
 
-        ierr = newton_status::success;
+        zone_solve result{err_prev, newton_status::success};
 
         // update the density and momenta for this zone -- they don't react
 
@@ -161,8 +168,8 @@ namespace newton {
             dgefa<NumSpec+1, allow_pivot>(Jac, ipvt, info);
 #endif
             if (info != 0) {
-                ierr = newton_status::singular_matrix;
-                return;
+                result.ierr = newton_status::singular_matrix;
+                return result;
             }
 
 #ifdef NEW_NETWORK_IMPLEMENTATION
@@ -202,11 +209,11 @@ namespace newton {
             iter++;
         }
 
-        err_out = err;
+        result.err = err;
 
         if (!converged) {
-            ierr = newton_status::convergence_failure;
-            return;
+            result.ierr = newton_status::convergence_failure;
+            return result;
         }
 
         // update the full U_new
@@ -224,17 +231,16 @@ namespace newton {
 
         U_new[UEDEN] = U_old[UEDEN] + dt_m * (C[UEDEN] + rho_Sdot);
 
+        return result;
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
-    sdc_newton_subdivide(const Real dt_m,
-                         GpuArray<Real, NUM_STATE> const& U_old,
-                         GpuArray<Real, NUM_STATE>& U_new,
+    zone_solve
+    sdc_newton_subdivide(GpuArray<Real, NUM_STATE> const& U_old,
                          GpuArray<Real, NUM_STATE> const& C,
+                         const Real dt_m,
                          const int sdc_iteration,
-                         Real& err_out,
-                         int& ierr) {
+                         GpuArray<Real, NUM_STATE>& U_new) {
 
         // This is the driver for solving the nonlinear update for the
         // reating/advecting system using Newton's method. It attempts
@@ -247,9 +253,9 @@ namespace newton {
         // subdivide the timestep and do multiple Newtons.
 
         int nsub = 1;
-        ierr = newton_status::convergence_failure;
+        zone_solve result{0.0_rt, newton_status::convergence_failure};
 
-        while (nsub <= MAX_NSUB && ierr != newton_status::success) {
+        while (nsub <= MAX_NSUB && result.ierr != newton_status::success) {
 
             // For the first interval, we set the starting state to
             // the old-time solution.
@@ -284,18 +290,18 @@ namespace newton {
                     U_begin[USPEC + n] *= U_begin[URHO] / sum_rhoX;
                 }
 
-                sdc_newton_solve(dt_sub, U_begin, U_new, C, sdc_iteration, err_out, ierr);
+                result = sdc_newton_solve(U_begin, C, dt_sub, sdc_iteration, result.err, U_new);
 
                 // our solve may have resulted in mass fractions outside
                 // of [0, 1] -- reject if this is the case
                 for (int n = 0; n < NumSpec; ++n) {
                     if (U_new[USPEC+n] < -species_failure_tolerance * U_new[URHO] ||
                         U_new[USPEC+n] > (1.0_rt + species_failure_tolerance) * U_new[URHO]) {
-                        ierr = newton_status::bad_mass_fractions;
+                        result.ierr = newton_status::bad_mass_fractions;
                     }
                 }
 
-                if (ierr != newton_status::success) {
+                if (result.ierr != newton_status::success) {
                     // no point in continuing this subdivision if one stage failed
                     break;
                 }
@@ -306,6 +312,8 @@ namespace newton {
             }
             nsub *= 2;
         }
+
+        return result;
     }
 #endif
 }

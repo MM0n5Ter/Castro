@@ -57,18 +57,18 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             Array4<const Real> const& R_old_2_arr = (R_old[2])->array(mfi);
 
             if (sdc_quadrature == 0) {
-                hs_sdc_compute_C4_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                          A_old_2_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr,
-                                          C_source_arr, m_start);
+                sdc_stage::compute_C4_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                              A_old_2_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr,
+                                              C_source_arr, m_start);
 
             } else {
                 Array4<const Real> const& A_old_3_arr = (A_old[3])->array(mfi);
                 Array4<const Real> const& R_old_3_arr = (R_old[3])->array(mfi);
 
-                hs_sdc_compute_C4_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                        A_old_2_arr,
-                                        A_old_3_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr, R_old_3_arr,
-                                        C_source_arr, m_start);
+                sdc_stage::compute_C4_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                            A_old_2_arr,
+                                            A_old_3_arr, R_old_0_arr, R_old_1_arr, R_old_2_arr, R_old_3_arr,
+                                            C_source_arr, m_start);
 
             }
         }
@@ -95,9 +95,9 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             Array4<const Real> const& R_old_arr = (R_old[m_start])->array(mfi);
             Array4<Real> const& S_new_arr = S_new.array(mfi);
 
-            hs_sdc_compute_initial_guess(bx, k_new_m_start_arr, k_new_m_end_arr,
-                                         A_old_arr, R_old_arr, S_new_arr,
-                                         dt_m, sdc_iteration);
+            sdc_stage::compute_initial_guess(bx, k_new_m_start_arr, k_new_m_end_arr,
+                                             A_old_arr, R_old_arr, S_new_arr,
+                                             dt_m, sdc_iteration);
 
         }
 
@@ -143,21 +143,22 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             Array4<const Real> const& R_old_1_arr = (R_old[1])->array(mfi);
 
             if (sdc_quadrature == 0) {
-                hs_sdc_compute_C2_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                          R_old_0_arr, R_old_1_arr, C2_arr, m_start);
+                sdc_stage::compute_C2_lobatto(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                              R_old_0_arr, R_old_1_arr, C2_arr, m_start);
             } else {
                 Array4<const Real> const& A_old_2_arr = (A_old[2])->array(mfi);
                 Array4<const Real> const& R_old_2_arr = (R_old[2])->array(mfi);
-                hs_sdc_compute_C2_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
-                                        A_old_2_arr,
-                                        R_old_0_arr, R_old_1_arr, R_old_2_arr, C2_arr, m_start);
+                sdc_stage::compute_C2_radau(bx, dt_m, dt, A_new_arr, A_old_0_arr, A_old_1_arr,
+                                            A_old_2_arr,
+                                            R_old_0_arr, R_old_1_arr, R_old_2_arr, C2_arr, m_start);
             }
 
-            auto k_m = (*k_new[m_start]).array(mfi);
-            auto k_n = (*k_new[m_end]).array(mfi);
-            auto A_m = (*A_new[m_start]).array(mfi);
-            auto R_m_old = (*R_old[m_start]).array(mfi);
-            auto C_arr = C2.array();
+            NodeStep step;
+            step.state_m = (*k_new[m_start]).array(mfi);
+            step.state_m1 = (*k_new[m_end]).array(mfi);
+            step.C = C2.array();
+            step.A_m = (*A_new[m_start]).array(mfi);
+            step.R_m_old = (*R_old[m_start]).array(mfi);
 
             auto lsdc_iteration = sdc_iteration;   // avoid capturing this
             amrex::ParallelFor(bx,
@@ -165,7 +166,7 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             {
                 // solve U^{n+1} - dt_m R(U^{n+1}) - U^n - dt_m C = 0
                 // we use A_m and R_m_old to construct an initial guess for U^{n+1}
-                sdc_update_o2(i, j, k, k_m, k_n, A_m, R_m_old, C_arr, dt_m, lsdc_iteration, m_start);
+                sdc_update_o2(i, j, k, step, dt_m, lsdc_iteration, m_start);
             });
 
         } else {
@@ -207,11 +208,12 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             make_cell_center(bx1, Sreact.array(mfi), U_new_center_arr, domain_lo, domain_hi);
 
             auto lsdc_iteration = sdc_iteration;  // avoid capturing this
+            const NodeStep center_step{U_center_arr, U_new_center_arr, C_center_arr};
 
             amrex::ParallelFor(bx1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                sdc_update_centers_o4(i, j, k, U_center_arr, U_new_center_arr, C_center_arr, dt_m, lsdc_iteration);
+                sdc_update_centers_o4(i, j, k, center_step, dt_m, lsdc_iteration);
             });
 
             // enforce that the species sum to one after the reaction solve
@@ -229,7 +231,10 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             amrex::ParallelFor(bx1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                instantaneous_react(i, j, k, U_new_center_arr, R_new_arr);
+                const auto R_zone = instantaneous_react(i, j, k, U_new_center_arr);
+                for (int n = 0; n < NUM_STATE; ++n) {
+                    R_new_arr(i,j,k,n) = R_zone[n];
+                }
             });
 
             tlap.resize(bx, 1);
@@ -239,8 +244,8 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
 
             // now do the conservative update using this <R> to get <U>
             // We'll also need to pass in <C>
-            hs_sdc_conservative_update(bx, dt_m, k_new_m_start_arr, k_new_m_end_arr,
-                                       C_source_arr, R_new_arr);
+            sdc_stage::conservative_update(bx, dt_m, k_new_m_start_arr, k_new_m_end_arr,
+                                           C_source_arr, R_new_arr);
 
         }
 #else
@@ -254,34 +259,34 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
         if (sdc_order == 2) {
 
             if (sdc_quadrature == 0) {
-                hs_sdc_update_advection_o2_lobatto(bx, dt_m, dt, k_new_m_start_arr,
-                                                   k_new_m_end_arr,
-                                                   A_new_arr, A_old_0_arr, A_old_1_arr,
-                                                   m_start);
+                sdc_stage::update_advection_o2_lobatto(bx, dt_m, dt, k_new_m_start_arr,
+                                                       k_new_m_end_arr,
+                                                       A_new_arr, A_old_0_arr, A_old_1_arr,
+                                                       m_start);
 
             } else {
                 Array4<const Real> const& A_old_2_arr = (A_old[2])->array(mfi);
-                hs_sdc_update_advection_o2_radau(bx, dt_m, dt, k_new_m_start_arr,
-                                                 k_new_m_end_arr,
-                                                 A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
-                                                 m_start);
+                sdc_stage::update_advection_o2_radau(bx, dt_m, dt, k_new_m_start_arr,
+                                                     k_new_m_end_arr,
+                                                     A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
+                                                     m_start);
 
             }
 
         } else {
             Array4<const Real> const& A_old_2_arr = (A_old[2])->array(mfi);
             if (sdc_quadrature == 0) {
-                hs_sdc_update_advection_o4_lobatto(bx, dt_m, dt, k_new_m_start_arr,
-                                                   k_new_m_end_arr,
-                                                   A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
-                                                   m_start);
+                sdc_stage::update_advection_o4_lobatto(bx, dt_m, dt, k_new_m_start_arr,
+                                                       k_new_m_end_arr,
+                                                       A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
+                                                       m_start);
 
             } else {
                 Array4<const Real> const& A_old_3_arr = (A_old[3])->array(mfi);
-                hs_sdc_update_advection_o4_radau(bx, dt_m, dt, k_new_m_start_arr,
-                                                 k_new_m_end_arr,
-                                                 A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
-                                                 A_old_3_arr, m_start);
+                sdc_stage::update_advection_o4_radau(bx, dt_m, dt, k_new_m_start_arr,
+                                                     k_new_m_end_arr,
+                                                     A_new_arr, A_old_0_arr, A_old_1_arr, A_old_2_arr,
+                                                     A_old_3_arr, m_start);
 
             }
 
@@ -296,11 +301,11 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
 void
 HydroSim::assemble_old_react_source(MultiFab& U_state,
                                    MultiFab& R_source,
-                                   const bool input_is_average)
+                                   const ZoneValues input)
 {
 
     // note: there is a side effect here.  If we are fourth-order and
-    // coming in with input_is_average = true, then we make a backup
+    // coming in with cell averages, then we make a backup
     // of R_source when it is on cell-centers and store it in Sreact.
 
     BL_PROFILE("HydroSim::assemble_old_react_source()");
@@ -308,7 +313,7 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
     auto domain_lo = geom.Domain().loVect3d();
     auto domain_hi = geom.Domain().hiVect3d();
 
-    if (sdc_order == 4 && input_is_average)
+    if (sdc_order == 4 && input == ZoneValues::Average)
     {
         // we have cell-averages
         // Note: we cannot tile these operations
@@ -346,7 +351,10 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
             amrex::ParallelFor(obx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                instantaneous_react(i, j, k, U_center_arr, R_center_arr);
+                const auto R_zone = instantaneous_react(i, j, k, U_center_arr);
+                for (int n = 0; n < NUM_STATE; ++n) {
+                    R_center_arr(i,j,k,n) = R_zone[n];
+                }
             });
 
             // at this point, we have the reaction term on centers,
@@ -379,7 +387,10 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                instantaneous_react(i, j, k, U_state_arr, R_source_arr);
+                const auto R_zone = instantaneous_react(i, j, k, U_state_arr);
+                for (int n = 0; n < NUM_STATE; ++n) {
+                    R_source_arr(i,j,k,n) = R_zone[n];
+                }
             });
         }
     }

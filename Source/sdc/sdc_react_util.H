@@ -43,9 +43,8 @@ okay_to_burn(GpuArray<Real, NUM_STATE> const& state) {
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
-single_zone_react_source(burn_t& burn_state,
-                         GpuArray<Real, NUM_STATE>& R) {
+GpuArray<Real, NUM_STATE>
+single_zone_react_source(burn_t& burn_state) {
 
     // note: we want this burn_state to come out of here so we can
     // reuse it elsewhere
@@ -82,6 +81,8 @@ single_zone_react_source(burn_t& burn_state,
     actual_rhs(burn_state, ydot);
 
     // store the instantaneous R
+    GpuArray<Real, NUM_STATE> R;
+
     for (int n = 0; n < NUM_STATE; ++n) {
         R[n] = 0.0_rt;
     }
@@ -93,25 +94,20 @@ single_zone_react_source(burn_t& burn_state,
 
     R[UEDEN] = burn_state.rho * ydot(net_ienuc);
     R[UEINT] = burn_state.rho * ydot(net_ienuc);
+
+    return R;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+GpuArray<Real, NUM_STATE>
 single_zone_react_source(const int i, const int j, const int k,
-                         Array4<const Real> const& state,
-                         Array4<Real> const& R) {
-
-    GpuArray<Real, NUM_STATE> R_arr;
+                         Array4<const Real> const& state) {
 
     burn_t burn_state;
 
     copy_cons_to_burn_type(i, j, k, state, burn_state);
 
-    single_zone_react_source(burn_state, R_arr);
-
-    for (int n = 0; n < NUM_STATE; ++n) {
-        R(i,j,k,n) = R_arr[n];
-    }
+    return single_zone_react_source(burn_state);
 }
 
 template <typename T>
