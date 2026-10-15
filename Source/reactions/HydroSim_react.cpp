@@ -175,6 +175,13 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;
 
+    const auto dx = geom.CellSizeArray();
+#if AMREX_SPACEDIM == 1
+    const Real burn_dx = dx[0];
+#else
+    const Real burn_dx = amrex::min(AMREX_D_DECL(dx[0], dx[1], dx[2]));
+#endif
+
 #ifdef AMREX_USE_GPU
     Gpu::Buffer<int> d_num_failed({0});
     auto* p_num_failed = d_num_failed.data();
@@ -195,7 +202,6 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
         Array4<Real> empty_arr{};
         const auto& mask = mask_covered_zones ? mask_mf.array(mfi) : empty_arr;
 
-        const auto dx = geom.CellSizeArray();
 #ifdef MODEL_PARSER
         const auto problo = geom.ProbLoArray();
         const auto geomdata = geom.data();
@@ -216,11 +222,7 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int st
             burn_state.y_e = -1.0_rt;
 #endif
 
-#if AMREX_SPACEDIM == 1
-            burn_state.dx = dx[0];
-#else
-            burn_state.dx = amrex::min(AMREX_D_DECL(dx[0], dx[1], dx[2]));
-#endif
+            burn_state.dx = burn_dx;
 
             // Initialize some data for later.
 
@@ -517,6 +519,8 @@ HydroSim::react_state(Real time, Real dt)
     MultiFab tmp_mask_mf;
     const MultiFab& mask_mf = mask_covered_zones ? getLevel(level+1).build_fine_mask() : tmp_mask_mf;
 
+    const auto dx = geom.CellSizeArray();
+
     // Start off assuming a successful burn.
 
     int burn_success = 1;
@@ -549,7 +553,6 @@ HydroSim::react_state(Real time, Real dt)
 
         int lsdc_iteration = sdc_iteration;
 
-        const auto dx = geom.CellSizeArray();
 #ifdef MODEL_PARSER
         const auto problo = geom.ProbLoArray();
         const auto geomdata = geom.data();

@@ -425,6 +425,8 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
           amrex::Print() << "<<<<< drive initial convection reset >>>>" << std::endl;
 
+            const auto geomdata = geom.data();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -433,7 +435,6 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
                 const Box& box = mfi.tilebox();
 
                 auto s = S_old[mfi].array();
-                auto geomdata = geom.data();
 
 #ifdef RNG_STATE_INIT
                 amrex::Error("drive initial convection not yet supported for random initialization");

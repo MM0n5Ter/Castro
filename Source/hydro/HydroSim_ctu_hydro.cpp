@@ -40,6 +40,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 #ifdef HYBRID_MOMENTUM
   GeometryData geomdata = geom.data();
+  const auto dx_arr = geom.CellSizeArray();
 #endif
 
 #if AMREX_SPACEDIM <= 2
@@ -79,6 +80,12 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       radiation->compute_limiter(level, grids, Sborder, Erborder, lamborder);
   }
 #endif
+
+  // Whether to store the fluxes from this advance. For simplified SDC
+  // integration we only need to do this on the last iteration.
+
+  const bool add_fluxes = time_integration_method != SimplifiedSpectralDeferredCorrections ||
+                          sdc_iteration == sdc_iters - 1;
 
   // Record a running total of the number of bytes allocated as temporary Fab data.
 
@@ -1066,8 +1073,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 
 #ifdef HYBRID_MOMENTUM
-      auto dx_arr = geom.CellSizeArray();
-
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
@@ -1143,15 +1148,6 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
             });
         }
 #endif
-        // Store the fluxes from this advance. For simplified SDC integration we
-        // only need to do this on the last iteration.
-
-        bool add_fluxes = true;
-
-        if (time_integration_method == SimplifiedSpectralDeferredCorrections &&
-            sdc_iteration != sdc_iters - 1) {
-            add_fluxes = false;
-        }
 
         if (add_fluxes) {
 

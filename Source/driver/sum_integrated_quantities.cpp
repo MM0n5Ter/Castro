@@ -55,6 +55,10 @@ HydroSim::sum_integrated_quantities ()
     int fixwidth     = 25; // Floating point data not in scientific notation
     int intwidth     = 12; // Integer data
 
+#ifdef GRAVITY
+    const bool poisson_gravity = gravity->get_gravity_type() == "FullPoisson";
+#endif
+
     for (int lev = 0; lev <= finest_level; lev++)
     {
         HydroSim& hs_lev = getLevel(lev);
@@ -89,7 +93,7 @@ HydroSim::sum_integrated_quantities ()
         rho_K += hs_lev.volWgtSum("kineng", time, local_flag);
         rho_E += hs_lev.volWgtSum(S_new, UEDEN, local_flag);
 #ifdef GRAVITY
-        if (gravity->get_gravity_type() == "FullPoisson") {
+        if (poisson_gravity) {
             rho_phi += hs_lev.volProductSum(S_new, phi_new, URHO, 0, local_flag);
         }
 #endif

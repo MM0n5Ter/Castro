@@ -206,13 +206,20 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
     // Compare against a slightly smaller number to
     // avoid roundoff concerns.
 
-    Real eps = 1.0e-14;
+    const Real eps = 1.0e-14;
+
+    AMREX_ASSERT(dt_cutoff > eps);
+
+    const Real end_time = time + dt;
+    const Real subcycle_end_time = (1.0 - eps) * end_time;
+    const Real last_subcycle_time = (1.0 - dt_cutoff) * end_time;
+    const Real min_dt_subcycle = dt_cutoff * time;
 
     auto do_swap = false;
 
     Real last_dt_subcycle = 1.e200;
 
-    while (subcycle_time < (1.0 - eps) * (time + dt)) {
+    while (subcycle_time < subcycle_end_time) {
 
         // Save the dt_subcycle before modifying it, we will use it later.
 
@@ -229,27 +236,25 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
         // from the timestep being slightly larger than our recommended
         // safe dt in the subcycling.
 
-        AMREX_ASSERT(dt_cutoff > eps);
-
-        if (subcycle_time + dt_subcycle > (1.0 - dt_cutoff) * (time + dt)) {
-          dt_subcycle = (time + dt) - subcycle_time;
+        if (subcycle_time + dt_subcycle > last_subcycle_time) {
+          dt_subcycle = end_time - subcycle_time;
         }
 
         // Determine whether we're below the cutoff timestep.
 
-        if (dt_subcycle <= dt_cutoff * time) {
+        if (dt_subcycle <= min_dt_subcycle) {
             if (ParallelDescriptor::IOProcessor()) {
                 std::cout << std::endl;
                 std::cout << "  The subcycle mechanism requested subcycled timesteps of maximum length dt = " << dt_subcycle << "," << std::endl
                           << "  but this timestep is shorter than the user-defined minimum, " << std::endl
-                          << "  hydrosim.dt_cutoff, multiplied by the current time (" << dt_cutoff * time << "). Aborting." << std::endl;
+                          << "  hydrosim.dt_cutoff, multiplied by the current time (" << min_dt_subcycle << "). Aborting." << std::endl;
             }
             amrex::Abort("Error: subcycled timesteps too short.");
         }
 
         // Check on whether we are going to take too many subcycles.
 
-        int num_subcycles_remaining = int(round(((time + dt) - subcycle_time) / dt_subcycle));
+        int num_subcycles_remaining = int(round((end_time - subcycle_time) / dt_subcycle));
 
         if (num_subcycles_remaining > max_subcycles) {
             amrex::Print() << std::endl
@@ -413,8 +418,8 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
                 if (getLevel(lev).prev_state[k]->hasOldData()) {
                     getLevel(lev).state[k].replaceOldData(*getLevel(lev).prev_state[k]);
                 }
-                getLevel(lev).state[k].setTimeLevel(time + dt, dt, 0.0);
-                getLevel(lev).prev_state[k]->setTimeLevel(time + dt, dt_subcycle, 0.0);
+                getLevel(lev).state[k].setTimeLevel(end_time, dt, 0.0);
+                getLevel(lev).prev_state[k]->setTimeLevel(end_time, dt_subcycle, 0.0);
             }
         }
 

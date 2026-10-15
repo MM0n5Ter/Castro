@@ -2604,7 +2604,9 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
     Vector<std::unique_ptr<MultiFab> > drho(nlevs);
     Vector<std::unique_ptr<MultiFab> > dphi(nlevs);
 
-    if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep)  {
+    const bool do_gravity_sync = do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep;
+
+    if (do_gravity_sync) {
 
         for (int lev = crse_level; lev <= fine_level; ++lev) {
 
@@ -2621,6 +2623,11 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
         }
 
     }
+#endif
+
+#ifndef MHD
+    const Real crse_dt = parent->dtLevel(crse_level);
+    const bool scale_by_dAdt = false;
 #endif
 
     FluxRegister* reg = nullptr;
@@ -2703,10 +2710,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
                 auto F = temp_fluxes[idir][mfi].array();
 #ifndef MHD
                 auto A = crse_lev.area[idir][mfi].array();
-                Real dt = parent->dtLevel(crse_level);
-
-                bool scale_by_dAdt = false;
-                crse_lev.limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, dt, scale_by_dAdt);
+                crse_lev.limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, crse_dt, scale_by_dAdt);
 #endif
                 amrex::ParallelFor(nbx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -2772,7 +2776,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 #ifdef GRAVITY
         int ilev = lev - crse_level - 1;
 
-        if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep) {
+        if (do_gravity_sync) {
             reg->Reflux(*drho[ilev], crse_lev.volume, 1.0, 0, URHO, 1, crse_lev.geom);
             amrex::average_down(*drho[ilev + 1], *drho[ilev], 0, 1, getLevel(lev).crse_ratio);
         }
@@ -2851,7 +2855,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 #endif
 
 #ifdef GRAVITY
-        if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep)  {
+        if (do_gravity_sync) {
 
             reg = &getLevel(lev).phi_reg;
 
@@ -2880,7 +2884,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
     // Do the sync solve across all levels.
 
 #ifdef GRAVITY
-    if (do_grav && gravity->get_gravity_type() == "FullPoisson" && gravity->SkipSync() == 0 && in_post_timestep) {
+    if (do_gravity_sync) {
       gravity->gravity_sync(crse_level, fine_level, amrex::GetVecOfPtrs(drho), amrex::GetVecOfPtrs(dphi));
     }
 #endif

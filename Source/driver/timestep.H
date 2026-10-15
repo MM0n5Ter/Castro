@@ -68,6 +68,16 @@ namespace timestep {
 
             // Courant-condition limited timestep
 
+            GpuArray<Real, AMREX_SPACEDIM> dx;
+            for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
+                dx[idir] = geomdata.CellSize(idir);
+            }
+
+            // The CTU method has a less restrictive timestep than MOL-based
+            // schemes (including the true SDC).  Since the simplified SDC
+            // solver is based on CTU, we can use its timestep.
+            const bool use_ctu_limit = hydrosim::time_integration_method == 0 || hydrosim::time_integration_method == 3;
+
             auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
             {
@@ -75,7 +85,6 @@ namespace timestep {
 
                 IntVect idx(AMREX_D_DECL(i,j,k));
 
-                const auto* dx = geomdata.CellSize();
 #if AMREX_SPACEDIM >= 2
                 const auto* problo = geomdata.ProbLo();
                 const auto coord = geomdata.Coord();
@@ -131,10 +140,7 @@ namespace timestep {
                 dt3 = dt1;
 #endif
 
-                // The CTU method has a less restrictive timestep than MOL-based
-                // schemes (including the true SDC).  Since the simplified SDC
-                // solver is based on CTU, we can use its timestep.
-                if (hydrosim::time_integration_method == 0 || hydrosim::time_integration_method == 3) {
+                if (use_ctu_limit) {
                     Real dt = amrex::min(dt1, dt2, dt3);
                     return {ValLocPair<Real, IntVect>{dt, idx}};
 

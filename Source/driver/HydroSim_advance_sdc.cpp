@@ -57,6 +57,8 @@ HydroSim::do_advance_sdc (Real time,
 
     auto apply_sources_to_state = false;
 
+    const bool final_iteration = sdc_iteration == sdc_order+sdc_extra-1;
+
     // we loop over all nodes, even the last, since we need to compute
     // the advective update source at each node
 
@@ -85,7 +87,7 @@ HydroSim::do_advance_sdc (Real time,
         // to do all of this the first iteration, since that state never
         // changes
         if (!(sdc_iteration > 0 && m == 0) &&
-            !(sdc_iteration == sdc_order+sdc_extra-1 && m == SDC_NODES-1)) {
+            !(final_iteration && m == SDC_NODES-1)) {
 
             // Construct the "old-time" sources from Sborder.  Since we are
             // working from Sborder, this will actually evaluate the sources
@@ -220,7 +222,7 @@ HydroSim::do_advance_sdc (Real time,
     // the final time node.  This means we can still use S_new as
     // "scratch" until we finally set it.
 
-    if (sdc_iteration != sdc_order+sdc_extra-1) {
+    if (!final_iteration) {
         // store A_old for the next SDC iteration -- don't need to do n=0,
         // since that is unchanged
         for (int n=1; n < SDC_NODES; n++) {
@@ -242,7 +244,7 @@ HydroSim::do_advance_sdc (Real time,
     }
 #endif
 
-    if (sdc_iteration == sdc_order+sdc_extra-1) {
+    if (final_iteration) {
 
         // store the new solution
         MultiFab::Copy(S_new, *(k_new[SDC_NODES-1]), 0, 0, S_new.nComp(), 0);

@@ -21,6 +21,19 @@ HydroSim::pointmass_update(Real time, Real dt)
     const auto dx = geom.CellSizeArray();
     const auto problo = geom.ProbLoArray();
 
+    // This is just a small number to keep precision issues from making
+    // icen, jcen, kcen one cell too low.
+    const Real eps = 1.e-8_rt;
+
+    // This should be the cell whose lower left corner is at center
+    const int icen = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
+#if AMREX_SPACEDIM >= 2
+    const int jcen = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
+#endif
+#if AMREX_SPACEDIM == 3
+    const int kcen = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
+#endif
+
     ReduceOps<ReduceOpSum> reduce_op;
     ReduceData<Real> reduce_data(reduce_op);
     using ReduceTuple = typename decltype(reduce_data)::Type;
@@ -39,19 +52,6 @@ HydroSim::pointmass_update(Real time, Real dt)
         reduce_op.eval(bx, reduce_data,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
         {
-            // This is just a small number to keep precision issues from making
-            // icen, jcen, kcen one cell too low.
-            const Real eps = 1.e-8_rt;
-
-            // This should be the cell whose lower left corner is at center
-            int icen = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
-#if AMREX_SPACEDIM >= 2
-            int jcen = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
-#endif
-#if AMREX_SPACEDIM == 3
-            int kcen = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
-#endif
-
             // Make sure we only count contributions from this grid
 
             const int box_size = 2;
@@ -117,20 +117,6 @@ HydroSim::pointmass_update(Real time, Real dt)
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                // This is just a small number to keep precision issues from making
-                // icen, jcen, kcen one cell too low.
-
-                const Real eps = 1.e-8_rt;
-
-                // This should be the cell whose lower left corner is at center
-                int icen = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
-#if AMREX_SPACEDIM >= 2
-                int jcen = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
-#endif
-#if AMREX_SPACEDIM == 3
-                int kcen = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
-#endif
-
                 // Make sure we only count contributions from this grid
 
                 const int box_size = 2;

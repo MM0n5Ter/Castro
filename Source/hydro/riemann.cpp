@@ -88,12 +88,15 @@ HydroSim::riemann_flux_and_state(const Box& bx,
     const bool do_ppm_temp_fix = ppm_temp_fix == 2;
     const Real temp_guess = T_guess;
 
+    const int solver_type = riemann_solver;
+    const bool do_hybrid_correction = hybrid_riemann;
+
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
 
-        if (riemann_solver == 0 || riemann_solver == 1) {
+        if (solver_type == 0 || solver_type == 1) {
             // approximate state Riemann solvers
 
             // first find the interface state on the current interface
@@ -143,7 +146,7 @@ HydroSim::riemann_flux_and_state(const Box& bx,
                 }
             }
 
-        } else if (riemann_solver == 2) {
+        } else if (solver_type == 2) {
             // HLLC
             HLL::HLLC(i, j, k, idir,
                       qm, qp,
@@ -163,7 +166,7 @@ HydroSim::riemann_flux_and_state(const Box& bx,
         // correct the fluxes using an HLL scheme if we are in a shock
         // and doing the hybrid approach
 
-        if (hybrid_riemann != 1) {
+        if (!do_hybrid_correction) {
             return;
         }
 

@@ -484,6 +484,8 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
 
     AMREX_ALWAYS_ASSERT(hydrosim::grav_coupling_type >= 1 && hydrosim::grav_coupling_type <= 4);
 
+    const Real hdtInv = 0.5_rt / dt;
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -506,8 +508,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 GpuArray<Real, NSRC> src{};
-
-                Real hdtInv = 0.5_rt / dt;
 
                 // Gravitational source options for how to add the work to (rho E):
                 // grav_coupling_type =
