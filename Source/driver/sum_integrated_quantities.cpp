@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iomanip>
 
 #include <HydroSim.H>
@@ -266,10 +267,9 @@ HydroSim::sum_integrated_quantities ()
             }
 #endif
 
-            for (int idir = 0; idir < 3; idir++) {
-                com[idir]     = com[idir] / mass;
-                com_vel[idir] = mom[idir] / mass;
-            }
+            const auto per_unit_mass = [mass] (Real x) { return x / mass; };
+            std::transform(std::begin(com), std::end(com), std::begin(com), per_unit_mass);
+            std::transform(std::begin(mom), std::end(mom), std::begin(com_vel), per_unit_mass);
 
             i = 0;
             T_max     = foo_max[i++];

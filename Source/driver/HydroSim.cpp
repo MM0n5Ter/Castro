@@ -12,7 +12,9 @@
 #include <ctime>
 #include <memory>
 #include <numbers>
+#include <numeric>
 #include <format>
+#include <ranges>
 
 #include <AMReX_Utility.H>
 #include <AMReX_CONSTANTS.H>
@@ -1765,10 +1767,9 @@ HydroSim::computeNewDt (int                    finest_level,
           //
           // Limit dt's by pre-regrid dt
           //
-          for (int i = 0; i <= finest_level; i++)
-          {
-              dt_min[i] = std::min(dt_min[i],dt_level[i]);
-          }
+          std::transform(dt_min.begin(), dt_min.begin() + finest_level + 1, dt_level.begin(),
+                         dt_min.begin(),
+                         [] (Real dt_new, Real dt_pre_regrid) { return std::min(dt_new, dt_pre_regrid); });
        }
        else
        {
@@ -2055,12 +2056,14 @@ HydroSim::post_timestep (int iteration_local)
     // Check to see if the user-supplied stopping criterion has been met.
 
     if (!hydrosim::stopping_criterion_field.empty() && level == 0) {
-        Real max_field_val = std::numeric_limits<Real>::min();
+        const auto levels = std::views::iota(0, parent->finestLevel() + 1);
 
-        for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-            auto mf = getLevel(lev).derive(hydrosim::stopping_criterion_field, state[State_Type].curTime(), 0);
-            max_field_val = std::max(max_field_val, mf->max(0));
-        }
+        const Real max_field_val =
+            std::accumulate(levels.begin(), levels.end(), std::numeric_limits<Real>::min(),
+                            [&] (Real level_max, int lev) {
+                                auto mf = getLevel(lev).derive(hydrosim::stopping_criterion_field, state[State_Type].curTime(), 0);
+                                return std::max(level_max, mf->max(0));
+                            });
 
         int to_stop = (max_field_val >= hydrosim::stopping_criterion_value);
 

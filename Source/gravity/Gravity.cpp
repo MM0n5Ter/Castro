@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <numbers>
@@ -237,9 +238,7 @@ Gravity::read_params ()
 
             }
 
-            for (int lev = 0; lev < MAX_LEV; ++lev) {
-                rel_tol[lev] = tol;
-            }
+            std::fill_n(rel_tol.begin(), MAX_LEV, tol);
 
         } else if (n_rel_tol >= nlevs) {
 

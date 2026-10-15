@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <new>
 #include <cstdio>
 #include <cstring>
@@ -86,13 +87,11 @@ main (int   argc,
 {
 
     // check to see if it contains --describe
-    if (argc >= 2) {
-        for (auto i = 1; i < argc; i++) {
-            if (std::string(argv[i]) == "--describe") {
-                HydroSim::writeBuildInfo();
-                return 0;
-            }
-        }
+    if (argc >= 2 &&
+        std::any_of(argv + 1, argv + argc,
+                    [] (const char* arg) { return std::string(arg) == "--describe"; })) {
+        HydroSim::writeBuildInfo();
+        return 0;
     }
 
     //

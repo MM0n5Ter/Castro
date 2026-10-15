@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <ranges>
+
 #include <HydroSim.H>
 
 #ifdef RADIATION
@@ -409,15 +412,8 @@ HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& state_old, Mu
 bool
 HydroSim::apply_sources()
 {
-
-    for (int n = 0; n < num_src; ++n) {
-        if (source_flag(n)) {
-            return true;
-        }
-    }
-
-    return false;
-
+    return std::ranges::any_of(std::views::iota(0, static_cast<int>(num_src)),
+                               [this] (int src) { return source_flag(src); });
 }
 
 // Evaluate diagnostics quantities describing the effect of an

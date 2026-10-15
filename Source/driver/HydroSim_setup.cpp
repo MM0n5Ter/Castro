@@ -1,5 +1,6 @@
 #include <cstdio>
 
+#include <algorithm>
 #include <array>
 #include <format>
 
@@ -240,9 +241,7 @@ HydroSim::variableSetUp ()
 
   eos_state.rho = hydrosim::small_dens;
   eos_state.T = hydrosim::small_temp;
-  for (double& X : eos_state.xn) {
-      X = 1.0_rt / NumSpec;
-  }
+  std::fill(std::begin(eos_state.xn), std::end(eos_state.xn), 1.0_rt / NumSpec);
 #ifdef AUX_THERMO
   set_aux_comp_from_X(eos_state);
 #endif
@@ -269,9 +268,7 @@ HydroSim::variableSetUp ()
   // not (which is reflected by whether ambient_density is positive)
   // then we use the "small" quantities.
 
-  for (Real & s : ambient::ambient_state) {
-      s = 0.0;
-  }
+  std::fill(std::begin(ambient::ambient_state), std::end(ambient::ambient_state), 0.0);
 
   ambient::ambient_state[URHO]  = amrex::max(hydrosim::ambient_density, hydrosim::small_dens);
   ambient::ambient_state[UTEMP] = amrex::max(hydrosim::ambient_temp, hydrosim::small_temp);
@@ -1009,9 +1006,7 @@ HydroSim::variableSetUp ()
 
   // Fill with an empty string to initialize.
 
-  for (int n = 0; n < num_src; ++n) {
-    source_names[n] = "";
-  }
+  std::fill(source_names.begin(), source_names.end(), "");
 
   source_names[ext_src] = "user-defined external";
   source_names[thermo_src] = "pdivU source";

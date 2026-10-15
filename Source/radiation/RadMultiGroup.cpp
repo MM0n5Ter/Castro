@@ -6,6 +6,7 @@
 
 #include <AMReX_ParmParse.H>
 
+#include <algorithm>
 #include <iostream>
 
 #ifdef _OPENMP
@@ -76,9 +77,8 @@ void Radiation::get_groups(int verbose)
       }
     }
 
-    for (int i = 0; i < nGroups; ++i) {
-        lognugroup[i] = std::log(nugroup[i]);
-    }
+    std::transform(nugroup.begin(), nugroup.end(), lognugroup.begin(),
+                   [] (Real nu) { return std::log(nu); });
   }
 
   if (ParallelDescriptor::IOProcessor()) {

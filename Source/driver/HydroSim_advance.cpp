@@ -9,9 +9,11 @@
 #include <Gravity.H>
 #endif
 
+#include <algorithm>
 #include <cmath>
 #include <climits>
 #include <format>
+#include <ranges>
 
 #include <problem_initialize_state_data.H>
 
@@ -250,14 +252,9 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     // the point where we can bail out later in the advance, so let's just
     // go directly into a retry now if we're too far away from the needed dt.
 
-    auto is_first_step_on_this_level = true;
-
-    for (int lev = level; lev >= 0; --lev) {
-        if (getLevel(lev).iteration > 1) {
-            is_first_step_on_this_level = false;
-            break;
-        }
-    }
+    const bool is_first_step_on_this_level =
+        std::ranges::none_of(std::views::iota(0, level + 1),
+                             [this] (int lev) { return getLevel(lev).iteration > 1; });
 
     if (hydrosim::check_dt_before_advance && !is_first_step_on_this_level) {
         const int is_new = 0;
@@ -504,9 +501,8 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
     // Initialize the previous state data container now, so that we can
     // always ask if it has valid data.
 
-    for (int k = 0; k < num_state_type; ++k) {
-        prev_state[k] = std::make_unique<StateData>();
-    }
+    std::generate(prev_state.begin(), prev_state.end(),
+                  [] { return std::make_unique<StateData>(); });
 
 
     // Allocate space for the primitive variables.
