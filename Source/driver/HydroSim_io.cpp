@@ -61,6 +61,24 @@ namespace
 {
     int input_version = -1;
     int current_version = 12;
+
+    // Read a single value from a file inside the checkpoint directory.
+    // Returns false, leaving value untouched, if the file is not there.
+    template <typename T>
+    bool read_checkpoint_value (const std::string& path, T& value)
+    {
+        std::ifstream file;
+        file.open(path.c_str(), std::ios::in);
+
+        if (!file.good()) {
+            return false;
+        }
+
+        file >> value;
+        file.close();
+
+        return true;
+    }
 }
 
 // I/O routines for HydroSim
@@ -104,17 +122,8 @@ HydroSim::restart (Amr&     papa,
 
     if (ParallelDescriptor::IOProcessor()) {
 
-        std::ifstream dtHeaderFile;
-        std::string FullPathdtHeaderFile = papa.theRestartFile();
-        FullPathdtHeaderFile += "/dtHeader";
-        dtHeaderFile.open(FullPathdtHeaderFile.c_str(), std::ios::in);
-
-        if (dtHeaderFile.good()) {
-
+        if (read_checkpoint_value(papa.theRestartFile() + "/dtHeader", lastDtBeforePlotLimiting)) {
             lastDtPlotLimited = 1;
-            dtHeaderFile >> lastDtBeforePlotLimiting;
-            dtHeaderFile.close();
-
         }
 
     }
@@ -155,17 +164,7 @@ HydroSim::restart (Amr&     papa,
     if (level == 0 && ParallelDescriptor::IOProcessor())
     {
       // get elapsed CPU time
-      std::ifstream CPUFile;
-      std::string FullPathCPUFile = parent->theRestartFile();
-      FullPathCPUFile += "/CPUtime";
-      CPUFile.open(FullPathCPUFile.c_str(), std::ios::in);
-
-      if (CPUFile.good()) {
-
-          CPUFile >> previousCPUTimeUsed;
-          CPUFile.close();
-
-      }
+      read_checkpoint_value(parent->theRestartFile() + "/CPUtime", previousCPUTimeUsed);
 
       std::cout << "read CPU time: " << previousCPUTimeUsed << "\n";
 
@@ -176,16 +175,7 @@ HydroSim::restart (Amr&     papa,
     {
 
         // get the current value of the point mass
-        std::ifstream PMFile;
-        std::string FullPathPMFile = parent->theRestartFile();
-        FullPathPMFile += "/point_mass";
-        PMFile.open(FullPathPMFile.c_str(), std::ios::in);
-
-        if (PMFile.good()) {
-            PMFile >> point_mass;
-            PMFile.close();
-        }
-
+        read_checkpoint_value(parent->theRestartFile() + "/point_mass", point_mass);
     }
 #endif
 

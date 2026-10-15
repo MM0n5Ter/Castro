@@ -15,6 +15,42 @@
 
 using namespace amrex;
 
+namespace {
+
+    // Sum a zone quantity over the tiles of mf. For each tile, make_kernel(mfi)
+    // returns the per-zone function evaluated by the reduction. Unless local
+    // is set, the result is summed over all ranks.
+
+    template <typename KernelMaker>
+    Real
+    sum_over_tiles (const MultiFab& mf, bool local, KernelMaker&& make_kernel)
+    {
+        ReduceOps<ReduceOpSum> reduce_op;
+        ReduceData<Real> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+        for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& box = mfi.tilebox();
+
+            reduce_op.eval(box, reduce_data, make_kernel(mfi));
+        }
+
+        ReduceTuple hv = reduce_data.value();
+        Real sum = amrex::get<0>(hv);
+
+        if (!local) {
+            ParallelDescriptor::ReduceRealSum(sum);
+        }
+
+        return sum;
+    }
+
+}
+
 Real
 HydroSim::volWgtSum (const std::string& name, Real time, bool local, bool finemask)
 {
@@ -35,44 +71,24 @@ HydroSim::volWgtSum (const MultiFab& mf, int comp, bool local, bool finemask)
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    ReduceOps<ReduceOpSum> reduce_op;
-    ReduceData<Real> reduce_data(reduce_op);
-    using ReduceTuple = typename decltype(reduce_data)::Type;
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    return sum_over_tiles(mf, local, [&] (const MFIter& mfi)
     {
         auto const& fab = mf[mfi].array(comp);
         auto const& vol = volume.array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
-
-        const Box& box = mfi.tilebox();
 
         //
         // Note that this routine will do a volume weighted sum of
         // whatever quantity is passed in, not strictly the "mass".
         //
 
-        reduce_op.eval(box, reduce_data,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
             return {fab(i,j,k) * vol(i,j,k) * maskFactor};
-        });
-
-    }
-
-    ReduceTuple hv = reduce_data.value();
-    Real sum = amrex::get<0>(hv);
-
-    if (!local) {
-        ParallelDescriptor::ReduceRealSum(sum);
-    }
-
-    return sum;
+        };
+    });
 }
 
 Real
@@ -85,31 +101,21 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    ReduceOps<ReduceOpSum> reduce_op;
-    ReduceData<Real> reduce_data(reduce_op);
-    using ReduceTuple = typename decltype(reduce_data)::Type;
-
     auto dx     = geom.CellSizeArray();
     auto problo = geom.ProbLoArray();
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    return sum_over_tiles(mf, local, [&] (const MFIter& mfi)
     {
         auto const& fab = mf[mfi].array(comp);
         auto const& vol = volume.array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
-
-        const Box& box = mfi.tilebox();
 
         //
         // Note that this routine will do a volume weighted sum of
         // whatever quantity is passed in, not strictly the "mass".
         //
 
-        reduce_op.eval(box, reduce_data,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
@@ -142,17 +148,8 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, bool local)
             }
 
             return {ds};
-        });
-    }
-
-    ReduceTuple hv = reduce_data.value();
-    Real sum = amrex::get<0>(hv);
-
-    if (!local) {
-        ParallelDescriptor::ReduceRealSum(sum);
-    }
-
-    return sum;
+        };
+    });
 }
 
 Real
@@ -168,39 +165,20 @@ HydroSim::volProductSum (const MultiFab& mf1,
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    ReduceOps<ReduceOpSum> reduce_op;
-    ReduceData<Real> reduce_data(reduce_op);
-    using ReduceTuple = typename decltype(reduce_data)::Type;
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(mf1, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    return sum_over_tiles(mf1, local, [&] (const MFIter& mfi)
     {
         auto const& fab1 = mf1[mfi].array(comp1);
         auto const& fab2 = mf2[mfi].array(comp2);
         auto const& vol  = volume.array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
 
-        const Box& box = mfi.tilebox();
-
-        reduce_op.eval(box, reduce_data,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
             return {fab1(i,j,k) * fab2(i,j,k) * vol(i,j,k) * maskFactor};
-        });
-    }
-
-    ReduceTuple hv = reduce_data.value();
-    Real sum = amrex::get<0>(hv);
-
-    if (!local) {
-        ParallelDescriptor::ReduceRealSum(sum);
-    }
-
-    return sum;
+        };
+    });
 }
 
 Real
@@ -220,25 +198,15 @@ HydroSim::locSquaredSum (const std::string& name,
     MultiFab tmp_mf;
     const MultiFab& mask_mf = mask_available ? getLevel(level+1).build_fine_mask() : tmp_mf;
 
-    ReduceOps<ReduceOpSum> reduce_op;
-    ReduceData<Real> reduce_data(reduce_op);
-    using ReduceTuple = typename decltype(reduce_data)::Type;
-
     auto dx     = geom.CellSizeArray();
     auto problo = geom.ProbLoArray();
 
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    return sum_over_tiles(*mf, local, [&] (const MFIter& mfi)
     {
         auto const& fab = (*mf).array(mfi);
         auto const& mask = mask_available ? mask_mf.array(mfi) : Array4<Real>{};
 
-        const Box& box = mfi.tilebox();
-
-        reduce_op.eval(box, reduce_data,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        return [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> GpuTuple<Real>
         {
             Real maskFactor = mask_available ? mask(i,j,k) : 1.0_rt;
 
@@ -274,19 +242,9 @@ HydroSim::locSquaredSum (const std::string& name,
             }
 
             return {ds};
-        });
-    }
-
-    ReduceTuple hv = reduce_data.value();
-    Real sum = amrex::get<0>(hv);
-
-    if (!local) {
-        ParallelDescriptor::ReduceRealSum(sum);
-    }
-
-    return sum;
+        };
+    });
 }
-
 
 
 #ifdef GRAVITY

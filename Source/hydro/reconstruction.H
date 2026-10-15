@@ -14,36 +14,51 @@ namespace reconstruction {
    };
 }
 
+// Fill the five-point stencil s centered on (i,j,k) along direction
+// idir, taking the zone values from value_at(ii,jj,kk).
+
+template <typename ValueAt>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+fill_stencil(ValueAt value_at, const int idir,
+             const int i, const int j, const int k,
+             amrex::Real* s) {
+
+    using namespace reconstruction;
+
+    if (idir == 0) {
+        s[im2] = value_at(i-2,j,k);
+        s[im1] = value_at(i-1,j,k);
+        s[i0]  = value_at(i,j,k);
+        s[ip1] = value_at(i+1,j,k);
+        s[ip2] = value_at(i+2,j,k);
+
+    } else if (idir == 1) {
+        s[im2] = value_at(i,j-2,k);
+        s[im1] = value_at(i,j-1,k);
+        s[i0]  = value_at(i,j,k);
+        s[ip1] = value_at(i,j+1,k);
+        s[ip2] = value_at(i,j+2,k);
+
+    } else {
+        s[im2] = value_at(i,j,k-2);
+        s[im1] = value_at(i,j,k-1);
+        s[i0]  = value_at(i,j,k);
+        s[ip1] = value_at(i,j,k+1);
+        s[ip2] = value_at(i,j,k+2);
+
+    }
+
+}
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 load_stencil(amrex::Array4<amrex::Real const> const& q_arr, const int idir,
              const int i, const int j, const int k, const int ncomp,
              amrex::Real* s) {
 
-    using namespace reconstruction;
-
-    if (idir == 0) {
-        s[im2] = q_arr(i-2,j,k,ncomp);
-        s[im1] = q_arr(i-1,j,k,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i+1,j,k,ncomp);
-        s[ip2] = q_arr(i+2,j,k,ncomp);
-
-      } else if (idir == 1) {
-        s[im2] = q_arr(i,j-2,k,ncomp);
-        s[im1] = q_arr(i,j-1,k,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i,j+1,k,ncomp);
-        s[ip2] = q_arr(i,j+2,k,ncomp);
-
-      } else {
-        s[im2] = q_arr(i,j,k-2,ncomp);
-        s[im1] = q_arr(i,j,k-1,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i,j,k+1,ncomp);
-        s[ip2] = q_arr(i,j,k+2,ncomp);
-
-      }
+    fill_stencil([&] (int ii, int jj, int kk) { return q_arr(ii,jj,kk,ncomp); },
+                 idir, i, j, k, s);
 
 }
 
@@ -55,30 +70,10 @@ load_passive_stencil(amrex::Array4<amrex::Real const> const& U_arr,
                      const int i, const int j, const int k, const int ncomp,
                      amrex::Real* s) {
 
-    using namespace reconstruction;
+    // the passive is stored conserved; convert to primitive zone by zone
 
-    if (idir == 0) {
-        s[im2] = U_arr(i-2,j,k,ncomp) * rho_inv_arr(i-2,j,k);
-        s[im1] = U_arr(i-1,j,k,ncomp) * rho_inv_arr(i-1,j,k);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i+1,j,k,ncomp) * rho_inv_arr(i+1,j,k);
-        s[ip2] = U_arr(i+2,j,k,ncomp) * rho_inv_arr(i+2,j,k);
-
-      } else if (idir == 1) {
-        s[im2] = U_arr(i,j-2,k,ncomp) * rho_inv_arr(i,j-2,k);
-        s[im1] = U_arr(i,j-1,k,ncomp) * rho_inv_arr(i,j-1,k);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i,j+1,k,ncomp) * rho_inv_arr(i,j+1,k);
-        s[ip2] = U_arr(i,j+2,k,ncomp) * rho_inv_arr(i,j+2,k);
-
-      } else {
-        s[im2] = U_arr(i,j,k-2,ncomp) * rho_inv_arr(i,j,k-2);
-        s[im1] = U_arr(i,j,k-1,ncomp) * rho_inv_arr(i,j,k-1);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i,j,k+1,ncomp) * rho_inv_arr(i,j,k+1);
-        s[ip2] = U_arr(i,j,k+2,ncomp) * rho_inv_arr(i,j,k+2);
-
-      }
+    fill_stencil([&] (int ii, int jj, int kk) { return U_arr(ii,jj,kk,ncomp) * rho_inv_arr(ii,jj,kk); },
+                 idir, i, j, k, s);
 
 }
 

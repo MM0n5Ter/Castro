@@ -9,6 +9,28 @@
 
 using namespace amrex;
 
+#ifdef MHD
+// Average a face-centered field component onto cell centers along
+// direction dir.
+
+template <int dir>
+void face_to_center (const Box& bx, FArrayBox& derfab, const FArrayBox& datfab)
+{
+  constexpr int ioff = (dir == 0) ? 1 : 0;
+  constexpr int joff = (dir == 1) ? 1 : 0;
+  constexpr int koff = (dir == 2) ? 1 : 0;
+
+  auto const dat = datfab.array();
+  auto const der = derfab.array();
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i+ioff,j+joff,k+koff,0));
+  });
+}
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -1177,48 +1199,21 @@ extern "C"
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i+1,j,k,0));
-    });
-
+    face_to_center<0>(bx, derfab, datfab);
   }
 
   void hs_dermagceny(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i,j+1,k,0));
-    });
-
+    face_to_center<1>(bx, derfab, datfab);
   }
 
   void hs_dermagcenz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i,j,k+1,0));
-    });
-
+    face_to_center<2>(bx, derfab, datfab);
   }
 
   void hs_derdivb(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,

@@ -84,55 +84,22 @@ namespace {
         }
     }
 
-    void
-    set_x_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,norm_vel_bc[lo_bc[0]]);
-        bc.setHi(0,norm_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
+    // Velocity-like vector components: at symmetry and wall boundaries
+    // the component normal to the boundary is reflected with odd parity,
+    // the tangential ones with even parity.
 
+    template <int normal_dir>
     void
-    set_y_vel_bc(BCRec& bc, const BCRec& phys_bc)
+    set_vel_bc (BCRec& bc, const BCRec& phys_bc)
     {
         const int* lo_bc = phys_bc.lo();
         const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,norm_vel_bc[lo_bc[1]]);
-        bc.setHi(1,norm_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-    void
-    set_z_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,norm_vel_bc[lo_bc[2]]);
-        bc.setHi(2,norm_vel_bc[hi_bc[2]]);
-#endif
+        for (int i = 0; i < AMREX_SPACEDIM; i++)
+        {
+            const auto& vel_bc = (i == normal_dir) ? norm_vel_bc : tang_vel_bc;
+            bc.setLo(i, vel_bc[lo_bc[i]]);
+            bc.setHi(i, vel_bc[hi_bc[i]]);
+        }
     }
 
 #ifdef MHD
@@ -450,15 +417,15 @@ HydroSim::variableSetUp ()
   bcs[URHO] = bc;
   name[URHO] = "density";
 
-  set_x_vel_bc(bc, phys_bc);
+  set_vel_bc<0>(bc, phys_bc);
   bcs[UMX] = bc;
   name[UMX] = "xmom";
 
-  set_y_vel_bc(bc, phys_bc);
+  set_vel_bc<1>(bc, phys_bc);
   bcs[UMY] = bc;
   name[UMY] = "ymom";
 
-  set_z_vel_bc(bc, phys_bc);
+  set_vel_bc<2>(bc, phys_bc);
   bcs[UMZ] = bc;
   name[UMZ] = "zmom";
 
@@ -571,13 +538,13 @@ HydroSim::variableSetUp ()
   set_scalar_bc(bc,phys_bc);
   replace_inflow_bc(bc);
   desc_lst.setComponent(Potential_Type,0,"phiGrav",bc,genericBndryFunc);
-  set_x_vel_bc(bc,phys_bc);
+  set_vel_bc<0>(bc,phys_bc);
   replace_inflow_bc(bc);
   desc_lst.setComponent(Gravity_Type,0,"grav_x",bc,genericBndryFunc);
-  set_y_vel_bc(bc,phys_bc);
+  set_vel_bc<1>(bc,phys_bc);
   replace_inflow_bc(bc);
   desc_lst.setComponent(Gravity_Type,1,"grav_y",bc,genericBndryFunc);
-  set_z_vel_bc(bc,phys_bc);
+  set_vel_bc<2>(bc,phys_bc);
   replace_inflow_bc(bc);
   desc_lst.setComponent(Gravity_Type,2,"grav_z",bc,genericBndryFunc);
 #endif
