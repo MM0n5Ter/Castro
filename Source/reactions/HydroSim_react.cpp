@@ -540,10 +540,11 @@ HydroSim::react_state(Real time, Real dt)
 
         auto U_old = S_old.array(mfi);
         auto U_new = S_new.array(mfi);
+        hydro::CoupledFields coupled{};
 #ifdef MHD
-        auto Bx    = Bx_new.array(mfi);
-        auto By    = By_new.array(mfi);
-        auto Bz    = Bz_new.array(mfi);
+        coupled.Bx = Bx_new.array(mfi);
+        coupled.By = By_new.array(mfi);
+        coupled.Bz = Bz_new.array(mfi);
 #endif
         auto I     = SDC_react.array(mfi);
         auto react_src = reactions.array(mfi);
@@ -679,10 +680,7 @@ HydroSim::react_state(Real time, Real dt)
             Array1D<Real, 0, NQ-1> q_noreact;
             Array1D<Real, 0, NQAUX-1> qaux_dummy;
 
-            hydro::conservative_to_primitive(i, j, k, U_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
+            hydro::conservative_to_primitive(i, j, k, U_new, coupled,
                                              q_noreact, qaux_dummy, q_noreact.len() == NQ);
 
             // dual energy formalism: in doing EOS calls in the burn,
@@ -774,10 +772,7 @@ HydroSim::react_state(Real time, Real dt)
 
             Array1D<Real, 0, NQ-1> q_new;
 
-            hydro::conservative_to_primitive(i, j, k, U_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
+            hydro::conservative_to_primitive(i, j, k, U_new, coupled,
                                              q_new, qaux_dummy, q_new.len() == NQ);
 
             // Compute the reaction source term.

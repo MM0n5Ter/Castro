@@ -434,7 +434,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             // store the Godunov state
             auto qe_arr = (qe[idir]).array();
-            store_godunov_state(nbx, q_avg_arr, qe_arr);
+            hydro::store_godunov_state(nbx, q_avg_arr, qe_arr);
 
           }
 
@@ -487,7 +487,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
               // ppm_temp_fix = 1
               if (ppm_temp_fix == 1) {
-                  edge_state_temp_to_pres(obx, qm.array(), qp.array());
+                  hydro::edge_state_temp_to_pres(obx, qm.array(), qp.array());
               }
 
               const Box& nbx = amrex::surroundingNodes(bx, idir);
@@ -572,16 +572,16 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
                 // apply the density flux limiter
                 if (limit_fluxes_on_small_dens == 1) {
-                    limit_hydro_fluxes_on_small_dens(nbx, idir,
-                                                     Sborder.array(mfi),
-                                                     volume.array(mfi),
-                                                     flux[idir].array(),
-                                                     area[idir].array(mfi),
-                                                     dt);
+                    hydro::limit_hydro_fluxes_on_small_dens(nbx, idir,
+                                                            Sborder.array(mfi),
+                                                            volume.array(mfi),
+                                                            flux[idir].array(),
+                                                            area[idir].array(mfi),
+                                                            dt, hydro::FluxForm::PerUnitArea);
                 }
 
                 // ensure that the species fluxes are normalized
-                normalize_species_fluxes(nbx, flux_arr);
+                hydro::normalize_species_fluxes(nbx, flux_arr);
 
             }
 
@@ -595,26 +595,9 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
                    source_in_arr,
                    source_out_arr,
                    dt,
-                   flux[0].array(),
-#if AMREX_SPACEDIM >= 2
-                   flux[1].array(),
-#endif
-#if AMREX_SPACEDIM == 3
-                   flux[2].array(),
-#endif
-                   area[0].array(mfi),
-#if AMREX_SPACEDIM >= 2
-                   area[1].array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                   area[2].array(mfi),
-#endif
-#if AMREX_SPACEDIM <= 2
-                   qe[0].array(),
-#if AMREX_SPACEDIM == 2
-                   qe[1].array(),
-#endif
-#endif
+                   {AMREX_D_DECL(flux[0].array(), flux[1].array(), flux[2].array())},
+                   {AMREX_D_DECL(area[0].array(mfi), area[1].array(mfi), area[2].array(mfi))},
+                   {AMREX_D_DECL(qe[0].array(), qe[1].array(), qe[2].array())},
                    volume.array(mfi));
 
 

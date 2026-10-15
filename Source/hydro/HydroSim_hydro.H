@@ -46,22 +46,6 @@
 
 
 ///
-/// when using simplified-SDC, add the SDC source term predictor to
-/// the interface states
-///
-/// @param bx          the box to operate over
-/// @param idir        coordinate direction
-/// @param dt          timestep
-/// @param qleft       left state at the interface
-/// @param qright      right state at the interface
-/// @param sdc_source  primitive variable SDC source array
-///
-    static void add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
-                                      Array4<Real> const& qleft,
-                                      Array4<Real> const& qright,
-                                      Array4<Real const> const& sdc_src);
-
-///
 /// convert the conserved form of the source terms, S(U), into source terms
 /// for the primitive variable equations, S(q).
 ///
@@ -81,37 +65,6 @@
                      amrex::Array4<amrex::Real const> const& src_corr,
 #endif
                      amrex::Array4<amrex::Real> const& srcQ);
-
-///
-/// the actual work routine that does the conversion of conserved to primitive
-/// variables.
-///
-/// @param bx        the box to operate over
-/// @param time      current time
-/// @param uin       input conserved state
-/// @param Bx        x-component of magnetic field (if USE_MHD=TRUE)
-/// @param By        y-component of magnetic field (if USE_MHD=TRUE)
-/// @param Bz        z-component of magnetic field (if USE_MHD=TRUE)
-/// @param Erin      radiation energy (if USE_RAD=TRUE)
-/// @param lam       radiation flux limiter (if USE_RAD=TRUE)
-/// @param q_arr     output primitive state
-/// @param qaux_arr  output auxiliary quantities
-///
-    static void ctoprim(const amrex::Box& bx,
-                 const amrex::Real time,
-                 amrex::Array4<amrex::Real const> const& uin,
-#ifdef MHD
-                 amrex::Array4<amrex::Real const> const& Bx,
-                 amrex::Array4<amrex::Real const> const& By,
-                 amrex::Array4<amrex::Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                 amrex::Array4<amrex::Real const> const& Erin,
-                 amrex::Array4<amrex::Real const> const& lam,
-#endif
-                 amrex::Array4<amrex::Real> const& q_arr,
-                 amrex::Array4<amrex::Real> const& qaux_arr);
-
 
 ///
 /// A multidimensional shock detection algorithm
@@ -170,8 +123,12 @@
                       amrex::Array4<amrex::Real const> const& Erin,
                       amrex::Array4<amrex::Real> const& radflux);
 
-
-    void
+///
+/// The radiation part of the CTU conservative update.  Returns the
+/// largest number of frequency-space advection steps a zone took, or
+/// -1 if the comoving-frame terms were not evaluated.
+///
+    int
     ctu_rad_cons_update(const amrex::Box& bx,
                    amrex::Array4<amrex::Real> const& update,
                    amrex::Array4<amrex::Real const> const& Erin,
@@ -189,7 +146,6 @@
                    amrex::Array4<amrex::Real const> const& qz,
                    amrex::Array4<amrex::Real const> const& area3,
 #endif
-                   int& nstep_fsp,
                    amrex::Array4<amrex::Real const> const& vol,
                    const amrex::Real dt);
 
@@ -342,14 +298,10 @@
 /// @param shk     the shock flag
 /// @param srcU    source terms for the conservative equations
 /// @param update  the final conserved state update, -div{F} + S(U)
-/// @param flux0   flux in the x-direction
-/// @param flux1   flux in the y-direction
-/// @param flux2   flux in the z-direction
-/// @param area0   area of x faces
-/// @param area1   area of y faces
-/// @param area2   area of z faces
-/// @param q0      Godunov state on x faces
-/// @param q1      Godunov state on y faces
+/// @param flux    flux in each direction
+/// @param face_area  area of the faces in each direction
+/// @param qe      Godunov state on the faces in each direction (only
+///                read in 1-d and 2-d)
 /// @param vol     cell volume
 ///
     void mol_cons_update(const amrex::Box& bx,
@@ -359,26 +311,9 @@
                     amrex::Array4<amrex::Real const> const& srcU,
                     amrex::Array4<amrex::Real> const& update,
                     const amrex::Real dt,
-                    amrex::Array4<amrex::Real const> const& flux0,
-#if AMREX_SPACEDIM >= 2
-                    amrex::Array4<amrex::Real const> const& flux1,
-#endif
-#if AMREX_SPACEDIM == 3
-                    amrex::Array4<amrex::Real const> const& flux2,
-#endif
-                    amrex::Array4<amrex::Real const> const& area0,
-#if AMREX_SPACEDIM >= 2
-                    amrex::Array4<amrex::Real const> const& area1,
-#endif
-#if AMREX_SPACEDIM == 3
-                    amrex::Array4<amrex::Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM <= 2
-                    amrex::Array4<amrex::Real const> const& q0,
-#if AMREX_SPACEDIM == 2
-                    amrex::Array4<amrex::Real const> const& q1,
-#endif
-#endif
+                    amrex::GpuArray<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& flux,
+                    amrex::GpuArray<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& face_area,
+                    amrex::GpuArray<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& qe,
                     amrex::Array4<amrex::Real const> const& vol);
 
 ///
@@ -399,6 +334,29 @@
                         amrex::Array4<amrex::Real> const& flux);
 
 ///
+/// The data on the faces of a transverse direction that a transverse
+/// correction differences
+///
+/// flux       flux through the faces
+/// qface      Godunov state on the faces
+/// area       face area (2-d only)
+/// vol        cell volume (2-d only)
+/// rad_flux   radiation flux through the faces
+///
+    struct TransverseFaces
+    {
+        amrex::Array4<amrex::Real const> flux;
+        amrex::Array4<amrex::Real const> qface;
+#if AMREX_SPACEDIM == 2
+        amrex::Array4<amrex::Real const> area;
+        amrex::Array4<amrex::Real const> vol;
+#endif
+#ifdef RADIATION
+        amrex::Array4<amrex::Real const> rad_flux;
+#endif
+    };
+
+///
 /// Add the transverse flux difference in idir_t to the interface states in
 /// direction idir_n as part of the CTU hydrodynamics update.  This is the main driver.
 ///
@@ -410,11 +368,7 @@
 /// @param qp        input right interface state
 /// @param qpo       updated right interface state
 /// @param qaux      auxiliary state
-/// @param flux_t    flux in the idir_t direction
-/// @param rflux_t   radiation flux in the idir_t direction
-/// @param q_t       Godunov state in the idir_t direction
-/// @param area_t    face area in the idir_t direction
-/// @param vol       cell volume
+/// @param faces_t   fluxes, Godunov state and geometry on the idir_t faces
 /// @param hdt       1/2 * timestep
 /// @param cdtdx     weighted timestep over cell width from the CTU algorithm
 ///
@@ -425,15 +379,7 @@
                        amrex::Array4<amrex::Real const> const& qp,
                        amrex::Array4<amrex::Real> const& qpo,
                        amrex::Array4<amrex::Real const> const& qaux,
-                       amrex::Array4<amrex::Real const> const& flux_t,
-#ifdef RADIATION
-                       amrex::Array4<amrex::Real const> const& rflux_t,
-#endif
-                       amrex::Array4<amrex::Real const> const& q_t,
-#if AMREX_SPACEDIM == 2
-                       amrex::Array4<amrex::Real const> const& area_t,
-                       amrex::Array4<amrex::Real const> const& vol,
-#endif
+                       TransverseFaces const& faces_t,
                        amrex::Real hdt, amrex::Real cdtdx);
 
 ///
@@ -448,11 +394,7 @@
 /// @param q_arr     input interface state
 /// @param qo_arr    updated interface state
 /// @param qaux      auxiliary state
-/// @param flux_t    flux in the idir_t direction
-/// @param rflux_t   radiation flux in the idir_t direction
-/// @param q_t       Godunov state in the idir_t direction
-/// @param area_t    face area in the idir_t direction
-/// @param vol       cell volume
+/// @param faces_t   fluxes, Godunov state and geometry on the idir_t faces
 /// @param hdt       1/2 * timestep
 /// @param cdtdx     weighted timestep over cell width from the CTU algorithm
 ///
@@ -461,15 +403,7 @@
                               amrex::Array4<amrex::Real const> const& q_arr,
                               amrex::Array4<amrex::Real> const& qo_arr,
                               amrex::Array4<amrex::Real const> const& qaux,
-                              amrex::Array4<amrex::Real const> const& flux_t,
-#ifdef RADIATION
-                              amrex::Array4<amrex::Real const> const& rflux_t,
-#endif
-                              amrex::Array4<amrex::Real const> const& q_t,
-#if AMREX_SPACEDIM == 2
-                              amrex::Array4<amrex::Real const> const& area_t,
-                              amrex::Array4<amrex::Real const> const& vol,
-#endif
+                              TransverseFaces const& faces_t,
                               amrex::Real hdt, amrex::Real cdtdx);
 
 ///
@@ -486,12 +420,8 @@
 /// @param qp        input right interface state
 /// @param qpo       updated right interface state
 /// @param qaux      auxiliary state
-/// @param flux_t1   flux in the idir_t1 direction
-/// @param rflux_t1  radiation flux in the idir_t1 direction
-/// @param flux_t2   flux in the idir_t2 direction
-/// @param rflux_t2  radiation flux in the idir_t2 direction
-/// @param q_t1      Godunov state in the idir_t1 direction
-/// @param q_t2      Godunov state in the idir_t2 direction
+/// @param faces_t1  fluxes and Godunov state on the idir_t1 faces
+/// @param faces_t2  fluxes and Godunov state on the idir_t2 faces
 /// @param cdtdx_t1  weight * timestep in idir_t1 direction
 /// @param cdtdx_t2  weight * timestep in idir_t2 direction
 ///
@@ -502,16 +432,8 @@
                       amrex::Array4<amrex::Real const> const& qp,
                       amrex::Array4<amrex::Real> const& qpo,
                       amrex::Array4<amrex::Real const> const& qaux,
-                      amrex::Array4<amrex::Real const> const& flux_t1,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& rflux_t1,
-#endif
-                      amrex::Array4<amrex::Real const> const& flux_t2,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& rflux_t2,
-#endif
-                      amrex::Array4<amrex::Real const> const& q_t1,
-                      amrex::Array4<amrex::Real const> const& q_t2,
+                      TransverseFaces const& faces_t1,
+                      TransverseFaces const& faces_t2,
                       amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
 
 ///
@@ -526,12 +448,8 @@
 /// @param q_arr     input interface state
 /// @param qo_arr    updated interface state
 /// @param qaux      auxiliary state
-/// @param flux_t1   flux in the idir_t1 direction
-/// @param rflux_t1  radiation flux in the idir_t1 direction
-/// @param flux_t2   flux in the idir_t2 direction
-/// @param rflux_t2  radiation flux in the idir_t2 direction
-/// @param q_t1      Godunov state in the idir_t1 direction
-/// @param q_t2      Godunov state in the idir_t2 direction
+/// @param faces_t1  fluxes and Godunov state on the idir_t1 faces
+/// @param faces_t2  fluxes and Godunov state on the idir_t2 faces
 /// @param cdtdx_t1  weight * timestep in idir_t1 direction
 /// @param cdtdx_t2  weight * timestep in idir_t2 direction
 ///
@@ -540,16 +458,8 @@
                              amrex::Array4<amrex::Real const> const& q_arr,
                              amrex::Array4<amrex::Real> const& qo_arr,
                              amrex::Array4<amrex::Real const> const& qaux,
-                             amrex::Array4<amrex::Real const> const& flux_t1,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& rflux_t1,
-#endif
-                             amrex::Array4<amrex::Real const> const& flux_t2,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& rflux_t2,
-#endif
-                             amrex::Array4<amrex::Real const> const& q_t1,
-                             amrex::Array4<amrex::Real const> const& q_t2,
+                             TransverseFaces const& faces_t1,
+                             TransverseFaces const& faces_t2,
                              amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
 
 ///
@@ -641,26 +551,14 @@
 ///
 /// @param bx      the box to operate over
 /// @param U_new   the new hydrodynamics conserved state
-/// @param flux0   flux in the x direction
-/// @param qx      Godunov state in the x direction
-/// @param flux1   flux in the y direction
-/// @param qy      Godunov state in the y direction
-/// @param flux2   flux in the z direction
-/// @param qz      Godunov state in the z direction
+/// @param flux    flux in each direction
+/// @param qe      Godunov state on the faces in each direction
 /// @param dt      timestep
 ///
     void cons_update_hydro(const amrex::Box& bx,
                       amrex::Array4<amrex::Real> const& U_new,
-                      amrex::Array4<amrex::Real> const& flux0,
-                      amrex::Array4<amrex::Real const> const& qx,
-#if AMREX_SPACEDIM >= 2
-                      amrex::Array4<amrex::Real> const& flux1,
-                      amrex::Array4<amrex::Real const> const& qy,
-#endif
-#if AMREX_SPACEDIM == 3
-                      amrex::Array4<amrex::Real> const& flux2,
-                      amrex::Array4<amrex::Real const> const& qz,
-#endif
+                      amrex::GpuArray<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& flux,
+                      amrex::GpuArray<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& qe,
                       const amrex::Real dt);
 
 
@@ -709,28 +607,6 @@
                         amrex::Array4<amrex::Real> const& F,
                         const int idir);
 
-    static void
-    store_godunov_state(const amrex::Box& bx,
-                        amrex::Array4<amrex::Real const> const& qint,
-#ifdef RADIATION
-                        amrex::Array4<amrex::Real const> const& lambda,
-#endif
-                        amrex::Array4<amrex::Real> const& qface);
-
-    static void normalize_species_fluxes(const amrex::Box& bx, amrex::Array4<amrex::Real> const& flux);
-
-#ifndef MHD
-    static void
-    limit_hydro_fluxes_on_small_dens(const amrex::Box& bx,
-                                     int idir,
-                                     amrex::Array4<amrex::Real const> const& u,
-                                     amrex::Array4<amrex::Real const> const& vol,
-                                     amrex::Array4<amrex::Real> const& flux,
-                                     amrex::Array4<amrex::Real const> const& area,
-                                     amrex::Real dt,
-                                     bool scale_by_dAdt = true);
-#endif
-
 
 ///
 /// For a reflecting boundary, we simply reflect the interface state
@@ -755,18 +631,9 @@
                         const amrex::Real dt);
 #endif
 
-#ifndef MHD
-    static void reset_edge_state_thermo(const amrex::Box& bx,
-                                        amrex::Array4<amrex::Real> const& qedge);
-
-    static void edge_state_temp_to_pres(const amrex::Box& bx,
-                                 amrex::Array4<amrex::Real> const& qm,
-                                 amrex::Array4<amrex::Real> const& qp);
-#endif
-
     void do_enforce_minimum_density(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
-                                    const int verbose_warnings);
+                                    const DensityResetReport report);
 
 #ifdef HYBRID_MOMENTUM
 

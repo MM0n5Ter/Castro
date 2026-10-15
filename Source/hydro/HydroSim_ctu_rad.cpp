@@ -7,7 +7,7 @@
 
 using namespace amrex;
 
-void
+int
 HydroSim::ctu_rad_cons_update(const Box& bx,
                        Array4<Real> const& U_new,
                        Array4<Real const> const& Erin,
@@ -25,7 +25,6 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
                        Array4<Real const> const& qz,
                        Array4<Real const> const& area3,
 #endif
-                       int& nstep_fsp,
                        Array4<Real const> const& vol,
                        const Real dt)
 {
@@ -154,6 +153,8 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
 
 
   // Add radiation source terms to rho*u, rhoE, and Er
+
+  int nstep_fsp = -1;
 
   if (radiation::comoving) {
 
@@ -317,5 +318,7 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
     nstep_fsp = amrex::get<0>(hv);
 
   }
+
+  return nstep_fsp;
 }
 

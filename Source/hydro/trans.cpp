@@ -51,15 +51,7 @@ HydroSim::transverse_correct_single(const Box& bx,
                      Array4<Real const> const& qp,
                      Array4<Real> const& qpo,
                      Array4<Real const> const& qaux_arr,
-                     Array4<Real const> const& flux_t,
-#ifdef RADIATION
-                     Array4<Real const> const& rflux_t,
-#endif
-                     Array4<Real const> const& q_t,
-#if AMREX_SPACEDIM == 2
-                     Array4<Real const> const& area_t,
-                     Array4<Real const> const& vol,
-#endif
+                     TransverseFaces const& faces_t,
                      Real hdt, Real cdtdx)
 {
     // Evaluate the transverse terms for both
@@ -68,29 +60,13 @@ HydroSim::transverse_correct_single(const Box& bx,
     transverse_correct_single_impl(bx, idir_t, idir_n, -1,
                         qm, qmo,
                         qaux_arr,
-                        flux_t,
-#ifdef RADIATION
-                        rflux_t,
-#endif
-                        q_t,
-#if AMREX_SPACEDIM == 2
-                        area_t,
-                        vol,
-#endif
+                        faces_t,
                         hdt, cdtdx);
 
     transverse_correct_single_impl(bx, idir_t, idir_n, 0,
                         qp, qpo,
                         qaux_arr,
-                        flux_t,
-#ifdef RADIATION
-                        rflux_t,
-#endif
-                        q_t,
-#if AMREX_SPACEDIM == 2
-                        area_t,
-                        vol,
-#endif
+                        faces_t,
                         hdt, cdtdx);
 
 }
@@ -102,15 +78,7 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
                             Array4<Real const> const& q_arr,
                             Array4<Real> const& qo_arr,
                             Array4<Real const> const& qaux_arr,
-                            Array4<Real const> const& flux_t,
-#ifdef RADIATION
-                            Array4<Real const> const& rflux_t,
-#endif
-                            Array4<Real const> const& q_t,
-#if AMREX_SPACEDIM == 2
-                            Array4<Real const> const& area_t,
-                            Array4<Real const> const& vol,
-#endif
+                            TransverseFaces const& faces_t,
                             Real hdt, Real cdtdx)
 {
 
@@ -131,6 +99,16 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
     // the transverse flux difference
 
     amrex::ignore_unused(hdt);
+
+    auto const& flux_t = faces_t.flux;
+    auto const& q_t = faces_t.qface;
+#if AMREX_SPACEDIM == 2
+    auto const& area_t = faces_t.area;
+    auto const& vol = faces_t.vol;
+#endif
+#ifdef RADIATION
+    auto const& rflux_t = faces_t.rad_flux;
+#endif
 
 #if AMREX_SPACEDIM == 2
     int coord = geom.Coord();
@@ -516,16 +494,8 @@ HydroSim::transverse_correct_final(const Box& bx,
                     Array4<Real const> const& qp,
                     Array4<Real> const& qpo,
                     Array4<Real const> const& qaux_arr,
-                    Array4<Real const> const& flux_t1,
-#ifdef RADIATION
-                    Array4<Real const> const& rflux_t1,
-#endif
-                    Array4<Real const> const& flux_t2,
-#ifdef RADIATION
-                    Array4<Real const> const& rflux_t2,
-#endif
-                    Array4<Real const> const& q_t1,
-                    Array4<Real const> const& q_t2,
+                    TransverseFaces const& faces_t1,
+                    TransverseFaces const& faces_t2,
                     Real cdtdx_t1, Real cdtdx_t2)
 {
     // Evaluate the transverse terms for both
@@ -534,31 +504,15 @@ HydroSim::transverse_correct_final(const Box& bx,
     transverse_correct_final_impl(bx, idir_n, idir_t1, idir_t2, -1,
                        qm, qmo,
                        qaux_arr,
-                       flux_t1,
-#ifdef RADIATION
-                       rflux_t1,
-#endif
-                       flux_t2,
-#ifdef RADIATION
-                       rflux_t2,
-#endif
-                       q_t1,
-                       q_t2,
+                       faces_t1,
+                       faces_t2,
                        cdtdx_t1, cdtdx_t2);
 
     transverse_correct_final_impl(bx, idir_n, idir_t1, idir_t2, 0,
                        qp, qpo,
                        qaux_arr,
-                       flux_t1,
-#ifdef RADIATION
-                       rflux_t1,
-#endif
-                       flux_t2,
-#ifdef RADIATION
-                       rflux_t2,
-#endif
-                       q_t1,
-                       q_t2,
+                       faces_t1,
+                       faces_t2,
                        cdtdx_t1, cdtdx_t2);
 
 }
@@ -571,18 +525,19 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
                            Array4<Real const> const& q_arr,
                            Array4<Real> const& qo_arr,
                            Array4<Real const> const& qaux_arr,
-                           Array4<Real const> const& flux_t1,
-#ifdef RADIATION
-                           Array4<Real const> const& rflux_t1,
-#endif
-                           Array4<Real const> const& flux_t2,
-#ifdef RADIATION
-                           Array4<Real const> const& rflux_t2,
-#endif
-                           Array4<Real const> const& q_t1,
-                           Array4<Real const> const& q_t2,
+                           TransverseFaces const& faces_t1,
+                           TransverseFaces const& faces_t2,
                            Real cdtdx_t1, Real cdtdx_t2)
 {
+
+    auto const& flux_t1 = faces_t1.flux;
+    auto const& q_t1 = faces_t1.qface;
+    auto const& flux_t2 = faces_t2.flux;
+    auto const& q_t2 = faces_t2.qface;
+#ifdef RADIATION
+    auto const& rflux_t1 = faces_t1.rad_flux;
+    auto const& rflux_t2 = faces_t2.rad_flux;
+#endif
 
     bool reset_density = transverse_reset_density;
     bool reset_rhoe = transverse_reset_rhoe;

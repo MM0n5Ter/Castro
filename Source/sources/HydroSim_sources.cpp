@@ -2,6 +2,7 @@
 #include <ranges>
 
 #include <HydroSim.H>
+#include <advection_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -531,7 +532,7 @@ HydroSim::store_old_shock_flag (Real time, Real dt)
         Array4<Real> const S_old_arr = S_old.array(mfi);
         Array4<Real> const old_src_arr = old_source.array(mfi);
 
-        ctoprim(obx, time, Sborder_old_arr, q_arr, qaux_arr);
+        hydro::ctoprim(obx, time, Sborder_old_arr, {}, q_arr, qaux_arr);
 
         shock(bx, q_arr, old_src_arr, shk_arr);
 

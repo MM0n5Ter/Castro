@@ -79,6 +79,28 @@ void src_to_prim(int i, int j, int k, const Real dt,
 }
 
 ///
+/// The fields of the other physics modules that the conversion to
+/// primitive variables reads.  A member only exists when its module
+/// is built.
+///
+/// Bx, By, Bz  components of the magnetic field (if USE_MHD=TRUE)
+/// Erin        radiation energy (if USE_RAD=TRUE)
+/// lam         radiation flux limiter (if USE_RAD=TRUE)
+///
+struct CoupledFields
+{
+#ifdef MHD
+    Array4<Real const> Bx;
+    Array4<Real const> By;
+    Array4<Real const> Bz;
+#endif
+#ifdef RADIATION
+    Array4<Real const> Erin;
+    Array4<Real const> lam;
+#endif
+};
+
+///
 /// Convert conservative variables to primitive variables. The method is
 /// templated so that q/qaux can either be either Array4 or Array1D.
 ///
@@ -86,11 +108,7 @@ void src_to_prim(int i, int j, int k, const Real dt,
 /// @param j         y index
 /// @param k         z index
 /// @param uin       input conserved state
-/// @param Bx        x-component of magnetic field (if USE_MHD=TRUE)
-/// @param By        y-component of magnetic field (if USE_MHD=TRUE)
-/// @param Bz        z-component of magnetic field (if USE_MHD=TRUE)
-/// @param Erin      radiation energy (if USE_RAD=TRUE)
-/// @param lam       radiation flux limiter (if USE_RAD=TRUE)
+/// @param coupled   magnetic field and radiation fields, as built
 /// @param q         output primitive state
 /// @param qaux      output auxiliary quantities
 ///
@@ -99,15 +117,7 @@ template<class T, class U>
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void conservative_to_primitive(int i, int j, int k,
                                Array4<Real const> const& uin,
-#ifdef MHD
-                               Array4<Real const> const& Bx,
-                               Array4<Real const> const& By,
-                               Array4<Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                               Array4<Real const> const& Erin,
-                               Array4<Real const> const& lam,
-#endif
+                               CoupledFields const& coupled,
                                T& q, U& qaux, const bool fill_passives)
 {
 #ifndef AMREX_USE_GPU
@@ -132,9 +142,9 @@ void conservative_to_primitive(int i, int j, int k,
     q(QW) = uin(i,j,k,UMZ) * rhoinv;
 
 #ifdef MHD
-    q(QMAGX) = 0.5_rt * (Bx(i+1,j,k) + Bx(i,j,k));
-    q(QMAGY) = 0.5_rt * (By(i,j+1,k) + By(i,j,k));
-    q(QMAGZ) = 0.5_rt * (Bz(i,j,k+1) + Bz(i,j,k));
+    q(QMAGX) = 0.5_rt * (coupled.Bx(i+1,j,k) + coupled.Bx(i,j,k));
+    q(QMAGY) = 0.5_rt * (coupled.By(i,j+1,k) + coupled.By(i,j,k));
+    q(QMAGZ) = 0.5_rt * (coupled.Bz(i,j,k+1) + coupled.Bz(i,j,k));
 #endif
 
     // Get the internal energy, which we'll use for
@@ -156,7 +166,7 @@ void conservative_to_primitive(int i, int j, int k,
     q(QTEMP) = uin(i,j,k,UTEMP);
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
-        q(QERAD+g) = Erin(i,j,k,g);
+        q(QERAD+g) = coupled.Erin(i,j,k,g);
     }
 #endif
 
@@ -205,7 +215,7 @@ void conservative_to_primitive(int i, int j, int k,
 
     Real lams[NGROUPS];
     for (int g = 0; g < NGROUPS; g++) {
-        lams[g] = lam(i,j,k,g);
+        lams[g] = coupled.lam(i,j,k,g);
     }
     Real qs[NQ];
     for (int n = 0; n < NQ; n++) {
@@ -225,7 +235,7 @@ void conservative_to_primitive(int i, int j, int k,
 
     q(QRHOEITOT) = q(QRHOEI);
     for (int g = 0; g < NGROUPS; g++) {
-        qaux(QFLXLIM+g) = lam(i,j,k,g);
+        qaux(QFLXLIM+g) = coupled.lam(i,j,k,g);
         q(QRHOEITOT) += q(QERAD+g);
     }
 #else
@@ -233,6 +243,79 @@ void conservative_to_primitive(int i, int j, int k,
     qaux(QC) = eos_state.cs;
 #endif
 }
+
+///
+/// the actual work routine that does the conversion of conserved to primitive
+/// variables.
+///
+/// @param bx        the box to operate over
+/// @param time      current time
+/// @param uin       input conserved state
+/// @param coupled   magnetic field and radiation fields, as built
+/// @param q_arr     output primitive state
+/// @param qaux_arr  output auxiliary quantities
+///
+void ctoprim(const Box& bx,
+             const Real time,
+             Array4<Real const> const& uin,
+             CoupledFields const& coupled,
+             Array4<Real> const& q_arr,
+             Array4<Real> const& qaux_arr);
+
+void store_godunov_state(const Box& bx,
+                         Array4<Real const> const& qint,
+#ifdef RADIATION
+                         Array4<Real const> const& lambda,
+#endif
+                         Array4<Real> const& qface);
+
+#ifndef MHD
+void reset_edge_state_thermo(const Box& bx,
+                             Array4<Real> const& qedge);
+
+void edge_state_temp_to_pres(const Box& bx,
+                             Array4<Real> const& qm,
+                             Array4<Real> const& qp);
+#endif
+
+///
+/// when using simplified-SDC, add the SDC source term predictor to
+/// the interface states
+///
+/// @param bx          the box to operate over
+/// @param idir        coordinate direction
+/// @param dt          timestep
+/// @param qleft       left state at the interface
+/// @param qright      right state at the interface
+/// @param sdc_source  primitive variable SDC source array
+///
+void add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
+                              Array4<Real> const& qleft,
+                              Array4<Real> const& qright,
+                              Array4<Real const> const& sdc_src);
+
+void normalize_species_fluxes(const Box& bx, Array4<Real> const& flux);
+
+#ifndef MHD
+///
+/// The fluxes the small-density limiter works on are either per unit
+/// area and time (the limiter scales them by dt * area), or already
+/// integrated over the face area and the timestep.
+///
+enum class FluxForm : std::uint8_t {
+    PerUnitArea = 0,
+    Integrated
+};
+
+void limit_hydro_fluxes_on_small_dens(const Box& bx,
+                                      int idir,
+                                      Array4<Real const> const& u,
+                                      Array4<Real const> const& vol,
+                                      Array4<Real> const& flux,
+                                      Array4<Real const> const& area,
+                                      Real dt,
+                                      FluxForm form);
+#endif
 
 }
 

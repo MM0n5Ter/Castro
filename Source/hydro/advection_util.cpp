@@ -23,20 +23,12 @@ using namespace amrex;
 
 
 void
-HydroSim::ctoprim(const Box& bx,
-                const Real time,
-                Array4<Real const> const& uin,
-#ifdef MHD
-                Array4<Real const> const& Bx,
-                Array4<Real const> const& By,
-                Array4<Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                Array4<Real const> const& Erin,
-                Array4<Real const> const& lam,
-#endif
-                Array4<Real> const& q_arr,
-                Array4<Real> const& qaux_arr) {
+hydro::ctoprim(const Box& bx,
+               const Real time,
+               Array4<Real const> const& uin,
+               CoupledFields const& coupled,
+               Array4<Real> const& q_arr,
+               Array4<Real> const& qaux_arr) {
 
   amrex::ignore_unused(time);
 
@@ -46,13 +38,7 @@ HydroSim::ctoprim(const Box& bx,
       auto q = [&] (int n) -> Real& { return q_arr(i,j,k,n); };
       auto qaux = [&] (int n) -> Real& { return qaux_arr(i,j,k,n); };
 
-      hydro::conservative_to_primitive(i, j, k, uin,
-#ifdef MHD
-                                       Bx, By, Bz,
-#endif
-#ifdef RADIATION
-                                       Erin, lam,
-#endif
+      hydro::conservative_to_primitive(i, j, k, uin, coupled,
                                        q, qaux, q_arr.nComp() == NQ);
   });
 }
@@ -470,8 +456,8 @@ HydroSim::apply_av_rad(const Box& bx,
 
 
 void
-HydroSim::normalize_species_fluxes(const Box& bx,
-                                 Array4<Real> const& flux) {
+hydro::normalize_species_fluxes(const Box& bx,
+                                Array4<Real> const& flux) {
 
   // Normalize the fluxes of the mass fractions so that
   // they sum to 0.  This is essentially the CMA procedure.
@@ -539,14 +525,14 @@ HydroSim::scale_rad_flux(const Box& bx,
 
 #ifndef MHD
 void
-HydroSim::limit_hydro_fluxes_on_small_dens(const Box& bx,
-                                         int idir,
-                                         Array4<Real const> const& u,
-                                         Array4<Real const> const& vol,
-                                         Array4<Real> const& flux,
-                                         Array4<Real const> const& area_arr,
-                                         Real dt,
-                                         bool scale_by_dAdt)
+hydro::limit_hydro_fluxes_on_small_dens(const Box& bx,
+                                        int idir,
+                                        Array4<Real const> const& u,
+                                        Array4<Real const> const& vol,
+                                        Array4<Real> const& flux,
+                                        Array4<Real const> const& area_arr,
+                                        Real dt,
+                                        FluxForm form)
 {
     // a positivity-preserving advection scheme. That algorithm blends the actual
     // (second-order) hydro flux with the first-order Lax-Friedrichs flux to ensure
@@ -596,7 +582,7 @@ HydroSim::limit_hydro_fluxes_on_small_dens(const Box& bx,
         Real flux_coefR = 1.0_rt / volR;
         Real flux_coefL = 1.0_rt / volL;
 
-        if (scale_by_dAdt) {
+        if (form == FluxForm::PerUnitArea) {
             flux_coefR *= dt * area_arr(i,j,k);
             flux_coefL *= dt * area_arr(i,j,k);
         }
@@ -645,13 +631,13 @@ HydroSim::limit_hydro_fluxes_on_small_dens(const Box& bx,
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 HydroSim::do_enforce_minimum_density(const Box& bx,
                                    Array4<Real> const& state_arr,
-                                   const int verbose_warnings) {
+                                   const DensityResetReport report) {
 
 #ifdef HYBRID_MOMENTUM
   GeometryData geomdata = geom.data();
 #endif
 
-  amrex::ignore_unused(verbose_warnings);
+  amrex::ignore_unused(report);
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -660,8 +646,8 @@ HydroSim::do_enforce_minimum_density(const Box& bx,
     if (state_arr(i,j,k,URHO) < small_dens) {
 
 #ifndef AMREX_USE_GPU
-      if (verbose_warnings > 1 ||
-          (verbose_warnings > 0 && state_arr(i,j,k,URHO) > hydrosim::retry_small_density_cutoff)) {
+      if (report == DensityResetReport::All ||
+          (report == DensityResetReport::AboveRetryCutoff && state_arr(i,j,k,URHO) > hydrosim::retry_small_density_cutoff)) {
         std::cout << " " << std::endl;
         if (state_arr(i,j,k,URHO) < 0.0_rt) {
           std::cout << ">>> RESETTING NEG.  DENSITY AT " << i << ", " << j << ", " << k << std::endl;

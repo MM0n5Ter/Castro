@@ -164,10 +164,10 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
           Array4<Real> const old_src_arr = old_source.array(mfi);
           Array4<Real> const src_corr_arr = source_corrector.array(mfi);
 
-          ctoprim(bx_gc, time,
-                  u_arr,
-                  Bx_arr, By_arr, Bz_arr,
-                  q_arr, qaux_arr);
+          hydro::ctoprim(bx_gc, time,
+                         u_arr,
+                         {Bx_arr, By_arr, Bz_arr},
+                         q_arr, qaux_arr);
 
           amrex::ParallelFor(bx_gc,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -613,7 +613,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 
             apply_av(nbox, idir, div_arr, u_arr, flux_arr);
 
-            normalize_species_fluxes(nbox, flux_arr);
+            hydro::normalize_species_fluxes(nbox, flux_arr);
 
           }
 

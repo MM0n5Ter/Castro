@@ -19,6 +19,7 @@
 #include <AMReX_Utility.H>
 #include <AMReX_CONSTANTS.H>
 #include <HydroSim.H>
+#include <advection_util.H>
 #include <global.H>
 #include <runtime_parameters.H>
 #include <AMReX_VisMF.H>
@@ -2630,7 +2631,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
 
 #ifndef MHD
     const Real crse_dt = parent->dtLevel(crse_level);
-    const bool scale_by_dAdt = false;
+    const auto flux_form = hydro::FluxForm::Integrated;
 #endif
 
     FluxRegister* reg = nullptr;
@@ -2713,7 +2714,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool in_post_timestep)
                 auto F = temp_fluxes[idir][mfi].array();
 #ifndef MHD
                 auto A = crse_lev.area[idir][mfi].array();
-                crse_lev.limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, crse_dt, scale_by_dAdt);
+                hydro::limit_hydro_fluxes_on_small_dens(nbx, idir, U, V, F, A, crse_dt, flux_form);
 #endif
                 amrex::ParallelFor(nbx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -3192,7 +3193,7 @@ HydroSim::enforce_min_density (MultiFab& state_in, int ng)
     for (MFIter mfi(state_in, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const Box& bx = mfi.growntilebox(ng);
 
-        do_enforce_minimum_density(bx, state_in.array(mfi), verbose);
+        do_enforce_minimum_density(bx, state_in.array(mfi), density_reset_report(verbose));
     }
 
     if (print_update_diagnostics)

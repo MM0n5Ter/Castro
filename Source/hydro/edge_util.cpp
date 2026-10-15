@@ -1,10 +1,11 @@
 #include <HydroSim.H>
+#include <advection_util.H>
 
 using namespace amrex;
 
 void
-HydroSim::reset_edge_state_thermo(const Box& bx,
-                                Array4<Real> const& qedge)
+hydro::reset_edge_state_thermo(const Box& bx,
+                               Array4<Real> const& qedge)
 {
 
     int use_eos = transverse_use_eos;
@@ -77,9 +78,9 @@ HydroSim::reset_edge_state_thermo(const Box& bx,
 
 
 void
-HydroSim::edge_state_temp_to_pres(const Box& bx,
-                                Array4<Real> const& qm,
-                                Array4<Real> const& qp)
+hydro::edge_state_temp_to_pres(const Box& bx,
+                               Array4<Real> const& qm,
+                               Array4<Real> const& qp)
 {
 
     // use T to define p

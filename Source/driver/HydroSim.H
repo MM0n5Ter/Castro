@@ -134,6 +134,30 @@ enum class FaceComponents : std::uint8_t {
     Full
 };
 
+// Which density resets are reported: none, only those in zones
+// whose density is above the retry cutoff, or all of them.
+
+enum class DensityResetReport : std::uint8_t {
+    Quiet = 0,
+    AboveRetryCutoff,
+    All
+};
+
+// The density resets a verbosity level reports.
+
+inline
+DensityResetReport
+density_reset_report (int verbosity)
+{
+    if (verbosity > 1) {
+        return DensityResetReport::All;
+    }
+    if (verbosity > 0) {
+        return DensityResetReport::AboveRetryCutoff;
+    }
+    return DensityResetReport::Quiet;
+}
+
 // Struct that returns information about
 // why an advance failed.
 

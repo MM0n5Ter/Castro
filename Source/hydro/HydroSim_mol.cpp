@@ -14,6 +14,7 @@
 
 #include <ppm.H>
 #include <slope.H>
+#include <advection_util.H>
 
 using namespace amrex;
 using namespace reconstruction;
@@ -202,26 +203,9 @@ HydroSim::mol_cons_update(const Box& bx,  // NOLINT(readability-convert-member-f
                    Array4<Real const> const& srcU,
                    Array4<Real> const& update,
                    const Real dt,
-                   Array4<Real const> const& flux0,
-#if AMREX_SPACEDIM >= 2
-                   Array4<Real const> const& flux1,
-#endif
-#if AMREX_SPACEDIM == 3
-                   Array4<Real const> const& flux2,
-#endif
-                   Array4<Real const> const& area0,
-#if AMREX_SPACEDIM >= 2
-                   Array4<Real const> const& area1,
-#endif
-#if AMREX_SPACEDIM == 3
-                   Array4<Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM <= 2
-                   Array4<Real const> const& q0,
-#if AMREX_SPACEDIM == 2
-                   Array4<Real const> const& q1,
-#endif
-#endif
+                   GpuArray<Array4<Real const>, AMREX_SPACEDIM> const& flux,
+                   GpuArray<Array4<Real const>, AMREX_SPACEDIM> const& face_area,
+                   GpuArray<Array4<Real const>, AMREX_SPACEDIM> const& qe,
                    Array4<Real const> const& vol) {
 
   amrex::ignore_unused(dt);
@@ -243,16 +227,16 @@ HydroSim::mol_cons_update(const Box& bx,  // NOLINT(readability-convert-member-f
   {
 
 #if AMREX_SPACEDIM == 1
-    update(i,j,k,n) += (flux0(i,j,k,n) * area0(i,j,k) - flux0(i+1,j,k,n) * area0(i+1,j,k) ) / vol(i,j,k);
+    update(i,j,k,n) += (flux[0](i,j,k,n) * face_area[0](i,j,k) - flux[0](i+1,j,k,n) * face_area[0](i+1,j,k) ) / vol(i,j,k);
 
 #elif AMREX_SPACEDIM == 2
-    update(i,j,k,n) += (flux0(i,j,k,n) * area0(i,j,k) - flux0(i+1,j,k,n) * area0(i+1,j,k) +
-                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) ) / vol(i,j,k);
+    update(i,j,k,n) += (flux[0](i,j,k,n) * face_area[0](i,j,k) - flux[0](i+1,j,k,n) * face_area[0](i+1,j,k) +
+                        flux[1](i,j,k,n) * face_area[1](i,j,k) - flux[1](i,j+1,k,n) * face_area[1](i,j+1,k) ) / vol(i,j,k);
 
 #else
-    update(i,j,k,n) += (flux0(i,j,k,n) * area0(i,j,k) - flux0(i+1,j,k,n) * area0(i+1,j,k) +
-                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) +
-                        flux2(i,j,k,n) * area2(i,j,k) - flux2(i,j,k+1,n) * area2(i,j,k+1) ) / vol(i,j,k);
+    update(i,j,k,n) += (flux[0](i,j,k,n) * face_area[0](i,j,k) - flux[0](i+1,j,k,n) * face_area[0](i+1,j,k) +
+                        flux[1](i,j,k,n) * face_area[1](i,j,k) - flux[1](i,j+1,k,n) * face_area[1](i,j+1,k) +
+                        flux[2](i,j,k,n) * face_area[2](i,j,k) - flux[2](i,j,k+1,n) * face_area[2](i,j,k+1) ) / vol(i,j,k);
 #endif
 
 #if AMREX_SPACEDIM <= 2
@@ -261,14 +245,14 @@ HydroSim::mol_cons_update(const Box& bx,  // NOLINT(readability-convert-member-f
             // Add gradp term to radial momentum equation -- only for axisymmetric
             // coords.
 
-            update(i,j,k,UMX) -= (q0(i+1,j,k,IFCPRES) - q0(i,j,k,IFCPRES)) / dx[0];
+            update(i,j,k,UMX) -= (qe[0](i+1,j,k,IFCPRES) - qe[0](i,j,k,IFCPRES)) / dx[0];
 
 #if AMREX_SPACEDIM == 2
         } else if (n == UMY && !mom_flux_has_p(1, 1, coord)) {
             // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
             Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-            update(i,j,k,UMY) -= (q1(i,j+1,k,IFCPRES) - q1(i,j,k,IFCPRES)) / (r * dx[1]);
+            update(i,j,k,UMY) -= (qe[1](i,j+1,k,IFCPRES) - qe[1](i,j,k,IFCPRES)) / (r * dx[1]);
 #endif
         }
     }
@@ -440,12 +424,12 @@ HydroSim::compute_flux_from_q(const Box& bx,
 }
 
 void
-HydroSim::store_godunov_state(const Box& bx,
-                            Array4<Real const> const& qint,
+hydro::store_godunov_state(const Box& bx,
+                           Array4<Real const> const& qint,
 #ifdef RADIATION
-                            Array4<Real const> const& lambda,
+                           Array4<Real const> const& lambda,
 #endif
-                            Array4<Real> const& qface) {
+                           Array4<Real> const& qface) {
 
   // this copies the full interface state (NQ -- one for each primitive
   // variable) over to a smaller subset of size NIFC for use later in the

@@ -1,5 +1,6 @@
 #include <HydroSim.H>
 #include <HydroSim_util.H>
+#include <advection_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -10,16 +11,8 @@ using namespace amrex;
 void
 HydroSim::cons_update_hydro(const Box& bx,
                      Array4<Real> const& U_new,
-                     Array4<Real> const& flux0,
-                     Array4<Real const> const& qx,
-#if AMREX_SPACEDIM >= 2
-                     Array4<Real> const& flux1,
-                     Array4<Real const> const& qy,
-#endif
-#if AMREX_SPACEDIM == 3
-                     Array4<Real> const& flux2,
-                     Array4<Real const> const& qz,
-#endif
+                     GpuArray<Array4<Real>, AMREX_SPACEDIM> const& flux,
+                     GpuArray<Array4<Real const>, AMREX_SPACEDIM> const& qe,
                      const Real dt)
 {
   auto geomdata = geom.data();
@@ -30,35 +23,35 @@ HydroSim::cons_update_hydro(const Box& bx,
     Real volinv = 1.0 / geometry_util::volume({i, j, k}, geomdata);
 
     U_new(i,j,k,n) = U_new(i,j,k,n) + dt *
-        ( flux0(i,  j,k,n) * geometry_util::area({i,   j, k}, 0, geomdata)
-        - flux0(i+1,j,k,n) * geometry_util::area({i+1, j, k}, 0, geomdata)
+        ( flux[0](i,  j,k,n) * geometry_util::area({i,   j, k}, 0, geomdata)
+        - flux[0](i+1,j,k,n) * geometry_util::area({i+1, j, k}, 0, geomdata)
 #if AMREX_SPACEDIM >= 2
-        + flux1(i,j,  k,n) * geometry_util::area({i, j,   k}, 1, geomdata)
-        - flux1(i,j+1,k,n) * geometry_util::area({i, j+1, k}, 1, geomdata)
+        + flux[1](i,j,  k,n) * geometry_util::area({i, j,   k}, 1, geomdata)
+        - flux[1](i,j+1,k,n) * geometry_util::area({i, j+1, k}, 1, geomdata)
 #endif
 #if AMREX_SPACEDIM == 3
-        + flux2(i,j,k,  n) * geometry_util::area({i, j, k},   2, geomdata)
-        - flux2(i,j,k+1,n) * geometry_util::area({i, j, k+1}, 2, geomdata)
+        + flux[2](i,j,k,  n) * geometry_util::area({i, j, k},   2, geomdata)
+        - flux[2](i,j,k+1,n) * geometry_util::area({i, j, k+1}, 2, geomdata)
 #endif
         ) * volinv;
 
     // Add the p div(u) source term to (rho e).
     if (n == UEINT) {
 
-      Real pdu = (qx(i+1,j,k,IFCPRES) + qx(i,j,k,IFCPRES)) *
-          (qx(i+1,j,k,IFCU) * geometry_util::area({i+1, j, k}, 0, geomdata) -
-           qx(i,  j,k,IFCU) * geometry_util::area({i,   j, k}, 0, geomdata));
+      Real pdu = (qe[0](i+1,j,k,IFCPRES) + qe[0](i,j,k,IFCPRES)) *
+          (qe[0](i+1,j,k,IFCU) * geometry_util::area({i+1, j, k}, 0, geomdata) -
+           qe[0](i,  j,k,IFCU) * geometry_util::area({i,   j, k}, 0, geomdata));
 
 #if AMREX_SPACEDIM >= 2
-      pdu += (qy(i,j+1,k,IFCPRES) + qy(i,j,k,IFCPRES)) *
-          (qy(i,j+1,k,IFCV) * geometry_util::area({i, j+1, k}, 1, geomdata) -
-           qy(i,j,  k,IFCV) * geometry_util::area({i, j,   k}, 1, geomdata));
+      pdu += (qe[1](i,j+1,k,IFCPRES) + qe[1](i,j,k,IFCPRES)) *
+          (qe[1](i,j+1,k,IFCV) * geometry_util::area({i, j+1, k}, 1, geomdata) -
+           qe[1](i,j,  k,IFCV) * geometry_util::area({i, j,   k}, 1, geomdata));
 #endif
 
 #if AMREX_SPACEDIM == 3
-      pdu += (qz(i,j,k+1,IFCPRES) + qz(i,j,k,IFCPRES)) *
-          (qz(i,j,k+1,IFCW) * geometry_util::area({i, j, k+1}, 2, geomdata) -
-           qz(i,j,k  ,IFCW) * geometry_util::area({i, j, k},   2, geomdata));
+      pdu += (qe[2](i,j,k+1,IFCPRES) + qe[2](i,j,k,IFCPRES)) *
+          (qe[2](i,j,k+1,IFCW) * geometry_util::area({i, j, k+1}, 2, geomdata) -
+           qe[2](i,j,k  ,IFCW) * geometry_util::area({i, j, k},   2, geomdata));
 #endif
 
       pdu = 0.5 * pdu * volinv;
@@ -69,14 +62,14 @@ HydroSim::cons_update_hydro(const Box& bx,
         // Add gradp term to momentum equation -- only for axisymmetric
         // coords (and only for the radial flux).
 
-        U_new(i,j,k,UMX) += - dt * (qx(i+1,j,k,IFCPRES) - qx(i,j,k,IFCPRES)) / geomdata.CellSize(0);
+        U_new(i,j,k,UMX) += - dt * (qe[0](i+1,j,k,IFCPRES) - qe[0](i,j,k,IFCPRES)) / geomdata.CellSize(0);
 
 #if AMREX_SPACEDIM >= 2
     } else if (n == UMY && !mom_flux_has_p(1, 1, geomdata.Coord())) {
         // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
         Real r = geomdata.ProbLo(0) + (static_cast<Real>(i) + 0.5_rt) * geomdata.CellSize(0);
-        U_new(i,j,k,UMY) += - dt * (qy(i,j+1,k,IFCPRES) - qy(i,j,k,IFCPRES)) / (r * geomdata.CellSize(1));
+        U_new(i,j,k,UMY) += - dt * (qe[1](i,j+1,k,IFCPRES) - qe[1](i,j,k,IFCPRES)) / (r * geomdata.CellSize(1));
 #endif
     }
   });
@@ -183,10 +176,10 @@ HydroSim::ctu_plm_states(const Box& bx, const Box& vbx,
 
 
 void
-HydroSim::add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
-                                 Array4<Real> const& qleft,
-                                 Array4<Real> const& qright,
-                                 Array4<Real const> const& sdc_src)
+hydro::add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
+                                Array4<Real> const& qleft,
+                                Array4<Real> const& qright,
+                                Array4<Real const> const& sdc_src)
 {
 
     amrex::ParallelFor(bx,

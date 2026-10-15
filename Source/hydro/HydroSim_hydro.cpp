@@ -1,4 +1,5 @@
 #include <HydroSim.H>
+#include <advection_util.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -37,23 +38,22 @@ HydroSim::cons_to_prim(const Real time)
         Array4<Real> const q_arr = q.array(mfi);
         Array4<Real> const qaux_arr = qaux.array(mfi);
         Array4<Real> const Sborder_arr = Sborder.array(mfi);
+
+        hydro::CoupledFields coupled{};
 #ifdef RADIATION
-        Array4<Real> const Erborder_arr = Erborder.array(mfi);
-        Array4<Real> const lamborder_arr = lamborder.array(mfi);
+        coupled.Erin = Erborder.array(mfi);
+        coupled.lam = lamborder.array(mfi);
 #endif
 
         // Convert the conservative state to the primitive variable state.
         // This fills both q and qaux.
 
-        ctoprim(qbx,
-                time,
-                Sborder_arr,
-#ifdef RADIATION
-                Erborder_arr,
-                lamborder_arr,
-#endif
-                q_arr,
-                qaux_arr);
+        hydro::ctoprim(qbx,
+                       time,
+                       Sborder_arr,
+                       coupled,
+                       q_arr,
+                       qaux_arr);
 
     }
 
@@ -105,7 +105,7 @@ HydroSim::cons_to_prim_fourth(const Real time)
             make_cell_center(qbxm1, Sborder.array(mfi), U_cc_arr, domain_lo, domain_hi);
 
             // enforce the minimum density on the new cell-centered state
-            do_enforce_minimum_density(qbxm1, U_cc.array(), verbose);
+            do_enforce_minimum_density(qbxm1, U_cc.array(), density_reset_report(verbose));
 
             // and ensure that the internal energy is positive
             reset_internal_energy(qbxm1, U_cc.array());
@@ -116,11 +116,12 @@ HydroSim::cons_to_prim_fourth(const Real time)
             auto q_bar_arr = q_bar.array(mfi);
             auto qaux_bar_arr = qaux_bar.array(mfi);
 
-            ctoprim(qbx,
-                    time,
-                    Sborder_arr,
-                    q_bar_arr,
-                    qaux_bar_arr);
+            hydro::ctoprim(qbx,
+                           time,
+                           Sborder_arr,
+                           {},
+                           q_bar_arr,
+                           qaux_bar_arr);
 
             // this is what we should construct the flattening coefficient
             // from
@@ -131,11 +132,12 @@ HydroSim::cons_to_prim_fourth(const Real time)
             auto q_arr = q.array(mfi);
             auto qaux_arr = qaux.array(mfi);
 
-            ctoprim(qbxm1,
-                    time,
-                    U_cc_arr,
-                    q_arr,
-                    qaux_arr);
+            hydro::ctoprim(qbxm1,
+                           time,
+                           U_cc_arr,
+                           {},
+                           q_arr,
+                           qaux_arr);
         }
     }
 
