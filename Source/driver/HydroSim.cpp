@@ -2156,7 +2156,7 @@ HydroSim::post_restart ()
            define_new_center(S_new,cur_time);
         }
 
-        gravity->set_mass_offset(cur_time);
+        gravity->set_mass_offset_all_levels(cur_time);
 
         if ( gravity->get_gravity_type() == "FullPoisson")
         {
@@ -2206,7 +2206,7 @@ HydroSim::postCoarseTimeStep (Real cumtime)
     AmrLevel::postCoarseTimeStep(cumtime);
 #ifdef GRAVITY
     if (do_grav) {
-        gravity->set_mass_offset(cumtime, false);
+        gravity->set_mass_offset_base_level(cumtime);
     }
 #endif
 
@@ -2354,7 +2354,7 @@ HydroSim::post_init (Real /*stop_time*/)
           gravity->update_max_rhs();
 
           // Calculate offset before first multilevel solve.
-          gravity->set_mass_offset(cur_time);
+          gravity->set_mass_offset_all_levels(cur_time);
 
           gravity->solve_new_phi_all_levels(level,finest_level);
           if (gravity->verify_solves() == 1) {
@@ -2366,7 +2366,7 @@ HydroSim::post_init (Real /*stop_time*/)
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
           MultiFab& grav_new = getLevel(k).get_new_data(Gravity_Type);
-          gravity->get_new_grav_vector(k,grav_new,cur_time);
+          gravity->get_new_grav_vector(k,cur_time,grav_new);
        }
     }
 #endif
@@ -2445,7 +2445,7 @@ HydroSim::post_grown_restart ()
           gravity->update_max_rhs();
 
           // Calculate offset before first multilevel solve.
-          gravity->set_mass_offset(cur_time);
+          gravity->set_mass_offset_all_levels(cur_time);
 
           gravity->solve_new_phi_all_levels(level,finest_level);
           if (gravity->verify_solves() == 1) {
@@ -2457,7 +2457,7 @@ HydroSim::post_grown_restart ()
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
           MultiFab& grav_new = getLevel(k).get_new_data(Gravity_Type);
-          gravity->get_new_grav_vector(k,grav_new,cur_time);
+          gravity->get_new_grav_vector(k,cur_time,grav_new);
        }
     }
 #endif

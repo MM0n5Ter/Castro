@@ -88,7 +88,7 @@ void HydroSim::scf_relaxation() {
     for (int lev = 0; lev <= parent->finestLevel(); ++lev)
     {
         MultiFab& grav_new = getLevel(lev).get_new_data(Gravity_Type);
-        gravity->get_new_grav_vector(lev, grav_new, getLevel(lev).state[Gravity_Type].curTime());
+        gravity->get_new_grav_vector(lev, getLevel(lev).state[Gravity_Type].curTime(), grav_new);
     }
 
     // Perform a final pass to ensure we're consistent with AMR.

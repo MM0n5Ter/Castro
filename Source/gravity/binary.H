@@ -131,13 +131,25 @@ void lagrange_iterate (Real& r, Real mass_1, Real mass_2, Real r1, Real r2, Real
 }
 
 
+// The three collinear Lagrange points of a binary, in the frame of
+// the two centres of mass.
+
+struct LagrangePoints
+{
+    GpuArray<Real, 3> L1;
+    GpuArray<Real, 3> L2;
+    GpuArray<Real, 3> L3;
+};
+
 // Calculate Lagrange points. In each case we give the zone index
 // closest to it (assuming we're on the coarse grid).
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Real* com_2,
-                          GpuArray<Real, 3>& L1, GpuArray<Real, 3>& L2, GpuArray<Real, 3>& L3)
+LagrangePoints get_lagrange_points (Real mass_1, Real mass_2,
+                                    const GpuArray<Real, 3>& com_1, const GpuArray<Real, 3>& com_2)
 {
+    LagrangePoints points;
+
     Real r; // Distance from Lagrange point to primary
     Real a; // Distance between secondary and primary
 
@@ -146,7 +158,7 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
     // Don't try to calculate the Lagrange points if the secondary
     // is already gone.
 
-    if (mass_2 < 0.0_rt) return;
+    if (mass_2 < 0.0_rt) return points;
 
     a = std::sqrt((com_2[0] - com_1[0]) * (com_2[0] - com_1[0]) +
                   (com_2[1] - com_1[1]) * (com_2[1] - com_1[1]) +
@@ -164,7 +176,7 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
     // Now turn this radial distance into a grid coordinate.
 
     for (int n = 0; n < 3; ++n) {
-        L1[n] = r * (com_2[n] - com_1[n]) / a;
+        points.L1[n] = r * (com_2[n] - com_1[n]) / a;
     }
 
     // Repeat for L2 Lagrange point.
@@ -174,7 +186,7 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
     lagrange_iterate(r, mass_1, mass_2, r1, r2, a, r2, 0.0_rt);
 
     for (int n = 0; n < 3; ++n) {
-        L2[n] = r * (com_2[n] - com_1[n]) / a;
+        points.L2[n] = r * (com_2[n] - com_1[n]) / a;
     }
 
     // Repeat for L3 Lagrange point.
@@ -184,9 +196,20 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
     lagrange_iterate(r, mass_1, mass_2, r1, r2, a, 0.0_rt, r1);
 
     for (int n = 0; n < 3; ++n) {
-        L3[n] = r * (com_2[n] - com_1[n]) / a;
+        points.L3[n] = r * (com_2[n] - com_1[n]) / a;
     }
+
+    return points;
 }
+
+// Effective Roche radii of the two stars of a binary: r_1 belongs to
+// the star of mass M_1, r_2 to the star of mass M_2.
+
+struct RocheRadii
+{
+    Real r_1;
+    Real r_2;
+};
 
 // Given the mass ratio q of two stars (assumed to be q = M_1 / M_2),
 // compute the effective Roche radii of the stars, normalized to unity,
@@ -194,18 +217,22 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
 // pass in a distance scale.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void get_roche_radii (Real mass_ratio, Real& r_1, Real& r_2, Real a = 1.0_rt)
+RocheRadii get_roche_radii (Real mass_ratio, Real a = 1.0_rt)
 {
+    RocheRadii radii;
+
     const Real c1 = 0.49e0_rt;
     const Real c2 = 0.60e0_rt;
 
     Real q = mass_ratio;
 
-    r_1 = a * c1 * std::pow(q, 2.0_rt / 3.0_rt) / (c2 * std::pow(q, 2.0_rt / 3.0_rt) + std::log(1.0_rt + std::pow(q, 1.0_rt / 3.0_rt)));
+    radii.r_1 = a * c1 * std::pow(q, 2.0_rt / 3.0_rt) / (c2 * std::pow(q, 2.0_rt / 3.0_rt) + std::log(1.0_rt + std::pow(q, 1.0_rt / 3.0_rt)));
 
     q = 1.0_rt / q;
 
-    r_2 = a * c1 * std::pow(q, 2.0_rt / 3.0_rt) / (c2 * std::pow(q, 2.0_rt / 3.0_rt) + std::log(1.0_rt + std::pow(q, 1.0_rt / 3.0_rt)));
+    radii.r_2 = a * c1 * std::pow(q, 2.0_rt / 3.0_rt) / (c2 * std::pow(q, 2.0_rt / 3.0_rt) + std::log(1.0_rt + std::pow(q, 1.0_rt / 3.0_rt)));
+
+    return radii;
 }
 
 #endif

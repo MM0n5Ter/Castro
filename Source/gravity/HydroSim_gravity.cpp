@@ -82,8 +82,6 @@ HydroSim::assemble_old_gravity (Real time)
             std::cout << "... old-time level Poisson gravity solve at level " << level << std::endl << std::endl;
         }
 
-        int is_new = 0;
-
         // If we are doing composite solves, then this is a placeholder solve
         // to get the difference between the composite and level solutions. If
         // we are only doing level solves, then this is the main result.
@@ -91,7 +89,7 @@ HydroSim::assemble_old_gravity (Real time)
         gravity->solve_for_phi(level,
                                phi_old,
                                amrex::GetVecOfPtrs(gravity->get_grad_phi_prev(level)),
-                               is_new);
+                               Gravity::StateTime::Old);
 
         if (applies_composite_correction()) {
 
@@ -129,7 +127,7 @@ HydroSim::assemble_old_gravity (Real time)
 
     // Define the old gravity vector.
 
-    gravity->get_old_grav_vector(level, grav_old, time);
+    gravity->get_old_grav_vector(level, time, grav_old);
 
     if (verbose > 0)
     {
@@ -213,12 +211,10 @@ HydroSim::assemble_new_gravity (Real time)
                 std::cout << "... new-time level Poisson gravity solve at level " << level << std::endl << std::endl;
             }
 
-            int is_new = 1;
-
             gravity->solve_for_phi(level,
                                    phi_new,
                                    amrex::GetVecOfPtrs(gravity->get_grad_phi_curr(level)),
-                                   is_new);
+                                   Gravity::StateTime::New);
 
             if (gravity->ApplyCompositeCorrection() == 1 && level < parent->finestLevel() && level <= gravity->get_max_solve_level()) {
 
@@ -260,7 +256,7 @@ HydroSim::assemble_new_gravity (Real time)
 
     // Define new gravity vector.
 
-    gravity->get_new_grav_vector(level, grav_new, time);
+    gravity->get_new_grav_vector(level, time, grav_new);
 
     if (gravity->get_gravity_type() == "FullPoisson" && level <= gravity->get_max_solve_level() && parent->subcyclingMode() != "None") {
 

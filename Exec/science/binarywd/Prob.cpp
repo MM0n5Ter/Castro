@@ -791,8 +791,10 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     // First, calculate the location of the L1 Lagrange point.
 
-    GpuArray<Real, 3> L1, L2, L3;
-    get_lagrange_points(mass_P, mass_S, com_P, com_S, L1, L2, L3);
+    const GpuArray<Real, 3> com_primary{com_P[0], com_P[1], com_P[2]};
+    const GpuArray<Real, 3> com_secondary{com_S[0], com_S[1], com_S[2]};
+
+    const GpuArray<Real, 3> L1 = get_lagrange_points(mass_P, mass_S, com_primary, com_secondary).L1;
 
     const auto dx = geom.CellSizeArray();
     const auto coord = geom.Coord();

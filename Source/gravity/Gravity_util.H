@@ -13,8 +13,18 @@ Real factorial (int n)
     return fact;
 }
 
+// Value of a Legendre (or associated Legendre) polynomial at the current
+// degree, together with the two lower degrees that the recurrence needs.
+
+struct LegendreRecurrence
+{
+    Real val;
+    Real prev1;
+    Real prev2;
+};
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void evalAssocLegendre (int l, int m, Real& plmVal, Real& plmPrev1, Real& plmPrev2, Real x)
+void evalAssocLegendre (int l, int m, LegendreRecurrence& plm, Real x)
 {
     // Calculate the associated Legendre polynomials. There are a number of
     // recurrence relations, but many are unstable. We'll use one that is known
@@ -28,11 +38,11 @@ void evalAssocLegendre (int l, int m, Real& plmVal, Real& plmPrev1, Real& plmPre
 
         // P_m^m
 
-        plmVal = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
+        plm.val = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
 
         for (int n = (2*m-1); n >= 3; n = n - 2) {
 
-            plmVal *= n;
+            plm.val *= n;
 
         }
 
@@ -41,21 +51,21 @@ void evalAssocLegendre (int l, int m, Real& plmVal, Real& plmPrev1, Real& plmPre
 
         // P_{m+1}^m
 
-        plmPrev1 = plmVal;
-        plmVal  = x * (2*m + 1) * plmPrev1;
+        plm.prev1 = plm.val;
+        plm.val  = x * (2*m + 1) * plm.prev1;
 
     }
     else {
 
-        plmPrev2 = plmPrev1;
-        plmPrev1 = plmVal;
-        plmVal  = (x * (2*l - 1) * plmPrev1 - (l + m - 1) * plmPrev2) / (l-m);
+        plm.prev2 = plm.prev1;
+        plm.prev1 = plm.val;
+        plm.val  = (x * (2*l - 1) * plm.prev1 - (l + m - 1) * plm.prev2) / (l-m);
 
     }
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void evalLegendre (int l, Real& plVal, Real& plPrev1, Real& plPrev2, Real x)
+void evalLegendre (int l, LegendreRecurrence& pl, Real x)
 {
     // Calculate the Legendre polynomials. We use a stable recurrence relation:
     // (l+1) P_{l+1}(x) = (2l+1) x P_l(x) - l P_{l-1}(x).
@@ -65,37 +75,45 @@ void evalLegendre (int l, Real& plVal, Real& plPrev1, Real& plPrev2, Real x)
 
     if (l == 0) {
 
-        plVal = 1.0_rt;
+        pl.val = 1.0_rt;
 
     }
     else if (!(l == 1)) {
 
-        plPrev2 = plPrev1;
-        plPrev1 = plVal;
-        plVal  = ((2*l - 1) * x * plPrev1 - (l-1) * plPrev2) / l;
+        pl.prev2 = pl.prev1;
+        pl.prev1 = pl.val;
+        pl.val  = ((2*l - 1) * x * pl.prev1 - (l-1) * pl.prev2) / l;
 
     } else {
 
-        plPrev1 = plVal;
-        plVal  = x;
+        pl.prev1 = pl.val;
+        pl.val  = x;
 
     }
 }
 
+// Storage for the multipole moments, indexed (l, m, radial bin): the
+// interior and exterior moments of the m = 0, cosine and sine terms.
+
+struct MultipoleMomentArrays
+{
+    Array4<Real> in0;
+    Array4<Real> inC;
+    Array4<Real> inS;
+    Array4<Real> out0;
+    Array4<Real> outC;
+    Array4<Real> outS;
+};
+
 AMREX_GPU_DEVICE AMREX_INLINE
 void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol,
-                   Array4<Real> const& mIn0,
-                   Array4<Real> const& mInC,
-                   Array4<Real> const& mInS,
-                   Array4<Real> const& mOut0,
-                   Array4<Real> const& mOutC,
-                   Array4<Real> const& mOutS,
+                   MultipoleMomentArrays const& moments,
                    int npts, int nlo, int index,
                    amrex::Gpu::Handler const& handler,
                    bool parity = false)
 {
-    Real plVal, plPrev1, plPrev2;
-    Real plmVal, plmPrev1, plmPrev2;
+    LegendreRecurrence pl;
+    LegendreRecurrence plm;
 
     Real rho_r_in, rho_r_out;
 
@@ -103,7 +121,7 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
 
         for (int l = 0; l <= gravity::l_max_used; ++l) {
 
-            evalLegendre(l, plVal, plPrev1, plPrev2, cosTheta);
+            evalLegendre(l, pl, cosTheta);
 
             Real dMIn0 = 0.0_rt;
             Real dMOut0 = 0.0_rt;
@@ -112,7 +130,7 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
 
                 rho_r_out = rho * (std::pow(r, -l-1));
 
-                dMOut0 = plVal * rho_r_out * vol * multipole::volumeScale;
+                dMOut0 = pl.val * rho_r_out * vol * multipole::volumeScale;
                 if (parity) {
                     dMOut0 = dMOut0 * multipole::mirror_m0(l);
                 }
@@ -121,15 +139,15 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
 
                 rho_r_in = rho * (std::pow(r, l));
 
-                dMIn0 = plVal * rho_r_in * vol * multipole::volumeScale;
+                dMIn0 = pl.val * rho_r_in * vol * multipole::volumeScale;
                 if (parity) {
                     dMIn0 = dMIn0 * multipole::mirror_m0(l);
                 }
 
             }
 
-            amrex::Gpu::deviceReduceSum(&mIn0(l,0,n), dMIn0, handler);
-            amrex::Gpu::deviceReduceSum(&mOut0(l,0,n), dMOut0, handler);
+            amrex::Gpu::deviceReduceSum(&moments.in0(l,0,n), dMIn0, handler);
+            amrex::Gpu::deviceReduceSum(&moments.out0(l,0,n), dMOut0, handler);
 
         }
 
@@ -145,7 +163,7 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
                     continue;
                 }
 
-                evalAssocLegendre(l, m, plmVal, plmPrev1, plmPrev2, cosTheta);
+                evalAssocLegendre(l, m, plm, cosTheta);
 
                 Real dMInC = 0.0_rt;
                 Real dMInS = 0.0_rt;
@@ -157,12 +175,12 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
 
                     rho_r_out = rho * (std::pow(r, -l-1));
 
-                    dMOutC = plmVal * std::cos(m * phiAngle) * rho_r_out * vol * multipole::legNormTable(l,m);
+                    dMOutC = plm.val * std::cos(m * phiAngle) * rho_r_out * vol * multipole::legNormTable(l,m);
                     if (parity) {
                         dMOutC = dMOutC * multipole::mirror_mC_mS(l,m);
                     }
 
-                    dMOutS = plmVal * std::sin(m * phiAngle) * rho_r_out * vol * multipole::legNormTable(l,m);
+                    dMOutS = plm.val * std::sin(m * phiAngle) * rho_r_out * vol * multipole::legNormTable(l,m);
                     if (parity) {
                         dMOutS = dMOutS * multipole::mirror_mC_mS(l,m);
                     }
@@ -171,22 +189,22 @@ void accumulate_moments(Real cosTheta, Real phiAngle, Real r, Real rho, Real vol
 
                     rho_r_in = rho * (std::pow(r, l));
 
-                    dMInC = plmVal * std::cos(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
+                    dMInC = plm.val * std::cos(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
                     if (parity) {
                         dMInC = dMInC * multipole::mirror_mC_mS(l,m);
                     }
 
-                    dMInS = plmVal * std::sin(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
+                    dMInS = plm.val * std::sin(m * phiAngle) * rho_r_in * vol * multipole::legNormTable(l,m);
                     if (parity) {
                         dMInS = dMInS * multipole::mirror_mC_mS(l,m);
                     }
 
                 }
 
-                amrex::Gpu::deviceReduceSum(&mInC(l,m,n), dMInC, handler);
-                amrex::Gpu::deviceReduceSum(&mInS(l,m,n), dMInS, handler);
-                amrex::Gpu::deviceReduceSum(&mOutC(l,m,n), dMOutC, handler);
-                amrex::Gpu::deviceReduceSum(&mOutS(l,m,n), dMOutS, handler);
+                amrex::Gpu::deviceReduceSum(&moments.inC(l,m,n), dMInC, handler);
+                amrex::Gpu::deviceReduceSum(&moments.inS(l,m,n), dMInS, handler);
+                amrex::Gpu::deviceReduceSum(&moments.outC(l,m,n), dMOutC, handler);
+                amrex::Gpu::deviceReduceSum(&moments.outS(l,m,n), dMOutS, handler);
 
             }
         }
@@ -199,12 +217,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
                              const GpuArray<Real, AMREX_SPACEDIM>& problo,
                              const GpuArray<Real, AMREX_SPACEDIM>& probhi,
                              Real rho, Real vol,
-                             Array4<Real> const& mIn0,
-                             Array4<Real> const& mInC,
-                             Array4<Real> const& mInS,
-                             Array4<Real> const& mOut0,
-                             Array4<Real> const& mOutC,
-                             Array4<Real> const& mOutS,
+                             MultipoleMomentArrays const& moments,
                              int npts, int nlo, int index,
                              amrex::Gpu::Handler const& handler)
 {
@@ -233,7 +246,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
         phiAngle = std::atan2(y, xLo);
         cosTheta = z / r;
 
-        accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+        accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         if (multipole::mirrorAddLo(1)) {
 
@@ -241,7 +254,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
             phiAngle = std::atan2(yLo, xLo);
             cosTheta = z / r;
 
-            accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+            accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         }
 
@@ -251,7 +264,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
             phiAngle = std::atan2(y, xLo);
             cosTheta = zLo / r;
 
-            accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+            accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         }
 
@@ -261,7 +274,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
             phiAngle = std::atan2(yLo, xLo);
             cosTheta = zLo / r;
 
-            accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+            accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         }
 
@@ -273,7 +286,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
         phiAngle = std::atan2(yLo, x);
         cosTheta = z / r;
 
-        accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+        accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         if (multipole::mirrorAddLo(2)) {
 
@@ -281,7 +294,7 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
             phiAngle = std::atan2(yLo, x);
             cosTheta = zLo / r;
 
-            accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+            accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
         }
 
@@ -293,16 +306,26 @@ void accumulate_moments_mirrored(Real x, Real y, Real z,
         phiAngle = std::atan2(y, x);
         cosTheta = zLo / r;
 
-        accumulate_moments(cosTheta, phiAngle, r, rho, vol, mIn0, mInC, mInS, mOut0, mOutC, mOutS, npts, nlo, index, handler);
+        accumulate_moments(cosTheta, phiAngle, r, rho, vol, moments, npts, nlo, index, handler);
 
     }
 }
 
+// The domain edges, and which of them are symmetry boundaries whose
+// mirrored mass adds to the direct-sum boundary potential.
+
+struct MirrorDomain
+{
+    GpuArray<Real, 3> lo;
+    GpuArray<Real, 3> hi;
+    GpuArray<bool, 3> mirror_lo;
+    GpuArray<bool, 3> mirror_hi;
+};
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& locb,
-                              const GpuArray<Real, 3>& problo, const GpuArray<Real, 3>& probhi,
-                              Real rho, Real dV,
-                              const GpuArray<bool, 3>& mirrorAddLo, const GpuArray<bool, 3>& mirrorAddHi)
+                              const MirrorDomain& domain,
+                              Real rho, Real dV)
 {
     // Add contributions from any symmetric boundaries.
 
@@ -310,9 +333,9 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
     Real x, y, z, r;
 
-    if (mirrorAddLo[0]) {
+    if (domain.mirror_lo[0]) {
 
-        x = 2.0_rt * problo[0] - loc[0];
+        x = 2.0_rt * domain.lo[0] - loc[0];
         y = loc[1];
         z = loc[2];
 
@@ -320,10 +343,10 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
         bcTerm -= C::Gconst * rho * dV / r;
 
-        if (mirrorAddLo[1]) {
+        if (domain.mirror_lo[1]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
+            x = 2.0_rt * domain.lo[0] - loc[0];
+            y = 2.0_rt * domain.lo[1] - loc[1];
             z = loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
@@ -332,11 +355,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
         }
 
-        if (mirrorAddLo[2]) {
+        if (domain.mirror_lo[2]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
+            x = 2.0_rt * domain.lo[0] - loc[0];
             y = loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
+            z = 2.0_rt * domain.lo[2] - loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -344,11 +367,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
         }
 
-        if (mirrorAddLo[1] && mirrorAddLo[2]) {
+        if (domain.mirror_lo[1] && domain.mirror_lo[2]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
+            x = 2.0_rt * domain.lo[0] - loc[0];
+            y = 2.0_rt * domain.lo[1] - loc[1];
+            z = 2.0_rt * domain.lo[2] - loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -358,21 +381,21 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
     }
 
-    if (mirrorAddLo[1]) {
+    if (domain.mirror_lo[1]) {
 
         x = loc[0];
-        y = 2.0_rt * problo[1] - loc[1];
+        y = 2.0_rt * domain.lo[1] - loc[1];
         z = loc[2];
 
         r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
         bcTerm -= C::Gconst * rho * dV / r;
 
-        if (mirrorAddLo[2]) {
+        if (domain.mirror_lo[2]) {
 
             x = loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
+            y = 2.0_rt * domain.lo[1] - loc[1];
+            z = 2.0_rt * domain.lo[2] - loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -382,11 +405,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
     }
 
-    if (mirrorAddLo[2]) {
+    if (domain.mirror_lo[2]) {
 
         x = loc[0];
         y = loc[1];
-        z = 2.0_rt * problo[2] - loc[2];
+        z = 2.0_rt * domain.lo[2] - loc[2];
 
         r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -396,9 +419,9 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
 
 
-    if (mirrorAddHi[0]) {
+    if (domain.mirror_hi[0]) {
 
-        x = 2.0_rt * probhi[0] - loc[0];
+        x = 2.0_rt * domain.hi[0] - loc[0];
         y = loc[1];
         z = loc[2];
 
@@ -406,10 +429,10 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
         bcTerm -= C::Gconst * rho * dV / r;
 
-        if (mirrorAddHi[1]) {
+        if (domain.mirror_hi[1]) {
 
-            x = 2.0_rt * probhi[0] - loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
+            x = 2.0_rt * domain.hi[0] - loc[0];
+            y = 2.0_rt * domain.hi[1] - loc[1];
             z = loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
@@ -418,11 +441,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
         }
 
-       if (mirrorAddHi[2]) {
+       if (domain.mirror_hi[2]) {
 
-           x = 2.0_rt * probhi[0] - loc[0];
+           x = 2.0_rt * domain.hi[0] - loc[0];
            y = loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
+           z = 2.0_rt * domain.hi[2] - loc[2];
 
            r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -430,11 +453,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
        }
 
-       if (mirrorAddHi[1] && mirrorAddHi[2]) {
+       if (domain.mirror_hi[1] && domain.mirror_hi[2]) {
 
-           x = 2.0_rt * probhi[0] - loc[0];
-           y = 2.0_rt * probhi[1] - loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
+           x = 2.0_rt * domain.hi[0] - loc[0];
+           y = 2.0_rt * domain.hi[1] - loc[1];
+           z = 2.0_rt * domain.hi[2] - loc[2];
 
            r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -444,21 +467,21 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
     }
 
-    if (mirrorAddHi[1]) {
+    if (domain.mirror_hi[1]) {
 
         x = loc[0];
-        y = 2.0_rt * probhi[1] - loc[1];
+        y = 2.0_rt * domain.hi[1] - loc[1];
         z = loc[2];
 
         r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
         bcTerm -= C::Gconst * rho * dV / r;
 
-        if (mirrorAddHi[2]) {
+        if (domain.mirror_hi[2]) {
 
             x = loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
-            z = 2.0_rt * probhi[2] - loc[2];
+            y = 2.0_rt * domain.hi[1] - loc[1];
+            z = 2.0_rt * domain.hi[2] - loc[2];
 
             r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
@@ -468,11 +491,11 @@ Real direct_sum_mirrored(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& 
 
     }
 
-    if (mirrorAddHi[2]) {
+    if (domain.mirror_hi[2]) {
 
         x = loc[0];
         y = loc[1];
-        z = 2.0_rt * probhi[2] - loc[2];
+        z = 2.0_rt * domain.hi[2] - loc[2];
 
         r = std::sqrt((x - locb[0]) * (x - locb[0]) + (y - locb[1]) * (y - locb[1]) + (z - locb[2]) * (z - locb[2]));
 
