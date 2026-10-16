@@ -48,7 +48,7 @@ void hs_derinertialmomentumx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
         der(i,j,k,0) = rho * inertial_vel[0];
     });
@@ -90,7 +90,7 @@ void hs_derinertialmomentumy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
         der(i,j,k,0) = rho * inertial_vel[1];
     });
@@ -132,7 +132,7 @@ void hs_derinertialmomentumz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
         der(i,j,k,0) = rho * inertial_vel[2];
     });
@@ -174,7 +174,7 @@ void hs_derinertialangmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
 
         GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
@@ -219,7 +219,7 @@ void hs_derinertialangmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
 
         GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
@@ -264,7 +264,7 @@ void hs_derinertialangmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> vel{dat(i,j,k,1) / rho, dat(i,j,k,2) / rho, dat(i,j,k,3) / rho};
         GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+        inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
 
         GpuArray<Real, 3> angular_vel = cross_product(loc, inertial_vel);
@@ -308,7 +308,7 @@ void hs_derinertialradmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
         GpuArray<Real, 3> inertial_mom{mom};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+        inertial_mom = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, mom);
 #endif
 
         Real radInv = 1.0_rt / std::sqrt(loc[1] * loc[1] + loc[2] * loc[2]);
@@ -352,7 +352,7 @@ void hs_derinertialradmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
         GpuArray<Real, 3> inertial_mom{mom};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+        inertial_mom = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, mom);
 #endif
 
         Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[2] * loc[2]);
@@ -396,7 +396,7 @@ void hs_derinertialradmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
         GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
         GpuArray<Real, 3> inertial_mom{mom};
 #ifdef ROTATION
-        rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+        inertial_mom = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, mom);
 #endif
 
         Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
@@ -437,9 +437,9 @@ void hs_derphieff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 #else
         loc[2] = 0.0_rt;
 #endif
-        auto omega = get_omega_vec(geomdata, j);
+        auto omega = rotation::get_omega_vec(geomdata, j);
 
-        der(i,j,k,0) = dat(i,j,k,0) + rotational_potential(loc, omega, coord);
+        der(i,j,k,0) = dat(i,j,k,0) + rotation::rotational_potential(loc, omega, coord);
     });
 }
 
@@ -494,9 +494,9 @@ void hs_derphieffpm_p(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             loc[iloc] -= problem::center[iloc];
         }
 
-        auto omega = get_omega_vec(geomdata, j);
+        auto omega = rotation::get_omega_vec(geomdata, j);
 
-        der(i,j,k,0) = -C::Gconst * problem::mass_P / r + rotational_potential(loc, omega, coord);
+        der(i,j,k,0) = -C::Gconst * problem::mass_P / r + rotation::rotational_potential(loc, omega, coord);
     });
 }
 
@@ -548,9 +548,9 @@ void hs_derphieffpm_s(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
             loc[iloc] -= problem::center[iloc];
         }
 
-        auto omega = get_omega_vec(geomdata, j);
+        auto omega = rotation::get_omega_vec(geomdata, j);
 
-        der(i,j,k,0) = -C::Gconst * problem::mass_S / r + rotational_potential(loc, omega, coord);
+        der(i,j,k,0) = -C::Gconst * problem::mass_S / r + rotation::rotational_potential(loc, omega, coord);
     });
 }
 
@@ -602,9 +602,9 @@ void hs_derrhophiRot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncom
         loc[2] = 0.0_rt;
 #endif
 
-        auto omega = get_omega_vec(geomdata, j);
+        auto omega = rotation::get_omega_vec(geomdata, j);
 
-        der(i,j,k,0) = dat(i,j,k,0) * rotational_potential(loc, omega, coord);
+        der(i,j,k,0) = dat(i,j,k,0) * rotation::rotational_potential(loc, omega, coord);
     });
 }
 

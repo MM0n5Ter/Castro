@@ -7,12 +7,14 @@
 #include <eos.H>
 #include <conductivity.H>
 
+#include <Diffusion.H>
+
 using namespace amrex;
 
 void
-fill_temp_cond(const Box& bx,
-               Array4<Real const> const& U_arr,
-               Array4<Real> const& coeff_arr) {
+Diffusion::fill_temp_cond(const Box& bx,
+                          Array4<Real const> const& U_arr,
+                          Array4<Real> const& coeff_arr) {
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -59,9 +61,9 @@ fill_temp_cond(const Box& bx,
 
 
 void
-fill_temp_diff_coeff(const Box& bx,
-                     Array4<Real const> const& U_arr,
-                     Array4<Real> const& coeff_arr) {
+Diffusion::fill_temp_diff_coeff(const Box& bx,
+                                Array4<Real const> const& U_arr,
+                                Array4<Real> const& coeff_arr) {
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

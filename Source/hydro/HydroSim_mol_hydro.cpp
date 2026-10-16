@@ -547,7 +547,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             cond.resize(obx, 1);
             auto cond_arr = cond.array();
 
-            fill_temp_cond(obx, Sborder.array(mfi), cond_arr);
+            Diffusion::fill_temp_cond(obx, Sborder.array(mfi), cond_arr);
 
             const Box& nbx = amrex::surroundingNodes(bx, idir);
 

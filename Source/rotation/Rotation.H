@@ -1,12 +1,16 @@
 #ifndef ROTATION_H
 #define ROTATION_H
 
+#include <cstdint>
 #include <numbers>
 
 #include <AMReX_Array.H>
 #include <HydroSim_math.H>
 #include <HydroSim_util.H>
 #include <hydrosim_params.H>
+
+namespace rotation
+{
 
 ///
 /// Return the magnitude of omega along the rotating axis.
@@ -60,6 +64,11 @@ GpuArray<Real, 3> get_omega_vec(const GeometryData& geomdata,
 }
 
 ///
+/// Which terms of the rotational acceleration to evaluate
+///
+enum class RotationForces : std::uint8_t { CentrifugalOnly = 0, WithCoriolis };
+
+///
 /// Compute the rotational acceleration for a single zone
 /// (Coriolis and centrifugal)
 ///
@@ -67,20 +76,23 @@ GpuArray<Real, 3> get_omega_vec(const GeometryData& geomdata,
 /// @param v         velocity
 /// @param omega     angular velocity vector array
 /// @param coord     coordinate system
-/// @param coriolis  do we include the Coriolis force
-/// @param Sr        rotational acceleration
+/// @param forces    do we include the Coriolis force
+///
+/// @return the rotational acceleration
 ///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+GpuArray<Real, 3>
 rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
                         const GpuArray<Real, 3>& omega, const int coord,
-                        const bool coriolis, Real* Sr) {
+                        const RotationForces forces) {
 
   // Given a position and velocity, calculate
   // the rotational acceleration. This is the sum of:
   // the Coriolis force (-2 omega x v),
   // the centrifugal force (- omega x ( omega x r)),
   // and a changing rotation rate (-d(omega)/dt x r).
+
+  GpuArray<Real, 3> Sr;
 
   Sr[0] = 0.0;
   Sr[1] = 0.0;
@@ -97,7 +109,7 @@ rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
 
   bool c1 = (hydrosim::rotation_include_centrifugal == 1) ? true : false;
 
-  bool c2 = (hydrosim::rotation_include_coriolis == 1 && coriolis) ? true : false;
+  bool c2 = (hydrosim::rotation_include_coriolis == 1 && forces == RotationForces::WithCoriolis) ? true : false;
 
   auto r_vec = r;
 
@@ -124,6 +136,8 @@ rotational_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
           Sr[idir] -= 2.0_rt * omega_cross_v[idir];
       }
   }
+
+  return Sr;
 
 }
 
@@ -158,10 +172,10 @@ rotational_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega,
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+GpuArray<Real, 3>
 inertial_to_rotational_velocity (const int i, const int j, const int k,
                                  const GeometryData& geomdata,
-                                 const Real time, GpuArray<Real, 3>& v) {
+                                 const Real time, const GpuArray<Real, 3>& vel) {
 
   amrex::ignore_unused(time);
 
@@ -169,6 +183,8 @@ inertial_to_rotational_velocity (const int i, const int j, const int k,
   // velocity vector in the rotating frame.
 
   // Note: this version assumes all cell-centers
+
+  GpuArray<Real, 3> v = vel;
 
   GpuArray<Real, 3> loc;
 
@@ -190,13 +206,15 @@ inertial_to_rotational_velocity (const int i, const int j, const int k,
   v[1] += -(omega[2]*loc[0] - omega[0]*loc[2]);
   v[2] += -(omega[0]*loc[1] - omega[1]*loc[0]);
 
+  return v;
+
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
+GpuArray<Real, 3>
 rotational_to_inertial_velocity (const int i, const int j, const int k,
                                  const GeometryData& geomdata,
-                                 const Real time, GpuArray<Real, 3>& v) {
+                                 const Real time, const GpuArray<Real, 3>& vel) {
 
   amrex::ignore_unused(time);
 
@@ -204,6 +222,8 @@ rotational_to_inertial_velocity (const int i, const int j, const int k,
   // velocity vector in the inertial frame.
 
   // Note: this version assumes all cell-centers
+
+  GpuArray<Real, 3> v = vel;
 
   GpuArray<Real, 3> loc;
 
@@ -224,6 +244,8 @@ rotational_to_inertial_velocity (const int i, const int j, const int k,
   v[0] += (omega[1]*loc[2] - omega[2]*loc[1]);
   v[1] += (omega[2]*loc[0] - omega[0]*loc[2]);
   v[2] += (omega[0]*loc[1] - omega[1]*loc[0]);
+
+  return v;
 
 }
 
@@ -275,10 +297,11 @@ GpuArray<Real, 3> inertial_rotation(const GpuArray<Real, 3>& vec,
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void fill_dt_omega_matrix(const Real dt, const GpuArray<Real, 3>& omega,
-                          Array2D<Real, 0, 2, 0, 2>& dt_omega_matrix)
+Array2D<Real, 0, 2, 0, 2> fill_dt_omega_matrix(const Real dt, const GpuArray<Real, 3>& omega)
 {
     // Fill in dt_omega_matrix. This is used in function corrrsrc
+
+    Array2D<Real, 0, 2, 0, 2> dt_omega_matrix = {};
 
     Real dt_omega[3];
 
@@ -318,6 +341,10 @@ void fill_dt_omega_matrix(const Real dt, const GpuArray<Real, 3>& omega,
       }
     }
 
+    return dt_omega_matrix;
+
 }
+
+} // namespace rotation
 
 #endif

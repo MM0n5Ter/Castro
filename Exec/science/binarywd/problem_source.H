@@ -119,7 +119,7 @@ void problem_source (int i, int j, int k,
                 v[dir] = problem::vel_P[dir];
             }
             if (hydrosim::do_rotation == 1) {
-                rotational_to_inertial_velocity(i, j, k, geomdata, time, v);
+                v = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, v);
             }
 
             for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
@@ -132,7 +132,7 @@ void problem_source (int i, int j, int k,
                 v[dir] = problem::vel_S[dir];
             }
             if (hydrosim::do_rotation == 1) {
-                rotational_to_inertial_velocity(i, j, k, geomdata, time, v);
+                v = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, v);
             }
 
             for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {

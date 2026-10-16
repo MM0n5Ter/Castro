@@ -378,8 +378,8 @@ HydroSim::do_hscf_solve()
 
                     Real scale = scf::scale_factor(i, j, k, geomdata, scf_r_A);
 
-                    auto omega = get_omega_vec(geomdata, j);
-                    Real bernoulli_zone = scale * (phi_arr(i,j,k) + rotational_potential(r, omega, coord));
+                    auto omega = rotation::get_omega_vec(geomdata, j);
+                    Real bernoulli_zone = scale * (phi_arr(i,j,k) + rotation::rotational_potential(r, omega, coord));
 
                     return {bernoulli_zone};
                 });
@@ -429,8 +429,8 @@ HydroSim::do_hscf_solve()
                         r[n] -= problem::center[n];
                     }
 
-                    auto omega = get_omega_vec(geomdata, j);
-                    enthalpy_arr(i,j,k) = bernoulli - phi_arr(i,j,k) - rotational_potential(r, omega, coord);
+                    auto omega = rotation::get_omega_vec(geomdata, j);
+                    enthalpy_arr(i,j,k) = bernoulli - phi_arr(i,j,k) - rotation::rotational_potential(r, omega, coord);
                 });
 
             }
@@ -605,8 +605,8 @@ HydroSim::do_hscf_solve()
                         Real dV = geometry_util::volume(Dim3{i, j, k}, geomdata);
                         dM = state_arr(i,j,k,URHO) * dV;
 
-                        auto omega = get_omega_vec(geomdata, j);
-                        dK = rotational_potential(r, omega, coord) * dM;
+                        auto omega = rotation::get_omega_vec(geomdata, j);
+                        dK = rotation::rotational_potential(r, omega, coord) * dM;
 
                         dU = 0.5_rt * phi_arr(i,j,k) * dM;
 

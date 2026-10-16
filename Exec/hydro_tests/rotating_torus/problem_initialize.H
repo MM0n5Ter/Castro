@@ -16,7 +16,7 @@ void problem_initialize ()
     const Real* probhi = dgeom.ProbHi();
 
 #ifdef ROTATION
-    auto omega = get_omega();
+    auto omega = rotation::get_omega();
 #else
     // Provide a dummy value so that we can compile without rotation.
     Real omega = 2.0_rt * M_PI;

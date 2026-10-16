@@ -833,8 +833,8 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
                 // Compute the effective potential.
 
-                auto omega_vec = get_omega_vec(geomdata, j);
-                Real phiEff = phi(i,j,k) + rotational_potential(r, omega_vec, coord);
+                auto omega_vec = rotation::get_omega_vec(geomdata, j);
+                Real phiEff = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
 
                 for (int n = 0; n < 3; ++n) {
                     r[n] -= L1[n];
@@ -902,8 +902,8 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 GpuArray<Real, 3> r;
                 position(i, j, k, geomdata, r);
 
-                auto omega_vec = get_omega_vec(geomdata, j);
-                Real phiEff = phi(i,j,k) + rotational_potential(r, omega_vec, coord);
+                auto omega_vec = rotation::get_omega_vec(geomdata, j);
+                Real phiEff = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
 
                 Real done = 0.0_rt;
 

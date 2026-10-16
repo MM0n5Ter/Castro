@@ -60,11 +60,29 @@ public:
 /// @param level
 /// @param Temperature
 /// @param CrseTemp
-/// @param DiffTerm
 /// @param temp_cond_coef
+/// @param DiffTerm
 ///
   void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-               amrex::MultiFab& DiffTerm, CoefficientVector& temp_cond_coef);
+               CoefficientVector& temp_cond_coef, amrex::MultiFab& DiffTerm);
+
+///
+/// @param bx
+/// @param U_arr
+/// @param coeff_arr
+///
+  static void fill_temp_cond(const amrex::Box& bx,
+                             amrex::Array4<amrex::Real const> const& U_arr,
+                             amrex::Array4<amrex::Real> const& coeff_arr);
+
+///
+/// @param bx
+/// @param U_arr
+/// @param coeff_arr
+///
+  static void fill_temp_diff_coeff(const amrex::Box& bx,
+                                   amrex::Array4<amrex::Real const> const& U_arr,
+                                   amrex::Array4<amrex::Real> const& coeff_arr);
 
   void set_solver_bc_types() override;
 
@@ -80,11 +98,11 @@ protected:
 /// @param level
 /// @param Temperature
 /// @param CrseTemp
-/// @param DiffTerm
 /// @param temp_cond_coef
+/// @param DiffTerm
 ///
   void applyop_mlmg(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-                    amrex::MultiFab& DiffTerm, CoefficientVector& temp_cond_coef);
+                    CoefficientVector& temp_cond_coef, amrex::MultiFab& DiffTerm);
 
 };
 #endif

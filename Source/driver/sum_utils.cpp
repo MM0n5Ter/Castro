@@ -340,8 +340,8 @@ HydroSim::gwstrain (Real time, SumScope scope) {
 
             GpuArray<Real, 3> pos{r};
 #ifdef ROTATION
-            auto omega = get_omega_vec(geomdata, j);
-            pos = inertial_rotation(r, omega, time);
+            auto omega = rotation::get_omega_vec(geomdata, j);
+            pos = rotation::inertial_rotation(r, omega, time);
 #endif
 
             // For constructing the velocity in the inertial frame, we need to
@@ -360,7 +360,7 @@ HydroSim::gwstrain (Real time, SumScope scope) {
 
             GpuArray<Real, 3> inertial_vel{vel};
 #ifdef ROTATION
-            rotational_to_inertial_velocity(i, j, k, geomdata, time, inertial_vel);
+            inertial_vel = rotation::rotational_to_inertial_velocity(i, j, k, geomdata, time, vel);
 #endif
 
             GpuArray<Real, 3> g;
@@ -372,7 +372,7 @@ HydroSim::gwstrain (Real time, SumScope scope) {
 
             GpuArray<Real, 3> inertial_g{g};
 #ifdef ROTATION
-            inertial_g = inertial_rotation(g, omega, time);
+            inertial_g = rotation::inertial_rotation(g, omega, time);
 #endif
 
             // Absorb the factor of 2 outside the integral into the zone mass, for efficiency.

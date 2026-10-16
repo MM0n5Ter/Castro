@@ -18,7 +18,7 @@ HydroSim::assemble_old_diff_source(MultiFab& source, MultiFab& state_in, Real ti
 
     MultiFab TempDiffTerm(grids, dmap, 1, 0);
 
-    add_temp_diffusion_to_source(source, state_in, TempDiffTerm, time);
+    add_temp_diffusion_to_source(state_in, time, TempDiffTerm, source);
 
     if (verbose > 1)
     {
@@ -49,14 +49,14 @@ HydroSim::assemble_new_diff_source(MultiFab& source, MultiFab& state_old, MultiF
 
     Real mult_factor = 0.5;
 
-    add_temp_diffusion_to_source(source, state_new, TempDiffTerm, time, mult_factor);
+    add_temp_diffusion_to_source(state_new, time, TempDiffTerm, source, mult_factor);
 
     // Time center the source term.
 
     mult_factor = -0.5;
     Real old_time = time - dt;
 
-    add_temp_diffusion_to_source(source, state_old, TempDiffTerm, old_time, mult_factor);
+    add_temp_diffusion_to_source(state_old, old_time, TempDiffTerm, source, mult_factor);
 
     if (verbose > 1)
     {
@@ -80,7 +80,7 @@ HydroSim::assemble_new_diff_source(MultiFab& source, MultiFab& state_old, MultiF
 // **********************************************************************************************
 
 void
-HydroSim::add_temp_diffusion_to_source (MultiFab& ext_src, MultiFab& state_in, MultiFab& DiffTerm, Real t, Real mult_factor)
+HydroSim::add_temp_diffusion_to_source (MultiFab& state_in, Real t, MultiFab& DiffTerm, MultiFab& ext_src, Real mult_factor)
 {
     BL_PROFILE("HydroSim::add_temp_diffusion_to_sources()");
 
@@ -137,7 +137,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
                Array4<Real> const coeff_arr = coeff_cc.array();
                Array4<Real const> const U_arr = grown_state.array(mfi);
 
-               fill_temp_cond(obx, U_arr, coeff_arr);
+               Diffusion::fill_temp_cond(obx, U_arr, coeff_arr);
 
                for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -175,7 +175,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
        }
 
        // Evaluates ∇ ⋅(k_th ∇T) using AMReX
-       diffusion->applyop(level, Temperature, CrseTemp, TempDiffTerm, coeffs);
+       diffusion->applyop(level, Temperature, CrseTemp, coeffs, TempDiffTerm);
 
    } else {
        // Evaluates ∇ ⋅(k_th ∇T) without using AMReX

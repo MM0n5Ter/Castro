@@ -327,7 +327,7 @@ extern "C"
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_cond(bx, dat, der);
+      Diffusion::fill_temp_cond(bx, dat, der);
 
     }
 
@@ -339,7 +339,7 @@ extern "C"
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_diff_coeff(bx, dat, der);
+      Diffusion::fill_temp_diff_coeff(bx, dat, der);
 
     }
 
@@ -357,7 +357,7 @@ extern "C"
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_cond(obx, dat, coeff_arr);
+      Diffusion::fill_temp_cond(obx, dat, coeff_arr);
 
       auto dx = geom.CellSizeArray();
       auto problo = geom.ProbLoArray();

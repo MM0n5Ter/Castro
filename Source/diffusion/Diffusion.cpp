@@ -43,10 +43,10 @@ Diffusion::register_level (int                   level,
 
 void
 Diffusion::applyop (int level, MultiFab& Temperature,
-                    MultiFab& CrseTemp, MultiFab& DiffTerm,
-                    CoefficientVector& temp_cond_coef)
+                    MultiFab& CrseTemp, CoefficientVector& temp_cond_coef,
+                    MultiFab& DiffTerm)
 {
-    applyop_mlmg(level, Temperature, CrseTemp, DiffTerm, temp_cond_coef);
+    applyop_mlmg(level, Temperature, CrseTemp, temp_cond_coef, DiffTerm);
 }
 
 
@@ -83,8 +83,8 @@ Diffusion::set_solver_bc_types ()
 
 void
 Diffusion::applyop_mlmg (int level, MultiFab& Temperature,
-                         MultiFab& CrseTemp, MultiFab& DiffTerm,
-                         CoefficientVector& temp_cond_coef)
+                         MultiFab& CrseTemp, CoefficientVector& temp_cond_coef,
+                         MultiFab& DiffTerm)
 {
     BL_PROFILE("Diffusion::applyop_mlmg()");
 

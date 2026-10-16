@@ -18,7 +18,6 @@ HydroSim::rsrc(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    GpuArray<Real, 3> Sr{};
     GpuArray<Real, NSRC> src{};
 
     // Temporary array for seeing what the new state would be if the update were applied here.
@@ -32,7 +31,7 @@ HydroSim::rsrc(const Box& bx,
       loc[dir] -= problem::center[dir];
     }
 
-    auto omega = get_omega_vec(geomdata, j);
+    auto omega = rotation::get_omega_vec(geomdata, j);
 
     Real rho = uold(i,j,k,URHO);
     Real rhoInv = 1.0_rt / rho;
@@ -49,8 +48,7 @@ HydroSim::rsrc(const Box& bx,
     v[1] = uold(i,j,k,UMY) * rhoInv;
     v[2] = uold(i,j,k,UMZ) * rhoInv;
 
-    bool coriolis = true;
-    rotational_acceleration(loc, v, omega, coord, coriolis, Sr.data());
+    auto Sr = rotation::rotational_acceleration(loc, v, omega, coord, rotation::RotationForces::WithCoriolis);
 
     for (auto& e : Sr) {
         e *= rho;
@@ -138,11 +136,9 @@ HydroSim::corrrsrc(const Box& bx,
                  Array4<Real const> const& uold,
                  Array4<Real const> const& unew,
                  Array4<Real> const& source,
-                 Array4<Real const> const& flux0,
-                 Array4<Real const> const& flux1,
-                 Array4<Real const> const& flux2,
-                 const Real dt,
-                 Array4<Real const> const& vol) {
+                 GpuArray<Array4<Real const>, 3> const& mass_flux,
+                 Array4<Real const> const& vol,
+                 const Real dt) {
 
   // Corrector step for the rotation source terms. This is applied
   // after the hydrodynamics update to fix the time-level n
@@ -152,7 +148,7 @@ HydroSim::corrrsrc(const Box& bx,
 
   // source is the source term to send back
 
-  // flux0, flux1, and flux2 are the hydrodynamical mass fluxes
+  // mass_flux holds the hydrodynamical mass fluxes in each direction
 
 
   // Rotation source options for how to add the work to (rho E):
@@ -182,8 +178,6 @@ HydroSim::corrrsrc(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real Sr_old[3] = {};
-    Real Sr_new[3] = {};
     Real Srcorr[3] = {};
     Real src[NSRC] = {};
 
@@ -198,7 +192,7 @@ HydroSim::corrrsrc(const Box& bx,
       loc[dir] -= problem::center[dir];
     }
 
-    auto omega = get_omega_vec(geomdata, j);
+    auto omega = rotation::get_omega_vec(geomdata, j);
 
     Real rhoo = uold(i,j,k,URHO);
     Real rhooinv = 1.0_rt / uold(i,j,k,URHO);
@@ -221,8 +215,8 @@ HydroSim::corrrsrc(const Box& bx,
     vold[1] = uold(i,j,k,UMY) * rhooinv;
     vold[2] = uold(i,j,k,UMZ) * rhooinv;
 
-    bool coriolis = true;
-    rotational_acceleration(loc, vold, omega, coord, coriolis, Sr_old);
+    auto Sr_old = rotation::rotational_acceleration(loc, vold, omega, coord,
+                                                    rotation::RotationForces::WithCoriolis);
 
     for (auto& e : Sr_old) {
         e *= rhoo;
@@ -239,7 +233,8 @@ HydroSim::corrrsrc(const Box& bx,
     vnew[1] = unew(i,j,k,UMY) * rhoninv;
     vnew[2] = unew(i,j,k,UMZ) * rhoninv;
 
-    rotational_acceleration(loc, vnew, omega, coord, coriolis, Sr_new);
+    auto Sr_new = rotation::rotational_acceleration(loc, vnew, omega, coord,
+                                                    rotation::RotationForces::WithCoriolis);
 
     for (auto& e : Sr_new) {
         e *= rhon;
@@ -261,9 +256,8 @@ HydroSim::corrrsrc(const Box& bx,
       // Do the full corrector step with the old contribution (subtract 1/2 times the old term) and do
       // the non-Coriolis parts of the new contribution (add 1/2 of the new term).
 
-      Real acc[3];
-      coriolis = false;
-      rotational_acceleration(loc, vnew, omega, coord, coriolis, acc);
+      const auto acc = rotation::rotational_acceleration(loc, vnew, omega, coord,
+                                                         rotation::RotationForces::CentrifugalOnly);
 
       Real new_mom_tmp[3];
       for (int n = 0; n < 3; n++) {
@@ -281,8 +275,7 @@ HydroSim::corrrsrc(const Box& bx,
       // of the dt_omega_matrix. It also has the correct form if we have disabled
       // the Coriolis force entirely; at that point it reduces to the identity matrix.
 
-      Array2D<Real, 0, 2, 0, 2> dt_omega_matrix = {};
-      fill_dt_omega_matrix(dt, omega, dt_omega_matrix);
+      const auto dt_omega_matrix = rotation::fill_dt_omega_matrix(dt, omega);
 
       Real new_mom[3] = {};
 
@@ -352,9 +345,8 @@ HydroSim::corrrsrc(const Box& bx,
       vnew[1] = snew[UMY] * rhoninv;
       vnew[2] = snew[UMZ] * rhoninv;
 
-      Real acc[3];
-      coriolis = true;
-      rotational_acceleration(loc, vnew, omega, coord, coriolis, acc);
+      const auto acc = rotation::rotational_acceleration(loc, vnew, omega, coord,
+                                                         rotation::RotationForces::WithCoriolis);
 
       Sr_new[0] = rhon * acc[0];
       Sr_new[1] = rhon * acc[1];
@@ -407,22 +399,21 @@ HydroSim::corrrsrc(const Box& bx,
               }
 
               GpuArray<Real, 3> temp_vel{};
-              Real temp_Sr[3];
 
-              coriolis = false;
-              rotational_acceleration(loc, temp_vel, omega, coord, coriolis, temp_Sr);
+              const auto temp_Sr = rotation::rotational_acceleration(loc, temp_vel, omega, coord,
+                                                                     rotation::RotationForces::CentrifugalOnly);
 
               edge_Sr[dir][edge] = temp_Sr[dir];
 
           }
       }
 
-      SrEcorr += hdtInv * (flux0(i      ,j,k) * edge_Sr[0][0] * dx[0] +
-                           flux0(i+1*dg0,j,k) * edge_Sr[0][1] * dx[0] +
-                           flux1(i,j      ,k) * edge_Sr[1][0] * dx[1] +
-                           flux1(i,j+1*dg1,k) * edge_Sr[1][1] * dx[1] +
-                           flux2(i,j,k      ) * edge_Sr[2][0] * dx[2] +
-                           flux2(i,j,k+1*dg2) * edge_Sr[2][1] * dx[2]) / vol(i,j,k);
+      SrEcorr += hdtInv * (mass_flux[0](i      ,j,k) * edge_Sr[0][0] * dx[0] +
+                           mass_flux[0](i+1*dg0,j,k) * edge_Sr[0][1] * dx[0] +
+                           mass_flux[1](i,j      ,k) * edge_Sr[1][0] * dx[1] +
+                           mass_flux[1](i,j+1*dg1,k) * edge_Sr[1][1] * dx[1] +
+                           mass_flux[2](i,j,k      ) * edge_Sr[2][0] * dx[2] +
+                           mass_flux[2](i,j,k+1*dg2) * edge_Sr[2][1] * dx[2]) / vol(i,j,k);
 
     } else {
 #ifndef AMREX_USE_GPU

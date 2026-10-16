@@ -36,15 +36,15 @@ void getTempDiffusionTerm (amrex::Real time, amrex::MultiFab& state, amrex::Mult
 ///
 /// Calculate temperature or enthalpty diffusion terms and add to ``ext_src`` (multiplied by ``mult_factor``).
 ///
-/// @param ext_src      Source terms to add diffusion sources to
 /// @param state        Current state
-/// @param DiffTerm     MultiFab to save diffusion sources to
 /// @param t            Current time
+/// @param DiffTerm     MultiFab to save diffusion sources to
+/// @param ext_src      Source terms to add diffusion sources to
 /// @param mult_factor  Real, factor to multiply diffusion
 ///                     sources by before adding to other sources.
 ///
-void add_temp_diffusion_to_source (amrex::MultiFab& ext_src, amrex::MultiFab& state,
-                                   amrex::MultiFab& DiffTerm, amrex::Real t,
+void add_temp_diffusion_to_source (amrex::MultiFab& state, amrex::Real t,
+                                   amrex::MultiFab& DiffTerm, amrex::MultiFab& ext_src,
                                    amrex::Real mult_factor = 1.0);
 
 

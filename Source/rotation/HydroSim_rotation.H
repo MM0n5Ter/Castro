@@ -55,22 +55,18 @@
 /// @param uold     old time state
 /// @param unew     new time state
 /// @param source   full hydrodynamic state
-/// @param flux0    mass flux in x coord dir
-/// @param flux1    mass flux in y coord dir
-/// @param flux2    mass flux in z coord dir
-/// @param dt       current timestep
+/// @param mass_flux mass flux in each coord dir
 /// @param vol      cell volume
+/// @param dt       current timestep
 ///
     void
     corrrsrc(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real const> const& unew,
              Array4<Real> const& source,
-             Array4<Real const> const& flux0,
-             Array4<Real const> const& flux1,
-             Array4<Real const> const& flux2,
-             const Real dt,
-             Array4<Real const> const& vol);
+             GpuArray<Array4<Real const>, 3> const& mass_flux,
+             Array4<Real const> const& vol,
+             const Real dt);
 
     void
     fill_rotational_potential(const Box& bx,

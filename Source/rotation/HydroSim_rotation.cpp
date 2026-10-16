@@ -79,11 +79,15 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& state_old, Mu
         {
             const Box& bx = mfi.tilebox();
 
+            const GpuArray<Array4<Real const>, 3> mass_flux{(*mass_fluxes[0]).const_array(mfi),
+                                                            (*mass_fluxes[1]).const_array(mfi),
+                                                            (*mass_fluxes[2]).const_array(mfi)};
+
             corrrsrc(bx,
                      state_old.array(mfi), state_new.array(mfi),
                      source.array(mfi),
-                     (*mass_fluxes[0]).array(mfi), (*mass_fluxes[1]).array(mfi), (*mass_fluxes[2]).array(mfi),
-                     dt, volume.array(mfi));
+                     mass_flux,
+                     volume.array(mfi), dt);
         }
     }
 

@@ -18,7 +18,7 @@ HydroSim::fill_rotational_psi(const Box& bx,
   // routine uniquely determines the rotation law. For the other
   // rotation laws, we would simply divide by v_0^2 or j_0^2 instead.
 
-  const auto omega = get_omega();
+  const auto omega = rotation::get_omega();
   Real denom = omega * omega;
 
   const auto problo = geom.ProbLoArray();
@@ -45,8 +45,8 @@ HydroSim::fill_rotational_psi(const Box& bx,
 #endif
 
     if (denom != 0.0) {
-        auto omega_vec = get_omega_vec(geomdata, j);
-        psi(i,j,k) = rotational_potential(r, omega_vec, coord) / denom;
+        auto omega_vec = rotation::get_omega_vec(geomdata, j);
+        psi(i,j,k) = rotation::rotational_potential(r, omega_vec, coord) / denom;
     }
     else {
         psi(i,j,k) = 0.0;
