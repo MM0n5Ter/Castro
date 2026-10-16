@@ -369,7 +369,7 @@ for i in profilefilelist:
     ent=np.array(my_ray['entropy'][srt])
     dens=np.array(my_ray['density'][srt])
     press=np.array(my_ray['pressure'][srt])/1.e6
-    Mach_number=np.array(my_ray['MachNumber'][srt])
+    Mach_number=np.array(my_ray['LocalMach'][srt])
 
     if j==0 :
       temp0=np.array(my_ray['Temp'][srt])

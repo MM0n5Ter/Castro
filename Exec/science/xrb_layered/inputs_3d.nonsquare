@@ -80,7 +80,7 @@ amr.derive_plot_vars = ALL
 amr.small_plot_file       = xrb_smallplt    # root name of plotfile
 amr.small_plot_per        = 2.e-4       # number of timesteps between plotfiles
 amr.small_plot_vars = density Temp
-amr.derive_small_plot_vars = abar enuc MachNumber magvel magvort pressure
+amr.derive_small_plot_vars = abar enuc LocalMach flow_speed vorticity_norm pressure
 
 fab.format = NATIVE_32
 

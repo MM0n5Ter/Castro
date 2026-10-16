@@ -80,7 +80,7 @@ amr.plot_per        = 5.0      # time between plotfiles
 #amr.plot_int       = 100       # time between plotfiles
 
 amr.plot_vars = density xmom ymom rho_e rho_E Temp
-amr.derive_plot_vars = soundspeed entropy magvort divu eint_e magvel x_velocity y_velocity pressure MachNumber
+amr.derive_plot_vars = soundspeed entropy vorticity_norm divu eint_from_rhoe flow_speed x_velocity y_velocity pressure LocalMach
 
 # PROBLEM PARAMETERS
 problem.p_ref   = 1.0e0

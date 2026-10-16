@@ -14,7 +14,7 @@
 using namespace amrex;
 
 advance_status
-HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
@@ -27,7 +27,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 #ifndef TRUE_SDC
 
-  BL_PROFILE("HydroSim::construct_ctu_hydro_source()");
+  BL_PROFILE("HydroSim::assemble_ctu_hydro_source()");
 
   const Real strt_time = ParallelDescriptor::second();
 
@@ -35,7 +35,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   // divergence) using the CTU framework for unsplit hydrodynamics
 
   if (verbose) {
-      amrex::Print() << "... Entering construct_ctu_hydro_source() on level " << level << std::endl << std::endl;
+      amrex::Print() << "... Entering assemble_ctu_hydro_source() on level " << level << std::endl << std::endl;
   }
 
 #ifdef HYBRID_MOMENTUM
@@ -65,7 +65,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   MultiFab& Er_new = get_new_data(Rad_Type);
 
   if (!Radiation::rad_hydro_combined) {
-    amrex::Abort("HydroSim::construct_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
+    amrex::Abort("HydroSim::assemble_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
   }
 
   int n_freq_substeps = -1;
@@ -1181,7 +1181,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   }
 
   if (verbose) {
-      amrex::Print() << "... Leaving construct_ctu_hydro_source() on level " << level << std::endl << std::endl;
+      amrex::Print() << "... Leaving assemble_ctu_hydro_source() on level " << level << std::endl << std::endl;
   }
 
   if (verbose > 0)
@@ -1195,7 +1195,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
         ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
-        amrex::Print() << "HydroSim::construct_ctu_hydro_source() time = " << run_time
+        amrex::Print() << "HydroSim::assemble_ctu_hydro_source() time = " << run_time
                        << " on level " << llevel << "\n" << "\n";
 #ifdef BL_LAZY
         });

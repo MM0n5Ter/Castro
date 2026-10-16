@@ -21,7 +21,7 @@ def doit(outfile="hse.png"):
 
         isrt = np.argsort(ray[("boxlib", "x")])
 
-        ax.plot(ray[("boxlib", "x")][isrt], ray[("boxlib", "magvel")][isrt], label=l)
+        ax.plot(ray[("boxlib", "x")][isrt], ray[("boxlib", "flow_speed")][isrt], label=l)
 
     ax.legend(frameon=False)
     ax.set_yscale("log")

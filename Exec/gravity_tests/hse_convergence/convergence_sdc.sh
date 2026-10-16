@@ -21,19 +21,19 @@ hydrosim.hi_bc=3
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## sdc-2 + ppm + reflect
@@ -52,19 +52,19 @@ hydrosim.hi_bc=3
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## sdc-2 + HSE
@@ -82,19 +82,19 @@ hydrosim.use_reconstructed_gamma1=1
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## sdc-2 + ppm
@@ -111,19 +111,19 @@ hydrosim.use_reconstructed_gamma1=1
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## sdc-4 + reflect
@@ -141,17 +141,17 @@ hydrosim.hi_bc=3
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 

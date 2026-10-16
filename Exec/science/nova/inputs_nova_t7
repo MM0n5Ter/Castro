@@ -120,7 +120,7 @@ amr.derive_plot_vars = ALL
 amr.small_plot_file        = nova_smallplt        # root name of plotfile
 amr.small_plot_per         =  1.0      # number of seconds between plotfiles
 amr.small_plot_vars = density Temp
-amr.derive_small_plot_vars = abar x_velocity y_velocity X(H1) X(He4) X(C12) X(O16) X(Be7) enuc magvort MachNumber
+amr.derive_small_plot_vars = abar x_velocity y_velocity X(H1) X(He4) X(C12) X(O16) X(Be7) enuc vorticity_norm LocalMach
 
 amr.file_name_digits = 7          # pad step number with zeros if needed
 

@@ -29,7 +29,7 @@ HydroSim::user_diagnostics ()
             Tmax = Tmax_level;
         }
 
-        auto mach_mf = sim_lev.derive("MachNumber", time, 0);
+        auto mach_mf = sim_lev.derive("LocalMach", time, 0);
         MachMax_level = mach_mf->max(0, 0);
         if (MachMax_level > MachMax)
         {

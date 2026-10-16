@@ -179,8 +179,8 @@ def track_front(ds, threshold=1e-5, percent=1e-2):
     density = cg["boxlib", "density"][:, :, 0].to_ndarray()[enuc_mask]
 
     t_nuc = None
-    if ("boxlib", "eint_e") in ds.field_list:
-        eint = cg["boxlib", "eint_e"][:, :, 0].to_ndarray()[enuc_mask]
+    if ("boxlib", "eint_from_rhoe") in ds.field_list:
+        eint = cg["boxlib", "eint_from_rhoe"][:, :, 0].to_ndarray()[enuc_mask]
         avg_eint = np.average(eint, weights=density)
         avg_enuc = np.average(enuc[enuc_mask], weights=density)
         t_nuc = avg_eint / avg_enuc

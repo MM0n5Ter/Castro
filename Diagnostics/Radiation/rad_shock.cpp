@@ -75,14 +75,14 @@ int main(int argc, char* argv[])
 
     // find variable indices
 #if (AMREX_SPACEDIM == 1)
-    Vector<std::string> compVarNames = {"density", "eint_E", "Temp",
+    Vector<std::string> compVarNames = {"density", "eint_from_rhoE", "Temp",
                                     "pressure", "rad", "x_velocity"};
 #elif (AMREX_SPACEDIM == 2)
     Vector<std::string> compVarNames = {"density",
-                                    "eint_E", "Temp", "pressure", "rad",
+                                    "eint_from_rhoE", "Temp", "pressure", "rad",
                                     "x_velocity", "y_velocity"};
 #else
-    Vector<std::string> compVarNames = {"density", "eint_E", "Temp", "pressure",
+    Vector<std::string> compVarNames = {"density", "eint_from_rhoE", "Temp", "pressure",
                                     "rad", "x_velocity", "y_velocity","z_velocity"};
 #endif
     auto varComps = GetComponents(data, compVarNames);
@@ -158,13 +158,13 @@ int main(int argc, char* argv[])
     // find variable indices
 #if (AMREX_SPACEDIM == 1)
     compVarNames = {"density", "x_velocity", "pressure",
-                "eint_E", "Temp", "rad", "rad"};
+                "eint_from_rhoE", "Temp", "rad", "rad"};
 #elif (AMREX_SPACEDIM == 2)
     compVarNames = {"density", "x_velocity", "y_velocity", "pressure",
-                "eint_E", "Temp", "rad", "rad"};
+                "eint_from_rhoE", "Temp", "rad", "rad"};
 #else
     compVarNames = {"density", "x_velocity", "y_velocity", "z_velocity",
-                "pressure","eint_E", "Temp", "rad", "rad"};
+                "pressure","eint_from_rhoE", "Temp", "rad", "rad"};
 #endif
     Vector<int> comps = GetComponents(data, compVarNames);
 

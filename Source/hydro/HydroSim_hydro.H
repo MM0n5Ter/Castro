@@ -31,7 +31,7 @@
 /// @param time     current time
 /// @param dt       timestep
 ///
-    advance_status construct_ctu_hydro_source(amrex::Real time, amrex::Real dt);
+    advance_status assemble_ctu_hydro_source(amrex::Real time, amrex::Real dt);
 
 ///
 /// this constructs the hydrodynamic source (essentially the flux
@@ -42,7 +42,7 @@
 /// @param dt        timestep
 /// @param A_update  divergence of the fluxes
 ///
-    void construct_mol_hydro_source(amrex::Real time, amrex::Real dt, amrex::MultiFab& A_update);
+    void assemble_mol_hydro_source(amrex::Real time, amrex::Real dt, amrex::MultiFab& A_update);
 
 
 ///

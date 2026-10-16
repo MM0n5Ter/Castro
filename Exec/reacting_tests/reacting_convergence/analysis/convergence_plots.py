@@ -15,7 +15,7 @@ files = ["react_converge_64_sdc4_plt00301",
          "react_converge_512_sdc_plt02401",
          "react_converge_512_strang_plt02401"]
 
-varnames = ["density", "Temp", "X(C12)", "magvel"]
+varnames = ["density", "Temp", "X(C12)", "flow_speed"]
 
 class Profile:
 

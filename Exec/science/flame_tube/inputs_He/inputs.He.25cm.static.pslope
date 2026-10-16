@@ -107,7 +107,7 @@ amr.small_plot_file        = flame_tube_25cm_smallplt        # root name of plot
 amr.small_plot_per         = 5.e-4      # number of seconds between plotfiles
 amr.small_plot_vars = density Temp
 
-amr.derive_small_plot_vars = abar magvel enuc
+amr.derive_small_plot_vars = abar flow_speed enuc
 amr.file_name_digits = 7          # pad step number with zeros if needed
 
 # don't write plotfiles when a stop is requested with dump_and_stop

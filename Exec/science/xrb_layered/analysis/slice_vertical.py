@@ -32,7 +32,7 @@ def doit(pf, size=(19.2, 10.8)):
     zctr = 0.5*(zmin + zmax)
     L_z = zmax - zmin
 
-    fields = ["magvort", "enuc"]
+    fields = ["vorticity_norm", "enuc"]
 
     sp = yt.SlicePlot(ds, "y", fields,
                       origin="native", center=[xctr, yctr, zctr],
@@ -54,7 +54,7 @@ def doit(pf, size=(19.2, 10.8)):
             sp.set_zlim(f, 1, 8)
             sp.set_log(f, False)
             sp.set_cmap(f, "plasma_r")
-        elif f == "magvort":
+        elif f == "vorticity_norm":
             sp.set_zlim(f, 2.0, 2.e5)
             sp.set_log(f, True)
         elif f.startswith(r"X("):

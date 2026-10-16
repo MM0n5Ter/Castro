@@ -1608,7 +1608,7 @@ protected:
     // Static data members.
     //
 
-    static bool      signalStopJob;
+    static bool      stopRunRequested;
     static int       radius_grow;
     static std::vector<std::string> tag_field_names;
     static std::vector<int> tag_field_ngrow;
@@ -1746,7 +1746,7 @@ inline
 void
 HydroSim::requestStop()
 {
-  signalStopJob = true;
+  stopRunRequested = true;
 
 
 }

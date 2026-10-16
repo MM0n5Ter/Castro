@@ -52,7 +52,7 @@ L_z = zmax - zmin
 fig = plt.figure()
 
 
-fields = ["MachNumber", "magvort", "abar", "enuc"]
+fields = ["LocalMach", "vorticity_norm", "abar", "enuc"]
 
 grid = ImageGrid(fig, 111, nrows_ncols=(2, (len(fields)+1)//2),
                  axes_pad=0.75, cbar_pad=0.05, label_mode="L", cbar_mode="each")
@@ -78,13 +78,13 @@ for i, f in enumerate(fields):
         sp.set_log(f, True, linthresh=1.e12)
         sp.set_zlim(f, -1.e20, 1.e20)
         sp.set_cmap(f, "bwr")
-    elif f == "MachNumber":
+    elif f == "LocalMach":
         sp.set_zlim(f, 1.e-4, 0.3)
         sp.set_cmap(f, "plasma")
-    elif f == "magvel":
+    elif f == "flow_speed":
         sp.set_zlim(f, 100.0, 2.e7)
         sp.set_cmap(f, "viridis")
-    elif f == "magvort":
+    elif f == "vorticity_norm":
         sp.set_cmap(f, "magma")
         sp.set_zlim(f, 1.e-2, 5)
 

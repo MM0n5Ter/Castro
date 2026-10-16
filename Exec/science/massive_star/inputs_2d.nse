@@ -70,7 +70,7 @@ hydrosim.store_burn_weights = 0
 amr.small_plot_file       = massive_star_smallplt     # root name of plot file
 amr.small_plot_per = 0.5
 amr.small_plot_vars = density Temp in_nse
-amr.derive_small_plot_vars = abar Ye enuc MachNumber magvel magvort
+amr.derive_small_plot_vars = abar Ye enuc LocalMach flow_speed vorticity_norm
 
 fab.format = NATIVE_32
 

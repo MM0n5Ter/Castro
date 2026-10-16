@@ -33,7 +33,7 @@ void update_roche_radii ();
 
 // Define a mask for all zones considered to be within either the
 // primary or secondary star. It uses the effective potential of
-// the star (phiRot + phiGrav) and the stellar density threshold
+// the star (rotPotential + gravPotential) and the stellar density threshold
 // input parameter to determine what parts of the domain should
 // be considered stellar material. The convention will be that
 // the mask is positive (1) for zones inside the star and negative

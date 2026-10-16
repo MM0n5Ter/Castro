@@ -9,7 +9,7 @@
 # AMReX        git describe: 21.06-21-g87e01fe44
 # Microphysics git describe: 21.06
 #
-# nodes  mag_grid_size   avg time /   std dev      coarseTimeStep     react_state  ParallelCopy   computeConductionTerm  construct_ctu_hydro_source
+# nodes  mag_grid_size   avg time /   std dev      coarseTimeStep     react_state  ParallelCopy   computeConductionTerm  assemble_ctu_hydro_source
 #                          step                         max              max           max                   max                  max
  256       128             34.5901    0.170449        848.5             271.6         400.8                 176.2                 116.5
  342       128             14.555     0.0752107       367.7             153.3         118.6                  76.18                 44.58

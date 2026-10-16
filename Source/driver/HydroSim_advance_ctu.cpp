@@ -65,9 +65,9 @@ HydroSim::advance_ctu_once (Real time, Real dt)  // NOLINT(readability-convert-m
             failed(lev_data.handle_old_sources(prev_time, dt)) ||
             failed(lev_data.before_hydro_physics(prev_time, dt)) ||
 #ifndef MHD
-            failed(lev_data.construct_ctu_hydro_source(prev_time, dt))) {
+            failed(lev_data.assemble_ctu_hydro_source(prev_time, dt))) {
 #else
-            failed(lev_data.construct_ctu_mhd_source(prev_time, dt))) {
+            failed(lev_data.assemble_ctu_mhd_source(prev_time, dt))) {
 #endif
             return status;
         }

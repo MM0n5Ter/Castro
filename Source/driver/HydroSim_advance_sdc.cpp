@@ -167,7 +167,7 @@ HydroSim::advance_level_sdc (const LevelStep& step)
             // construct the update for the current stage -- this fills
             // A_new[m] with the righthand side for this stage.
             A_new[m]->setVal(0.0);
-            construct_mol_hydro_source(time, dt, *A_new[m]);
+            assemble_mol_hydro_source(time, dt, *A_new[m]);
 
         } // end of the m = 0 sdc_iter > 0 check
 

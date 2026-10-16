@@ -34,11 +34,11 @@ def doit(field, basename, is_small_plotfiles):
                           buff_size=(7680, 3840),
                           origin="domain", fontsize="14")
 
-        if field == "magvel":
+        if field == "flow_speed":
             sp.set_cmap(field, "inferno")
             sp.set_zlim(field, 1.0e5, 1.0e8)
 
-        elif field == "magvort":
+        elif field == "vorticity_norm":
             sp.set_cmap(field, "viridis")
             sp.set_zlim(field, 1.e-4, 100)
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     p = argparse.ArgumentParser(description="make slice plots of the suite of nova plotfiles")
 
-    p.add_argument("--field", type=str, default="magvort",
+    p.add_argument("--field", type=str, default="vorticity_norm",
                    help="field to visualize")
     p.add_argument("--basename", type=str, default="nova",
                    help="basename of the plotfiles")

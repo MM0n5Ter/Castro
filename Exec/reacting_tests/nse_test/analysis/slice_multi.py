@@ -32,7 +32,7 @@ grid = ImageGrid(fig, 111, nrows_ncols=(nrows, ncols), axes_pad=0.75, cbar_pad="
                  label_mode="L", cbar_mode="each")
 
 
-fields = ["Ye", "abar", "enuc", "Temp", "MachNumber"]
+fields = ["Ye", "abar", "enuc", "Temp", "LocalMach"]
 
 for i in range(nrows * ncols):
 
@@ -59,10 +59,10 @@ for i in range(nrows * ncols):
         sp.set_log(f, True, linthresh=1.e10)
         sp.set_zlim(f, -1.e18, 1.e18)
         sp.set_cmap(f, "bwr")
-    elif f == "MachNumber":
+    elif f == "LocalMach":
         sp.set_zlim(f, 1.e-5, 0.1)
         sp.set_cmap(f, "plasma")
-    elif f == "magvel":
+    elif f == "flow_speed":
         sp.set_zlim(f, 100.0, 2.e7)
         sp.set_cmap(f, "viridis")
     elif f == "Temp":

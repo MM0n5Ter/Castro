@@ -14,27 +14,27 @@
  kineng                        0.0064473427795         0.015131462336
  soundspeed                       117717.63667           173527.36546
  Gamma_1                          1.6666666667           1.6666666667
- MachNumber                       0.6068973527           1.9999995787
- uplusc                           269518.18862           362247.34267
- uminusc                         -66804.460634           117717.58707
+ LocalMach                       0.6068973527           1.9999995787
+ u_plus_cs                           269518.18862           362247.34267
+ u_minus_cs                         -66804.460634           117717.58707
  entropy                            2458726339           2507185326.7
- magvort                                     0                      0
+ vorticity_norm                                     0                      0
  divu                            -20283.839803           245.94819277
- eint_E                            12471697784            27100571905
- eint_e                            12471697784            27100571905
- logden                          -12.262831981          -11.895591637
- StateErr_0                   5.4596904429e-13       1.2717693773e-12
- StateErr_1                       100.00003103           217.29664064
- StateErr_2                                  1                      1
+ eint_from_rhoE                            12471697784            27100571905
+ eint_from_rhoe                            12471697784            27100571905
+ log10_density                          -12.262831981          -11.895591637
+ TagState_0                   5.4596904429e-13       1.2717693773e-12
+ TagState_1                       100.00003103           217.29664064
+ TagState_2                                  1                      1
  X(X)                                        1                      1
  abar                                        1                      1
  x_velocity                        102299.5786           235435.22374
  y_velocity                                  0                      0
  z_velocity                                  0                      0
- magvel                            102299.5786           235435.22374
- radvel                          -235435.22374           114042.90707
- circvel                                     0        0.0047841596539
- magmom                        1.232804686e-07       1.4591224624e-07
+ flow_speed                            102299.5786           235435.22374
+ radial_velocity                          -235435.22374           114042.90707
+ circular_velocity                                     0        0.0047841596539
+ momentum_norm                        1.232804686e-07       1.4591224624e-07
  angular_momentum_x                          0                      0
  angular_momentum_y                          0                      0
  angular_momentum_z                         -0                     -0

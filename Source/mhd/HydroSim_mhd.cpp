@@ -11,7 +11,7 @@ template <typename T>
 using PerDirection = Array<T, AMREX_SPACEDIM>;
 
 advance_status
-HydroSim::construct_ctu_mhd_source(Real time, Real dt)
+HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 {
       advance_status status {};
 

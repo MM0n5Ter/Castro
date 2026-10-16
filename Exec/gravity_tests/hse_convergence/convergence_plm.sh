@@ -15,19 +15,19 @@ hydrosim.use_pslope=1
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## plm + hse reflect
@@ -43,19 +43,19 @@ hydrosim.hse_reflect_vels=1
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## plm + reflect + nopslope
@@ -71,19 +71,19 @@ hydrosim.use_pslope=0
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 ## plm + reflect + pslope
@@ -99,19 +99,19 @@ hydrosim.use_pslope=1
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
 pfile=`ls -t | grep -i hse_64_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel > ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed > ${ofile}
 
 ${EXEC} inputs.ppm.128 ${RUNPARAMS} >& 128.out
 pfile=`ls -t | grep -i hse_128_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.256 ${RUNPARAMS} >& 256.out
 pfile=`ls -t | grep -i hse_256_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 ${EXEC} inputs.ppm.512 ${RUNPARAMS} >& 512.out
 pfile=`ls -t | grep -i hse_512_plt | head -1`
-fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
+fextrema.gnu.ex -v flow_speed ${pfile} | grep -i flow_speed >> ${ofile}
 
 
 

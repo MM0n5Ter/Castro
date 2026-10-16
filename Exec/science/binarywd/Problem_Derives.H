@@ -51,20 +51,20 @@
     //
     // Effective potential (gravitational + rotational)
     //
-    derive_lst.add("phiEff",IndexType::TheCellType(),1,hs_derphieff,the_same_box);
-    derive_lst.addComponent("phiEff",desc_lst,Potential_Type,0,1);
+    derive_lst.add("effPotential",IndexType::TheCellType(),1,hs_derphieff,the_same_box);
+    derive_lst.addComponent("effPotential",desc_lst,Potential_Type,0,1);
 
     //
     // Effective potential from a point-mass approximation to the potential from the primary
     //
-    derive_lst.add("phiEffPM_P",IndexType::TheCellType(),1,hs_derphieffpm_p,the_same_box);
-    derive_lst.addComponent("phiEffPM_P",desc_lst,State_Type,URHO,1); // not used, but we send in something
+    derive_lst.add("effPotentialPM_P",IndexType::TheCellType(),1,hs_derphieffpm_p,the_same_box);
+    derive_lst.addComponent("effPotentialPM_P",desc_lst,State_Type,URHO,1); // not used, but we send in something
 
     //
     // Effective potential from a point-mass approximation to the potential from the secondary
     //
-    derive_lst.add("phiEffPM_S",IndexType::TheCellType(),1,hs_derphieffpm_s,the_same_box);
-    derive_lst.addComponent("phiEffPM_S",desc_lst,State_Type,URHO,1); // not used, but we send in something
+    derive_lst.add("effPotentialPM_S",IndexType::TheCellType(),1,hs_derphieffpm_s,the_same_box);
+    derive_lst.addComponent("effPotentialPM_S",desc_lst,State_Type,URHO,1); // not used, but we send in something
 #endif
 #endif
 
@@ -72,17 +72,17 @@
     //
     // rho * phi
     //
-    derive_lst.add("rho_phiGrav",IndexType::TheCellType(),1,hs_derrhophiGrav,the_same_box);
-    derive_lst.addComponent("rho_phiGrav",desc_lst,State_Type,URHO,1);
-    derive_lst.addComponent("rho_phiGrav",desc_lst,Potential_Type,0,1);
+    derive_lst.add("rho_gravPotential",IndexType::TheCellType(),1,hs_derrhophiGrav,the_same_box);
+    derive_lst.addComponent("rho_gravPotential",desc_lst,State_Type,URHO,1);
+    derive_lst.addComponent("rho_gravPotential",desc_lst,Potential_Type,0,1);
 #endif
 
 #ifdef ROTATION
     //
     // rho * phi
     //
-    derive_lst.add("rho_phiRot",IndexType::TheCellType(),1,hs_derrhophiRot,the_same_box);
-    derive_lst.addComponent("rho_phiRot",desc_lst,State_Type,URHO,1);
+    derive_lst.add("rho_rotPotential",IndexType::TheCellType(),1,hs_derrhophiRot,the_same_box);
+    derive_lst.addComponent("rho_rotPotential",desc_lst,State_Type,URHO,1);
 #endif
 
 #ifdef GRAVITY

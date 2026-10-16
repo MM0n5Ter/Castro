@@ -111,7 +111,7 @@ amr.small_plot_file = subch_smallplt        # root name of plotfile
 amr.small_plot_per  = 2.e-3      # number of seconds between plotfiles
 amr.small_plot_vars = density Temp
 
-amr.derive_small_plot_vars = abar magvel enuc
+amr.derive_small_plot_vars = abar flow_speed enuc
 amr.derive_plot_vars = ALL
 hydrosim.store_burn_weights = 1
 

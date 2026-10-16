@@ -19,7 +19,7 @@ using namespace amrex;
 /// is stored in A_update, which comes through the argument list.
 ///
 void
-HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
+HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 {
 
     amrex::ignore_unused(time);
@@ -28,7 +28,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
   amrex::Abort("Error: radiation not supported for the MOL hydro source term");
 #else
 
-  BL_PROFILE("HydroSim::construct_mol_hydro_source()");
+  BL_PROFILE("HydroSim::assemble_mol_hydro_source()");
 
 
   const Real strt_time = ParallelDescriptor::second();
@@ -718,7 +718,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
         ParallelDescriptor::ReduceRealMax(run_time,IOProc);
 
         if (ParallelDescriptor::IOProcessor())
-          std::cout << "HydroSim::construct_mol_hydro_source() time = " << run_time << "\n" << "\n";
+          std::cout << "HydroSim::assemble_mol_hydro_source() time = " << run_time << "\n" << "\n";
 #ifdef BL_LAZY
         });
 #endif

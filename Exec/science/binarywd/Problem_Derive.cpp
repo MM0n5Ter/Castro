@@ -409,7 +409,7 @@ void hs_derphieff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
                   const FArrayBox& datfab, const Geometry& geom,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
-    // Derive the effective potential phiEff = phiGrav + phiRot
+    // Derive the effective potential effPotential = gravPotential + rotPotential
 
     auto const dat = datfab.array();
     auto const der = derfab.array();

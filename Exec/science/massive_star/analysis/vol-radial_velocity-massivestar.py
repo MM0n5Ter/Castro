@@ -32,7 +32,7 @@ def doit(plotfile):
 
     sc = Scene()
 
-    field = ("boxlib", "radvel")
+    field = ("boxlib", "radial_velocity")
     ds._get_field_info(field).take_log = False
 
     vol = create_volume_source(ds.all_data(), field=field)

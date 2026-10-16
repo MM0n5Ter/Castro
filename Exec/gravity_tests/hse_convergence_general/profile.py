@@ -32,7 +32,7 @@ def doit(pfile=None):
         ax[1].set_ylabel("temperature")
         ax[1].set_yscale("log")
 
-        ax[2].plot(ray[("boxlib", "x")][isrt], ray[("boxlib", "magvel")][isrt], label=label)
+        ax[2].plot(ray[("boxlib", "x")][isrt], ray[("boxlib", "flow_speed")][isrt], label=label)
         ax[2].set_ylabel("|U|")
         ax[2].set_xlabel("x")
         ax[2].set_yscale("log")

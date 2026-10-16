@@ -834,7 +834,7 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 // Compute the effective potential.
 
                 auto omega_vec = rotation::get_omega_vec(geomdata, j);
-                Real phiEff = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
+                Real effPotential = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
 
                 for (int n = 0; n < 3; ++n) {
                     r[n] -= L1[n];
@@ -855,7 +855,7 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 Real dP = 0.0_rt;
 
                 if ((r[0] * r[0] + r[1] * r[1] + r[2] * r[2]) < 1.0_rt) {
-                    dP = (1.0_rt - std::abs(r[0])) * (1.0_rt - std::abs(r[1])) * (1.0_rt - std::abs(r[2])) * phiEff;
+                    dP = (1.0_rt - std::abs(r[0])) * (1.0_rt - std::abs(r[1])) * (1.0_rt - std::abs(r[2])) * effPotential;
                 }
 
                 return dP;
@@ -903,11 +903,11 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 position(i, j, k, geomdata, r);
 
                 auto omega_vec = rotation::get_omega_vec(geomdata, j);
-                Real phiEff = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
+                Real effPotential = phi(i,j,k) + rotation::rotational_potential(r, omega_vec, coord);
 
                 Real done = 0.0_rt;
 
-                if (phiEff > potential && u(i,j,k,URHO) > relaxation_density_cutoff) {
+                if (effPotential > potential && u(i,j,k,URHO) > relaxation_density_cutoff) {
                     done = 1.0_rt;
                 }
 

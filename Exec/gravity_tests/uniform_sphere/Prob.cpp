@@ -125,22 +125,22 @@ void HydroSim::user_post_init()
 
         const Real time = getLevel(lev).state[State_Type].curTime();
 
-        auto phiGrav = getLevel(lev).derive("phiGrav", time, 0);
+        auto gravPotential = getLevel(lev).derive("gravPotential", time, 0);
 
         if (lev < parent->finestLevel())
         {
             const MultiFab& mask = getLevel(lev+1).build_fine_mask();
-            MultiFab::Multiply(*phiGrav, mask, 0, 0, 1, 0);
+            MultiFab::Multiply(*gravPotential, mask, 0, 0, 1, 0);
         }
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-        for (MFIter mfi(*phiGrav, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        for (MFIter mfi(*gravPotential, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const Box& box = mfi.tilebox();
 
-            auto phi = (*phiGrav)[mfi].array();
+            auto phi = (*gravPotential)[mfi].array();
             auto vol = getLevel(lev).Volume()[mfi].array();
 
             // Compute the norm of the difference between the calculated potential

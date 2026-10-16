@@ -34,7 +34,7 @@ grid = ImageGrid(fig, 111, nrows_ncols=(2, 2),
                  label_mode="L", cbar_mode="each")
 
 
-fields = ["Temp", "magvel", "X(C12)", "enuc"]
+fields = ["Temp", "flow_speed", "X(C12)", "enuc"]
 
 for i, f in enumerate(fields):
 
@@ -47,7 +47,7 @@ for i, f in enumerate(fields):
         sp.set_cmap(f, "magma")
         sp.set_zlim(f, 1.e-8, 1.e-4)
 
-    elif f == "magvel":
+    elif f == "flow_speed":
         sp.set_log(f, False)
         #sp.set_zlim(f, 1.e-3, 2.5e-2)
         sp.set_cmap(f, "cividis")

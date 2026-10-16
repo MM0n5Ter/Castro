@@ -132,7 +132,7 @@ amr.small_plot_per         = 5.e-4      # number of seconds between plotfiles
 amr.small_plot_vars = density Temp
 
 #if AMREX_SPACEDIM == 3
-  amr.derive_small_plot_vars = abar magvel enuc
+  amr.derive_small_plot_vars = abar flow_speed enuc
 #elif AMREX_SPACEDIM == 2
   amr.derive_small_plot_vars = abar x_velocity y_velocity z_velocity enuc
 #endif

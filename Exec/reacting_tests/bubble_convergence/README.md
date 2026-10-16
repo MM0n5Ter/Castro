@@ -65,9 +65,9 @@ This setup can also be used just to test HSE convergence.
 
   We can get the maximum velocity as:
   ```
-  fextrema.gnu.ex bubble_64_plt00667 | grep -i magvel
-  fextrema.gnu.ex bubble_128_plt01334 | grep -i magvel
-  fextrema.gnu.ex bubble_256_plt02667 | grep -i magvel
+  fextrema.gnu.ex bubble_64_plt00667 | grep -i flow_speed
+  fextrema.gnu.ex bubble_128_plt01334 | grep -i flow_speed
+  fextrema.gnu.ex bubble_256_plt02667 | grep -i flow_speed
   ```
 
   This gives (for max |U|):

@@ -67,7 +67,7 @@
 
 using namespace amrex;
 
-bool         HydroSim::signalStopJob = false;
+bool         HydroSim::stopRunRequested = false;
 
 #ifdef REACTIONS
 std::vector<std::string> HydroSim::burn_weight_names;
@@ -2080,7 +2080,7 @@ HydroSim::post_timestep (int iteration_local)
                    << "Ending simulation because we are above the user-specified stopping criterion threshold."
                    << std::endl;
 
-    signalStopJob = true;
+    stopRunRequested = true;
 
     // Write out a checkpoint.
 
@@ -2488,9 +2488,9 @@ HydroSim::okToContinue ()
       return 1;
     }
 
-    if (signalStopJob) {
+    if (stopRunRequested) {
       if (ParallelDescriptor::IOProcessor()) {
-        std::cout << " Signalling a stop of the run due to signalStopJob = true." << std::endl;
+        std::cout << " Signalling a stop of the run due to stopRunRequested = true." << std::endl;
       }
       return 0;
     }

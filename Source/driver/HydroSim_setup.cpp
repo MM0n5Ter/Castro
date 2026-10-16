@@ -536,7 +536,7 @@ HydroSim::variableSetUp ()
 #ifdef GRAVITY
   set_scalar_bc(bc,phys_bc);
   replace_inflow_bc(bc);
-  desc_lst.setComponent(Potential_Type,0,"phiGrav",bc,defaultBndryFunc);
+  desc_lst.setComponent(Potential_Type,0,"gravPotential",bc,defaultBndryFunc);
   set_vel_bc<0>(bc,phys_bc);
   replace_inflow_bc(bc);
   desc_lst.setComponent(Gravity_Type,0,"grav_x",bc,defaultBndryFunc);
@@ -719,21 +719,21 @@ HydroSim::variableSetUp ()
   //
   // Mach number(M)
   //
-  derive_lst.add("MachNumber",IndexType::TheCellType(),1,derived_fields::derive_mach,the_same_box);
-  derive_lst.addComponent("MachNumber",desc_lst,State_Type, URHO, NUM_STATE);
+  derive_lst.add("LocalMach",IndexType::TheCellType(),1,derived_fields::derive_mach,the_same_box);
+  derive_lst.addComponent("LocalMach",desc_lst,State_Type, URHO, NUM_STATE);
 
 #if (AMREX_SPACEDIM == 1)
   //
   // Wave speed u+c
   //
-  derive_lst.add("uplusc",IndexType::TheCellType(),1,derived_fields::derive_u_plus_cs,the_same_box);
-  derive_lst.addComponent("uplusc",desc_lst,State_Type, URHO, NUM_STATE);
+  derive_lst.add("u_plus_cs",IndexType::TheCellType(),1,derived_fields::derive_u_plus_cs,the_same_box);
+  derive_lst.addComponent("u_plus_cs",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Wave speed u-c
   //
-  derive_lst.add("uminusc",IndexType::TheCellType(),1,derived_fields::derive_u_minus_cs,the_same_box);
-  derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
+  derive_lst.add("u_minus_cs",IndexType::TheCellType(),1,derived_fields::derive_u_minus_cs,the_same_box);
+  derive_lst.addComponent("u_minus_cs",desc_lst,State_Type, URHO, NUM_STATE);
 #endif
 
   //
@@ -771,13 +771,13 @@ HydroSim::variableSetUp ()
   //
   // Vorticity
   //
-  derive_lst.add("magvort",IndexType::TheCellType(),1,derived_fields::derive_vorticity,grow_box_by_one);
+  derive_lst.add("vorticity_norm",IndexType::TheCellType(),1,derived_fields::derive_vorticity,grow_box_by_one);
   // Here we exploit the fact that UMX = URHO + 1
   //   in order to use the correct interpolation.
   if (UMX != URHO+1) {
     amrex::Error("We are assuming UMX = URHO + 1 in HydroSim_setup.cpp");
   }
-  derive_lst.addComponent("magvort",desc_lst,State_Type,URHO,4);
+  derive_lst.addComponent("vorticity_norm",desc_lst,State_Type,URHO,4);
 
   //
   // Div(u)
@@ -789,25 +789,25 @@ HydroSim::variableSetUp ()
   //
   // Internal energy as derived from rho*E, part of the state
   //
-  derive_lst.add("eint_E",IndexType::TheCellType(),1,derived_fields::derive_eint_from_total,the_same_box);
-  derive_lst.addComponent("eint_E",desc_lst,State_Type,URHO,NUM_STATE);
+  derive_lst.add("eint_from_rhoE",IndexType::TheCellType(),1,derived_fields::derive_eint_from_total,the_same_box);
+  derive_lst.addComponent("eint_from_rhoE",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Internal energy as derived from rho*e, part of the state
   //
-  derive_lst.add("eint_e",IndexType::TheCellType(),1,derived_fields::derive_eint_from_rhoe,the_same_box);
-  derive_lst.addComponent("eint_e",desc_lst,State_Type,URHO,NUM_STATE);
+  derive_lst.add("eint_from_rhoe",IndexType::TheCellType(),1,derived_fields::derive_eint_from_rhoe,the_same_box);
+  derive_lst.addComponent("eint_from_rhoe",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Log(density)
   //
-  derive_lst.add("logden",IndexType::TheCellType(),1,derived_fields::derive_log_density,the_same_box);
-  derive_lst.addComponent("logden",desc_lst,State_Type,URHO,NUM_STATE);
+  derive_lst.add("log10_density",IndexType::TheCellType(),1,derived_fields::derive_log_density,the_same_box);
+  derive_lst.addComponent("log10_density",desc_lst,State_Type,URHO,NUM_STATE);
 
-  derive_lst.add("StateErr",IndexType::TheCellType(),3,derived_fields::derive_state_copy,grow_box_by_one);
-  derive_lst.addComponent("StateErr",desc_lst,State_Type,URHO,1);
-  derive_lst.addComponent("StateErr",desc_lst,State_Type,UTEMP,1);
-  derive_lst.addComponent("StateErr",desc_lst,State_Type,USPEC,1);
+  derive_lst.add("TagState",IndexType::TheCellType(),3,derived_fields::derive_state_copy,grow_box_by_one);
+  derive_lst.addComponent("TagState",desc_lst,State_Type,URHO,1);
+  derive_lst.addComponent("TagState",desc_lst,State_Type,UTEMP,1);
+  derive_lst.addComponent("TagState",desc_lst,State_Type,USPEC,1);
 
   //
   // X from rhoX
@@ -868,20 +868,20 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("enuc", desc_lst, Reactions_Type, 0, 1);
 #endif
 
-  derive_lst.add("magvel",IndexType::TheCellType(),1,derived_fields::derive_speed,the_same_box);
-  derive_lst.addComponent("magvel",desc_lst,State_Type,URHO,1);
-  derive_lst.addComponent("magvel",desc_lst,State_Type,UMX,3);
+  derive_lst.add("flow_speed",IndexType::TheCellType(),1,derived_fields::derive_speed,the_same_box);
+  derive_lst.addComponent("flow_speed",desc_lst,State_Type,URHO,1);
+  derive_lst.addComponent("flow_speed",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("radvel",IndexType::TheCellType(),1,derived_fields::derive_radial_velocity,the_same_box);
-  derive_lst.addComponent("radvel",desc_lst,State_Type,URHO,1);
-  derive_lst.addComponent("radvel",desc_lst,State_Type,UMX,3);
+  derive_lst.add("radial_velocity",IndexType::TheCellType(),1,derived_fields::derive_radial_velocity,the_same_box);
+  derive_lst.addComponent("radial_velocity",desc_lst,State_Type,URHO,1);
+  derive_lst.addComponent("radial_velocity",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("circvel",IndexType::TheCellType(),1,derived_fields::derive_circular_velocity,the_same_box);
-  derive_lst.addComponent("circvel",desc_lst,State_Type,URHO,1);
-  derive_lst.addComponent("circvel",desc_lst,State_Type,UMX,3);
+  derive_lst.add("circular_velocity",IndexType::TheCellType(),1,derived_fields::derive_circular_velocity,the_same_box);
+  derive_lst.addComponent("circular_velocity",desc_lst,State_Type,URHO,1);
+  derive_lst.addComponent("circular_velocity",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("magmom",IndexType::TheCellType(),1,derived_fields::derive_momentum_magnitude,the_same_box);
-  derive_lst.addComponent("magmom",desc_lst,State_Type,UMX,3);
+  derive_lst.add("momentum_norm",IndexType::TheCellType(),1,derived_fields::derive_momentum_magnitude,the_same_box);
+  derive_lst.addComponent("momentum_norm",desc_lst,State_Type,UMX,3);
 
   derive_lst.add("angular_momentum_x",IndexType::TheCellType(),1,derived_fields::derive_ang_mom_x,the_same_box);
   derive_lst.addComponent("angular_momentum_x",desc_lst,State_Type,URHO,1);
@@ -896,8 +896,8 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("angular_momentum_z",desc_lst,State_Type,UMX,3);
 
 #ifdef GRAVITY
-  derive_lst.add("maggrav",IndexType::TheCellType(),1,derived_fields::derive_grav_magnitude,the_same_box);
-  derive_lst.addComponent("maggrav",desc_lst,Gravity_Type,0,3);
+  derive_lst.add("gravity_norm",IndexType::TheCellType(),1,derived_fields::derive_grav_magnitude,the_same_box);
+  derive_lst.addComponent("gravity_norm",desc_lst,Gravity_Type,0,3);
 #endif
 
 #ifdef AMREX_PARTICLES

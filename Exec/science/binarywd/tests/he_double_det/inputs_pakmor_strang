@@ -435,7 +435,7 @@ amr.derive_plot_vars = ALL
 amr.small_plot_vars = density Temp
 
 # Derived variables to add to small plot files
-amr.derive_small_plot_vars = abar enuc MachNumber magvel magvort X(He4) X(C12) X(O16)
+amr.derive_small_plot_vars = abar enuc LocalMach flow_speed vorticity_norm X(He4) X(C12) X(O16)
 
 # Name of the diagnostic sum output files
 amr.data_log = star_diag.out primary_diag.out secondary_diag.out rotation_diag.out
