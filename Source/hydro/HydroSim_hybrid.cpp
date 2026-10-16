@@ -6,7 +6,7 @@
 using namespace amrex;
 
 void
-HydroSim::assemble_old_hybrid_source(MultiFab& source, MultiFab& state_old, Real time, Real dt)
+HydroSim::assemble_old_hybrid_source(MultiFab& state_old, Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);
@@ -41,7 +41,7 @@ HydroSim::assemble_old_hybrid_source(MultiFab& source, MultiFab& state_old, Real
 
 
 void
-HydroSim::assemble_new_hybrid_source(MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_hybrid_source(MultiFab& state_old, MultiFab& state_new, Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);

@@ -304,7 +304,7 @@ HydroSim::assemble_new_gravity (Real time)
     }
 }
 
-void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in, Real time, Real dt)
+void HydroSim::assemble_old_gravity_source(MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);
@@ -453,8 +453,8 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
     }
 }
 
-void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& state_old, MultiFab& state_new,
-                                          Real time, Real dt)
+void HydroSim::assemble_new_gravity_source(MultiFab& state_old, MultiFab& state_new,
+                                          Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);

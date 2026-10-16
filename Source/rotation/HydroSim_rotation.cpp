@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Real time, Real dt)
+HydroSim::assemble_old_rotation_source(MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);
@@ -53,7 +53,7 @@ HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Rea
 
 
 void
-HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_rotation_source(MultiFab& state_old, MultiFab& state_new, Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(time);

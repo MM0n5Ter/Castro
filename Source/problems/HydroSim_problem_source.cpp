@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-HydroSim::assemble_old_ext_source(MultiFab& source, const MultiFab& state_in, Real time, Real dt)
+HydroSim::assemble_old_ext_source(const MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
     const Real strt_time = ParallelDescriptor::second();
 
@@ -16,7 +16,7 @@ HydroSim::assemble_old_ext_source(MultiFab& source, const MultiFab& state_in, Re
 
     ext_src.setVal(0.0);
 
-    fill_ext_source(time, dt, state_in, state_in, ext_src);
+    fill_ext_source(state_in, state_in, time, dt, ext_src);
 
     Real mult_factor = 1.0;
 
@@ -42,7 +42,7 @@ HydroSim::assemble_old_ext_source(MultiFab& source, const MultiFab& state_in, Re
 
 
 void
-HydroSim::assemble_new_ext_source(MultiFab& source, const MultiFab& state_old, const MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_ext_source(const MultiFab& state_old, const MultiFab& state_new, Real time, Real dt, MultiFab& source)
 {
     const Real strt_time = ParallelDescriptor::second();
 
@@ -75,7 +75,7 @@ HydroSim::assemble_new_ext_source(MultiFab& source, const MultiFab& state_old, c
         mult_factor = -0.5;
     }
 
-    fill_ext_source(old_time, dt, state_old, state_old, ext_src);
+    fill_ext_source(state_old, state_old, old_time, dt, ext_src);
 
     MultiFab::Saxpy(source, mult_factor, ext_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 
@@ -89,7 +89,7 @@ HydroSim::assemble_new_ext_source(MultiFab& source, const MultiFab& state_old, c
         mult_factor = 0.5;
     }
 
-    fill_ext_source(time, dt, state_old, state_new, ext_src);
+    fill_ext_source(state_old, state_new, time, dt, ext_src);
 
     MultiFab::Saxpy(source, mult_factor, ext_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
 
@@ -113,8 +113,8 @@ HydroSim::assemble_new_ext_source(MultiFab& source, const MultiFab& state_old, c
 
 
 void
-HydroSim::fill_ext_source (const Real time, const Real dt,
-                         const MultiFab& state_old, const MultiFab& state_new,
+HydroSim::fill_ext_source (const MultiFab& state_old, const MultiFab& state_new,
+                         const Real time, const Real dt,
                          MultiFab& ext_src)
 {
 

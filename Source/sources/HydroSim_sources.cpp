@@ -120,7 +120,7 @@ HydroSim::handle_old_sources(
 #ifdef MHD
                 MultiFab& Bx, MultiFab& By, MultiFab& Bz,
 #endif
-                MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, bool apply_to_state)
+                MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, SourceUpdate source_update)
 {
 
     BL_PROFILE("HydroSim::handle_old_sources()");
@@ -136,10 +136,10 @@ HydroSim::handle_old_sources(
     }
 
     for (int n = 0; n < num_src; ++n) {
-        assemble_old_source(n, source, state_old, time, dt);
+        assemble_old_source(n, state_old, time, dt, source);
     }
 
-    if (apply_to_state) {
+    if (source_update == SourceUpdate::ApplyToState) {
         apply_source_and_clean(
 #ifdef MHD
                                Bx, By, Bz,
@@ -158,7 +158,7 @@ HydroSim::handle_old_sources(
     // Optionally print out diagnostic information about how much
     // these source terms changed the state.
 
-    if (apply_to_state && print_update_diagnostics) {
+    if (source_update == SourceUpdate::ApplyToState && print_update_diagnostics) {
       evaluate_and_print_source_change(get_old_data(Source_Type), dt, "old-time sources");
     }
 
@@ -182,7 +182,7 @@ HydroSim::handle_old_sources(
 }
 
 advance_status
-HydroSim::handle_old_sources (Real time, Real dt, bool apply_to_state)
+HydroSim::handle_old_sources (Real time, Real dt, SourceUpdate source_update)
 {
     advance_status status {};
 
@@ -201,7 +201,7 @@ HydroSim::handle_old_sources (Real time, Real dt, bool apply_to_state)
                    Bx_old, By_old, Bz_old,
 #endif
                    old_source, Sborder, S_new, time, dt,
-                   apply_to_state);
+                   source_update);
 
     return status;
 }
@@ -211,7 +211,7 @@ HydroSim::handle_new_sources(
 #ifdef MHD
                 MultiFab& Bx, MultiFab& By, MultiFab& Bz,
 #endif
-                MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, bool apply_to_state)
+                MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, SourceUpdate source_update)
 {
 
     BL_PROFILE("HydroSim::handle_new_sources()");
@@ -227,10 +227,10 @@ HydroSim::handle_new_sources(
     // Construct the new-time source terms.
 
     for (int n = 0; n < num_src; ++n) {
-        assemble_new_source(n, source, state_old, state_new, time, dt);
+        assemble_new_source(n, state_old, state_new, time, dt, source);
     }
 
-    if (apply_to_state) {
+    if (source_update == SourceUpdate::ApplyToState) {
         apply_source_and_clean(
 #ifdef MHD
                                Bx, By, Bz,
@@ -290,7 +290,7 @@ HydroSim::handle_new_sources (Real time, Real dt)
 }
 
 void
-HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Real time, Real dt)
+HydroSim::assemble_old_source(int src, MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
     BL_PROFILE("HydroSim::assemble_old_source()");
 
@@ -300,46 +300,46 @@ HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Rea
 
 #ifdef SPONGE
     case sponge_src:
-        assemble_old_sponge_source(source, state_in, time, dt);
+        assemble_old_sponge_source(state_in, time, dt, source);
         break;
 #endif
 
     case ext_src:
-        assemble_old_ext_source(source, state_in, time, dt);
+        assemble_old_ext_source(state_in, time, dt, source);
         break;
 
     case thermo_src:
-        assemble_old_thermo_source(source, state_in, time, dt);
+        assemble_old_thermo_source(state_in, time, dt, source);
         break;
 
     case geom_src:
-        assemble_old_geom_source(source, state_in, time, dt);
+        assemble_old_geom_source(state_in, time, dt, source);
         break;
 
 #ifdef DIFFUSION
     case diff_src:
         if (!(time_integration_method == SpectralDeferredCorrections)) {
           // for MOL or SDC, we'll compute a diffusive flux in the MOL routine
-          assemble_old_diff_source(source, state_in, time, dt);
+          assemble_old_diff_source(state_in, time, dt, source);
         }
         break;
 #endif
 
 #ifdef HYBRID_MOMENTUM
     case hybrid_src:
-        assemble_old_hybrid_source(source, state_in, time, dt);
+        assemble_old_hybrid_source(state_in, time, dt, source);
         break;
 #endif
 
 #ifdef GRAVITY
     case grav_src:
-        assemble_old_gravity_source(source, state_in, time, dt);
+        assemble_old_gravity_source(state_in, time, dt, source);
         break;
 #endif
 
 #ifdef ROTATION
     case rot_src:
-        assemble_old_rotation_source(source, state_in, time, dt);
+        assemble_old_rotation_source(state_in, time, dt, source);
         break;
 #endif
 
@@ -350,7 +350,7 @@ HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Rea
 }
 
 void
-HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_source(int src, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, MultiFab& source)
 {
     BL_PROFILE("HydroSim::assemble_new_source()");
 
@@ -360,45 +360,45 @@ HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& state_old, Mu
 
 #ifdef SPONGE
     case sponge_src:
-        assemble_new_sponge_source(source, state_old, state_new, time, dt);
+        assemble_new_sponge_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
     case ext_src:
-        assemble_new_ext_source(source, state_old, state_new, time, dt);
+        assemble_new_ext_source(state_old, state_new, time, dt, source);
         break;
 
 #ifdef MHD
     case thermo_src:
-        assemble_new_thermo_source(source, state_old, state_new, time, dt);
+        assemble_new_thermo_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
     case geom_src:
-        assemble_new_geom_source(source, state_old, state_new, time, dt);
+        assemble_new_geom_source(state_old, state_new, time, dt, source);
         break;
 
 #ifdef DIFFUSION
     case diff_src:
-        assemble_new_diff_source(source, state_old, state_new, time, dt);
+        assemble_new_diff_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
 #ifdef HYBRID_MOMENTUM
     case hybrid_src:
-        assemble_new_hybrid_source(source, state_old, state_new, time, dt);
+        assemble_new_hybrid_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
 #ifdef GRAVITY
     case grav_src:
-        assemble_new_gravity_source(source, state_old, state_new, time, dt);
+        assemble_new_gravity_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
 #ifdef ROTATION
     case rot_src:
-        assemble_new_rotation_source(source, state_old, state_new, time, dt);
+        assemble_new_rotation_source(state_old, state_new, time, dt, source);
         break;
 #endif
 
@@ -418,7 +418,7 @@ HydroSim::apply_sources()
 }
 
 // Evaluate diagnostics quantities describing the effect of an
-// update on the state. The optional parameter local determines
+// update on the state. The optional parameter scope determines
 // whether we want to do this calculation globally over all processes
 // or locally just on this processor. The latter is useful if you
 // are evaluating the contribution from multiple source changes at once
@@ -426,7 +426,7 @@ HydroSim::apply_sources()
 // Note that the resultant output is volume-weighted.
 
 Vector<Real>
-HydroSim::evaluate_source_change(const MultiFab& source, Real dt, bool local)
+HydroSim::evaluate_source_change(const MultiFab& source, Real dt, SumScope scope)
 {
 
   BL_PROFILE("HydroSim::evaluate_source_change()");
@@ -446,7 +446,7 @@ HydroSim::evaluate_source_change(const MultiFab& source, Real dt, bool local)
 
     MultiFab::AddProduct(weighted_source, source, n, volume, 0, 0, 1, 0);
 
-    update[n] = weighted_source.sum(0, local) * dt;
+    update[n] = weighted_source.sum(0, scope == SumScope::ThisRank) * dt;
 
   }
 
@@ -462,8 +462,7 @@ HydroSim::evaluate_source_change(const MultiFab& source, Real dt, bool local)
 void
 HydroSim::evaluate_and_print_source_change (const MultiFab& source, Real dt, const std::string& source_name)
 {
-    bool local = true;
-    Vector<Real> update = evaluate_source_change(source, dt, local);
+    Vector<Real> update = evaluate_source_change(source, dt, SumScope::ThisRank);
 
 #ifdef BL_LAZY
     Lazy::QueueReduction( [=] () mutable {
@@ -503,8 +502,7 @@ HydroSim::store_old_shock_flag (Real time, Real dt)
     // recompute the old sources after the burn, so this is done here
     // only for evaluating the shock flag.
 
-    const bool apply_to_state{false};
-    handle_old_sources(time, dt, apply_to_state);
+    handle_old_sources(time, dt, SourceUpdate::FillOnly);
 
     MultiFab& S_old = get_old_data(State_Type);
     MultiFab& old_source = get_old_data(Source_Type);

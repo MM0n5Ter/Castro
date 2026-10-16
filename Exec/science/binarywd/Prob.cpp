@@ -617,7 +617,7 @@ HydroSim::update_relaxation(Real time, Real dt) {
         // We'll use the "old" gravity source constructor, which is really just a first-order
         // predictor for rho * g, and apply it at the new time.
 
-        getLevel(lev).assemble_old_gravity_source(*force[lev], S_new, new_time, ldt);
+        getLevel(lev).assemble_old_gravity_source(S_new, new_time, ldt, *force[lev]);
 
         // Mask out regions covered by fine grids.
 

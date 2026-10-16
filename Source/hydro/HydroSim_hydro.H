@@ -640,24 +640,24 @@
 ///
 /// Construct hybrid source terms at old time
 ///
-/// @param source   MultiFab to save source to
 /// @param state    Old state
 /// @param time     current time
 /// @param dt       timestep
+/// @param source   MultiFab to save source to
 ///
-    void assemble_old_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
+    void assemble_old_hybrid_source(amrex::MultiFab& state, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
 
 
 ///
 /// Construct hybrid source terms at new time
 ///
-/// @param source       MultiFab to save source to
 /// @param state_old    Old state
 /// @param state_new    New state
 /// @param time         current time
 /// @param dt           timestep
+/// @param source       MultiFab to save source to
 ///
-    void assemble_new_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt);
+    void assemble_new_hybrid_source(amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
 
 
 ///

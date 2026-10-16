@@ -4,24 +4,24 @@
 ///
 /// Construct rotation source terms at old time
 ///
-/// @param source   MultiFab to save source terms to
 /// @param state    Old state
 /// @param time     current time
 /// @param dt       timestep
+/// @param source   MultiFab to save source terms to
 ///
-    void assemble_old_rotation_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
+    void assemble_old_rotation_source(amrex::MultiFab& state, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
 
 
 ///
 /// Construct rotation source terms at new time.
 ///
-/// @param source       MultiFab to save source terms to
 /// @param state_old    Old State
 /// @param state_new    New State
 /// @param time         current time
 /// @param dt           timestep
+/// @param source       MultiFab to save source terms to
 ///
-    void assemble_new_rotation_source(amrex::MultiFab& source, amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt);
+    void assemble_new_rotation_source(amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
 
 
 ///

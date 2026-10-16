@@ -10,7 +10,7 @@ using namespace amrex;
 ///
 
 void
-HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, Real time, Real dt)
+HydroSim::assemble_old_geom_source(const MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
 
   amrex::ignore_unused(source);
@@ -29,7 +29,7 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
 
   geom_src.setVal(0.0);
 
-  fill_geom_source(time, dt, state_in, geom_src);
+  fill_geom_source(state_in, time, dt, geom_src);
 
   Real mult_factor = 1.0;
 
@@ -57,8 +57,8 @@ HydroSim::assemble_old_geom_source(MultiFab& source, const MultiFab& state_in, R
 
 
 void
-HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
-                                  const MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_geom_source(const MultiFab& state_old, const MultiFab& state_new,
+                                  Real time, Real dt, MultiFab& source)
 {
 
   amrex::ignore_unused(source);
@@ -81,7 +81,7 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
   // Subtract off the old-time value first
   Real old_time = time - dt;
 
-  fill_geom_source(old_time, dt, state_old, geom_src);
+  fill_geom_source(state_old, old_time, dt, geom_src);
 
   Real mult_factor = -0.5;
 
@@ -93,7 +93,7 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
 
   mult_factor = 0.5;
 
-  fill_geom_source(time, dt, state_new, geom_src);
+  fill_geom_source(state_new, time, dt, geom_src);
 
   MultiFab::Saxpy(source, mult_factor, geom_src, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
 
@@ -119,19 +119,19 @@ HydroSim::assemble_new_geom_source(MultiFab& source, const MultiFab& state_old,
 
 
 void
-HydroSim::fill_geom_source (Real time, Real dt, const MultiFab& cons_state, MultiFab& geom_src)
+HydroSim::fill_geom_source (const MultiFab& cons_state, Real time, Real dt, MultiFab& geom_src)
 {
   if (geom.Coord() == 1) {
-      fill_RZ_geom_source(time, dt, cons_state, geom_src);
+      fill_RZ_geom_source(cons_state, time, dt, geom_src);
   } else {
-      fill_RTheta_geom_source(time, dt, cons_state, geom_src);
+      fill_RTheta_geom_source(cons_state, time, dt, geom_src);
   }
 }
 
 
 
 void
-HydroSim::fill_RZ_geom_source (Real time, Real dt, const MultiFab& cons_state, MultiFab& geom_src)
+HydroSim::fill_RZ_geom_source (const MultiFab& cons_state, Real time, Real dt, MultiFab& geom_src)
 {
 
   // Compute the geometric source for axisymmetric coordinates (R-Z)
@@ -175,7 +175,7 @@ HydroSim::fill_RZ_geom_source (Real time, Real dt, const MultiFab& cons_state, M
 
 
 void
-HydroSim::fill_RTheta_geom_source (Real time, Real dt, const MultiFab& cons_state, MultiFab& geom_src)
+HydroSim::fill_RTheta_geom_source (const MultiFab& cons_state, Real time, Real dt, MultiFab& geom_src)
 {
 
   // Compute the geometric source resulting from taking the divergence of (rho U U)

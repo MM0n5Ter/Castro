@@ -55,8 +55,6 @@ HydroSim::do_advance_sdc (Real time,
     MultiFab& old_source = get_old_data(Source_Type);
     MultiFab& new_source = get_new_data(Source_Type);
 
-    auto apply_sources_to_state = false;
-
     const bool final_iteration = sdc_iteration == sdc_order+sdc_extra-1;
 
     AMREX_ALWAYS_ASSERT(static_cast<int>(k_new.size()) >= SDC_NODES &&
@@ -115,7 +113,7 @@ HydroSim::do_advance_sdc (Real time,
                     }
 
                     // we pass in the stage time here
-                    handle_old_sources(old_source, Sreact, Sreact, node_time, dt, apply_sources_to_state);
+                    handle_old_sources(old_source, Sreact, Sreact, node_time, dt, SourceUpdate::FillOnly);
 
                     // fill the ghost cells for the sources -- note since we have
                     // not defined the new_source yet, we either need to copy this
@@ -140,7 +138,7 @@ HydroSim::do_advance_sdc (Real time,
                 } else {
                     // there is a ghost cell fill hidden in diffusion, so we need
                     // to pass in the time associate with Sborder
-                    handle_old_sources(old_source, Sborder, Sborder, cur_time, dt, apply_sources_to_state);
+                    handle_old_sources(old_source, Sborder, Sborder, cur_time, dt, SourceUpdate::FillOnly);
                 }
 
                 // note: we don't need a FillPatch on the sources, since they
@@ -265,7 +263,7 @@ HydroSim::do_advance_sdc (Real time,
         auto evaluate_sources_at = [&] (MultiFab& state, MultiFab& source, Real source_time) {
             clean_state(state, source_time, 0);
             fill_grown_state(Sborder, source_time, Sborder.nGrow());
-            handle_old_sources(source, Sborder, Sborder, source_time, dt, apply_sources_to_state);
+            handle_old_sources(source, Sborder, Sborder, source_time, dt, SourceUpdate::FillOnly);
             AmrLevel::FillPatch(*this, source, source.nGrow(), source_time, Source_Type, 0, NSRC);
         };
 

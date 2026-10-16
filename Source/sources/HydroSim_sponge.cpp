@@ -17,8 +17,8 @@ Real cosine_ramp (Real lower, Real upper, Real offset, Real width)
 }
 
 void
-HydroSim::assemble_old_sponge_source(MultiFab& source, MultiFab& state_in,
-                                    Real time, Real dt)
+HydroSim::assemble_old_sponge_source(MultiFab& state_in, Real time, Real dt,
+                                    MultiFab& source)
 {
     // We do not apply any sponge at the old time.
 
@@ -30,8 +30,8 @@ HydroSim::assemble_old_sponge_source(MultiFab& source, MultiFab& state_in,
 }
 
 void
-HydroSim::assemble_new_sponge_source(MultiFab& source, const MultiFab& state_old, MultiFab& state_new,
-                                    Real time, Real dt)
+HydroSim::assemble_new_sponge_source(const MultiFab& state_old, MultiFab& state_new,
+                                    Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(state_old);

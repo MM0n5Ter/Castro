@@ -158,6 +158,14 @@ density_reset_report (int verbosity)
     return DensityResetReport::Quiet;
 }
 
+// Whether a source evaluation adds the sources it builds to the
+// state, or only fills the source MultiFab.
+
+enum class SourceUpdate : std::uint8_t {
+    FillOnly = 0,
+    ApplyToState
+};
+
 // Struct that returns information about
 // why an advance failed.
 

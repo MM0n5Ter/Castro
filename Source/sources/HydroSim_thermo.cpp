@@ -3,8 +3,8 @@
 using namespace amrex;
 
 void
-HydroSim::assemble_old_thermo_source(MultiFab& source, MultiFab& state_in,
-                                    Real time, Real dt)
+HydroSim::assemble_old_thermo_source(MultiFab& state_in, Real time, Real dt,
+                                    MultiFab& source)
 {
 
     amrex::ignore_unused(time);
@@ -49,8 +49,8 @@ HydroSim::assemble_old_thermo_source(MultiFab& source, MultiFab& state_in,
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-HydroSim::assemble_new_thermo_source(MultiFab& source, const MultiFab& state_old, MultiFab& state_new,
-                                    Real time, Real dt)
+HydroSim::assemble_new_thermo_source(const MultiFab& state_old, MultiFab& state_new,
+                                    Real time, Real dt, MultiFab& source)
 {
 
     amrex::ignore_unused(source);

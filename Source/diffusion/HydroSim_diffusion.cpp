@@ -8,7 +8,7 @@ using std::string;
 #include <Diffusion.H>
 
 void
-HydroSim::assemble_old_diff_source(MultiFab& source, MultiFab& state_in, Real time, Real dt)
+HydroSim::assemble_old_diff_source(MultiFab& state_in, Real time, Real dt, MultiFab& source)
 {
     BL_PROFILE("HydroSim::assemble_old_diff_source()");
 
@@ -39,7 +39,7 @@ HydroSim::assemble_old_diff_source(MultiFab& source, MultiFab& state_in, Real ti
 }
 
 void
-HydroSim::assemble_new_diff_source(MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt)
+HydroSim::assemble_new_diff_source(MultiFab& state_old, MultiFab& state_new, Real time, Real dt, MultiFab& source)
 {
     BL_PROFILE("HydroSim::assemble_new_diff_source()");
 
