@@ -166,15 +166,58 @@ enum class SourceUpdate : std::uint8_t {
     ApplyToState
 };
 
+// Whether a check of a MultiFab covers only its valid zones or
+// its ghost zones as well.
+
+enum class GhostZones : std::uint8_t {
+    Exclude = 0,
+    Include
+};
+
 // Struct that returns information about
 // why an advance failed.
 
 struct advance_status {
+    // What a failed advance passes on to the retry: a timestep to
+    // retry with (used if positive and below the failed one) and
+    // why the advance failed.
+    struct retry_request {
+        Real suggested_dt{};
+        std::string reason{};
+    };
+
     bool success{true};
-    Real suggested_dt{};
-    std::string reason{};
+    retry_request retry{};
     advance_status() = default;
 };
+
+// Checks and fixes of State_Type data that need nothing from the
+// level the data belongs to.
+
+///
+/// Check for NaNs in the given MultiFab
+///
+/// @param state        MultiFab to check
+/// @param ghost_zones  do we check the ghost cells?
+///
+void check_for_nan (const amrex::MultiFab& state, GhostZones ghost_zones = GhostZones::Exclude);
+
+///
+/// Normalize species fractions so they sum to 1
+///
+/// @param S_new    State
+/// @param ng       number of ghost cells
+///
+void normalize_species (amrex::MultiFab& S_new, int ng);
+
+///
+/// Ensure the magnitude of the velocity is not larger than ``hydrosim.speed_limit``
+/// in any zone.
+///
+/// @param state        state
+/// @param ng           number of ghost cells
+///
+void enforce_speed_limit (amrex::MultiFab& state, int ng);
 
 #ifdef TRUE_SDC
 // Kernels of an SDC stage, for the Gauss-Lobatto and Radau node
@@ -407,15 +450,24 @@ public:
                              amrex::VisMF::How     how) override;
 
 ///
+/// Which variable lists a plotfile writes: the full plotfile
+/// variables or the small plotfile variables.
+///
+    enum class PlotfileKind : std::uint8_t {
+        Full = 0,
+        Small
+    };
+
+///
 /// @param dir      directory to write to
 /// @param os       output stream
 /// @param how      ``VisMF::How`` object
-/// @param is_small integer
+/// @param kind     full or small plotfile
 ///
     void plotFileOutput(const std::string& dir,
                         ostream& os,
                         amrex::VisMF::How how,
-                        const int is_small);
+                        const PlotfileKind kind);
 
 
 ///
@@ -600,6 +652,18 @@ public:
                          int  ncycle) override;
 
 ///
+/// The step an ::advance takes: the current simulation time, the
+/// timestep, where we are in the current AMR subcycle (counting
+/// from 1) and the number of subcycles at this level.
+///
+    struct LevelStep {
+        amrex::Real time;
+        amrex::Real dt;
+        int amr_iteration;
+        int amr_ncycle;
+    };
+
+///
 /// This routine will advance the old state data (called ``S_old`` here)
 /// to the new time, for a single level.  The new data is called
 /// ``S_new`` here.  The update includes reactions (if we are not doing
@@ -615,10 +679,7 @@ public:
 
 
 #ifndef AMREX_USE_GPU
-    amrex::Real do_advance_sdc (amrex::Real time,
-                                amrex::Real dt,
-                                int  amr_iteration,
-                                int  amr_ncycle);
+    amrex::Real do_advance_sdc (const LevelStep& step);
 #endif
 
 ///
@@ -649,16 +710,11 @@ public:
 /// it does not overshoot the ending time. This is used only for
 /// the CTU advance.
 ///
-/// @param time     the current simulation time
-/// @param dt       the timestep to advance (e.g., go from time to
-///                    time + dt)
-/// @param amr_iteration    where we are in the current AMR subcycle.  Each
-///                    level will take a number of steps to reach the
-///                    final time of the coarser level below it.  This
-///                    counter starts at 1
-/// @param amr_ncycle   the number of subcycles at this level
+/// @param step     the time, the timestep to advance (e.g., go from
+///                 time to time + dt) and the AMR subcycle position
+///                 of this advance
 ///
-    amrex::Real subcycle_advance_ctu(amrex::Real time, amrex::Real dt, int amr_iteration, int amr_ncycle);
+    amrex::Real subcycle_advance_ctu(const LevelStep& step);
 
 ///
 /// This is run at the start of an ::advance on a single level.
@@ -666,15 +722,10 @@ public:
 /// ensures the data is valid and makes copies of the MultiFabs
 /// in the old and new state in case a retry is performed.
 ///
-/// @param time     the current simulation time
-/// @param dt       the timestep to advance (e.g., go from time to
-///                    time + dt)
-/// @param amr_iteration    where we are in the current AMR subcycle.  Each
-///                    level will take a number of steps to reach the
-///                    final time of the coarser level below it.  This
-///                    counter starts at 1
+/// @param step     the time, the timestep to advance and the
+///                 AMR subcycle position of this advance
 ///
-    void initialize_advance(amrex::Real time, amrex::Real dt, int amr_iteration);
+    void initialize_advance(const LevelStep& step);
 
 ///
 /// If required, adds material lost in timestep to cumulative
@@ -708,14 +759,17 @@ public:
 ///
     advance_status finalize_do_advance (amrex::Real time, amrex::Real dt);
 
+#ifdef MHD
 ///
-/// Check for NaNs in the given MultiFab
+/// The face-centered magnetic field of a level: one MultiFab per
+/// field component, each on the faces normal to that direction.
 ///
-/// @param state        MultiFab to check
-/// @param check_ghost  do we check the ghost cells?
-///
-    static void check_for_nan(const amrex::MultiFab& state, int check_ghost=0);
-
+    struct MagFaceFields {
+        amrex::MultiFab& x;
+        amrex::MultiFab& y;
+        amrex::MultiFab& z;
+    };
+#endif
 
 #include <HydroSim_sources.H>
 
@@ -730,9 +784,20 @@ public:
 #endif
 
 ///
+/// Which state an estimate is taken from: the old-time or the
+/// new-time data of this level.
+///
+    enum class StateTime : std::uint8_t {
+        Old = 0,
+        New
+    };
+
+///
 /// Estimate time step.
 ///
-    amrex::Real estTimeStep (int is_new = 1);
+/// @param state_time   estimate from the old or the new state
+///
+    amrex::Real estTimeStep (StateTime state_time = StateTime::New);
 
 ///
 /// Compute initial time step.
@@ -943,17 +1008,13 @@ public:
 ///
 /// Reset the internal energy
 ///
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
+/// @param B        face-centered magnetic field
 /// @param State    Current state (MultiFab)
 /// @param ng       number of ghost cells
 ///
     void reset_internal_energy (
 #ifdef MHD
-                                amrex::MultiFab& Bx,
-                                amrex::MultiFab& By,
-                                amrex::MultiFab& Bz,
+                                const MagFaceFields& B,
 #endif
                                 amrex::MultiFab& State, int ng);
 
@@ -979,28 +1040,20 @@ public:
 #ifdef MHD
 ///
 /// Add magnetic contribution to energy density
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
+/// @param B        face-centered magnetic field
 /// @param state    the state to operate on
 ///
     static void add_magnetic_e (
-        amrex::MultiFab& Bx,
-        amrex::MultiFab& By,
-        amrex::MultiFab& Bz,
+        const MagFaceFields& B,
         amrex::MultiFab& state);
 
 ///
 /// Check if divergence of B is zero at initialization
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
+/// @param B        face-centered magnetic field
 /// @param state    the state to operate on
 ///
     void check_div_B (
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
+                      const MagFaceFields& B,
                       amrex::MultiFab& state);
 
 #endif
@@ -1010,18 +1063,14 @@ public:
 ///
 /// Compute the current temperature
 ///
-/// @param Bx       magnetic field in x
-/// @param By       magnetic field in y
-/// @param Bz       magnetic field in z
+/// @param B        face-centered magnetic field
 /// @param state    the state to operate on
 /// @param time     current time
 /// @param ng       number of ghost cells
 ///
     void computeTemp (
 #ifdef MHD
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
+                      const MagFaceFields& B,
 #endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
@@ -1176,22 +1225,22 @@ public:
 
 
 ///
+/// Where a reflux is done: right after the advance of the levels it
+/// synchronizes, or in post_timestep() once the fine levels are done.
+///
+    enum class RefluxStage : std::uint8_t {
+        AfterAdvance = 0,
+        PostTimestep
+    };
+
+///
 /// Do refluxing
 ///
 /// @param crse_level         coarse AMR level index
 /// @param fine_level         fine AMR level index
-/// @param in_post_timestep   true if called from post_timestep()
+/// @param stage              where the reflux is done (see RefluxStage)
 ///
-    void reflux (int crse_level, int fine_level, bool in_post_timestep);
-
-
-///
-/// Normalize species fractions so they sum to 1
-///
-/// @param S_new    State
-/// @param ng       number of ghost cells
-///
-    static void normalize_species (amrex::MultiFab& S_new, int ng);
+    void reflux (int crse_level, int fine_level, RefluxStage stage);
 
 
 ///
@@ -1204,7 +1253,7 @@ public:
 ///
     static void enforce_consistent_e (
 #ifdef MHD
-                               amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
+                               const MagFaceFields& B,
 #endif
                                amrex::MultiFab& S);
 
@@ -1223,15 +1272,6 @@ public:
     advance_status check_for_negative_density ();
 
 ///
-/// Ensure the magnitude of the velocity is not larger than ``hydrosim.speed_limit``
-/// in any zone.
-///
-/// @param state        state
-/// @param ng           number of ghost cells
-///
-    static void enforce_speed_limit (amrex::MultiFab& state, int ng);
-
-///
 /// Given ``State_Type`` state data, perform a number of cleaning steps to make
 /// sure the data is sensible.
 ///
@@ -1241,7 +1281,7 @@ public:
 ///
     void clean_state (
 #ifdef MHD
-                      amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
+                      const MagFaceFields& B,
 #endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 

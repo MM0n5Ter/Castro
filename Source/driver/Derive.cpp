@@ -46,10 +46,8 @@ void fill_eos_state (int i, int j, int k, Array4<Real const> const& dat, Real rh
   }
 }
 
-#ifdef __cplusplus
-extern "C"
+namespace derived_fields
 {
-#endif
 
     // These routines are called in an MFIter loop, so we do not
     // need to explicitly synchronize after GPU kernels.
@@ -1221,6 +1219,4 @@ extern "C"
 
 #endif
 
-#ifdef __cplusplus
-}
-#endif
+} // namespace derived_fields

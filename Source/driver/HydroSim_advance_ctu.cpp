@@ -77,7 +77,7 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     // above this level.
 
     if (do_reflux && level < max_level_to_advance) {
-        reflux(level, max_level_to_advance, false);
+        reflux(level, max_level_to_advance, RefluxStage::AfterAdvance);
     }
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
@@ -118,10 +118,10 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
     const int max_level_to_advance = finest_level_advanced();
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        if (!(status.suggested_dt > 0.0_rt && status.suggested_dt < dt)) {
+        if (!(status.retry.suggested_dt > 0.0_rt && status.retry.suggested_dt < dt)) {
             getLevel(lev).dt_subcycle = std::min(dt, getLevel(lev).dt_subcycle) * retry_subcycle_factor;
         } else {
-            getLevel(lev).dt_subcycle = status.suggested_dt;
+            getLevel(lev).dt_subcycle = status.retry.suggested_dt;
         }
     }
 
@@ -175,7 +175,7 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 
 
 Real
-HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration, int amr_ncycle)
+HydroSim::subcycle_advance_ctu(const LevelStep& step)
 {
     BL_PROFILE("HydroSim::subcycle_advance_ctu()");
 
@@ -185,10 +185,10 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
     // for example from the post-step regrid algorithm.
 
     if (dt_subcycle == 1.e200) {
-        dt_subcycle = dt;
+        dt_subcycle = step.dt;
     }
 
-    Real subcycle_time = time;
+    Real subcycle_time = step.time;
 
     Real dt_new = 1.e200;
 
@@ -210,10 +210,10 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
 
     AMREX_ASSERT(dt_cutoff > eps);
 
-    const Real end_time = time + dt;
+    const Real end_time = step.time + step.dt;
     const Real subcycle_end_time = (1.0 - eps) * end_time;
     const Real last_subcycle_time = (1.0 - dt_cutoff) * end_time;
-    const Real min_dt_subcycle = dt_cutoff * time;
+    const Real min_dt_subcycle = dt_cutoff * step.time;
 
     auto do_swap = false;
 
@@ -349,7 +349,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
                 if (!(use_retry)) {
                     amrex::Abort("Advance was unsuccessful.");
                 } else {
-                    amrex::Print() << "Advance was unsuccessful with reason: " << status.reason << "; proceeding to a retry." << std::endl << std::endl;
+                    amrex::Print() << "Advance was unsuccessful with reason: " << status.retry.reason << "; proceeding to a retry." << std::endl << std::endl;
                 }
                 break;
             }
@@ -418,7 +418,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
                 if (getLevel(lev).prev_state[k]->hasOldData()) {
                     getLevel(lev).state[k].replaceOldData(*getLevel(lev).prev_state[k]);
                 }
-                getLevel(lev).state[k].setTimeLevel(end_time, dt, 0.0);
+                getLevel(lev).state[k].setTimeLevel(end_time, step.dt, 0.0);
                 getLevel(lev).prev_state[k]->setTimeLevel(end_time, dt_subcycle, 0.0);
             }
         }
@@ -433,7 +433,7 @@ HydroSim::subcycle_advance_ctu(const Real time, const Real dt, int amr_iteration
             // finest level and this is not the last iteration.
 
             for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                if (!(amr_iteration < amr_ncycle && lev == parent->finestLevel())) {
+                if (!(step.amr_iteration < step.amr_ncycle && lev == parent->finestLevel())) {
                     getLevel(lev).keep_prev_state = true;
                 }
             }

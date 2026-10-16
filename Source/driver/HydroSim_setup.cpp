@@ -694,52 +694,52 @@ HydroSim::variableSetUp ()
   //
   // Pressure
   //
-  derive_lst.add("pressure",IndexType::TheCellType(),1,hs_derpres,the_same_box);
+  derive_lst.add("pressure",IndexType::TheCellType(),1,derived_fields::hs_derpres,the_same_box);
   derive_lst.addComponent("pressure",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Kinetic energy
   //
-  derive_lst.add("kineng",IndexType::TheCellType(),1,hs_derkineng,the_same_box);
+  derive_lst.add("kineng",IndexType::TheCellType(),1,derived_fields::hs_derkineng,the_same_box);
   derive_lst.addComponent("kineng",desc_lst,State_Type, URHO, 1);
   derive_lst.addComponent("kineng",desc_lst,State_Type, UMX, 3);
 
   //
   // Sound speed (c)
   //
-  derive_lst.add("soundspeed",IndexType::TheCellType(),1,hs_dersoundspeed,the_same_box);
+  derive_lst.add("soundspeed",IndexType::TheCellType(),1,derived_fields::hs_dersoundspeed,the_same_box);
   derive_lst.addComponent("soundspeed",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Gamma_1
   //
-  derive_lst.add("Gamma_1",IndexType::TheCellType(),1,hs_dergamma1,the_same_box);
+  derive_lst.add("Gamma_1",IndexType::TheCellType(),1,derived_fields::hs_dergamma1,the_same_box);
   derive_lst.addComponent("Gamma_1",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Mach number(M)
   //
-  derive_lst.add("MachNumber",IndexType::TheCellType(),1,hs_dermachnumber,the_same_box);
+  derive_lst.add("MachNumber",IndexType::TheCellType(),1,derived_fields::hs_dermachnumber,the_same_box);
   derive_lst.addComponent("MachNumber",desc_lst,State_Type, URHO, NUM_STATE);
 
 #if (AMREX_SPACEDIM == 1)
   //
   // Wave speed u+c
   //
-  derive_lst.add("uplusc",IndexType::TheCellType(),1,hs_deruplusc,the_same_box);
+  derive_lst.add("uplusc",IndexType::TheCellType(),1,derived_fields::hs_deruplusc,the_same_box);
   derive_lst.addComponent("uplusc",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Wave speed u-c
   //
-  derive_lst.add("uminusc",IndexType::TheCellType(),1,hs_deruminusc,the_same_box);
+  derive_lst.add("uminusc",IndexType::TheCellType(),1,derived_fields::hs_deruminusc,the_same_box);
   derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
 #endif
 
   //
   // Entropy (S)
   //
-  derive_lst.add("entropy",IndexType::TheCellType(),1,hs_derentropy,the_same_box);
+  derive_lst.add("entropy",IndexType::TheCellType(),1,derived_fields::hs_derentropy,the_same_box);
   derive_lst.addComponent("entropy",desc_lst,State_Type,URHO,NUM_STATE);
 
 #ifdef DIFFUSION
@@ -747,21 +747,21 @@ HydroSim::variableSetUp ()
     //
     // thermal conductivity (k_th)
     //
-    derive_lst.add("thermal_cond",IndexType::TheCellType(),1,hs_dercond,the_same_box);
+    derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derived_fields::hs_dercond,the_same_box);
     derive_lst.addComponent("thermal_cond",desc_lst,State_Type,URHO,NUM_STATE);
 
 
     //
     // thermal diffusivity (k_th/(rho c_v))
     //
-    derive_lst.add("diff_coeff",IndexType::TheCellType(),1,hs_derdiffcoeff,the_same_box);
+    derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derived_fields::hs_derdiffcoeff,the_same_box);
     derive_lst.addComponent("diff_coeff",desc_lst,State_Type,URHO,NUM_STATE);
 
 
     //
     // diffusion term (the divergence of thermal flux)
     //
-    derive_lst.add("diff_term",IndexType::TheCellType(),1,hs_derdiffterm,grow_box_by_one);
+    derive_lst.add("diff_term",IndexType::TheCellType(),1,derived_fields::hs_derdiffterm,grow_box_by_one);
     derive_lst.addComponent("diff_term",desc_lst,State_Type,URHO,NUM_STATE);
 
 
@@ -771,7 +771,7 @@ HydroSim::variableSetUp ()
   //
   // Vorticity
   //
-  derive_lst.add("magvort",IndexType::TheCellType(),1,hs_dermagvort,grow_box_by_one);
+  derive_lst.add("magvort",IndexType::TheCellType(),1,derived_fields::hs_dermagvort,grow_box_by_one);
   // Here we exploit the fact that UMX = URHO + 1
   //   in order to use the correct interpolation.
   if (UMX != URHO+1) {
@@ -782,29 +782,29 @@ HydroSim::variableSetUp ()
   //
   // Div(u)
   //
-  derive_lst.add("divu",IndexType::TheCellType(),1,hs_derdivu,grow_box_by_one);
+  derive_lst.add("divu",IndexType::TheCellType(),1,derived_fields::hs_derdivu,grow_box_by_one);
   derive_lst.addComponent("divu",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("divu",desc_lst,State_Type,UMX,3);
 
   //
   // Internal energy as derived from rho*E, part of the state
   //
-  derive_lst.add("eint_E",IndexType::TheCellType(),1,hs_dereint1,the_same_box);
+  derive_lst.add("eint_E",IndexType::TheCellType(),1,derived_fields::hs_dereint1,the_same_box);
   derive_lst.addComponent("eint_E",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Internal energy as derived from rho*e, part of the state
   //
-  derive_lst.add("eint_e",IndexType::TheCellType(),1,hs_dereint2,the_same_box);
+  derive_lst.add("eint_e",IndexType::TheCellType(),1,derived_fields::hs_dereint2,the_same_box);
   derive_lst.addComponent("eint_e",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Log(density)
   //
-  derive_lst.add("logden",IndexType::TheCellType(),1,hs_derlogden,the_same_box);
+  derive_lst.add("logden",IndexType::TheCellType(),1,derived_fields::hs_derlogden,the_same_box);
   derive_lst.addComponent("logden",desc_lst,State_Type,URHO,NUM_STATE);
 
-  derive_lst.add("StateErr",IndexType::TheCellType(),3,hs_derstate,grow_box_by_one);
+  derive_lst.add("StateErr",IndexType::TheCellType(),3,derived_fields::hs_derstate,grow_box_by_one);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,UTEMP,1);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,USPEC,1);
@@ -814,7 +814,7 @@ HydroSim::variableSetUp ()
   //
   for (int i = 0; i < NumSpec; i++){
     std::string spec_string = "X(" + short_spec_names_cxx[i] + ")";
-    derive_lst.add(spec_string,IndexType::TheCellType(),1,hs_derspec,the_same_box);
+    derive_lst.add(spec_string,IndexType::TheCellType(),1,derived_fields::hs_derspec,the_same_box);
     derive_lst.addComponent(spec_string,desc_lst,State_Type,URHO,1);
     derive_lst.addComponent(spec_string,desc_lst,State_Type,USPEC+i,1);
   }
@@ -824,12 +824,12 @@ HydroSim::variableSetUp ()
   // Abar and Ye
   // note: if we are using aux thermodynamics, then abar is already an aux quantity
   //
-  derive_lst.add("abar",IndexType::TheCellType(),1,hs_derabar,the_same_box);
+  derive_lst.add("abar",IndexType::TheCellType(),1,derived_fields::hs_derabar,the_same_box);
   derive_lst.addComponent("abar",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("abar",desc_lst,State_Type,USPEC,NumSpec);
 
 #ifdef REACTIONS
-  derive_lst.add("Ye",IndexType::TheCellType(),1,hs_derye,the_same_box);
+  derive_lst.add("Ye",IndexType::TheCellType(),1,derived_fields::hs_derye,the_same_box);
   derive_lst.addComponent("Ye",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("Ye",desc_lst,State_Type,USPEC,NumSpec);
 #endif
@@ -838,15 +838,15 @@ HydroSim::variableSetUp ()
   //
   // Velocities
   //
-  derive_lst.add("x_velocity",IndexType::TheCellType(),1,hs_dervel,the_same_box);
+  derive_lst.add("x_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,UMX,1);
 
-  derive_lst.add("y_velocity",IndexType::TheCellType(),1,hs_dervel,the_same_box);
+  derive_lst.add("y_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
   derive_lst.addComponent("y_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("y_velocity",desc_lst,State_Type,UMY,1);
 
-  derive_lst.add("z_velocity",IndexType::TheCellType(),1,hs_dervel,the_same_box);
+  derive_lst.add("z_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
   derive_lst.addComponent("z_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("z_velocity",desc_lst,State_Type,UMZ,1);
 
@@ -856,47 +856,47 @@ HydroSim::variableSetUp ()
   // Sound-crossing time t_s == dx / c_s
   // Ratio of these is t_s_t_e == t_s / t_e
   //
-  derive_lst.add("t_sound_t_enuc", IndexType::TheCellType(), 1, hs_derenuctimescale, the_same_box);
+  derive_lst.add("t_sound_t_enuc", IndexType::TheCellType(), 1, derived_fields::hs_derenuctimescale, the_same_box);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, State_Type, URHO, NUM_STATE);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, Reactions_Type, 0, 1);
 
   //
   // Nuclear energy generation rate
   //
-  derive_lst.add("enuc", IndexType::TheCellType(), 1, hs_derenuc, the_same_box);
+  derive_lst.add("enuc", IndexType::TheCellType(), 1, derived_fields::hs_derenuc, the_same_box);
   derive_lst.addComponent("enuc", desc_lst, State_Type, URHO, 1);
   derive_lst.addComponent("enuc", desc_lst, Reactions_Type, 0, 1);
 #endif
 
-  derive_lst.add("magvel",IndexType::TheCellType(),1,hs_dermagvel,the_same_box);
+  derive_lst.add("magvel",IndexType::TheCellType(),1,derived_fields::hs_dermagvel,the_same_box);
   derive_lst.addComponent("magvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("magvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("radvel",IndexType::TheCellType(),1,hs_derradialvel,the_same_box);
+  derive_lst.add("radvel",IndexType::TheCellType(),1,derived_fields::hs_derradialvel,the_same_box);
   derive_lst.addComponent("radvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("radvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("circvel",IndexType::TheCellType(),1,hs_dercircvel,the_same_box);
+  derive_lst.add("circvel",IndexType::TheCellType(),1,derived_fields::hs_dercircvel,the_same_box);
   derive_lst.addComponent("circvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("circvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("magmom",IndexType::TheCellType(),1,hs_dermagmom,the_same_box);
+  derive_lst.add("magmom",IndexType::TheCellType(),1,derived_fields::hs_dermagmom,the_same_box);
   derive_lst.addComponent("magmom",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_x",IndexType::TheCellType(),1,hs_derangmomx,the_same_box);
+  derive_lst.add("angular_momentum_x",IndexType::TheCellType(),1,derived_fields::hs_derangmomx,the_same_box);
   derive_lst.addComponent("angular_momentum_x",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_x",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_y",IndexType::TheCellType(),1,hs_derangmomy,the_same_box);
+  derive_lst.add("angular_momentum_y",IndexType::TheCellType(),1,derived_fields::hs_derangmomy,the_same_box);
   derive_lst.addComponent("angular_momentum_y",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_y",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_z",IndexType::TheCellType(),1,hs_derangmomz,the_same_box);
+  derive_lst.add("angular_momentum_z",IndexType::TheCellType(),1,derived_fields::hs_derangmomz,the_same_box);
   derive_lst.addComponent("angular_momentum_z",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_z",desc_lst,State_Type,UMX,3);
 
 #ifdef GRAVITY
-  derive_lst.add("maggrav",IndexType::TheCellType(),1,hs_dermaggrav,the_same_box);
+  derive_lst.add("maggrav",IndexType::TheCellType(),1,derived_fields::hs_dermaggrav,the_same_box);
   derive_lst.addComponent("maggrav",desc_lst,Gravity_Type,0,3);
 #endif
 
@@ -906,16 +906,16 @@ HydroSim::variableSetUp ()
   // in each cell.  We only intend to use it in plotfiles for debugging
   // purposes.  We'll actually set the values in writePlotFile().
   //
-  derive_lst.add("particle_count",IndexType::TheCellType(),1,hs_dernull,the_same_box);
+  derive_lst.add("particle_count",IndexType::TheCellType(),1,derived_fields::hs_dernull,the_same_box);
   derive_lst.addComponent("particle_count",desc_lst,State_Type,URHO,1);
 
-  derive_lst.add("total_particle_count",IndexType::TheCellType(),1,hs_dernull,the_same_box);
+  derive_lst.add("total_particle_count",IndexType::TheCellType(),1,derived_fields::hs_dernull,the_same_box);
   derive_lst.addComponent("total_particle_count",desc_lst,State_Type,URHO,1);
 #endif
 
 #ifdef RADIATION
   if (Radiation::do_multigroup) {
-    derive_lst.add("Ertot", IndexType::TheCellType(),1,hs_derertot,the_same_box);
+    derive_lst.add("Ertot", IndexType::TheCellType(),1,derived_fields::hs_derertot,the_same_box);
     derive_lst.addComponent("Ertot",desc_lst,Rad_Type,0,Radiation::nGroups);
   }
 #endif
@@ -925,17 +925,17 @@ HydroSim::variableSetUp ()
 //
 //Magentic Field Cell Centered
 //x component
-  derive_lst.add("B_x", IndexType::TheCellType(), 1, hs_dermagcenx, the_same_box);
+  derive_lst.add("B_x", IndexType::TheCellType(), 1, derived_fields::hs_dermagcenx, the_same_box);
   derive_lst.addComponent("B_x", desc_lst, Mag_Type_x, 0, 1);
 //y component
-  derive_lst.add("B_y", IndexType::TheCellType(), 1, hs_dermagceny, the_same_box);
+  derive_lst.add("B_y", IndexType::TheCellType(), 1, derived_fields::hs_dermagceny, the_same_box);
   derive_lst.addComponent("B_y", desc_lst, Mag_Type_y, 0, 1);
 //z component
-  derive_lst.add("B_z", IndexType::TheCellType(), 1, hs_dermagcenz, the_same_box);
+  derive_lst.add("B_z", IndexType::TheCellType(), 1, derived_fields::hs_dermagcenz, the_same_box);
   derive_lst.addComponent("B_z", desc_lst, Mag_Type_z, 0, 1);
 
 //Divergence of B
-  derive_lst.add("Div_B", IndexType::TheCellType(), 1, hs_derdivb, the_same_box);
+  derive_lst.add("Div_B", IndexType::TheCellType(), 1, derived_fields::hs_derdivb, the_same_box);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_x, 0, 1);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_y, 0, 1);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_z, 0, 1);
@@ -945,7 +945,7 @@ HydroSim::variableSetUp ()
 
 #if NAUX_NET > 0
   for (int i = 0; i < NumAux; i++)  {
-    derive_lst.add(short_aux_names_cxx[i], IndexType::TheCellType(), 1, hs_derspec, the_same_box);
+    derive_lst.add(short_aux_names_cxx[i], IndexType::TheCellType(), 1, derived_fields::hs_derspec, the_same_box);
     derive_lst.addComponent(short_aux_names_cxx[i], desc_lst, State_Type, URHO, 1);
     derive_lst.addComponent(short_aux_names_cxx[i], desc_lst, State_Type, UAUXV+i, 1);
   }

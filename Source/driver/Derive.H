@@ -5,10 +5,8 @@
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Geometry.H>
 
-#ifdef __cplusplus
-extern "C"
+namespace derived_fields
 {
-#endif
 
   void hs_derpres
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
@@ -195,9 +193,7 @@ extern "C"
 
 #endif
 
-#ifdef __cplusplus
-}
-#endif
+} // namespace derived_fields
 
 /* problem-specific includes */
 #include <Problem_Derive.H>

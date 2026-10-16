@@ -22,20 +22,17 @@ using namespace amrex;
 #ifndef MHD
 #ifndef AMREX_USE_GPU
 Real
-HydroSim::do_advance_sdc (Real time,
-                        Real dt,
-                        int  amr_iteration,
-                        int  amr_ncycle)
+HydroSim::do_advance_sdc (const LevelStep& step)
 {
 
     // this is the new "formal" SDC integration routine.
 
-    amrex::ignore_unused(amr_iteration);
-    amrex::ignore_unused(amr_ncycle);
-
     // this does the entire update in time for 1 SDC iteration.
 
     BL_PROFILE("HydroSim::do_advance_sdc()");
+
+    const Real time = step.time;
+    const Real dt = step.dt;
 
     const Real prev_time = state[State_Type].prevTime();
     const Real  cur_time = state[State_Type].curTime();

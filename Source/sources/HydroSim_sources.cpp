@@ -24,14 +24,14 @@ HydroSim::apply_source_to_state(MultiFab& target_state, const MultiFab& source, 
 void
 HydroSim::apply_source_and_clean (
 #ifdef MHD
-                                MultiFab& Bx, MultiFab& By, MultiFab& Bz,
+                                const MagFaceFields& B,
 #endif
                                 MultiFab& state, const MultiFab& source, Real time, Real dt)
 {
     apply_source_to_state(state, source, dt, 0);
     clean_state(
 #ifdef MHD
-                Bx, By, Bz,
+                B,
 #endif
                 state, time, 0);
 }
@@ -118,7 +118,7 @@ HydroSim::source_flag(int src)
 void
 HydroSim::handle_old_sources(
 #ifdef MHD
-                MultiFab& Bx, MultiFab& By, MultiFab& Bz,
+                const MagFaceFields& B,
 #endif
                 MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, SourceUpdate source_update)
 {
@@ -142,7 +142,7 @@ HydroSim::handle_old_sources(
     if (source_update == SourceUpdate::ApplyToState) {
         apply_source_and_clean(
 #ifdef MHD
-                               Bx, By, Bz,
+                               B,
 #endif
                                state_new, source, time, dt);
     }
@@ -191,14 +191,14 @@ HydroSim::handle_old_sources (Real time, Real dt, SourceUpdate source_update)
     MultiFab& old_source = get_old_data(Source_Type);
 
 #ifdef MHD
-    MultiFab& Bx_old = get_old_data(Mag_Type_x);
-    MultiFab& By_old = get_old_data(Mag_Type_y);
-    MultiFab& Bz_old = get_old_data(Mag_Type_z);
+    const MagFaceFields B_old{get_old_data(Mag_Type_x),
+                              get_old_data(Mag_Type_y),
+                              get_old_data(Mag_Type_z)};
 #endif
 
     handle_old_sources(
 #ifdef MHD
-                   Bx_old, By_old, Bz_old,
+                   B_old,
 #endif
                    old_source, Sborder, S_new, time, dt,
                    source_update);
@@ -209,7 +209,7 @@ HydroSim::handle_old_sources (Real time, Real dt, SourceUpdate source_update)
 void
 HydroSim::handle_new_sources(
 #ifdef MHD
-                MultiFab& Bx, MultiFab& By, MultiFab& Bz,
+                const MagFaceFields& B,
 #endif
                 MultiFab& source, MultiFab& state_old, MultiFab& state_new, Real time, Real dt, SourceUpdate source_update)
 {
@@ -233,7 +233,7 @@ HydroSim::handle_new_sources(
     if (source_update == SourceUpdate::ApplyToState) {
         apply_source_and_clean(
 #ifdef MHD
-                               Bx, By, Bz,
+                               B,
 #endif
                                state_new, source, time, dt);
     }
@@ -275,14 +275,14 @@ HydroSim::handle_new_sources (Real time, Real dt)
     MultiFab& new_source = get_new_data(Source_Type);
 
 #ifdef MHD
-    MultiFab& Bx_new = get_new_data(Mag_Type_x);
-    MultiFab& By_new = get_new_data(Mag_Type_y);
-    MultiFab& Bz_new = get_new_data(Mag_Type_z);
+    const MagFaceFields B_new{get_new_data(Mag_Type_x),
+                              get_new_data(Mag_Type_y),
+                              get_new_data(Mag_Type_z)};
 #endif
 
     handle_new_sources(
 #ifdef MHD
-                   Bx_new, By_new, Bz_new,
+                   B_new,
 #endif
                    new_source, Sborder, S_new, time, dt);
 

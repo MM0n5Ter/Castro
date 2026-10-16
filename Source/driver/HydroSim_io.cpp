@@ -983,7 +983,7 @@ HydroSim::writePlotFile(const std::string& dir,
                       ostream& os,
                       VisMF::How how)
 {
-  plotFileOutput(dir, os, how, 0);
+  plotFileOutput(dir, os, how, PlotfileKind::Full);
 }
 
 
@@ -992,7 +992,7 @@ HydroSim::writeSmallPlotFile (const std::string& dir,
                             ostream&       os,
                             VisMF::How     how)
 {
-  plotFileOutput(dir, os, how, 1);
+  plotFileOutput(dir, os, how, PlotfileKind::Small);
 }
 
 
@@ -1000,7 +1000,7 @@ void
 HydroSim::plotFileOutput(const std::string& dir,
                        ostream& os,
                        VisMF::How how,
-                       const int is_small)
+                       const PlotfileKind kind)
 {
 #ifdef AMREX_PARTICLES
   ParticlePlotFile(dir);
@@ -1014,8 +1014,8 @@ HydroSim::plotFileOutput(const std::string& dir,
     std::vector<std::pair<int,int> > plot_var_map;
     for (int typ = 0; typ < desc_lst.size(); typ++) {
       for (int comp = 0; comp < desc_lst[typ].nComp(); comp++) {
-        if (((parent->isStatePlotVar(desc_lst[typ].name(comp)) && is_small == 0) ||
-             (parent->isStateSmallPlotVar(desc_lst[typ].name(comp)) && is_small == 1)) &&
+        if (((parent->isStatePlotVar(desc_lst[typ].name(comp)) && kind == PlotfileKind::Full) ||
+             (parent->isStateSmallPlotVar(desc_lst[typ].name(comp)) && kind == PlotfileKind::Small)) &&
             desc_lst[typ].getType() == IndexType::TheCellType()) {
             plot_var_map.emplace_back(typ, comp);
         }
@@ -1028,8 +1028,8 @@ HydroSim::plotFileOutput(const std::string& dir,
 
     for (const auto & dd : dlist) {
 
-        if ((parent->isDerivePlotVar(dd.name()) && is_small == 0) ||
-            (parent->isDeriveSmallPlotVar(dd.name()) && is_small == 1))
+        if ((parent->isDerivePlotVar(dd.name()) && kind == PlotfileKind::Full) ||
+            (parent->isDeriveSmallPlotVar(dd.name()) && kind == PlotfileKind::Small))
         {
 #ifdef AMREX_PARTICLES
             if (dd.name() == "particle_count" ||
@@ -1239,8 +1239,8 @@ HydroSim::plotFileOutput(const std::string& dir,
     {
         for (const auto & dd : dlist) {
 
-            if ((parent->isDerivePlotVar(dd.name()) && is_small == 0) ||
-                (parent->isDeriveSmallPlotVar(dd.name()) && is_small == 1)) {
+            if ((parent->isDerivePlotVar(dd.name()) && kind == PlotfileKind::Full) ||
+                (parent->isDeriveSmallPlotVar(dd.name()) && kind == PlotfileKind::Small)) {
 
                 auto derive_dat = derive(dd.variableName(0), cur_time, nGrow);
                 MultiFab::Copy(plotMF, *derive_dat, 0, cnt, dd.numDerive(), nGrow);

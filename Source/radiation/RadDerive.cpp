@@ -8,9 +8,9 @@
 
 using namespace amrex;
 
-void hs_derertot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
-                 const FArrayBox& datfab, const Geometry& /*geomdata*/,
-                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
+void derived_fields::hs_derertot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+                                 const FArrayBox& datfab, const Geometry& /*geomdata*/,
+                                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {
 
     auto const dat = datfab.array();

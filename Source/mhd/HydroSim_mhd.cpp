@@ -707,7 +707,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 
     // Sync up state after hydro source.
 
-    clean_state(Bx_new, By_new, Bz_new, S_new, time + dt, 0);
+    clean_state({Bx_new, By_new, Bz_new}, S_new, time + dt, 0);
 
     // Check for NaN's.
 

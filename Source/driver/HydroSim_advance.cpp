@@ -57,15 +57,17 @@ HydroSim::advance (Real time,
 
     const int max_level_to_advance = finest_level_advanced();
 
+    const LevelStep step{time, dt, amr_iteration, amr_ncycle};
+
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        getLevel(lev).initialize_advance(time, dt, amr_iteration);
+        getLevel(lev).initialize_advance(step);
     }
 
     // Do the advance.
 
     if (time_integration_method == CornerTransportUpwind || time_integration_method == SimplifiedSpectralDeferredCorrections) {
 
-        dt_new = std::min(dt_new, subcycle_advance_ctu(time, dt, amr_iteration, amr_ncycle));
+        dt_new = std::min(dt_new, subcycle_advance_ctu(step));
 
 #ifndef MHD
 #ifndef AMREX_USE_GPU
@@ -74,7 +76,7 @@ HydroSim::advance (Real time,
 
       for (int iter = 0; iter < sdc_order+sdc_extra; ++iter) {
         sdc_iteration = iter;
-        dt_new = do_advance_sdc(time, dt, amr_iteration, amr_ncycle);
+        dt_new = do_advance_sdc(step);
       }
 
 #endif // TRUE_SDC
@@ -123,11 +125,11 @@ HydroSim::finest_level_advanced () const
 }
 
 
-// Re-estimate the timestep of this level from its old (is_new = 0) or
-// new (is_new = 1) state, and report whether dt exceeds what the
-// estimate allows. The estimator's output is only shown on failure.
+// Re-estimate the timestep of this level from its old or new state,
+// and report whether dt exceeds what the estimate allows. The
+// estimator's output is only shown on failure.
 static bool
-timestep_check_failed (HydroSim& lev, int is_new, Real dt)
+timestep_check_failed (HydroSim& lev, HydroSim::StateTime state_time, Real dt)
 {
     std::string estTimeStep_output;
 
@@ -135,7 +137,7 @@ timestep_check_failed (HydroSim& lev, int is_new, Real dt)
 
     {
         CoutRedirection redirection;
-        est_dt = lev.estTimeStep(is_new);
+        est_dt = lev.estTimeStep(state_time);
         estTimeStep_output = redirection.getCapturedOutput();
     }
 
@@ -203,7 +205,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
       fill_grown_state(Sborder, prev_time, NUM_GROW);
       clean_state(
 #ifdef MHD
-                  Bx_old_tmp, By_old_tmp, Bz_old_tmp,
+                  {Bx_old_tmp, By_old_tmp, Bz_old_tmp},
 #endif
                   Sborder, prev_time, NUM_GROW);
 
@@ -257,11 +259,9 @@ HydroSim::initialize_do_advance (Real time, Real dt)
                              [this] (int lev) { return getLevel(lev).iteration > 1; });
 
     if (hydrosim::check_dt_before_advance && !is_first_step_on_this_level) {
-        const int is_new = 0;
-
-        if (timestep_check_failed(*this, is_new, dt)) {
+        if (timestep_check_failed(*this, StateTime::Old, dt)) {
             status.success = false;
-            status.reason = "pre-advance timestep validity check failed";
+            status.retry.reason = "pre-advance timestep validity check failed";
         }
     }
 
@@ -295,11 +295,9 @@ HydroSim::finalize_do_advance (Real time, Real dt)
          (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections &&
           sdc_iteration >= sdc_iters - 1)) &&
         hydrosim::check_dt_after_advance) {
-        const int is_new = 1;
-
-        if (timestep_check_failed(*this, is_new, dt)) {
+        if (timestep_check_failed(*this, StateTime::New, dt)) {
             status.success = false;
-            status.reason = "post-advance timestep validity check failed";
+            status.retry.reason = "post-advance timestep validity check failed";
             return status;
         }
     }
@@ -320,18 +318,18 @@ HydroSim::finalize_do_advance (Real time, Real dt)
 
 
 void
-HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
+HydroSim::initialize_advance(const LevelStep& step)
 {
     BL_PROFILE("HydroSim::initialize_advance()");
 
     // Save the current iteration.
 
-    iteration = amr_iteration;
+    iteration = step.amr_iteration;
 
     sub_iteration = 0;
     sub_ncycle = 0;
     dt_subcycle = 1.e200;
-    dt_advance = dt;
+    dt_advance = step.dt;
 
     keep_prev_state = false;
 
@@ -346,7 +344,7 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
     // Zero it out, and add them back using the saved copy of the fluxes.
 
     if (use_post_step_regrid == 1 && level > 0 &&
-        getLevel(level-1).post_step_regrid == 1 && amr_iteration == 1) {
+        getLevel(level-1).post_step_regrid == 1 && step.amr_iteration == 1) {
         getLevel(level-1).FluxRegCrseInit();
     }
 
@@ -380,7 +378,7 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
     // Swap the new data from the last timestep into the old state data.
 
-    swap_state_time_levels(dt);
+    swap_state_time_levels(step.dt);
 
 #ifdef GRAVITY
     if (do_grav == 1) {
@@ -477,11 +475,11 @@ HydroSim::initialize_advance(Real time, Real dt, int amr_iteration)
 
     clean_state(
 #ifdef MHD
-                 get_old_data(Mag_Type_x),
-                 get_old_data(Mag_Type_y),
-                 get_old_data(Mag_Type_z),
+                 {get_old_data(Mag_Type_x),
+                  get_old_data(Mag_Type_y),
+                  get_old_data(Mag_Type_z)},
 #endif
-                  S_old, time, S_old.nGrow());
+                  S_old, step.time, S_old.nGrow());
 
 
     // Initialize the previous state data container now, so that we can

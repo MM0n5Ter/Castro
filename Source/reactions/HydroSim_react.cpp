@@ -34,14 +34,14 @@ HydroSim::handle_old_reactions (Real time, Real dt) {  // NOLINT(readability-con
 
     if (burn_success != 1) {
         status.success = false;
-        status.reason = "burn unsuccessful";
+        status.retry.reason = "burn unsuccessful";
 
         return status;
     }
 
     clean_state(
 #ifdef MHD
-                    Bx_old_tmp, By_old_tmp, Bz_old_tmp,
+                    {Bx_old_tmp, By_old_tmp, Bz_old_tmp},
 #endif
                     Sborder, time, Sborder.nGrow());
 
@@ -79,7 +79,7 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 
         if (burn_success != 1) {
             status.success = false;
-            status.reason = "burn unsuccessful";
+            status.retry.reason = "burn unsuccessful";
 
             return status;
         }
@@ -113,14 +113,14 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 
     if (burn_success != 1) {
         status.success = false;
-        status.reason = "burn unsuccessful";
+        status.retry.reason = "burn unsuccessful";
 
         return status;
     }
 
     clean_state(
 #ifdef MHD
-                    Bx_new, By_new, Bz_new,
+                    {Bx_new, By_new, Bz_new},
 #endif
                     S_new, time, S_new.nGrow());
 

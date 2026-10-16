@@ -1157,7 +1157,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
   clean_state(
 #ifdef MHD
-               Bx_new, By_new, Bz_new,
+               {Bx_new, By_new, Bz_new},
 #endif
                S_new, time + dt, 0);
 
