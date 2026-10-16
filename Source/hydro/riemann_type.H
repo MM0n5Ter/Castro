@@ -16,16 +16,6 @@ struct RiemannVars
         amrex::Real utt;
     };
 
-#ifdef RADIATION
-    struct RadiationFields
-    {
-        amrex::Real lam[NGROUPS];
-        amrex::Real er[NGROUPS];
-        amrex::Real p_g;
-        amrex::Real rhoe_g;
-        amrex::Real gamma1_gas;
-    };
-#endif
 
     amrex::Real rho;
     amrex::Real p;
@@ -33,9 +23,6 @@ struct RiemannVars
     amrex::Real gamma1;
     Velocity vel;
 
-#ifdef RADIATION
-    RadiationFields rad;
-#endif
 
 };
 
@@ -131,15 +118,6 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamma1 = qaux_arr(i-1,j,k,QGAM1);
         qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
-#ifdef RADIATION
-        ql.rad.gamma1_gas = qaux_arr(i-1,j,k,QGAM1GAS);
-        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.rad.lam[g] = qaux_arr(i-1,j,k,QFLXLIM+g);
-            qr.rad.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
-        }
-#endif
 
     } else if (idir == 1) {
         ql.vel.un = qleft_arr(i,j,k,QV);
@@ -157,15 +135,6 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamma1 = qaux_arr(i,j-1,k,QGAM1);
         qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
-#ifdef RADIATION
-        ql.rad.gamma1_gas = qaux_arr(i,j-1,k,QGAM1GAS);
-        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.rad.lam[g] = qaux_arr(i,j-1,k,QFLXLIM+g);
-            qr.rad.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
-        }
-#endif
 
     } else {
         ql.vel.un = qleft_arr(i,j,k,QW);
@@ -183,51 +152,18 @@ load_input_states(const int i, const int j, const int k, const int idir,
         ql.gamma1 = qaux_arr(i,j,k-1,QGAM1);
         qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
-#ifdef RADIATION
-        ql.rad.gamma1_gas = qaux_arr(i,j,k-1,QGAM1GAS);
-        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.rad.lam[g] = qaux_arr(i,j,k-1,QFLXLIM+g);
-            qr.rad.lam[g] = qaux_arr(i,j,k,QFLXLIM+g);
-        }
-#endif
 
     }
 
-#ifndef RADIATION
     ql.p = qleft_arr(i,j,k,QPRES);
     qr.p = qright_arr(i,j,k,QPRES);
 
     ql.rhoe = qleft_arr(i,j,k,QRHOEI);
     qr.rhoe = qright_arr(i,j,k,QRHOEI);
 
-#else
-    ql.p = qleft_arr(i,j,k,QPTOTAL);
-    ql.rhoe = qleft_arr(i,j,k,QRHOEITOT);
-    for (int g = 0; g < NGROUPS; g++) {
-      ql.rad.er[g] = qleft_arr(i,j,k,QERAD+g);
-    }
-    ql.rad.p_g = qleft_arr(i,j,k,QPRES);
-    ql.rad.rhoe_g = qleft_arr(i,j,k,QRHOEI);
-
-    qr.p = qright_arr(i,j,k,QPTOTAL);
-    qr.rhoe = qright_arr(i,j,k,QRHOEITOT);
-    for (int g = 0; g < NGROUPS; g++) {
-      qr.rad.er[g] = qright_arr(i,j,k,QERAD+g);
-    }
-    qr.rad.p_g = qright_arr(i,j,k,QPRES);
-    qr.rad.rhoe_g = qright_arr(i,j,k,QRHOEI);
-#endif
 
     // cleaning
 
-#ifdef TRUE_SDC
-    if (use_reconstructed_gamma1 == 1) {
-        ql.gamma1 = qleft_arr(i,j,k,QGAM1P);
-        qr.gamma1 = qright_arr(i,j,k,QGAM1P);
-    }
-#endif
 
     // sometime we come in here with negative energy or pressure
     // note: reset both in either case, to remain thermo

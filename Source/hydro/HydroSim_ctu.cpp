@@ -2,9 +2,6 @@
 #include <HydroSim_util.H>
 #include <advection_util.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 using namespace amrex;
 
@@ -105,31 +102,6 @@ HydroSim::ppm_interface_states(const Box& bx, const Box& vbx,
 }
 
 
-#ifdef RADIATION
-void
-HydroSim::ppm_rad_interface_states(const Box& bx, const Box& vbx,
-                           Array4<Real const> const& U_arr,
-                           Array4<Real const> const& rho_inv_arr,
-                           Array4<Real const> const& q_arr,
-                           Array4<Real const> const& qaux_arr,
-                           Array4<Real const> const& srcQ,
-                           Array<Array4<Real>, AMREX_SPACEDIM> const& qm,
-                           Array<Array4<Real>, AMREX_SPACEDIM> const& qp,
-                           Array<Array4<Real const>, AMREX_SPACEDIM> const& dloga,
-                           const Real dt) {
-
-
-  TraceFields fields{U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ, {}};
-
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-
-    fields.dloga = dloga[idir];
-    trace_ppm_rad(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
-
-    mirror_states_at_walls(bx, idir, qm[idir], qp[idir]);
-  }
-}
-#endif
 
 
 void
@@ -154,11 +126,6 @@ HydroSim::plm_interface_states(const Box& bx, const Box& vbx,
   //
 
 
-#ifdef RADIATION
-#ifndef AMREX_USE_GPU
-  amrex::Error("ppm_type <=0 is not supported in with radiation");
-#endif
-#endif
 
   TraceFields fields{U_arr, rho_inv_arr, q_arr, qaux_arr, srcQ, {}};
 

@@ -3,13 +3,7 @@
 
 #include <HydroSim_util.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
-#ifdef RADIATION
-#include <rad_util.H>
-#endif
 
 namespace hydro {
 
@@ -18,9 +12,7 @@ void src_to_prim(int i, int j, int k, const Real dt,
                  Array4<Real const> const& U_arr,
                  Array4<Real const> const& q_arr,
                  Array4<Real const> const& old_src,
-#ifndef TRUE_SDC
                  Array4<Real const> const& src_corr,
-#endif
                  Array4<Real> const& srcQ)
 {
 
@@ -36,7 +28,6 @@ void src_to_prim(int i, int j, int k, const Real dt,
 
     for (int n = 0; n < NSRC; n++) {
 
-#ifndef TRUE_SDC
         if (time_integration_method == CornerTransportUpwind && source_term_predictor == 1) {
             if (n == UMX || n == UMY || n == UMZ) {
                 srcU[n] += 0.5 * dt * src_corr(i,j,k,n);
@@ -44,7 +35,6 @@ void src_to_prim(int i, int j, int k, const Real dt,
         } else if (time_integration_method == SimplifiedSpectralDeferredCorrections  && source_term_predictor == 1) {
             srcU[n] += src_corr(i,j,k,n);
         }
-#endif
 
         srcU[n] += old_src(i,j,k,n);
     }
@@ -89,15 +79,6 @@ void src_to_prim(int i, int j, int k, const Real dt,
 ///
 struct CoupledFields
 {
-#ifdef MHD
-    Array4<Real const> Bx;
-    Array4<Real const> By;
-    Array4<Real const> Bz;
-#endif
-#ifdef RADIATION
-    Array4<Real const> Erin;
-    Array4<Real const> lam;
-#endif
 };
 
 ///
@@ -141,11 +122,6 @@ void conservative_to_primitive(int i, int j, int k,
     q(QV) = uin(i,j,k,UMY) * rhoinv;
     q(QW) = uin(i,j,k,UMZ) * rhoinv;
 
-#ifdef MHD
-    q(QMAGX) = 0.5_rt * (coupled.Bx(i+1,j,k) + coupled.Bx(i,j,k));
-    q(QMAGY) = 0.5_rt * (coupled.By(i,j+1,k) + coupled.By(i,j,k));
-    q(QMAGZ) = 0.5_rt * (coupled.Bz(i,j,k+1) + coupled.Bz(i,j,k));
-#endif
 
     // Get the internal energy, which we'll use for
     // determining the pressure.  We use a dual energy
@@ -164,11 +140,6 @@ void conservative_to_primitive(int i, int j, int k,
     }
 
     q(QTEMP) = uin(i,j,k,UTEMP);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-        q(QERAD+g) = coupled.Erin(i,j,k,g);
-    }
-#endif
 
     if (fill_passives) {
         // Load passively advected quantities into q
@@ -198,46 +169,10 @@ void conservative_to_primitive(int i, int j, int k,
     q(QTEMP) = eos_state.T;
     q(QRHOEI) = eos_state.e * q(QRHO);
     q(QPRES) = eos_state.p;
-#ifdef TRUE_SDC
-    q(QGAM1P) = eos_state.gam1;
-#endif
 
-#ifdef MHD
-    q(QPTOTAL) = q(QPRES) +
-               0.5_rt * (q(QMAGX) * q(QMAGX) +
-                         q(QMAGY) * q(QMAGY) +
-                         q(QMAGZ) * q(QMAGZ));
-#endif
 
-#ifdef RADIATION
-    qaux(QGAM1GAS) = eos_state.gam1;
-    qaux(QCSNDGAS) = eos_state.cs;
-
-    GpuArray<Real, NGROUPS> lams;
-    for (int g = 0; g < NGROUPS; g++) {
-        lams[g] = coupled.lam(i,j,k,g);
-    }
-    GpuArray<Real, NQ> qs;
-    for (int n = 0; n < NQ; n++) {
-        qs[n] = q(n);
-    }
-    const GasRadiationTotals tot = compute_ptot_ctot(lams, qs,
-                                                     qaux(QCSNDGAS));
-
-    q(QPTOTAL) = tot.ptot;
-
-    qaux(QC) = tot.ctot;
-    qaux(QGAM1) = tot.gamc_tot;
-
-    q(QRHOEITOT) = q(QRHOEI);
-    for (int g = 0; g < NGROUPS; g++) {
-        qaux(QFLXLIM+g) = coupled.lam(i,j,k,g);
-        q(QRHOEITOT) += q(QERAD+g);
-    }
-#else
     qaux(QGAM1) = eos_state.gam1;
     qaux(QC) = eos_state.cs;
-#endif
 }
 
 ///
@@ -260,19 +195,14 @@ void ctoprim(const Box& bx,
 
 void store_face_state(const Box& bx,
                          Array4<Real const> const& q_riemann,
-#ifdef RADIATION
-                         Array4<Real const> const& lambda,
-#endif
                          Array4<Real> const& qface);
 
-#ifndef MHD
 void recompute_face_thermo(const Box& bx,
                              Array4<Real> const& qedge);
 
 void face_pressure_from_temp(const Box& bx,
                              Array4<Real> const& qm,
                              Array4<Real> const& qp);
-#endif
 
 ///
 /// when using simplified-SDC, add the SDC source term predictor to
@@ -292,7 +222,6 @@ void add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
 
 void normalize_species_fluxes(const Box& bx, Array4<Real> const& flux);
 
-#ifndef MHD
 ///
 /// The fluxes the small-density limiter works on are either per unit
 /// area and time (the limiter scales them by dt * area), or already
@@ -311,7 +240,6 @@ void limit_fluxes_for_density_floor(const Box& bx,
                                       Array4<Real const> const& area,
                                       Real dt,
                                       FluxForm form);
-#endif
 
 }
 

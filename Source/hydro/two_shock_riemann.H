@@ -8,10 +8,6 @@ using namespace amrex::literals;
 
 #include <riemann_constants.H>
 #include <riemann_type.H>
-#ifdef RADIATION
-#include <Radiation.H>
-#include <rad_util.H>
-#endif
 
 namespace TwoShock {
 
@@ -610,28 +606,6 @@ namespace TwoShock {
       amrex::Real po = fp * ql.p + fm * qr.p;
       amrex::Real rhoe_o = fp * ql.rhoe + fm * qr.rhoe;
       amrex::Real gamma1_o = fp * ql.gamma1 + fm * qr.gamma1;
-    #ifdef RADIATION
-      for (int g = 0; g < NGROUPS; g++) {
-          q_riemann.rad.lam[g] = fp * ql.rad.lam[g] + fm * qr.rad.lam[g];
-      }
-
-      if (ustar == 0) {
-          // harmonic average
-          for (int g = 0; g < NGROUPS; g++) {
-              q_riemann.rad.lam[g] = 2.0_rt * (ql.rad.lam[g] * qr.rad.lam[g]) / (ql.rad.lam[g] + qr.rad.lam[g] + 1.e-50_rt);
-          }
-      }
-
-      amrex::Real po_g = fp * ql.rad.p_g + fm * qr.rad.p_g;
-      amrex::Real rhoe_o_r[NGROUPS];
-      amrex::Real po_r[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          rhoe_o_r[g] = fp * ql.rad.er[g] + fm * qr.rad.er[g];
-          po_r[g] = q_riemann.rad.lam[g] * rhoe_o_r[g];
-      }
-      amrex::Real rhoe_o_g = fp * ql.rad.rhoe_g + fm * qr.rad.rhoe_g;
-      amrex::Real gamma1_o_gas = fp * ql.rad.gamma1_gas + fm * qr.rad.gamma1_gas;
-    #endif
 
       ro = amrex::max(small_dens, ro);
 
@@ -653,23 +627,8 @@ namespace TwoShock {
       amrex::Real rstar = ro + drho;
       rstar = amrex::max(small_dens, rstar);
 
-    #ifdef RADIATION
-      amrex::Real estar_g = rhoe_o_g + drho*(rhoe_o_g + po_g)*roinv;
-
-      amrex::Real co_g = std::sqrt(std::abs(gamma1_o_gas*po_g*roinv));
-      co_g = amrex::max(riemann_aux.cs_floor, co_g);
-
-      amrex::Real pstar_g = po_g + drho*co_g*co_g;
-      pstar_g = amrex::max(pstar_g, small_pres);
-
-      amrex::Real estar_r[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          estar_r[g] = rhoe_o_r[g] + drho*(rhoe_o_r[g] + po_r[g])*roinv;
-      }
-    #else
       amrex::Real enth_o = (rhoe_o + po)*roinv*co2inv;
       amrex::Real estar = rhoe_o + (pstar - po)*enth_o;
-    #endif
 
       amrex::Real cstar = std::sqrt(std::abs(gamma1_o*pstar/rstar));
       cstar = amrex::max(cstar, riemann_aux.cs_floor);
@@ -703,18 +662,8 @@ namespace TwoShock {
       q_riemann.rho = frac*rstar + (1.0_rt - frac)*ro;
       q_riemann.vel.un = frac*ustar + (1.0_rt - frac)*uo;
 
-    #ifdef RADIATION
-      amrex::Real pface_t = frac*pstar + (1.0_rt - frac)*po;
-      amrex::Real pface_g = frac*pstar_g + (1.0_rt - frac)*po_g;
-      amrex::Real reface_g = frac*estar_g + (1.0_rt - frac)*rhoe_o_g;
-      amrex::Real reface_r[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          reface_r[g] = frac*estar_r[g] + (1.0_rt - frac)*rhoe_o_r[g];
-      }
-    #else
       q_riemann.p = frac*pstar + (1.0_rt - frac)*po;
       amrex::Real reface = frac*estar + (1.0_rt - frac)*rhoe_o;
-    #endif
 
       // as it stands now, we set things assuming that the rarefaction
       // spans the interface.  We overwrite that here depending on the
@@ -726,54 +675,20 @@ namespace TwoShock {
           // the l or r state is on the interface
           q_riemann.rho = ro;
           q_riemann.vel.un = uo;
-    #ifdef RADIATION
-          pface_t = po;
-          pface_g = po_g;
-          reface_g = rhoe_o_g;
-          for (int g = 0; g < NGROUPS; g++) {
-              reface_r[g] = rhoe_o_r[g];
-          }
-    #else
           q_riemann.p = po;
           reface = rhoe_o;
-    #endif
       }
 
       if (spin >= 0.0_rt) {
           // the star state is on the interface
           q_riemann.rho = rstar;
           q_riemann.vel.un = ustar;
-    #ifdef RADIATION
-          pface_t = pstar;
-          pface_g = pstar_g;
-          reface_g = estar_g;
-          for (int g = 0; g < NGROUPS; g++) {
-              reface_r[g] = estar_r[g];
-          }
-    #else
           q_riemann.p = pstar;
           reface = estar;
-    #endif
         }
 
-    #ifdef RADIATION
-      for (int g = 0; g < NGROUPS; g++) {
-          q_riemann.rad.er[g] = amrex::max(reface_r[g], 0.0_rt);
-      }
-
-      q_riemann.rad.p_g = pface_g;
-      q_riemann.p = pface_t;
-      q_riemann.rad.rhoe_g = reface_g;
-
-      q_riemann.rhoe = reface_g;
-      for (int g = 0; g < NGROUPS; g++) {
-          q_riemann.rhoe += reface_r[g];
-      }
-
-    #else
       q_riemann.p = amrex::max(q_riemann.p, small_pres);
       q_riemann.rhoe = reface;
-    #endif
 
       // Enforce that fluxes through a symmetry plane or wall are hard zero.
       q_riemann.vel.un = q_riemann.vel.un * riemann_aux.boundary_scale;

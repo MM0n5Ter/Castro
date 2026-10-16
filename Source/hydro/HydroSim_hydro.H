@@ -1,12 +1,4 @@
 
-#ifdef TRUE_SDC
-///
-/// Calculate primitive variables from conserved variables (uses StateData)
-///
-/// @param time     current time
-///
-    void cons_to_prim(const amrex::Real time);
-#endif
 
 ///
 /// convert the conservative state cell averages to primitive cell
@@ -53,17 +45,13 @@
 /// @param dt      timestep
 /// @param q_arr   primitive variable state array
 /// @param old_src conserved source array
-#ifndef TRUE_SDC
 /// @param src_corr source correction array
-#endif
 /// @param srcQ    primitive variable source array
 ///
     void src_to_prim(const amrex::Box& bx, const Real dt,
                      amrex::Array4<amrex::Real const> const& q_arr,
                      amrex::Array4<amrex::Real const> const& old_src,
-#ifndef TRUE_SDC
                      amrex::Array4<amrex::Real const> const& src_corr,
-#endif
                      amrex::Array4<amrex::Real> const& srcQ);
 
 ///
@@ -106,50 +94,6 @@
                   amrex::Array4<amrex::Real const> const& uin,
                   amrex::Array4<amrex::Real> const& flux);
 
-#ifdef RADIATION
-///
-/// Update the radiation flux with the artificial viscosity.  This is a 2nd order
-/// accurate implementation.
-///
-/// @param bx       the box to operate over
-/// @param idir     the coordinate direction (0 = x, 1 = y, 2 = z)
-/// @param div      the node-centered velocity divergence
-/// @param Erin     the radiation energy
-/// @param radflux  the radiation energy flux in direction idir
-///
-    void apply_rad_art_visc(const amrex::Box& bx,
-                      const int idir,
-                      amrex::Array4<amrex::Real const> const& div,
-                      amrex::Array4<amrex::Real const> const& Erin,
-                      amrex::Array4<amrex::Real> const& radflux);
-
-///
-/// The radiation part of the CTU conservative update.  Returns the
-/// largest number of frequency-space advection steps a zone took, or
-/// -1 if the comoving-frame terms were not evaluated.
-///
-    int
-    ctu_rad_cons_update(const amrex::Box& bx,
-                   amrex::Array4<amrex::Real> const& update,
-                   amrex::Array4<amrex::Real const> const& Erin,
-                   amrex::Array4<amrex::Real> const& Erout,
-                   amrex::Array4<amrex::Real const> const& radflux1,
-                   amrex::Array4<amrex::Real const> const& qx,
-                   amrex::Array4<amrex::Real const> const& area1,
-#if AMREX_SPACEDIM >= 2
-                   amrex::Array4<amrex::Real const> const& radflux2,
-                   amrex::Array4<amrex::Real const> const& qy,
-                   amrex::Array4<amrex::Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM == 3
-                   amrex::Array4<amrex::Real const> const& radflux3,
-                   amrex::Array4<amrex::Real const> const& qz,
-                   amrex::Array4<amrex::Real const> const& area3,
-#endif
-                   amrex::Array4<amrex::Real const> const& vol,
-                   const amrex::Real dt);
-
-#endif
 
 ///
 /// Compute the normal left and right primitive variable interface
@@ -211,37 +155,6 @@
                         amrex::Array<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& dloga,
                         const amrex::Real dt);
 
-#ifdef RADIATION
-///
-/// Compute the normal left and right primitive variable interface
-/// states at each interface using the piecewise parabolic method with
-/// characteristic tracing.  This implementation is for the radiation
-/// hydrodynamics.
-///
-/// @param bx       the box to operate over
-/// @param vbx      the valid region box (excludes ghost cells)
-/// @param U_arr    the conserved variable state
-/// @param rho_inv_arr the inverse density array
-/// @param q_arr    the primitive variable state
-/// @param qaux_arr the auxiliary state
-/// @param srcQ     the source terms for the primitive variable equations
-/// @param qm       left interface state in each direction, e.g. q_{i-1/2,j,k,L} in x
-/// @param qp       right interface state in each direction, e.g. q_{i-1/2,j,k,R} in x
-/// @param dloga    the geometric factor d(log area) in each direction (x = r,
-///                 y = theta); only read in 1-d and 2-d
-/// @param dt       timestep
-///
-    void ppm_rad_interface_states(const amrex::Box& bx, const amrex::Box& vbx,
-                            amrex::Array4<amrex::Real const> const& U_arr,
-                            amrex::Array4<amrex::Real const> const& rho_inv_arr,
-                            amrex::Array4<amrex::Real const> const& q_arr,
-                            amrex::Array4<amrex::Real const> const& qaux_arr,
-                            amrex::Array4<amrex::Real const> const& srcQ,
-                            amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qm,
-                            amrex::Array<amrex::Array4<amrex::Real>, AMREX_SPACEDIM> const& qp,
-                            amrex::Array<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM> const& dloga,
-                            const amrex::Real dt);
-#endif
 
 ///
 /// Compute the left and right primitive variable interface states at
@@ -350,9 +263,6 @@
 #if AMREX_SPACEDIM == 2
         amrex::Array4<amrex::Real const> area;
         amrex::Array4<amrex::Real const> vol;
-#endif
-#ifdef RADIATION
-        amrex::Array4<amrex::Real const> rad_flux;
 #endif
     };
 
@@ -573,9 +483,6 @@
     {
         amrex::Array4<amrex::Real> flux;
         amrex::Array4<amrex::Real> qface;
-#ifdef RADIATION
-        amrex::Array4<amrex::Real> rad_flux;
-#endif
     };
 
 ///
@@ -624,137 +531,9 @@
                     amrex::Array4<amrex::Real const> const& area,
                     const amrex::Real dt);
 
-#ifdef RADIATION
-    void scale_rad_flux(const amrex::Box& bx,
-                        amrex::Array4<amrex::Real> const& rflux,
-                        amrex::Array4<amrex::Real const> const& area,
-                        const amrex::Real dt);
-#endif
 
     void apply_density_floor_box(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const DensityResetReport report);
 
-#ifdef HYBRID_MOMENTUM
 
-///
-/// Construct hybrid source terms at old time
-///
-/// @param state    Old state
-/// @param time     current time
-/// @param dt       timestep
-/// @param source   MultiFab to save source to
-///
-    void assemble_old_hybrid_source(amrex::MultiFab& state, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
-
-
-///
-/// Construct hybrid source terms at new time
-///
-/// @param state_old    Old state
-/// @param state_new    New state
-/// @param time         current time
-/// @param dt           timestep
-/// @param source       MultiFab to save source to
-///
-    void assemble_new_hybrid_source(amrex::MultiFab& state_old, amrex::MultiFab& state_new, amrex::Real time, amrex::Real dt, amrex::MultiFab& source);
-
-
-///
-/// Fill ``source`` with hybrid source terms
-///
-/// @param state        Current state
-/// @param source       MultiFab to save source to
-/// @param mult_factor scaling factor applied to the source terms
-///
-    void fill_hybrid_hydro_source(amrex::MultiFab& source, const amrex::MultiFab& state, const amrex::Real mult_factor);
-
-
-///
-/// Synchronize linear momentum with hybrid momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void hybrid_to_linear_momentum(amrex::MultiFab& state, int ng = 0);
-
-
-///
-/// Synchronize hybrid momentum with linear momentum
-///
-/// @param state    Current state
-/// @param ng       Number of ghost cells
-///
-    void linear_to_hybrid_momentum(amrex::MultiFab& state, int ng = 0);
-
-#endif
-
-#ifdef TRUE_SDC
-
-    void
-    fourth_order_face_values(const amrex::Box& bx,
-                      const int idir, const int ncomp,
-                      amrex::Array4<amrex::Real const> const& a,
-                      amrex::Array4<amrex::Real> const& a_int);
-
-    void
-    states(const amrex::Box& bx,
-           const int idir, const int ncomp,
-           amrex::Array4<amrex::Real const> const& a,
-           amrex::Array4<amrex::Real const> const& a_int,
-           amrex::Array4<amrex::Real const> const& flatcoef,
-           amrex::Array4<amrex::Real> const& al,
-           amrex::Array4<amrex::Real> const& ar);
-
-    void
-    fourth_order_art_visc(const amrex::Box& bx,
-                 amrex::Array4<amrex::Real const> const& q,
-                 amrex::Array4<amrex::Real const> const& qaux,
-                 amrex::Array4<amrex::Real> const& avis,
-                 const int idir);
-
-    void
-    fourth_order_conduction_flux(const amrex::Box& bx,
-                              amrex::Array4<amrex::Real const> const& q,
-                              const int temp_comp,
-                              amrex::Array4<amrex::Real const> const& q_riemann,
-                              amrex::Array4<amrex::Real> const& F,
-                              const int idir, const bool is_avg);
-
-    static
-    void to_cell_center(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& U_cc,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void to_cell_center_in_place(const Box& bx,
-                                   Array4<Real> const& U,
-                                   Array4<Real> const& tmp,
-                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void laplacian_term(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& lap, const int ncomp,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void to_fourth_order_average(const Box& bx,
-                             Array4<Real> const& q,
-                             Array4<Real const> const& q_bar,
-                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void to_fourth_order_in_place(const Box& bx,
-                              Array4<Real> const& q,
-                              Array4<Real> const& tmp,
-                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void to_fourth_order_in_place_n(const Box& bx,
-                                Array4<Real> const& q, const int ncomp,
-                                Array4<Real> const& tmp,
-                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-#endif

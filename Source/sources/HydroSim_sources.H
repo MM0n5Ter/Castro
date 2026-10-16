@@ -37,9 +37,6 @@
 /// @param dt       timestep
 ///
     void apply_source_and_clean (
-#ifdef MHD
-                                 const MagFaceFields& B,
-#endif
                                  amrex::MultiFab& state, const amrex::MultiFab& source,
                                  amrex::Real time, amrex::Real dt);
 
@@ -57,9 +54,6 @@
 ///                         or only fill source
 ///
     void handle_old_sources(
-#ifdef MHD
-                        const MagFaceFields& B,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& state_old, amrex::MultiFab& state_new,
                         amrex::Real time, amrex::Real dt,
@@ -104,9 +98,6 @@
 ///                         or only fill source
 ///
     void handle_new_sources(
-#ifdef MHD
-                        const MagFaceFields& B,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& state_old, amrex::MultiFab& state_new,
                         amrex::Real time, amrex::Real dt,

@@ -1,21 +1,10 @@
 #include <HydroSim.H>
 
-#ifdef ROTATION
-#include <Rotation.H>
-#endif
 
 #include <HydroSim_util.H>
 #include <advection_util.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
-#ifdef RADIATION
-#include <Radiation.H>
-#include <fluxlimiter.H>
-#include <rad_util.H>
-#endif
 
 #include <eos.H>
 
@@ -382,11 +371,6 @@ HydroSim::apply_art_visc(const Box& bx,
               continue;
           }
 #endif
-#ifdef NSE_NET
-          if (n == UMU_P || n == UMU_N) {
-              continue;
-          }
-#endif
 
           Real div_var{};
 
@@ -404,55 +388,6 @@ HydroSim::apply_art_visc(const Box& bx,
 }
 
 
-#ifdef RADIATION
-void
-HydroSim::apply_rad_art_visc(const Box& bx,
-                     const int idir,
-                     Array4<Real const> const& div,
-                     Array4<Real const> const& Erin,
-                     Array4<Real> const& radflux) {
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::Real diff_coeff = difmag;
-
-  int ngroups = Radiation::nGroups;
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-      Real div1;
-      if (idir == 0) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dim1_on,k) +
-                            div(i,j,k+dim2_on) + div(i,j+dim1_on,k+dim2_on));
-      } else if (idir == 1) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dim2_on) + div(i+1,j,k+dim2_on));
-      } else {
-          div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dim1_on,k) + div(i+1,j+dim1_on,k));
-      }
-
-      div1 = diff_coeff * std::min(0.0_rt, div1);
-
-      for (int n = 0; n < ngroups; ++n) {
-
-          Real div_var{};
-
-          if (idir == 0) {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i-1,j,k,n));
-          } else if (idir == 1) {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j-dim1_on,k,n));
-          } else {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j,k-dim2_on,n));
-          }
-
-          radflux(i,j,k,n) += dx[idir] * div_var;
-      }
-  });
-}
-#endif
 
 
 void
@@ -507,23 +442,8 @@ HydroSim::scale_flux(const Box& bx,
 }
 
 
-#ifdef RADIATION
-void
-HydroSim::scale_rad_flux(const Box& bx,
-                       Array4<Real> const& rflux,
-                       Array4<Real const> const& area_arr,
-                       const Real dt) {
-
-  amrex::ParallelFor(bx, Radiation::nGroups,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int g) noexcept
-  {
-    rflux(i,j,k,g) = dt * rflux(i,j,k,g) * area_arr(i,j,k);
-  });
-}
-#endif
 
 
-#ifndef MHD
 void
 hydro::limit_fluxes_for_density_floor(const Box& bx,
                                         int idir,
@@ -625,7 +545,6 @@ hydro::limit_fluxes_for_density_floor(const Box& bx,
 
     });
 }
-#endif
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -633,9 +552,6 @@ HydroSim::apply_density_floor_box(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const DensityResetReport report) {
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ignore_unused(report);
 
@@ -697,29 +613,6 @@ HydroSim::apply_density_floor_box(const Box& bx,
       state_arr(i,j,k,UEINT) = eos_state.rho * eos_state.e;
       state_arr(i,j,k,UEDEN) = state_arr(i,j,k,UEINT);
 
-#ifdef HYBRID_MOMENTUM
-      GpuArray<Real, 3> loc;
-
-      position(i, j, k, geomdata, loc);
-
-      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        loc[dir] -= problem::center[dir];
-      }
-
-      GpuArray<Real, 3> linear_mom;
-
-      for (int dir = 0; dir < 3; ++dir) {
-        linear_mom[dir] = state_arr(i,j,k,UMX+dir);
-      }
-
-      GpuArray<Real, 3> hybrid_mom;
-
-      linear_to_hybrid(loc, linear_mom, hybrid_mom);
-
-      for (int dir = 0; dir < 3; ++dir) {
-        state_arr(i,j,k,UMR+dir) = hybrid_mom[dir];
-      }
-#endif
     }
   });
 }

@@ -18,9 +18,6 @@ hydro::recompute_face_thermo(const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-#ifdef RADIATION
-        Real old_p_state = qedge(i,j,k,QPRES);
-#endif
 
         eos_rep_t eos_state;
 
@@ -65,11 +62,6 @@ hydro::recompute_face_thermo(const Box& bx,
             qedge(i,j,k,QPRES) = amrex::max(eos_state.p, small_p);
         }
 
-#ifdef RADIATION
-        // correct the total pressure (gas + radiation) with any
-        // change to the gas pressure state
-        qedge(i,j,k,QPTOTAL) = qedge(i,j,k,QPTOTAL) + (qedge(i,j,k,QPRES) - old_p_state);
-#endif
 
     });
 

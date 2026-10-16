@@ -3,9 +3,6 @@
 #include <riemann_solvers.H>
 #include <HLL_solvers.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 #include <cmath>
 
@@ -58,11 +55,6 @@ HydroSim::riemann_flux_and_state(const Box& bx,
     // NIFC do, we only support qface_comps = Reduced for
     // Radiation
 
-#ifdef RADIATION
-    if (qface_comps == FaceComponents::Full) {
-        amrex::Error("cannot store full interface state with radiation");
-    }
-#endif
 
     const int* lo_bc = phys_bc.lo();
     const int* hi_bc = phys_bc.hi();
@@ -110,9 +102,6 @@ HydroSim::riemann_flux_and_state(const Box& bx,
             flux_from_interface_state(i, j, k, idir,
                            geomdata,
                            q_riemann, flx,
-#ifdef RADIATION
-                           out.rad_flux,
-#endif
                            qface, qface_comps);
 
             // now do the passives -- we didn't include them in q_riemann, qface, or flux above

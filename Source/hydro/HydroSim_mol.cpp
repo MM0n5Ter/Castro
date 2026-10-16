@@ -1,16 +1,7 @@
 #include <HydroSim.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef GRAVITY
-#include <Gravity.H>
-#endif
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
 
 #include <ppm.H>
 #include <slope.H>
@@ -357,9 +348,6 @@ HydroSim::flux_from_face_state(const Box& bx,
     im3 = UMY;
   }
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -391,10 +379,6 @@ HydroSim::flux_from_face_state(const Box& bx,
     F(i,j,k,USHOCK) = 0.0;
 #endif
 
-#ifdef NSE_NET
-    F(i,j,k,UMU_P) = 0.0;
-    F(i,j,k,UMU_N) = 0.0;
-#endif
     // passively advected quantities
     for (int ipassive = 0; ipassive < npassive; ipassive++) {
       int n  = cons_passive_index(ipassive);
@@ -403,32 +387,12 @@ HydroSim::flux_from_face_state(const Box& bx,
       F(i,j,k,n) = F(i,j,k,URHO)*q_riemann(i,j,k,nqp);
     }
 
-#ifdef HYBRID_MOMENTUM
-    // the hybrid routine uses the Godunov indices, not the full NQ state
-    GpuArray<Real, NIFC> qface_zone;
-    qface_zone[IFCRHO] = q_riemann(i,j,k,QRHO);
-    qface_zone[IFCU] = q_riemann(i,j,k,QU);
-    qface_zone[IFCV] = q_riemann(i,j,k,QV);
-    qface_zone[IFCW] = q_riemann(i,j,k,QW);
-    qface_zone[IFCPRES] = q_riemann(i,j,k,QPRES);
-    GpuArray<Real, NUM_STATE> F_zone;
-    for (int n = 0; n < NUM_STATE; n++) {
-        F_zone[n] = F(i,j,k,n);
-    }
-    compute_hybrid_flux(qface_zone, geomdata, idir, i, j, k, F_zone);
-    for (int n = 0; n < NUM_STATE; n++) {
-        F(i,j,k,n) = F_zone[n];
-    }
-#endif
   });
 }
 
 void
 hydro::store_face_state(const Box& bx,
                            Array4<Real const> const& q_riemann,
-#ifdef RADIATION
-                           Array4<Real const> const& lambda,
-#endif
                            Array4<Real> const& qface) {
 
   // this copies the full interface state (NQ -- one for each primitive
@@ -440,18 +404,9 @@ hydro::store_face_state(const Box& bx,
   {
 
 
-#ifdef HYBRID_MOMENTUM
-    qface(i,j,k,IFCRHO) = q_riemann(i,j,k,QRHO);
-#endif
     qface(i,j,k,IFCU) = q_riemann(i,j,k,QU);
     qface(i,j,k,IFCV) = q_riemann(i,j,k,QV);
     qface(i,j,k,IFCW) = q_riemann(i,j,k,QW);
     qface(i,j,k,IFCPRES) = q_riemann(i,j,k,QPRES);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-      qface(i,j,k,IFCFLXLIM+g) = lambda(i,j,k,g);
-      qface(i,j,k,IFCERAD+g) = q_riemann(i,j,k,QERAD+g);
-    }
-#endif
   });
 }

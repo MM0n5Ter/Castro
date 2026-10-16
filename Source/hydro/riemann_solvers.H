@@ -4,13 +4,6 @@
 #include <HydroSim_util.H>
 #include <riemann_type.H>
 #include <two_shock_riemann.H>
-#ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
-#endif
-#ifdef RADIATION
-#include <Radiation.H>
-#include <rad_util.H>
-#endif
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
@@ -18,9 +11,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
                const GeometryData& geomdata,
                const RiemannVars& q_riemann,
                Array4<Real> const& F,
-#ifdef RADIATION
-               Array4<Real> const& rF,
-#endif
                Array4<Real> const& qface, const FaceComponents qface_comps) {
 
     // given a primitive state, compute the flux in direction idir
@@ -54,7 +44,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
     F(i,j,k,im2) = F(i,j,k,URHO) * q_riemann.vel.ut;
     F(i,j,k,im3) = F(i,j,k,URHO) * q_riemann.vel.utt;
 
-#ifndef RADIATION
     if (mom_check) {
       F(i,j,k,im1) += q_riemann.p;
     }
@@ -66,78 +55,14 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 
     F(i,j,k,UEDEN) = q_riemann.vel.un * (rhoetot + q_riemann.p);
     F(i,j,k,UEINT) = q_riemann.vel.un * q_riemann.rhoe;
-#else
-    if (mom_check) {
-      F(i,j,k,im1) += q_riemann.rad.p_g;
-    }
-
-    Real rhoetot = q_riemann.rad.rhoe_g + 0.5_rt * q_riemann.rho *
-        (q_riemann.vel.un * q_riemann.vel.un +
-         q_riemann.vel.ut * q_riemann.vel.ut +
-         q_riemann.vel.utt * q_riemann.vel.utt);
-
-    F(i,j,k,UEDEN) = q_riemann.vel.un * (rhoetot + q_riemann.rad.p_g);
-    F(i,j,k,UEINT) = q_riemann.vel.un * q_riemann.rad.rhoe_g;
-#endif
 
     F(i,j,k,UTEMP) = 0.0;
 #ifdef SHOCK_VAR
     F(i,j,k,USHOCK) = 0.0;
 #endif
 
-#ifdef NSE_NET
-    F(i,j,k,UMU_P) = 0.0;
-    F(i,j,k,UMU_N) = 0.0;
-#endif
 
-#ifdef RADIATION
-    if (radiation::fspace_advection_type == 1) {
-        for (int g = 0; g < NGROUPS; g++) {
-            Real eddf = Edd_factor(q_riemann.rad.lam[g]);
-            Real f1 = 0.5e0_rt*(1.0_rt-eddf);
-            rF(i,j,k,g) = (1.0_rt + f1) * q_riemann.rad.er[g] * q_riemann.vel.un;
-        }
-    } else {
-        // type 2
-        for (int g = 0; g < NGROUPS; g++) {
-            rF(i,j,k,g) = q_riemann.rad.er[g] * q_riemann.vel.un;
-        }
-    }
-#endif
 
-#ifdef HYBRID_MOMENTUM
-    // the hybrid routine uses the Godunov indices, not the full NQ state
-    GpuArray<Real, NIFC> qface_zone;
-    qface_zone[IFCRHO] = q_riemann.rho;
-    if (idir == 0) {
-        qface_zone[IFCU] = q_riemann.vel.un;
-        qface_zone[IFCV] = q_riemann.vel.ut;
-        qface_zone[IFCW] = q_riemann.vel.utt;
-    } else if (idir == 1) {
-        qface_zone[IFCV] = q_riemann.vel.un;
-        qface_zone[IFCU] = q_riemann.vel.ut;
-        qface_zone[IFCW] = q_riemann.vel.utt;
-    } else {
-        qface_zone[IFCW] = q_riemann.vel.un;
-        qface_zone[IFCU] = q_riemann.vel.ut;
-        qface_zone[IFCV] = q_riemann.vel.utt;
-    }
-    qface_zone[IFCPRES] = q_riemann.p;
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-        qface_zone[IFCFLXLIM+g] = q_riemann.rad.lam[g];
-        qface_zone[IFCERAD+g] = q_riemann.rad.er[g];
-    }
-#endif
-    GpuArray<Real, NUM_STATE> F_zone;
-    for (int n = 0; n < NUM_STATE; n++) {
-        F_zone[n] = F(i,j,k,n);
-    }
-    compute_hybrid_flux(qface_zone, geomdata, idir, i, j, k, F_zone);
-    for (int n = 0; n < NUM_STATE; n++) {
-        F(i,j,k,n) = F_zone[n];
-    }
-#endif
 
     // now we store the interface state in the full 4-d array.  We
     // either store just the NIFC subset or the whole NQ hydro state,
@@ -166,27 +91,14 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 
         qface(i,j,k,QTEMP) = 0.0_rt;
 
-#ifdef RADIATION
-        qface(i,j,k,QPRES) = q_riemann.rad.p_g;
-        qface(i,j,k,QRHOEI) = q_riemann.rad.rhoe_g;
-        qface(i,j,k,QPTOTAL) = q_riemann.p;
-        qface(i,j,k,QRHOEITOT) = q_riemann.rhoe;
-        for (int g = 0; g < NGROUPS; g++) {
-            qface(i,j,k,QERAD) = q_riemann.rad.er[g];
-        }
-#else
         qface(i,j,k,QPRES) = q_riemann.p;
         qface(i,j,k,QRHOEI) = q_riemann.rhoe;
-#endif
 
     } else {
 
         // this is the reduced "Godunov" state on the interface,
         // with NIFC components
 
-#ifdef HYBRID_MOMENTUM
-        qface(i,j,k,IFCRHO) = q_riemann.rho;
-#endif
         if (idir == 0) {
             qface(i,j,k,IFCU) = q_riemann.vel.un;
             qface(i,j,k,IFCV) = q_riemann.vel.ut;
@@ -200,15 +112,7 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
             qface(i,j,k,IFCU) = q_riemann.vel.ut;
             qface(i,j,k,IFCV) = q_riemann.vel.utt;
         }
-#ifndef RADIATION
         qface(i,j,k,IFCPRES) = q_riemann.p;
-#else
-        qface(i,j,k,IFCPRES) = q_riemann.rad.p_g;
-        for (int g = 0; g < NGROUPS; g++) {
-            qface(i,j,k,IFCFLXLIM+g) = q_riemann.rad.lam[g];
-            qface(i,j,k,IFCERAD+g) = q_riemann.rad.er[g];
-        }
-#endif
 
     }
 
@@ -317,9 +221,7 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
       TwoShock::riemann_two_shock_approx(ql, qr, riemann_aux, q_riemann);
 
   } else if (riemann_solver == 1) {
-#ifndef RADIATION
       TwoShock::riemann_two_shock_iterative(ql, qr, riemann_aux, q_riemann);
-#endif
 
 #ifndef AMREX_USE_GPU
   } else {
