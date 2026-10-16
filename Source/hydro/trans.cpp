@@ -52,7 +52,7 @@ HydroSim::transverse_correct_single(const Box& bx,
                      Array4<Real> const& qpo,
                      Array4<Real const> const& qaux_arr,
                      TransverseFaces const& faces_t,
-                     Real hdt, Real cdtdx)
+                     Real hdt, Real coef_dtdx)
 {
     // Evaluate the transverse terms for both
     // the minus and plus states.
@@ -61,13 +61,13 @@ HydroSim::transverse_correct_single(const Box& bx,
                         qm, qmo,
                         qaux_arr,
                         faces_t,
-                        hdt, cdtdx);
+                        hdt, coef_dtdx);
 
     transverse_correct_single_impl(bx, idir_t, idir_n, 0,
                         qp, qpo,
                         qaux_arr,
                         faces_t,
-                        hdt, cdtdx);
+                        hdt, coef_dtdx);
 
 }
 
@@ -79,7 +79,7 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
                             Array4<Real> const& qo_arr,
                             Array4<Real const> const& qaux_arr,
                             TransverseFaces const& faces_t,
-                            Real hdt, Real cdtdx)
+                            Real hdt, Real coef_dtdx)
 {
 
     //       qm|qp
@@ -151,37 +151,37 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         const Real rrnew = q_arr(i,j,k,QRHO) - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,URHO) -
                                                 area_t(il,jl,kl) * flux_t(il,jl,kl,URHO)) * volinv;
 #else
-        const Real rrnew = q_arr(i,j,k,QRHO) - cdtdx * (flux_t(ir,jr,kr,URHO) - flux_t(il,jl,kl,URHO));
+        const Real rrnew = q_arr(i,j,k,QRHO) - coef_dtdx * (flux_t(ir,jr,kr,URHO) - flux_t(il,jl,kl,URHO));
 #endif
 
         for (int ipassive = 0; ipassive < npassive; ipassive++) {
-            const int n = upassmap(ipassive);
-            const int nqp = qpassmap(ipassive);
+            const int n = cons_passive_index(ipassive);
+            const int nqp = prim_passive_index(ipassive);
 #if AMREX_SPACEDIM == 2
-            const Real compu = q_arr(i,j,k,QRHO) * q_arr(i,j,k,nqp) -
+            const Real rho_q_upd = q_arr(i,j,k,QRHO) * q_arr(i,j,k,nqp) -
                 hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,n) -
                        area_t(il,jl,kl) * flux_t(il,jl,kl,n)) * volinv;
 #else
-            const Real compu = q_arr(i,j,k,QRHO) * q_arr(i,j,k,nqp) -
-                cdtdx * (flux_t(ir,jr,kr,n) - flux_t(il,jl,kl,n));
+            const Real rho_q_upd = q_arr(i,j,k,QRHO) * q_arr(i,j,k,nqp) -
+                coef_dtdx * (flux_t(ir,jr,kr,n) - flux_t(il,jl,kl,n));
 #endif
-            qo_arr(i,j,k,nqp) = compu / rrnew;
+            qo_arr(i,j,k,nqp) = rho_q_upd / rrnew;
         }
 
-        const Real pgp  = q_t(ir,jr,kr,IFCPRES);
-        const Real pgm  = q_t(il,jl,kl,IFCPRES);
-        const Real ugp  = q_t(ir,jr,kr,IFCU+idir_t);
-        const Real ugm  = q_t(il,jl,kl,IFCU+idir_t);
+        const Real p_face_p  = q_t(ir,jr,kr,IFCPRES);
+        const Real p_face_m  = q_t(il,jl,kl,IFCPRES);
+        const Real u_face_p  = q_t(ir,jr,kr,IFCU+idir_t);
+        const Real u_face_m  = q_t(il,jl,kl,IFCU+idir_t);
 
 #ifdef RADIATION
         Real lambda[NGROUPS];
-        Real ergp[NGROUPS];
-        Real ergm[NGROUPS];
+        Real er_face_p[NGROUPS];
+        Real er_face_m[NGROUPS];
 
         for (int g = 0; g < NGROUPS; ++g) {
             lambda[g] = qaux_arr(il,jl,kl,QFLXLIM+g);
-            ergp[g] = q_t(ir,jr,kr,IFCERAD+g);
-            ergm[g] = q_t(il,jl,kl,IFCERAD+g);
+            er_face_p[g] = q_t(ir,jr,kr,IFCERAD+g);
+            er_face_m[g] = q_t(il,jl,kl,IFCERAD+g);
         }
 #endif
 
@@ -190,65 +190,65 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         // be able to deal with the general EOS
 
 #if AMREX_SPACEDIM == 2
-        Real dup = area_t(ir,jr,kr) * pgp * ugp - area_t(il,jl,kl) * pgm * ugm;
-        Real du = area_t(ir,jr,kr) * ugp - area_t(il,jl,kl) * ugm;
+        Real dup = area_t(ir,jr,kr) * p_face_p * u_face_p - area_t(il,jl,kl) * p_face_m * u_face_m;
+        Real du = area_t(ir,jr,kr) * u_face_p - area_t(il,jl,kl) * u_face_m;
 #else
-        Real dup = pgp * ugp - pgm * ugm;
-        Real du = ugp - ugm;
+        Real dup = p_face_p * u_face_p - p_face_m * u_face_m;
+        Real du = u_face_p - u_face_m;
 #endif
-        Real pav = 0.5_rt * (pgp + pgm);
+        Real pav = 0.5_rt * (p_face_p + p_face_m);
 #ifdef RADIATION
-        Real uav = 0.5_rt * (ugp + ugm);
+        Real uav = 0.5_rt * (u_face_p + u_face_m);
 #endif
 
         // this is the gas gamma_1
 #ifdef RADIATION
-        Real gamc = qaux_arr(il,jl,kl,QGAM1GAS);
+        Real gamma1 = qaux_arr(il,jl,kl,QGAM1GAS);
 #else
-        Real gamc = qaux_arr(il,jl,kl,QGAM1);
+        Real gamma1 = qaux_arr(il,jl,kl,QGAM1);
 #endif
 
 #ifdef RADIATION
-        Real lamge[NGROUPS];
-        Real luge[NGROUPS];
+        Real lam_der[NGROUPS];
+        Real u_lam_der[NGROUPS];
         Real der[NGROUPS];
 
         Real dmom = 0.0_rt;
         Real dre = 0.0_rt;
 
         for (int g = 0; g < NGROUPS; ++g) {
-            lamge[g] = lambda[g] * (ergp[g] - ergm[g]);
-            dmom += -cdtdx * lamge[g];
-            luge[g] = uav * lamge[g];
-            dre += -cdtdx * luge[g];
+            lam_der[g] = lambda[g] * (er_face_p[g] - er_face_m[g]);
+            dmom += -coef_dtdx * lam_der[g];
+            u_lam_der[g] = uav * lam_der[g];
+            dre += -coef_dtdx * u_lam_der[g];
         }
 
         if (radiation::fspace_advection_type == 1 && radiation::comoving) {
             for (int g = 0; g < NGROUPS; ++g) {
                 Real eddf = Edd_factor(lambda[g]);
                 Real f1 = 0.5_rt * (1.0_rt - eddf);
-                der[g] = cdtdx * uav * f1 * (ergp[g] - ergm[g]);
+                der[g] = coef_dtdx * uav * f1 * (er_face_p[g] - er_face_m[g]);
             }
         }
         else if (radiation::fspace_advection_type == 2) {
 #if AMREX_SPACEDIM == 2
-            Real divu = (area_t(ir,jr,kr) * ugp - area_t(il,jl,kl) * ugm) * volinv;
+            Real divu = (area_t(ir,jr,kr) * u_face_p - area_t(il,jl,kl) * u_face_m) * volinv;
             for (int g = 0; g < NGROUPS; g++) {
                 Real eddf = Edd_factor(lambda[g]);
                 Real f1 = 0.5_rt * (1.0_rt - eddf);
-                der[g] = -hdt * f1 * 0.5_rt * (ergp[g] + ergm[g]) * divu;
+                der[g] = -hdt * f1 * 0.5_rt * (er_face_p[g] + er_face_m[g]) * divu;
             }
 #else
             for (int g = 0; g < NGROUPS; g++) {
                 Real eddf = Edd_factor(lambda[g]);
                 Real f1 = 0.5_rt * (1.0_rt - eddf);
-                der[g] = cdtdx * f1 * 0.5_rt * (ergp[g] + ergm[g]) * (ugm - ugp);
+                der[g] = coef_dtdx * f1 * 0.5_rt * (er_face_p[g] + er_face_m[g]) * (u_face_m - u_face_p);
             }
 #endif
         }
         else { // mixed frame
             for (int g = 0; g < NGROUPS; g++) {
-                der[g] = cdtdx * luge[g];
+                der[g] = coef_dtdx * u_lam_der[g];
             }
         }
 #endif
@@ -258,8 +258,8 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         Real run = rrn * q_arr(i,j,k,QU);
         Real rvn = rrn * q_arr(i,j,k,QV);
         Real rwn = rrn * q_arr(i,j,k,QW);
-        Real ekenn = 0.5_rt * rrn * (q_arr(i,j,k,QU) * q_arr(i,j,k,QU) + q_arr(i,j,k,QV) * q_arr(i,j,k,QV) + q_arr(i,j,k,QW) * q_arr(i,j,k,QW));
-        Real ren = q_arr(i,j,k,QRHOEI) + ekenn;
+        Real ke_o = 0.5_rt * rrn * (q_arr(i,j,k,QU) * q_arr(i,j,k,QU) + q_arr(i,j,k,QV) * q_arr(i,j,k,QV) + q_arr(i,j,k,QW) * q_arr(i,j,k,QW));
+        Real ren = q_arr(i,j,k,QRHOEI) + ke_o;
 #ifdef RADIATION
         Real ern[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
@@ -270,7 +270,7 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
 #if AMREX_SPACEDIM == 2
         // Add transverse predictor
 
-        Real rrnewn = rrnew;
+        Real rho_tr = rrnew;
 
         // Note that pressure may be treated specially here, depending on
         // the geometry.  Our y-interface equation for (rho u) is:
@@ -290,75 +290,75 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         // x-direction for Cylindrical2D or both x- and y-direction for spherical 2D
         // So we need to fix this now.
 
-        Real runewn = run - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMX) -
+        Real rhou_tr = run - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMX) -
                                    area_t(il,jl,kl) * flux_t(il,jl,kl,UMX)) * volinv;
-        if (idir_t == 0 && !mom_flux_has_p(0, idir_t, coord)) {
-            runewn = runewn - cdtdx * (pgp - pgm);
+        if (idir_t == 0 && !momentum_flux_has_pressure(0, idir_t, coord)) {
+            rhou_tr = rhou_tr - coef_dtdx * (p_face_p - p_face_m);
         }
-        Real rvnewn = rvn - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMY) -
+        Real rhov_tr = rvn - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMY) -
                                    area_t(il,jl,kl) * flux_t(il,jl,kl,UMY)) * volinv;
-        if (idir_t == 1 && !mom_flux_has_p(1, idir_t, coord)) {
+        if (idir_t == 1 && !momentum_flux_has_pressure(1, idir_t, coord)) {
             Real r = problo[0] + static_cast<Real>(il + 0.5_rt) * dx[0];
-            rvnewn = rvnewn - cdtdx / r * (pgp - pgm);
+            rhov_tr = rhov_tr - coef_dtdx / r * (p_face_p - p_face_m);
         }
-        Real rwnewn = rwn - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMZ) -
+        Real rhow_tr = rwn - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UMZ) -
                                    area_t(il,jl,kl) * flux_t(il,jl,kl,UMZ)) * volinv;
-        Real renewn = ren - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UEDEN) -
+        Real rhoE_tr = ren - hdt * (area_t(ir,jr,kr) * flux_t(ir,jr,kr,UEDEN) -
                                    area_t(il,jl,kl) * flux_t(il,jl,kl,UEDEN)) * volinv;
 
 #ifdef RADIATION
         if (idir_t == 0) {
-            Real lamge_sum = 0.0_rt;
+            Real lam_der_sum = 0.0_rt;
             for (int g = 0; g < NGROUPS; ++g)
-                lamge_sum = lamge_sum + lamge[g];
+                lam_der_sum = lam_der_sum + lam_der[g];
 
-            runewn = runewn - 0.5_rt * hdt * (area_t(ir,jr,kr) + area_t(il,jl,kl)) * lamge_sum * volinv;
+            rhou_tr = rhou_tr - 0.5_rt * hdt * (area_t(ir,jr,kr) + area_t(il,jl,kl)) * lam_der_sum * volinv;
         }
         else {
-            rvnewn = rvnewn + dmom;
+            rhov_tr = rhov_tr + dmom;
         }
 
-        renewn = renewn + dre;
+        rhoE_tr = rhoE_tr + dre;
 
-        Real ernewn[NGROUPS];
+        Real er_tr[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
-            ernewn[g] = ern[g] - hdt * (area_t(ir,jr,kr) * rflux_t(ir,jr,kr,g) -
+            er_tr[g] = ern[g] - hdt * (area_t(ir,jr,kr) * rflux_t(ir,jr,kr,g) -
                                         area_t(il,jl,kl) * rflux_t(il,jl,kl,g)) * volinv + der[g];
         }
 #endif
 
 #else
         // Add transverse predictor
-        Real rrnewn = rrnew;
-        Real runewn = run - cdtdx * (flux_t(ir,jr,kr,UMX)   - flux_t(il,jl,kl,UMX));
-        Real rvnewn = rvn - cdtdx * (flux_t(ir,jr,kr,UMY)   - flux_t(il,jl,kl,UMY));
-        Real rwnewn = rwn - cdtdx * (flux_t(ir,jr,kr,UMZ)   - flux_t(il,jl,kl,UMZ));
-        Real renewn = ren - cdtdx * (flux_t(ir,jr,kr,UEDEN) - flux_t(il,jl,kl,UEDEN));
+        Real rho_tr = rrnew;
+        Real rhou_tr = run - coef_dtdx * (flux_t(ir,jr,kr,UMX)   - flux_t(il,jl,kl,UMX));
+        Real rhov_tr = rvn - coef_dtdx * (flux_t(ir,jr,kr,UMY)   - flux_t(il,jl,kl,UMY));
+        Real rhow_tr = rwn - coef_dtdx * (flux_t(ir,jr,kr,UMZ)   - flux_t(il,jl,kl,UMZ));
+        Real rhoE_tr = ren - coef_dtdx * (flux_t(ir,jr,kr,UEDEN) - flux_t(il,jl,kl,UEDEN));
 #ifdef RADIATION
-        runewn = runewn + dmom;
-        renewn = renewn + dre;
-        Real ernewn[NGROUPS];
+        rhou_tr = rhou_tr + dmom;
+        rhoE_tr = rhoE_tr + dre;
+        Real er_tr[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
-            ernewn[g] = ern[g] - cdtdx * (rflux_t(ir,jr,kr,g) - rflux_t(il,jl,kl,g)) + der[g];
+            er_tr[g] = ern[g] - coef_dtdx * (rflux_t(ir,jr,kr,g) - rflux_t(il,jl,kl,g)) + der[g];
         }
 #endif
 #endif
 
         // Reset to original value if adding transverse terms made density negative
         bool reset_state = false;
-        if (reset_density && rrnewn < 0.0_rt) {
-            rrnewn = rrn;
-            runewn = run;
-            rvnewn = rvn;
-            rwnewn = rwn;
-            renewn = ren;
+        if (reset_density && rho_tr < 0.0_rt) {
+            rho_tr = rrn;
+            rhou_tr = run;
+            rhov_tr = rvn;
+            rhow_tr = rwn;
+            rhoE_tr = ren;
             for (int ipassive = 0; ipassive < npassive; ++ipassive) {
-                int nqp = qpassmap(ipassive);
+                int nqp = prim_passive_index(ipassive);
                 qo_arr(i,j,k,nqp) = q_arr(i,j,k,nqp);
             }
 #ifdef RADIATION
             for (int g = 0; g < NGROUPS; ++g) {
-                ernewn[g] = ern[g];
+                er_tr[g] = ern[g];
             }
 #endif
             reset_state = true;
@@ -369,18 +369,18 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         for (int n = 0; n < NumSpec; ++n) {
             if (qo_arr(i,j,k,n+QSPEC) > 1.0_rt + abundance_tol ||
                 qo_arr(i,j,k,n+QSPEC) < -abundance_tol) {
-                rrnewn = rrn;
-                runewn = run;
-                rvnewn = rvn;
-                rwnewn = rwn;
-                renewn = ren;
+                rho_tr = rrn;
+                rhou_tr = run;
+                rhov_tr = rvn;
+                rhow_tr = rwn;
+                rhoE_tr = ren;
                 for (int ipassive = 0; ipassive < npassive; ++ipassive) {
-                    int nqp = qpassmap(ipassive);
+                    int nqp = prim_passive_index(ipassive);
                     qo_arr(i,j,k,nqp) = q_arr(i,j,k,nqp);
                 }
 #ifdef RADIATION
                 for (int g = 0; g < NGROUPS; ++g) {
-                    ernewn[g] = ern[g];
+                    er_tr[g] = ern[g];
                 }
 #endif
                 reset_state = true;
@@ -389,16 +389,16 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
         }
 
         // Convert back to primitive form
-        qo_arr(i,j,k,QRHO) = rrnewn;
-        const Real rhoinv = 1.0_rt / rrnewn;
+        qo_arr(i,j,k,QRHO) = rho_tr;
+        const Real rhoinv = 1.0_rt / rho_tr;
 
-        qo_arr(i,j,k,QU) = runewn * rhoinv;
-        qo_arr(i,j,k,QV) = rvnewn * rhoinv;
-        qo_arr(i,j,k,QW) = rwnewn * rhoinv;
+        qo_arr(i,j,k,QU) = rhou_tr * rhoinv;
+        qo_arr(i,j,k,QV) = rhov_tr * rhoinv;
+        qo_arr(i,j,k,QW) = rhow_tr * rhoinv;
 
         // note: we run the risk of (rho e) being negative here
-        Real rhoekenn = 0.5_rt * (runewn * runewn + rvnewn * rvnewn + rwnewn * rwnewn) * rhoinv;
-        qo_arr(i,j,k,QRHOEI) = renewn - rhoekenn;
+        Real ke_tr = 0.5_rt * (rhou_tr * rhou_tr + rhov_tr * rhov_tr + rhow_tr * rhow_tr) * rhoinv;
+        qo_arr(i,j,k,QRHOEI) = rhoE_tr - ke_tr;
 
         if (!reset_state) {
             // do the transverse terms for p, gamma, and rhoe, as necessary
@@ -411,7 +411,7 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
                                                             area_t(il,jl,kl) * flux_t(il,jl,kl,UEINT) +
                                                             pav * du) * volinv;
 #else
-                qo_arr(i,j,k,QRHOEI) = q_arr(i,j,k,QRHOEI) - cdtdx * (flux_t(ir,jr,kr,UEINT) - flux_t(il,jl,kl,UEINT) + pav * du);
+                qo_arr(i,j,k,QRHOEI) = q_arr(i,j,k,QRHOEI) - coef_dtdx * (flux_t(ir,jr,kr,UEINT) - flux_t(il,jl,kl,UEINT) + pav * du);
 #endif
             }
 
@@ -430,7 +430,7 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
 
                 // With the EOS route:
                 eos_rep_t eos_state;
-                eos_state.rho = rrnewn;
+                eos_state.rho = rho_tr;
                 eos_state.e = qo_arr(i,j,k,QRHOEI) * rhoinv;
                 eos_state.T = temp_guess;
 
@@ -444,19 +444,19 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
 #endif
                 eos(eos_input_re, eos_state);
 
-                Real pnewn = eos_state.p;
-                qo_arr(i,j,k,QPRES) = amrex::max(pnewn, small_p);
+                Real pres_tr = eos_state.p;
+                qo_arr(i,j,k,QPRES) = amrex::max(pres_tr, small_p);
 
             } else {
 
                 // Add the transverse term to the p evolution eq here.
 #if AMREX_SPACEDIM == 2
                 // the divergences here, dup and du, already have area factors
-                Real pnewn = q_arr(i,j,k,QPRES) - hdt * (dup + pav * du * (gamc - 1.0_rt)) * volinv;
+                Real pres_tr = q_arr(i,j,k,QPRES) - hdt * (dup + pav * du * (gamma1 - 1.0_rt)) * volinv;
 #else
-                Real pnewn = q_arr(i,j,k,QPRES) - cdtdx * (dup + pav * du * (gamc - 1.0_rt));
+                Real pres_tr = q_arr(i,j,k,QPRES) - coef_dtdx * (dup + pav * du * (gamma1 - 1.0_rt));
 #endif
-                qo_arr(i,j,k,QPRES) = amrex::max(pnewn, small_p);
+                qo_arr(i,j,k,QPRES) = amrex::max(pres_tr, small_p);
             }
         }
         else {
@@ -466,12 +466,12 @@ HydroSim::transverse_correct_single_impl(const Box& bx,  // NOLINT(readability-c
 
 #ifdef RADIATION
         for (int g = 0; g < NGROUPS; ++g) {
-            qo_arr(i,j,k,QERAD + g) = ernewn[g];
+            qo_arr(i,j,k,QERAD + g) = er_tr[g];
         }
 
         qo_arr(i,j,k,QPTOTAL) = qo_arr(i,j,k,QPRES);
         for (int g = 0; g < NGROUPS; ++g) {
-            qo_arr(i,j,k,QPTOTAL) += lambda[g] * ernewn[g];
+            qo_arr(i,j,k,QPTOTAL) += lambda[g] * er_tr[g];
         }
 
         qo_arr(i,j,k,QRHOEITOT) = qo_arr(i,j,k,QRHOEI);
@@ -496,7 +496,7 @@ HydroSim::transverse_correct_final(const Box& bx,
                     Array4<Real const> const& qaux_arr,
                     TransverseFaces const& faces_t1,
                     TransverseFaces const& faces_t2,
-                    Real cdtdx_t1, Real cdtdx_t2)
+                    Real coef_dtdx_t1, Real coef_dtdx_t2)
 {
     // Evaluate the transverse terms for both
     // the minus and plus states.
@@ -506,14 +506,14 @@ HydroSim::transverse_correct_final(const Box& bx,
                        qaux_arr,
                        faces_t1,
                        faces_t2,
-                       cdtdx_t1, cdtdx_t2);
+                       coef_dtdx_t1, coef_dtdx_t2);
 
     transverse_correct_final_impl(bx, idir_n, idir_t1, idir_t2, 0,
                        qp, qpo,
                        qaux_arr,
                        faces_t1,
                        faces_t2,
-                       cdtdx_t1, cdtdx_t2);
+                       coef_dtdx_t1, coef_dtdx_t2);
 
 }
 
@@ -527,7 +527,7 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
                            Array4<Real const> const& qaux_arr,
                            TransverseFaces const& faces_t1,
                            TransverseFaces const& faces_t2,
-                           Real cdtdx_t1, Real cdtdx_t2)
+                           Real coef_dtdx_t1, Real coef_dtdx_t2)
 {
 
     auto const& flux_t1 = faces_t1.flux;
@@ -585,90 +585,90 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
         // transverse terms and convert back to the primitive quantity.
 
         const Real rrn = q_arr(i,j,k,QRHO);
-        const Real rrnew = rrn - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,URHO) -
+        const Real rrnew = rrn - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,URHO) -
                                         flux_t1(il_t1,jl_t1,kl_t1,URHO))
-                          - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,URHO) -
+                          - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,URHO) -
                                         flux_t2(il_t2,jl_t2,kl_t2,URHO));
 
         for (int ipassive = 0; ipassive < npassive; ++ipassive) {
-            const int n = upassmap(ipassive);
-            const int nqp = qpassmap(ipassive);
+            const int n = cons_passive_index(ipassive);
+            const int nqp = prim_passive_index(ipassive);
 
-            Real compn = rrn * q_arr(i,j,k,nqp);
-            Real compnn = compn - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,n) -
+            Real rho_q_o = rrn * q_arr(i,j,k,nqp);
+            Real rho_q_tr = rho_q_o - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,n) -
                                               flux_t1(il_t1,jl_t1,kl_t1,n))
-                                - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,n) -
+                                - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,n) -
                                               flux_t2(il_t2,jl_t2,kl_t2,n));
 
-            qo_arr(i,j,k,nqp) = compnn / rrnew;
+            qo_arr(i,j,k,nqp) = rho_q_tr / rrnew;
         }
 
         // Add the transverse differences to the normal states for the
         // fluid variables.
 
-        const Real pgt1p  = q_t1(ir_t1,jr_t1,kr_t1,IFCPRES);
-        const Real pgt1m  = q_t1(il_t1,jl_t1,kl_t1,IFCPRES);
-        const Real ugt1p  = q_t1(ir_t1,jr_t1,kr_t1,IFCU+idir_t1);
-        const Real ugt1m  = q_t1(il_t1,jl_t1,kl_t1,IFCU+idir_t1);
+        const Real p_face_t1p  = q_t1(ir_t1,jr_t1,kr_t1,IFCPRES);
+        const Real p_face_t1m  = q_t1(il_t1,jl_t1,kl_t1,IFCPRES);
+        const Real u_face_t1p  = q_t1(ir_t1,jr_t1,kr_t1,IFCU+idir_t1);
+        const Real u_face_t1m  = q_t1(il_t1,jl_t1,kl_t1,IFCU+idir_t1);
 #ifdef RADIATION
-        Real ergt1p[NGROUPS];
-        Real ergt1m[NGROUPS];
+        Real er_face_t1p[NGROUPS];
+        Real er_face_t1m[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
-            ergt1p[g] = q_t1(ir_t1,jr_t1,kr_t1,IFCERAD+g);
-            ergt1m[g] = q_t1(il_t1,jl_t1,kl_t1,IFCERAD+g);
+            er_face_t1p[g] = q_t1(ir_t1,jr_t1,kr_t1,IFCERAD+g);
+            er_face_t1m[g] = q_t1(il_t1,jl_t1,kl_t1,IFCERAD+g);
         }
 #endif
 
-        const Real pgt2p  = q_t2(ir_t2,jr_t2,kr_t2,IFCPRES);
-        const Real pgt2m  = q_t2(il_t2,jl_t2,kl_t2,IFCPRES);
-        const Real ugt2p  = q_t2(ir_t2,jr_t2,kr_t2,IFCU+idir_t2);
-        const Real ugt2m  = q_t2(il_t2,jl_t2,kl_t2,IFCU+idir_t2);
+        const Real p_face_t2p  = q_t2(ir_t2,jr_t2,kr_t2,IFCPRES);
+        const Real p_face_t2m  = q_t2(il_t2,jl_t2,kl_t2,IFCPRES);
+        const Real u_face_t2p  = q_t2(ir_t2,jr_t2,kr_t2,IFCU+idir_t2);
+        const Real u_face_t2m  = q_t2(il_t2,jl_t2,kl_t2,IFCU+idir_t2);
 #ifdef RADIATION
-        Real ergt2p[NGROUPS];
-        Real ergt2m[NGROUPS];
+        Real er_face_t2p[NGROUPS];
+        Real er_face_t2m[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
-            ergt2p[g] = q_t2(ir_t2,jr_t2,kr_t2,IFCERAD+g);
-            ergt2m[g] = q_t2(il_t2,jl_t2,kl_t2,IFCERAD+g);
+            er_face_t2p[g] = q_t2(ir_t2,jr_t2,kr_t2,IFCERAD+g);
+            er_face_t2m[g] = q_t2(il_t2,jl_t2,kl_t2,IFCERAD+g);
         }
 #endif
 
-        const Real dupt1 = pgt1p * ugt1p - pgt1m * ugt1m;
-        const Real pt1av = 0.5_rt * (pgt1p + pgt1m);
-        const Real dut1 = ugt1p - ugt1m;
+        const Real d_pu_t1 = p_face_t1p * u_face_t1p - p_face_t1m * u_face_t1m;
+        const Real p_avg_t1 = 0.5_rt * (p_face_t1p + p_face_t1m);
+        const Real du_t1 = u_face_t1p - u_face_t1m;
 #ifdef RADIATION
-        const Real pt1new = cdtdx_t1 * (dupt1 + pt1av * dut1 * (qaux_arr(iln,jln,kln,QGAM1GAS) - 1.0_rt));
+        const Real p_corr_t1 = coef_dtdx_t1 * (d_pu_t1 + p_avg_t1 * du_t1 * (qaux_arr(iln,jln,kln,QGAM1GAS) - 1.0_rt));
 #else
-        const Real pt1new = cdtdx_t1 * (dupt1 + pt1av * dut1 * (qaux_arr(iln,jln,kln,QGAM1) - 1.0_rt));
+        const Real p_corr_t1 = coef_dtdx_t1 * (d_pu_t1 + p_avg_t1 * du_t1 * (qaux_arr(iln,jln,kln,QGAM1) - 1.0_rt));
 #endif
 
-        const Real dupt2 = pgt2p * ugt2p - pgt2m * ugt2m;
-        const Real pt2av = 0.5_rt * (pgt2p + pgt2m);
-        const Real dut2 = ugt2p - ugt2m;
+        const Real d_pu_t2 = p_face_t2p * u_face_t2p - p_face_t2m * u_face_t2m;
+        const Real p_avg_t2 = 0.5_rt * (p_face_t2p + p_face_t2m);
+        const Real du_t2 = u_face_t2p - u_face_t2m;
 #ifdef RADIATION
-        const Real pt2new = cdtdx_t2 * (dupt2 + pt2av * dut2 * (qaux_arr(iln,jln,kln,QGAM1GAS) - 1.0_rt));
+        const Real p_corr_t2 = coef_dtdx_t2 * (d_pu_t2 + p_avg_t2 * du_t2 * (qaux_arr(iln,jln,kln,QGAM1GAS) - 1.0_rt));
 #else
-        const Real pt2new = cdtdx_t2 * (dupt2 + pt2av * dut2 * (qaux_arr(iln,jln,kln,QGAM1) - 1.0_rt));
+        const Real p_corr_t2 = coef_dtdx_t2 * (d_pu_t2 + p_avg_t2 * du_t2 * (qaux_arr(iln,jln,kln,QGAM1) - 1.0_rt));
 #endif
 
 #ifdef RADIATION
         Real lambda[NGROUPS];
-        Real lget1[NGROUPS];
-        Real lget2[NGROUPS];
+        Real lam_der_t1[NGROUPS];
+        Real lam_der_t2[NGROUPS];
         Real dmt1 = 0.0_rt;
         Real dmt2 = 0.0_rt;
-        Real luget1[NGROUPS];
-        Real luget2[NGROUPS];
+        Real u_lam_der_t1[NGROUPS];
+        Real u_lam_der_t2[NGROUPS];
         Real dre = 0.0_rt;
 
         for (int g = 0; g < NGROUPS; ++g) {
             lambda[g] = qaux_arr(iln,jln,kln,QFLXLIM+g);
-            lget1[g] = lambda[g] * (ergt1p[g] - ergt1m[g]);
-            lget2[g] = lambda[g] * (ergt2p[g] - ergt2m[g]);
-            dmt1 -= cdtdx_t1 * lget1[g];
-            dmt2 -= cdtdx_t2 * lget2[g];
-            luget1[g] = 0.5_rt * (ugt1p + ugt1m) * lget1[g];
-            luget2[g] = 0.5_rt * (ugt2p + ugt2m) * lget2[g];
-            dre -= cdtdx_t1 * luget1[g] + cdtdx_t2 * luget2[g];
+            lam_der_t1[g] = lambda[g] * (er_face_t1p[g] - er_face_t1m[g]);
+            lam_der_t2[g] = lambda[g] * (er_face_t2p[g] - er_face_t2m[g]);
+            dmt1 -= coef_dtdx_t1 * lam_der_t1[g];
+            dmt2 -= coef_dtdx_t2 * lam_der_t2[g];
+            u_lam_der_t1[g] = 0.5_rt * (u_face_t1p + u_face_t1m) * lam_der_t1[g];
+            u_lam_der_t2[g] = 0.5_rt * (u_face_t2p + u_face_t2m) * lam_der_t2[g];
+            dre -= coef_dtdx_t1 * u_lam_der_t1[g] + coef_dtdx_t2 * u_lam_der_t2[g];
         }
 
         Real der[NGROUPS];
@@ -677,21 +677,21 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
             for (int g = 0; g < NGROUPS; ++g) {
                 Real eddf = Edd_factor(lambda[g]);
                 Real f1 = 0.5_rt * (1.0_rt - eddf);
-                der[g] = f1 * (cdtdx_t1 * 0.5_rt * (ugt1p + ugt1m) * (ergt1p[g] - ergt1m[g]) +
-                               cdtdx_t2 * 0.5_rt * (ugt2p + ugt2m) * (ergt2p[g] - ergt2m[g]));
+                der[g] = f1 * (coef_dtdx_t1 * 0.5_rt * (u_face_t1p + u_face_t1m) * (er_face_t1p[g] - er_face_t1m[g]) +
+                               coef_dtdx_t2 * 0.5_rt * (u_face_t2p + u_face_t2m) * (er_face_t2p[g] - er_face_t2m[g]));
             }
         }
         else if (radiation::fspace_advection_type == 2) {
             for (int g = 0; g < NGROUPS; ++g) {
                 Real eddf = Edd_factor(lambda[g]);
                 Real f1 = 0.5_rt * (1.0_rt - eddf);
-                der[g] = f1 * (cdtdx_t1 * 0.5_rt * (ergt1p[g] + ergt1m[g]) * (ugt1m - ugt1p) +
-                               cdtdx_t2 * 0.5_rt * (ergt2p[g] + ergt2m[g]) * (ugt2m - ugt2p));
+                der[g] = f1 * (coef_dtdx_t1 * 0.5_rt * (er_face_t1p[g] + er_face_t1m[g]) * (u_face_t1m - u_face_t1p) +
+                               coef_dtdx_t2 * 0.5_rt * (er_face_t2p[g] + er_face_t2m[g]) * (u_face_t2m - u_face_t2p));
             }
         }
         else { // mixed frame
             for (int g = 0; g < NGROUPS; ++g) {
-                der[g] = cdtdx_t1 * luget1[g] + cdtdx_t2 * luget2[g];
+                der[g] = coef_dtdx_t1 * u_lam_der_t1[g] + coef_dtdx_t2 * u_lam_der_t2[g];
             }
         }
 #endif
@@ -700,8 +700,8 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
         Real run = rrn * q_arr(i,j,k,QU);
         Real rvn = rrn * q_arr(i,j,k,QV);
         Real rwn = rrn * q_arr(i,j,k,QW);
-        Real ekenn = 0.5_rt * rrn * (q_arr(i,j,k,QU) * q_arr(i,j,k,QU) + q_arr(i,j,k,QV) * q_arr(i,j,k,QV) + q_arr(i,j,k,QW) * q_arr(i,j,k,QW));
-        Real ren = q_arr(i,j,k,QRHOEI) + ekenn;
+        Real ke_o = 0.5_rt * rrn * (q_arr(i,j,k,QU) * q_arr(i,j,k,QU) + q_arr(i,j,k,QV) * q_arr(i,j,k,QV) + q_arr(i,j,k,QW) * q_arr(i,j,k,QW));
+        Real ren = q_arr(i,j,k,QRHOEI) + ke_o;
 #ifdef RADIATION
         Real ern[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
@@ -710,43 +710,43 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
 #endif
 
         // Add transverse predictor
-        Real rrnewn = rrnew;
-        Real runewn = run - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMX) -
+        Real rho_tr = rrnew;
+        Real rhou_tr = run - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMX) -
                                         flux_t1(il_t1,jl_t1,kl_t1,UMX))
-                          - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMX) -
+                          - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMX) -
                                         flux_t2(il_t2,jl_t2,kl_t2,UMX));
-        Real rvnewn = rvn - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMY) -
+        Real rhov_tr = rvn - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMY) -
                                         flux_t1(il_t1,jl_t1,kl_t1,UMY))
-                          - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMY) -
+                          - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMY) -
                                         flux_t2(il_t2,jl_t2,kl_t2,UMY));
-        Real rwnewn = rwn - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMZ) -
+        Real rhow_tr = rwn - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UMZ) -
                                         flux_t1(il_t1,jl_t1,kl_t1,UMZ))
-                          - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMZ) -
+                          - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UMZ) -
                                         flux_t2(il_t2,jl_t2,kl_t2,UMZ));
-        Real renewn = ren - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UEDEN) -
+        Real rhoE_tr = ren - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UEDEN) -
                                         flux_t1(il_t1,jl_t1,kl_t1,UEDEN))
-                          - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UEDEN) -
+                          - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UEDEN) -
                                         flux_t2(il_t2,jl_t2,kl_t2,UEDEN));
 #ifdef RADIATION
         if (idir_n == 0) {
-            rvnewn = rvnewn + dmt1;
-            rwnewn = rwnewn + dmt2;
+            rhov_tr = rhov_tr + dmt1;
+            rhow_tr = rhow_tr + dmt2;
         }
         else if (idir_n == 1) {
-            runewn = runewn + dmt1;
-            rwnewn = rwnewn + dmt2;
+            rhou_tr = rhou_tr + dmt1;
+            rhow_tr = rhow_tr + dmt2;
         }
         else {
-            runewn = runewn + dmt1;
-            rvnewn = rvnewn + dmt2;
+            rhou_tr = rhou_tr + dmt1;
+            rhov_tr = rhov_tr + dmt2;
         }
-        renewn = renewn + dre;
+        rhoE_tr = rhoE_tr + dre;
 
-        Real ernewn[NGROUPS];
+        Real er_tr[NGROUPS];
         for (int g = 0; g < NGROUPS; ++g) {
-            ernewn[g] = ern[g] - cdtdx_t1 * (rflux_t1(ir_t1,jr_t1,kr_t1,g) -
+            er_tr[g] = ern[g] - coef_dtdx_t1 * (rflux_t1(ir_t1,jr_t1,kr_t1,g) -
                                              rflux_t1(il_t1,jl_t1,kl_t1,g))
-                               - cdtdx_t2 * (rflux_t2(ir_t2,jr_t2,kr_t2,g) -
+                               - coef_dtdx_t2 * (rflux_t2(ir_t2,jr_t2,kr_t2,g) -
                                              rflux_t2(il_t2,jl_t2,kl_t2,g))
                                + der[g];
         }
@@ -755,19 +755,19 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
         // Reset to original value if adding transverse terms
         // made density negative
         bool reset_state = false;
-        if (reset_density && rrnewn < 0.0_rt) {
-            rrnewn = rrn;
-            runewn = run;
-            rvnewn = rvn;
-            rwnewn = rwn;
-            renewn = ren;
+        if (reset_density && rho_tr < 0.0_rt) {
+            rho_tr = rrn;
+            rhou_tr = run;
+            rhov_tr = rvn;
+            rhow_tr = rwn;
+            rhoE_tr = ren;
             for (int ipassive = 0; ipassive < npassive; ++ipassive) {
-                int nqp = qpassmap(ipassive);
+                int nqp = prim_passive_index(ipassive);
                 qo_arr(i,j,k,nqp) = q_arr(i,j,k,nqp);
             }
 #ifdef RADIATION
             for (int g = 0; g < NGROUPS; ++g) {
-                ernewn[g] = ern[g];
+                er_tr[g] = ern[g];
             }
 #endif
             reset_state = true;
@@ -778,18 +778,18 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
         for (int n = 0; n < NumSpec; ++n) {
             if (qo_arr(i,j,k,n+QSPEC) > 1.0_rt + abundance_tol ||
                 qo_arr(i,j,k,n+QSPEC) < -abundance_tol) {
-                rrnewn = rrn;
-                runewn = run;
-                rvnewn = rvn;
-                rwnewn = rwn;
-                renewn = ren;
+                rho_tr = rrn;
+                rhou_tr = run;
+                rhov_tr = rvn;
+                rhow_tr = rwn;
+                rhoE_tr = ren;
                 for (int ipassive = 0; ipassive < npassive; ++ipassive) {
-                    int nqp = qpassmap(ipassive);
+                    int nqp = prim_passive_index(ipassive);
                     qo_arr(i,j,k,nqp) = q_arr(i,j,k,nqp);
                 }
 #ifdef RADIATION
                 for (int g = 0; g < NGROUPS; ++g) {
-                    ernewn[g] = ern[g];
+                    er_tr[g] = ern[g];
                 }
 #endif
                 reset_state = true;
@@ -797,15 +797,15 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
             }
         }
 
-        qo_arr(i,j,k,QRHO) = rrnewn;
+        qo_arr(i,j,k,QRHO) = rho_tr;
 
-        qo_arr(i,j,k,QU) = runewn / rrnewn;
-        qo_arr(i,j,k,QV) = rvnewn / rrnewn;
-        qo_arr(i,j,k,QW) = rwnewn / rrnewn;
+        qo_arr(i,j,k,QU) = rhou_tr / rho_tr;
+        qo_arr(i,j,k,QV) = rhov_tr / rho_tr;
+        qo_arr(i,j,k,QW) = rhow_tr / rho_tr;
 
         // note: we run the risk of (rho e) being negative here
-        const Real rhoekenn = 0.5_rt * (runewn * runewn + rvnewn * rvnewn + rwnewn * rwnewn) / rrnewn;
-        qo_arr(i,j,k,QRHOEI) = renewn - rhoekenn;
+        const Real ke_tr = 0.5_rt * (rhou_tr * rhou_tr + rhov_tr * rhov_tr + rhow_tr * rhow_tr) / rho_tr;
+        qo_arr(i,j,k,QRHOEI) = rhoE_tr - ke_tr;
 
         if (!reset_state) {
             if (reset_rhoe == 1 && qo_arr(i,j,k,QRHOEI) <= 0.0_rt) {
@@ -813,10 +813,10 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
                 // using the discretized expression for updating
                 // (rho e).
                 qo_arr(i,j,k,QRHOEI) = q_arr(i,j,k,QRHOEI)
-                                 - cdtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UEINT) -
-                                               flux_t1(il_t1,jl_t1,kl_t1,UEINT) + pt1av * dut1)
-                                 - cdtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UEINT) -
-                                               flux_t2(il_t2,jl_t2,kl_t2,UEINT) + pt2av * dut2);
+                                 - coef_dtdx_t1 * (flux_t1(ir_t1,jr_t1,kr_t1,UEINT) -
+                                               flux_t1(il_t1,jl_t1,kl_t1,UEINT) + p_avg_t1 * du_t1)
+                                 - coef_dtdx_t2 * (flux_t2(ir_t2,jr_t2,kr_t2,UEINT) -
+                                               flux_t2(il_t2,jl_t2,kl_t2,UEINT) + p_avg_t2 * du_t2);
             }
 
             // If (rho e) is negative by this point,
@@ -834,8 +834,8 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
 
                 // With the EOS route:
                 eos_rep_t eos_state;
-                eos_state.rho = rrnewn;
-                eos_state.e = qo_arr(i,j,k,QRHOEI) / rrnewn;
+                eos_state.rho = rho_tr;
+                eos_state.e = qo_arr(i,j,k,QRHOEI) / rho_tr;
                 eos_state.T = temp_guess;
 
                 for (int n = 0; n < NumSpec; n++) {
@@ -852,8 +852,8 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
             } else {
 
                 // add the transverse term to the p evolution eq here
-                Real pnewn = q_arr(i,j,k,QPRES) - pt1new - pt2new;
-                qo_arr(i,j,k,QPRES) = pnewn;
+                Real pres_tr = q_arr(i,j,k,QPRES) - p_corr_t1 - p_corr_t2;
+                qo_arr(i,j,k,QPRES) = pres_tr;
             }
 
         }
@@ -866,12 +866,12 @@ HydroSim::transverse_correct_final_impl(const Box& bx,  // NOLINT(readability-co
 
 #ifdef RADIATION
         for (int g = 0; g < NGROUPS; ++g) {
-            qo_arr(i,j,k,QERAD+g) = ernewn[g];
+            qo_arr(i,j,k,QERAD+g) = er_tr[g];
         }
 
         qo_arr(i,j,k,QPTOTAL) = qo_arr(i,j,k,QPRES);
         for (int g = 0; g < NGROUPS; ++g) {
-            qo_arr(i,j,k,QPTOTAL) += lambda[g] * ernewn[g];
+            qo_arr(i,j,k,QPTOTAL) += lambda[g] * er_tr[g];
         }
 
         qo_arr(i,j,k,QRHOEITOT) = qo_arr(i,j,k,QRHOEI);

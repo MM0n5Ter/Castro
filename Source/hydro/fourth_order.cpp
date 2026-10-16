@@ -5,7 +5,7 @@
 #endif
 
 void
-HydroSim::fourth_interfaces(const Box& bx,
+HydroSim::fourth_order_face_values(const Box& bx,
                           const int idir, const int ncomp,
                           Array4<Real const> const& a,
                           Array4<Real> const& a_int) {
@@ -212,67 +212,67 @@ HydroSim::states(const Box& bx,
         ar(i,j,k,ncomp) = a_int(i,j,k);
 
         // these live on cell-centers
-        Real dafm = a(i,j,k,ncomp) - a_int(i,j,k);
-        Real dafp = a_int(i+1,j,k) - a(i,j,k,ncomp);
+        Real da_face_m = a(i,j,k,ncomp) - a_int(i,j,k);
+        Real da_face_p = a_int(i+1,j,k) - a(i,j,k,ncomp);
 
         // these live on cell-centers
-        Real d2af = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i+1,j,k));
+        Real d2a_face = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i+1,j,k));
 
-        Real d2acm2 = a(i-3,j,k,ncomp) - 2.0_rt*a(i-2,j,k,ncomp) + a(i-1,j,k,ncomp);
-        Real d2acm1 = a(i-2,j,k,ncomp) - 2.0_rt*a(i-1,j,k,ncomp) + a(i,j,k,ncomp);
-        Real d2ac0  = a(i-1,j,k,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i+1,j,k,ncomp);
-        Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i+1,j,k,ncomp) + a(i+2,j,k,ncomp);
-        Real d2acp2 = a(i+1,j,k,ncomp) - 2.0_rt*a(i+2,j,k,ncomp) + a(i+3,j,k,ncomp);
+        Real d2a_cm2 = a(i-3,j,k,ncomp) - 2.0_rt*a(i-2,j,k,ncomp) + a(i-1,j,k,ncomp);
+        Real d2a_cm1 = a(i-2,j,k,ncomp) - 2.0_rt*a(i-1,j,k,ncomp) + a(i,j,k,ncomp);
+        Real d2a_c0  = a(i-1,j,k,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i+1,j,k,ncomp);
+        Real d2a_cp1 = a(i,j,k,ncomp) - 2.0_rt*a(i+1,j,k,ncomp) + a(i+2,j,k,ncomp);
+        Real d2a_cp2 = a(i+1,j,k,ncomp) - 2.0_rt*a(i+2,j,k,ncomp) + a(i+3,j,k,ncomp);
 
         // limit?
-        if (dafm * dafp <= 0.0_rt ||
+        if (da_face_m * da_face_p <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i-2,j,k,ncomp))*(a(i+2,j,k,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
           // we are at an extrema
 
-          Real s = std::copysign(1.0_rt, d2ac0);
+          Real s = std::copysign(1.0_rt, d2a_c0);
 
           Real d2a_lim;
 
-          if (s == std::copysign(1.0_rt, d2acm1) &&
-              s == std::copysign(1.0_rt, d2acp1) &&
-              s == std::copysign(1.0_rt, d2af)) {
-            d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
-                                     C2*std::abs(d2ac0), C2*std::abs(d2acp1));
+          if (s == std::copysign(1.0_rt, d2a_cm1) &&
+              s == std::copysign(1.0_rt, d2a_cp1) &&
+              s == std::copysign(1.0_rt, d2a_face)) {
+            d2a_lim = s * amrex::min(std::abs(d2a_face), C2*std::abs(d2a_cm1),
+                                     C2*std::abs(d2a_c0), C2*std::abs(d2a_cp1));
           } else {
             d2a_lim = 0.0_rt;
           }
 
           Real rho;
-          if (std::abs(d2af) <= 1.e-12_rt *
+          if (std::abs(d2a_face) <= 1.e-12_rt *
               amrex::max(std::abs(a(i-2,j,k,ncomp)), std::abs(a(i-1,j,k,ncomp)),
                          std::abs(a(i,j,k,ncomp)), std::abs(a(i+1,j,k,ncomp)),
                          std::abs(a(i+2,j,k,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            rho = d2a_lim/d2af;
+            rho = d2a_lim/d2a_face;
           }
 
           if (rho < 1.0_rt - 1.e-12_rt) {
             // we may need to limit -- these quantities are at cell-centers
-            Real d3am1 = d2acm1 - d2acm2;
-            Real d3a0  = d2ac0 - d2acm1;
-            Real d3ap1 = d2acp1 - d2ac0;
-            Real d3ap2 = d2acp2 - d2acp1;
+            Real d3a_m1 = d2a_cm1 - d2a_cm2;
+            Real d3a_c0  = d2a_c0 - d2a_cm1;
+            Real d3a_p1 = d2a_cp1 - d2a_c0;
+            Real d3a_p2 = d2a_cp2 - d2a_cp1;
 
-            Real d3a_min = amrex::min(d3am1, d3a0, d3ap1, d3ap2);
-            Real d3a_max = amrex::max(d3am1, d3a0, d3ap1, d3ap2);
+            Real d3a_min = amrex::min(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
+            Real d3a_max = amrex::max(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
 
             if (C3 * std::max(std::abs(d3a_min), std::abs(d3a_max)) <=
                 (d3a_max - d3a_min)) {
               // limit
-              if (dafm*dafp < 0.0_rt) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
-                al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + rho*dafp;
-              } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
-              } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
+              if (da_face_m*da_face_p < 0.0_rt) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*da_face_m;
+                al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + rho*da_face_p;
+              } else if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*da_face_p - rho*da_face_m;
+              } else if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+                al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*da_face_m + rho*da_face_p;
               }
 
             }
@@ -280,11 +280,11 @@ HydroSim::states(const Box& bx,
 
         } else {
           // we still may need to limit
-          if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
+          if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*da_face_p;
           }
-          if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-            al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*dafm;
+          if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+            al(i+1,j,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*da_face_m;
           }
         }
 
@@ -370,67 +370,67 @@ HydroSim::states(const Box& bx,
         ar(i,j,k,ncomp) = a_int(i,j,k);
 
         // these live on cell-centers
-        Real dafm = a(i,j,k,ncomp) - a_int(i,j,k);
-        Real dafp = a_int(i,j+1,k) - a(i,j,k,ncomp);
+        Real da_face_m = a(i,j,k,ncomp) - a_int(i,j,k);
+        Real da_face_p = a_int(i,j+1,k) - a(i,j,k,ncomp);
 
         // these live on cell-centers
-        Real d2af = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i,j+1,k));
+        Real d2a_face = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i,j+1,k));
 
-        Real d2acm2 = a(i,j-3,k,ncomp) - 2.0_rt*a(i,j-2,k,ncomp) + a(i,j-1,k,ncomp);
-        Real d2acm1 = a(i,j-2,k,ncomp) - 2.0_rt*a(i,j-1,k,ncomp) + a(i,j,k,ncomp);
-        Real d2ac0  = a(i,j-1,k,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i,j+1,k,ncomp);
-        Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j+1,k,ncomp) + a(i,j+2,k,ncomp);
-        Real d2acp2 = a(i,j+1,k,ncomp) - 2.0_rt*a(i,j+2,k,ncomp) + a(i,j+3,k,ncomp);
+        Real d2a_cm2 = a(i,j-3,k,ncomp) - 2.0_rt*a(i,j-2,k,ncomp) + a(i,j-1,k,ncomp);
+        Real d2a_cm1 = a(i,j-2,k,ncomp) - 2.0_rt*a(i,j-1,k,ncomp) + a(i,j,k,ncomp);
+        Real d2a_c0  = a(i,j-1,k,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i,j+1,k,ncomp);
+        Real d2a_cp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j+1,k,ncomp) + a(i,j+2,k,ncomp);
+        Real d2a_cp2 = a(i,j+1,k,ncomp) - 2.0_rt*a(i,j+2,k,ncomp) + a(i,j+3,k,ncomp);
 
         // limit?
-        if (dafm * dafp <= 0.0_rt ||
+        if (da_face_m * da_face_p <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i,j-2,k,ncomp))*(a(i,j+2,k,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
           // we are at an extrema
 
-          Real s = std::copysign(1.0_rt, d2ac0);
+          Real s = std::copysign(1.0_rt, d2a_c0);
 
           Real d2a_lim;
 
-          if (s == std::copysign(1.0_rt, d2acm1) &&
-              s == std::copysign(1.0_rt, d2acp1) &&
-              s == std::copysign(1.0_rt, d2af)) {
-            d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
-                                     C2*std::abs(d2ac0), C2*std::abs(d2acp1));
+          if (s == std::copysign(1.0_rt, d2a_cm1) &&
+              s == std::copysign(1.0_rt, d2a_cp1) &&
+              s == std::copysign(1.0_rt, d2a_face)) {
+            d2a_lim = s * amrex::min(std::abs(d2a_face), C2*std::abs(d2a_cm1),
+                                     C2*std::abs(d2a_c0), C2*std::abs(d2a_cp1));
           } else {
             d2a_lim = 0.0_rt;
           }
 
           Real rho;
-          if (std::abs(d2af) <= 1.e-12_rt *
+          if (std::abs(d2a_face) <= 1.e-12_rt *
               amrex::max(std::abs(a(i,j-2,k,ncomp)), std::abs(a(i,j-1,k,ncomp)),
                          std::abs(a(i,j,k,ncomp)), std::abs(a(i,j+1,k,ncomp)),
                          std::abs(a(i,j+2,k,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            rho = d2a_lim/d2af;
+            rho = d2a_lim/d2a_face;
           }
 
           if (rho < 1.0_rt - 1.e-12_rt) {
             // we may need to limit -- these quantities are at cell-centers
-            Real d3am1 = d2acm1 - d2acm2;
-            Real d3a0  = d2ac0 - d2acm1;
-            Real d3ap1 = d2acp1 - d2ac0;
-            Real d3ap2 = d2acp2 - d2acp1;
+            Real d3a_m1 = d2a_cm1 - d2a_cm2;
+            Real d3a_c0  = d2a_c0 - d2a_cm1;
+            Real d3a_p1 = d2a_cp1 - d2a_c0;
+            Real d3a_p2 = d2a_cp2 - d2a_cp1;
 
-            Real d3a_min = amrex::min(d3am1, d3a0, d3ap1, d3ap2);
-            Real d3a_max = amrex::max(d3am1, d3a0, d3ap1, d3ap2);
+            Real d3a_min = amrex::min(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
+            Real d3a_max = amrex::max(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
 
             if (C3 * std::max(std::abs(d3a_min), std::abs(d3a_max)) <=
                 (d3a_max - d3a_min)) {
               // limit
-              if (dafm*dafp < 0.0_rt) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
-                al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + rho*dafp;
-              } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
-              } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
+              if (da_face_m*da_face_p < 0.0_rt) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*da_face_m;
+                al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + rho*da_face_p;
+              } else if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*da_face_p - rho*da_face_m;
+              } else if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+                al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*da_face_m + rho*da_face_p;
               }
 
             }
@@ -438,11 +438,11 @@ HydroSim::states(const Box& bx,
 
         } else {
           // we still may need to limit
-          if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
+          if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*da_face_p;
           }
-          if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-            al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*dafm;
+          if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+            al(i,j+1,k,ncomp) = a(i,j,k,ncomp) + 2.0_rt*da_face_m;
           }
         }
 
@@ -527,67 +527,67 @@ HydroSim::states(const Box& bx,
         ar(i,j,k,ncomp) = a_int(i,j,k);
 
         // these live on cell-centers
-        Real dafm = a(i,j,k,ncomp) - a_int(i,j,k);
-        Real dafp = a_int(i,j,k+1) - a(i,j,k,ncomp);
+        Real da_face_m = a(i,j,k,ncomp) - a_int(i,j,k);
+        Real da_face_p = a_int(i,j,k+1) - a(i,j,k,ncomp);
 
         // these live on cell-centers
-        Real d2af = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i,j,k+1));
+        Real d2a_face = 6.0_rt*(a_int(i,j,k) - 2.0_rt*a(i,j,k,ncomp) + a_int(i,j,k+1));
 
-        Real d2acm2 = a(i,j,k-3,ncomp) - 2.0_rt*a(i,j,k-2,ncomp) + a(i,j,k-1,ncomp);
-        Real d2acm1 = a(i,j,k-2,ncomp) - 2.0_rt*a(i,j,k-1,ncomp) + a(i,j,k,ncomp);
-        Real d2ac0  = a(i,j,k-1,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i,j,k+1,ncomp);
-        Real d2acp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j,k+1,ncomp) + a(i,j,k+2,ncomp);
-        Real d2acp2 = a(i,j,k+1,ncomp) - 2.0_rt*a(i,j,k+2,ncomp) + a(i,j,k+3,ncomp);
+        Real d2a_cm2 = a(i,j,k-3,ncomp) - 2.0_rt*a(i,j,k-2,ncomp) + a(i,j,k-1,ncomp);
+        Real d2a_cm1 = a(i,j,k-2,ncomp) - 2.0_rt*a(i,j,k-1,ncomp) + a(i,j,k,ncomp);
+        Real d2a_c0  = a(i,j,k-1,ncomp) - 2.0_rt*a(i,j,k,ncomp) + a(i,j,k+1,ncomp);
+        Real d2a_cp1 = a(i,j,k,ncomp) - 2.0_rt*a(i,j,k+1,ncomp) + a(i,j,k+2,ncomp);
+        Real d2a_cp2 = a(i,j,k+1,ncomp) - 2.0_rt*a(i,j,k+2,ncomp) + a(i,j,k+3,ncomp);
 
         // limit?
-        if (dafm * dafp <= 0.0_rt ||
+        if (da_face_m * da_face_p <= 0.0_rt ||
             (a(i,j,k,ncomp) - a(i,j,k-2,ncomp))*(a(i,j,k+2,ncomp) - a(i,j,k,ncomp)) <= 0.0_rt) {
 
           // we are at an extrema
 
-          Real s = std::copysign(1.0_rt, d2ac0);
+          Real s = std::copysign(1.0_rt, d2a_c0);
 
           Real d2a_lim;
 
-          if (s == std::copysign(1.0_rt, d2acm1) &&
-              s == std::copysign(1.0_rt, d2acp1) &&
-              s == std::copysign(1.0_rt, d2af)) {
-            d2a_lim = s * amrex::min(std::abs(d2af), C2*std::abs(d2acm1),
-                                     C2*std::abs(d2ac0), C2*std::abs(d2acp1));
+          if (s == std::copysign(1.0_rt, d2a_cm1) &&
+              s == std::copysign(1.0_rt, d2a_cp1) &&
+              s == std::copysign(1.0_rt, d2a_face)) {
+            d2a_lim = s * amrex::min(std::abs(d2a_face), C2*std::abs(d2a_cm1),
+                                     C2*std::abs(d2a_c0), C2*std::abs(d2a_cp1));
           } else {
             d2a_lim = 0.0_rt;
           }
 
           Real rho;
-          if (std::abs(d2af) <= 1.e-12_rt *
+          if (std::abs(d2a_face) <= 1.e-12_rt *
               amrex::max(std::abs(a(i,j,k-2,ncomp)), std::abs(a(i,j,k-1,ncomp)),
                          std::abs(a(i,j,k,ncomp)), std::abs(a(i,j,k+1,ncomp)),
                          std::abs(a(i,j,k+2,ncomp)))) {
             rho = 0.0_rt;
           } else {
-            rho = d2a_lim/d2af;
+            rho = d2a_lim/d2a_face;
           }
 
           if (rho < 1.0_rt - 1.e-12_rt) {
             // we may need to limit -- these quantities are at cell-centers
-            Real d3am1 = d2acm1 - d2acm2;
-            Real d3a0  = d2ac0 - d2acm1;
-            Real d3ap1 = d2acp1 - d2ac0;
-            Real d3ap2 = d2acp2 - d2acp1;
+            Real d3a_m1 = d2a_cm1 - d2a_cm2;
+            Real d3a_c0  = d2a_c0 - d2a_cm1;
+            Real d3a_p1 = d2a_cp1 - d2a_c0;
+            Real d3a_p2 = d2a_cp2 - d2a_cp1;
 
-            Real d3a_min = amrex::min(d3am1, d3a0, d3ap1, d3ap2);
-            Real d3a_max = amrex::max(d3am1, d3a0, d3ap1, d3ap2);
+            Real d3a_min = amrex::min(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
+            Real d3a_max = amrex::max(d3a_m1, d3a_c0, d3a_p1, d3a_p2);
 
             if (C3 * std::max(std::abs(d3a_min), std::abs(d3a_max)) <=
                 (d3a_max - d3a_min)) {
               // limit
-              if (dafm*dafp < 0.0_rt) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*dafm;
-                al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + rho*dafp;
-              } else if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*dafp - rho*dafm;
-              } else if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-                al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*dafm + rho*dafp;
+              if (da_face_m*da_face_p < 0.0_rt) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - rho*da_face_m;
+                al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + rho*da_face_p;
+              } else if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+                ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*(1.0_rt - rho)*da_face_p - rho*da_face_m;
+              } else if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+                al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + 2.0_rt*(1.0_rt - rho)*da_face_m + rho*da_face_p;
               }
 
             }
@@ -595,11 +595,11 @@ HydroSim::states(const Box& bx,
 
         } else {
           // we still may need to limit
-          if (std::abs(dafm) >= 2.0_rt*std::abs(dafp)) {
-            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*dafp;
+          if (std::abs(da_face_m) >= 2.0_rt*std::abs(da_face_p)) {
+            ar(i,j,k,ncomp) = a(i,j,k,ncomp) - 2.0_rt*da_face_p;
           }
-          if (std::abs(dafp) >= 2.0_rt*std::abs(dafm)) {
-            al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + 2.0_rt*dafm;
+          if (std::abs(da_face_p) >= 2.0_rt*std::abs(da_face_m)) {
+            al(i,j,k+1,ncomp) = a(i,j,k,ncomp) + 2.0_rt*da_face_m;
           }
         }
 
@@ -663,7 +663,7 @@ HydroSim::states(const Box& bx,
 
 
 void
-HydroSim::fourth_avisc(const Box& bx,
+HydroSim::fourth_order_art_visc(const Box& bx,
                      Array4<Real const> const& q_arr,
                      Array4<Real const> const& qaux_arr,
                      Array4<Real> const& avis,
@@ -760,10 +760,10 @@ HydroSim::fourth_avisc(const Box& bx,
 
 #ifdef DIFFUSION
 void
-HydroSim::fourth_add_diffusive_flux(const Box& bx,
+HydroSim::fourth_order_conduction_flux(const Box& bx,
                                   Array4<Real const> const& q_arr,
                                   const int temp_comp,
-                                  Array4<Real const> const& qint,
+                                  Array4<Real const> const& q_riemann,
                                   Array4<Real> const& F,
                                   const int idir, const bool is_avg) {
 
@@ -777,15 +777,15 @@ HydroSim::fourth_add_diffusive_flux(const Box& bx,
 
     eos_t eos_state;
 
-    eos_state.rho = qint(i,j,k,QRHO);
+    eos_state.rho = q_riemann(i,j,k,QRHO);
     eos_state.T = q_arr(i,j,k,temp_comp);  // initial guess
-    eos_state.e = qint(i,j,k,QRHOEI) / qint(i,j,k,QRHO);
+    eos_state.e = q_riemann(i,j,k,QRHOEI) / q_riemann(i,j,k,QRHO);
     for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = qint(i,j,k,QSPEC+n);
+      eos_state.xn[n] = q_riemann(i,j,k,QSPEC+n);
     }
 #if NAUX_NET > 0
     for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = qint(i,j,k,QAUXV+n);
+      eos_state.aux[n] = q_riemann(i,j,k,QAUXV+n);
     }
 #endif
 

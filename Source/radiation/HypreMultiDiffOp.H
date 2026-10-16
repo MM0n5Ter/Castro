@@ -1,5 +1,5 @@
-#ifndef HYDROSIM_HYPREMULTIABEC_H
-#define HYDROSIM_HYPREMULTIABEC_H
+#ifndef HYDROSIM_HYPREMULTIDIFFOP_H
+#define HYDROSIM_HYPREMULTIDIFFOP_H
 
 #include <HypreDiffOp.H>
 
@@ -19,9 +19,9 @@ class AuxVar {
 
  protected:
 
-  class Connex {
+  class StencilLink {
    public:
-    Connex() :
+    StencilLink() :
       other(nullptr)
     {}
 
@@ -29,7 +29,7 @@ class AuxVar {
 /// @param p
 /// @param r
 ///
-    Connex(AuxVar* p, amrex::Real r) :
+    StencilLink(AuxVar* p, amrex::Real r) :
         val(r), other(p)
     {}
 
@@ -38,14 +38,14 @@ class AuxVar {
 /// @param iv
 /// @param r
 ///
-    Connex(int lev, const amrex::IntVect& iv, amrex::Real r) :
+    StencilLink(int lev, const amrex::IntVect& iv, amrex::Real r) :
         val(r), index(iv), level(lev), other(nullptr)
     {}
 
 ///
 /// @param c
 ///
-    [[nodiscard]] bool same_target(const Connex& c) const {
+    [[nodiscard]] bool same_target(const StencilLink& c) const {
       return ((other != nullptr)
               ? (other == c.other)
               : (c.other == nullptr && level == c.level && index == c.index));
@@ -122,7 +122,7 @@ class AuxVar {
 
  protected:
 
-  std::list<Connex> a;
+  std::list<StencilLink> a;
   int secondary_flag{};
 };
 
@@ -553,24 +553,24 @@ class HypreMultiDiffOp {
       return (*bcoefs[level])[dir];
   }
 
-  void hmac (const amrex::Box& bx,
+  void ml_fill_alpha_coefs (const amrex::Box& bx,
              amrex::Array4<amrex::GpuArray<amrex::Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
              amrex::Array4<amrex::Real const> const& a,
              amrex::Real alpha);
 
-  void hmbc (const amrex::Box& bx,
+  void ml_fill_beta_coefs (const amrex::Box& bx,
              amrex::Array4<amrex::GpuArray<amrex::Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
              amrex::Array4<amrex::Real const> const& b,
              amrex::Real beta, const amrex::Real* dx, int n);
 
-  void hmmat (const amrex::Box& bx,
+  void ml_bc_matrix_fix (const amrex::Box& bx,
               amrex::Array4<amrex::GpuArray<amrex::Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
               int cdir, int bct, int bho, amrex::Real bcl,
               amrex::Array4<int const> const& mask,
               amrex::Array4<amrex::Real const> const& b,
               amrex::Real beta, const amrex::Real* dx);
 
-  void hmmat3 (const amrex::Box& bx,
+  void ml_bc_matrix_fix_typed (const amrex::Box& bx,
                int ori_lo, int idir,
                amrex::Array4<amrex::GpuArray<amrex::Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
                int cdir, int bctype,

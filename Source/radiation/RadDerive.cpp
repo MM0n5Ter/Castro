@@ -8,7 +8,7 @@
 
 using namespace amrex;
 
-void derived_fields::hs_derertot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void derived_fields::derive_total_rad_energy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                                  const FArrayBox& datfab, const Geometry& /*geomdata*/,
                                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
 {

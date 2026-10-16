@@ -52,7 +52,7 @@ namespace derived_fields
     // These routines are called in an MFIter loop, so we do not
     // need to explicitly synchronize after GPU kernels.
 
-    void hs_derpres(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_pressure(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -80,7 +80,7 @@ namespace derived_fields
       });
     }
 
-    void hs_dereint1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_eint_from_total(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -102,7 +102,7 @@ namespace derived_fields
       });
     }
 
-    void hs_dereint2(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_eint_from_rhoe(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -118,7 +118,7 @@ namespace derived_fields
       });
     }
 
-    void hs_derlogden(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_log_density(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -133,7 +133,7 @@ namespace derived_fields
       });
     }
 
-    void hs_deruplusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_u_plus_cs(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -163,7 +163,7 @@ namespace derived_fields
       });
     }
 
-    void hs_deruminusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_u_minus_cs(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -193,7 +193,7 @@ namespace derived_fields
       });
     }
 
-    void hs_dersoundspeed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_sound_speed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -224,7 +224,7 @@ namespace derived_fields
     }
 
 
-    void hs_dergamma1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_gamma1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -254,7 +254,7 @@ namespace derived_fields
       });
     }
 
-    void hs_dermachnumber(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_mach(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -287,7 +287,7 @@ namespace derived_fields
       });
     }
 
-    void hs_derentropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_entropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -317,7 +317,7 @@ namespace derived_fields
     }
 
 #ifdef DIFFUSION
-    void hs_dercond(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_conductivity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -325,11 +325,11 @@ namespace derived_fields
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      Diffusion::fill_temp_cond(bx, dat, der);
+      Diffusion::fill_conductivity(bx, dat, der);
 
     }
 
-    void hs_derdiffcoeff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_diffusivity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -337,11 +337,11 @@ namespace derived_fields
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      Diffusion::fill_temp_diff_coeff(bx, dat, der);
+      Diffusion::fill_thermal_diffusivity(bx, dat, der);
 
     }
 
-    void hs_derdiffterm(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_conduction_term(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                         const FArrayBox& datfab, const Geometry& geom,
                         Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -355,7 +355,7 @@ namespace derived_fields
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      Diffusion::fill_temp_cond(obx, dat, coeff_arr);
+      Diffusion::fill_conductivity(obx, dat, coeff_arr);
 
       auto dx = geom.CellSizeArray();
       auto problo = geom.ProbLoArray();
@@ -434,7 +434,7 @@ namespace derived_fields
 #endif
 
 #ifdef REACTIONS
-    void hs_derenuctimescale(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_burn_time_ratio(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                              const FArrayBox& datfab, const Geometry& geom,
                              Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -491,7 +491,7 @@ namespace derived_fields
       });
     }
 
-    void hs_derenuc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_energy_rate(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -509,7 +509,7 @@ namespace derived_fields
     }
 #endif
 
-    void hs_dervel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_velocity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -525,7 +525,7 @@ namespace derived_fields
     }
 
 
-    void hs_dermagvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_speed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -546,7 +546,7 @@ namespace derived_fields
     }
 
 
-    void hs_dermaggrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_grav_magnitude(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -565,7 +565,7 @@ namespace derived_fields
       });
     }
 
-    void hs_derradialvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_radial_velocity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -617,7 +617,7 @@ namespace derived_fields
     }
 
 
-    void hs_dercircvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_circular_velocity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& geom,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -680,7 +680,7 @@ namespace derived_fields
     }
 
 
-  void hs_dermagmom(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_momentum_magnitude(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -699,7 +699,7 @@ namespace derived_fields
                        });
   }
 
-  void hs_derangmomx (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_mom_x (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -751,7 +751,7 @@ namespace derived_fields
 
   }
 
-  void hs_derangmomy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_mom_y (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -799,7 +799,7 @@ namespace derived_fields
 
   }
 
-  void hs_derangmomz (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_mom_z (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -848,7 +848,7 @@ namespace derived_fields
 
   }
 
-  void hs_derkineng (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_kinetic_energy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -866,7 +866,7 @@ namespace derived_fields
 
   }
 
-  void hs_dernull(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
+  void derive_nothing(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
                   const Real* /*data*/, const int* /*data_lo*/, const int* /*data_hi*/, const int* /*ncomp*/,
                   const int* /*lo*/, const int* /*hi*/,
                   const int* /*domain_lo*/, const int* /*domain_hi*/,
@@ -879,7 +879,7 @@ namespace derived_fields
 
   }
 
-  void hs_derspec(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_species(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -895,7 +895,7 @@ namespace derived_fields
     }
 
 
-  void hs_derye(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_electron_fraction(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                 const FArrayBox& datfab, const Geometry& /*geom*/,
                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -917,7 +917,7 @@ namespace derived_fields
       });
     }
 
-  void hs_derabar(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_mean_mass_number(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -939,7 +939,7 @@ namespace derived_fields
       });
     }
 
-  void hs_dermagvort(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_vorticity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& geom,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1069,7 +1069,7 @@ namespace derived_fields
       });
     }
 
-  void hs_derdivu(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_div_velocity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1091,13 +1091,13 @@ namespace derived_fields
         Real ulo = dat(i-1,j,k,1) / dat(i-1,j,k,0);
 
 #if AMREX_SPACEDIM >= 2
-        Real vhi = dat(i,j+dg1,k,2) / dat(i,j+dg1,k,0);
-        Real vlo = dat(i,j-dg1,k,2) / dat(i,j-dg1,k,0);
+        Real vhi = dat(i,j+dim1_on,k,2) / dat(i,j+dim1_on,k,0);
+        Real vlo = dat(i,j-dim1_on,k,2) / dat(i,j-dim1_on,k,0);
 #endif
 
 #if AMREX_SPACEDIM == 3
-        Real whi = dat(i,j,k+dg2,3) / dat(i,j,k+dg2,0);
-        Real wlo = dat(i,j,k-dg2,3) / dat(i,j,k-dg2,0);
+        Real whi = dat(i,j,k+dim2_on,3) / dat(i,j,k+dim2_on,0);
+        Real wlo = dat(i,j,k-dim2_on,3) / dat(i,j,k-dim2_on,0);
 #endif
 
         if (coord_type == 0) {
@@ -1142,7 +1142,7 @@ namespace derived_fields
       });
   }
 
-  void hs_derstate(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_state_copy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1168,28 +1168,28 @@ namespace derived_fields
   }
 
 #ifdef MHD
-  void hs_dermagcenx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_b_center_x(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
     face_to_center<0>(bx, derfab, datfab);
   }
 
-  void hs_dermagceny(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_b_center_y(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
     face_to_center<1>(bx, derfab, datfab);
   }
 
-  void hs_dermagcenz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_b_center_z(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
     face_to_center<2>(bx, derfab, datfab);
   }
 
-  void hs_derdivb(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_div_b(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& geom,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {

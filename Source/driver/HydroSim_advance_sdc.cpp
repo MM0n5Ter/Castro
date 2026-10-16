@@ -22,14 +22,14 @@ using namespace amrex;
 #ifndef MHD
 #ifndef AMREX_USE_GPU
 Real
-HydroSim::do_advance_sdc (const LevelStep& step)
+HydroSim::advance_level_sdc (const LevelStep& step)
 {
 
     // this is the new "formal" SDC integration routine.
 
     // this does the entire update in time for 1 SDC iteration.
 
-    BL_PROFILE("HydroSim::do_advance_sdc()");
+    BL_PROFILE("HydroSim::advance_level_sdc()");
 
     const Real time = step.time;
     const Real dt = step.dt;
@@ -47,7 +47,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
 
     // Perform initialization steps.
 
-    status = initialize_do_advance(time, dt);
+    status = begin_level_advance(time, dt);
 
     MultiFab& old_source = get_old_data(Source_Type);
     MultiFab& new_source = get_new_data(Source_Type);
@@ -105,7 +105,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
                     for (MFIter mfi(S_new); mfi.isValid(); ++mfi) {
                         const Box& gbx = mfi.growntilebox(1);
 
-                        make_cell_center(gbx, Sborder.array(mfi), Sreact.array(mfi), domain_lo, domain_hi);
+                        to_cell_center(gbx, Sborder.array(mfi), Sreact.array(mfi), domain_lo, domain_hi);
 
                     }
 
@@ -129,7 +129,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
                         tmp.resize(bx, 1, The_Async_Arena());
                         auto tmp_arr = tmp.array();
 
-                        make_fourth_in_place(bx, old_source.array(mfi), tmp_arr, domain_lo, domain_hi);
+                        to_fourth_order_in_place(bx, old_source.array(mfi), tmp_arr, domain_lo, domain_hi);
                     }
 
                 } else {
@@ -204,7 +204,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
 
             amrex::Print() << "... doing the SDC update, iteration = " << sdc_iteration << " from node " << m << " to " << m+1 << std::endl;
 
-            do_sdc_update(m, m+1, dt);
+            sdc_node_update(m, m+1, dt);
 
             // we now have a new value of k_new[m+1], do a clean_state on it
             clean_state(*(k_new[m+1]), cur_time, 0);
@@ -268,7 +268,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
         evaluate_sources_at(S_new, new_source, cur_time);
     }
 
-    status = finalize_do_advance(cur_time, dt);
+    status = end_level_advance(cur_time, dt);
 
 #ifdef REACTIONS
     // store the reaction information as well.  Note: this will be
@@ -318,7 +318,7 @@ HydroSim::do_advance_sdc (const LevelStep& step)
             tmp.resize(bx, 1, The_Async_Arena());
             auto const tmp_arr = tmp.array();
 
-            make_fourth_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
+            to_fourth_order_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
 
             // store
             R_new[mfi].copy(R_center, bx, 0, bx, 0, R_new.nComp());

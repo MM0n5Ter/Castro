@@ -9,7 +9,7 @@ using std::string;
 using namespace amrex;
 
 void
-HydroSim::final_radiation_call (MultiFab& S_new, int iteration, int ncycle)
+HydroSim::finish_radiation_step (MultiFab& S_new, int iteration, int ncycle)
 {
     if (do_radiation) {
 

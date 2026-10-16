@@ -38,15 +38,15 @@ amrex::Real norm(const amrex::Real a[]);
 
 // Problem post-initialization routine.
 
-void problem_post_init();
+void user_post_init();
 
 // Problem post-restart routine.
 
-void problem_post_restart();
+void user_post_restart();
 
 // End of timestep analytics on the white dwarf properties.
 
-void problem_post_timestep();
+void user_post_timestep();
 
 // Write out the git hashes for the various parts of the code.
 

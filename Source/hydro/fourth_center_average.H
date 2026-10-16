@@ -66,7 +66,7 @@ compute_laplacian(int i, int j, int k, int n,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
-trans_laplacian(int i, int j, int k, int n,
+transverse_laplacian(int i, int j, int k, int n,
                 int idir,
                 Array4<Real const> const& a,
                 DomainBounds const& domain) {

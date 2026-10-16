@@ -43,7 +43,7 @@
 /// @param dt        current timestep
 ///
     void
-    rsrc(const Box& bx,
+    fill_rotation_source(const Box& bx,
          Array4<Real const> const& uold,
          Array4<Real> const& source,
          const Real dt);
@@ -60,7 +60,7 @@
 /// @param dt       current timestep
 ///
     void
-    corrrsrc(const Box& bx,
+    fill_rotation_correction(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real const> const& unew,
              Array4<Real> const& source,

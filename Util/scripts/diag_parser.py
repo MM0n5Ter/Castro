@@ -18,37 +18,37 @@ from pathlib import Path
 import numpy as np
 
 """ Format notes
-files are opened in HydroSim.cpp, data is written in sum_integrated_quantities.cpp
+files are opened in HydroSim.cpp, data is written in print_integrated_sums.cpp
 
 data_logs[0]: grid_diag.out
-intwidth, fixwidth, datwidth*
+step_col_width, time_col_width, col_width*
 
 data_logs[1]: gravity_diag.out
 - this was previously missing the last column number (8), which we handle for
   backwards compatibility
-intwidth, fixwidth, datwidth, datwidth, datwidth, datwidth, datwidth, datwidth
+step_col_width, time_col_width, col_width, col_width, col_width, col_width, col_width, col_width
 
 data_logs[2]: species_diag.out
-intwidth, fixwidth, datwidth*
+step_col_width, time_col_width, col_width*
 
 data_logs[3]: amr_diag.out
 - if compiled with GPU support, this will have two additional integer fields at
-  the end with size `datwidth` for the GPU memory usage
+  the end with size `col_width` for the GPU memory usage
 - column 5 (max number of subcycles) is an integer
-intwidth, fixwidth, fixwidth, intwidth, fixwidth, datwidth
+step_col_width, time_col_width, time_col_width, step_col_width, time_col_width, col_width
 """
 
-datwidth = 25  # Floating point data in scientific notation
-fixwidth = 25  # Floating point data not in scientific notation
-intwidth = 12  # Integer data
+col_width = 25  # Floating point data in scientific notation
+time_col_width = 25  # Floating point data not in scientific notation
+step_col_width = 12  # Integer data
 
 # Any additional columns after these are assumed to be floating point values in
 # scientific notation (amr_diag.out gets special handling)
 FIELD_WIDTHS = {
-    "grid_diag.out": [intwidth, fixwidth],
-    "gravity_diag.out": [intwidth, fixwidth] + [datwidth] * 6,
-    "species_diag.out": [intwidth, fixwidth],
-    "amr_diag.out": [intwidth, fixwidth, fixwidth, intwidth, fixwidth, datwidth],
+    "grid_diag.out": [step_col_width, time_col_width],
+    "gravity_diag.out": [step_col_width, time_col_width] + [col_width] * 6,
+    "species_diag.out": [step_col_width, time_col_width],
+    "amr_diag.out": [step_col_width, time_col_width, time_col_width, step_col_width, time_col_width, col_width],
 }
 
 
@@ -78,9 +78,9 @@ def read_diag_file(file_path, dedupe=True):
         else:
             num_columns = int(first_line.split()[-1])
         # pad out the widths list on the right if necessary
-        widths.extend([datwidth] * (num_columns - len(widths)))
+        widths.extend([col_width] * (num_columns - len(widths)))
         # infer datatypes from the widths
-        dtypes = [int if w == intwidth else float for w in widths]
+        dtypes = [int if w == step_col_width else float for w in widths]
         # amr_diag.out has several integer columns with long names
         if filetype == "amr_diag.out":
             dtypes[4] = int  # max number of subcycles

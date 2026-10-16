@@ -20,7 +20,7 @@ using namespace amrex;
 using namespace reconstruction;
 
 void
-HydroSim::mol_plm_reconstruct(const Box& bx,
+HydroSim::plm_face_states_mol(const Box& bx,
                             const int idir,
                             Array4<Real const> const& q_arr,
                             Array4<Real const> const& flatcoef_arr,
@@ -138,13 +138,13 @@ HydroSim::mol_plm_reconstruct(const Box& bx,
   // we have to do this after the loops above, since here we will
   // consider interfaces, not zones
 
-  enforce_reflect_states(bx, idir, qm, qp);
+  mirror_states_at_walls(bx, idir, qm, qp);
 
 }
 
 
 void
-HydroSim::mol_ppm_reconstruct(const Box& bx,
+HydroSim::ppm_face_states_mol(const Box& bx,
                             const int idir,
                             Array4<Real const> const& q_arr,
                             Array4<Real const> const& flatcoef_arr,
@@ -190,7 +190,7 @@ HydroSim::mol_ppm_reconstruct(const Box& bx,
   // we have to do this after the loops above, since here we will
   // consider interfaces, not zones
 
-  enforce_reflect_states(bx, idir, qm, qp);
+  mirror_states_at_walls(bx, idir, qm, qp);
 
 }
 
@@ -241,14 +241,14 @@ HydroSim::mol_cons_update(const Box& bx,  // NOLINT(readability-convert-member-f
 
 #if AMREX_SPACEDIM <= 2
     if (do_hydro == 1) {
-        if (n == UMX && !mom_flux_has_p(0, 0, coord)) {
+        if (n == UMX && !momentum_flux_has_pressure(0, 0, coord)) {
             // Add gradp term to radial momentum equation -- only for axisymmetric
             // coords.
 
             update(i,j,k,UMX) -= (qe[0](i+1,j,k,IFCPRES) - qe[0](i,j,k,IFCPRES)) / dx[0];
 
 #if AMREX_SPACEDIM == 2
-        } else if (n == UMY && !mom_flux_has_p(1, 1, coord)) {
+        } else if (n == UMY && !momentum_flux_has_pressure(1, 1, coord)) {
             // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
             Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
@@ -282,7 +282,7 @@ HydroSim::mol_cons_update(const Box& bx,  // NOLINT(readability-convert-member-f
 
 
 void
-HydroSim::mol_diffusive_flux(const Box& bx,
+HydroSim::add_mol_conduction_flux(const Box& bx,
                            const int idir,
                            Array4<Real const> const& U,
                            Array4<Real const> const& cond,
@@ -318,8 +318,8 @@ HydroSim::mol_diffusive_flux(const Box& bx,
 
 
 void
-HydroSim::compute_flux_from_q(const Box& bx,
-                            Array4<Real const> const& qint,
+HydroSim::flux_from_face_state(const Box& bx,
+                            Array4<Real const> const& q_riemann,
                             Array4<Real> const& F,
                             const int idir) {
 
@@ -330,7 +330,7 @@ HydroSim::compute_flux_from_q(const Box& bx,
   int im1, im2, im3;
 
   auto coord = geom.Coord();
-  auto mom_check = mom_flux_has_p(idir, idir, coord);
+  auto mom_check = momentum_flux_has_pressure(idir, idir, coord);
 
   if (idir == 0) {
     iu = QU;
@@ -365,25 +365,25 @@ HydroSim::compute_flux_from_q(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real u_adv = qint(i,j,k,iu);
-    Real rhoeint = qint(i,j,k,QRHOEI);
+    Real u_adv = q_riemann(i,j,k,iu);
+    Real rhoeint = q_riemann(i,j,k,QRHOEI);
 
     // Compute fluxes, order as conserved state (not q)
-    F(i,j,k,URHO) = qint(i,j,k,QRHO)*u_adv;
+    F(i,j,k,URHO) = q_riemann(i,j,k,QRHO)*u_adv;
 
-    F(i,j,k,im1) = F(i,j,k,URHO)*qint(i,j,k,iu);
+    F(i,j,k,im1) = F(i,j,k,URHO)*q_riemann(i,j,k,iu);
     if (mom_check) {
-      F(i,j,k,im1) += qint(i,j,k,QPRES);
+      F(i,j,k,im1) += q_riemann(i,j,k,QPRES);
     }
-    F(i,j,k,im2) = F(i,j,k,URHO)*qint(i,j,k,iv1);
-    F(i,j,k,im3) = F(i,j,k,URHO)*qint(i,j,k,iv2);
+    F(i,j,k,im2) = F(i,j,k,URHO)*q_riemann(i,j,k,iv1);
+    F(i,j,k,im3) = F(i,j,k,URHO)*q_riemann(i,j,k,iv2);
 
-    Real rhoetot = rhoeint + 0.5_rt * qint(i,j,k,QRHO)*
-      (qint(i,j,k,iu)*qint(i,j,k,iu) +
-       qint(i,j,k,iv1)*qint(i,j,k,iv1) +
-       qint(i,j,k,iv2)*qint(i,j,k,iv2));
+    Real rhoetot = rhoeint + 0.5_rt * q_riemann(i,j,k,QRHO)*
+      (q_riemann(i,j,k,iu)*q_riemann(i,j,k,iu) +
+       q_riemann(i,j,k,iv1)*q_riemann(i,j,k,iv1) +
+       q_riemann(i,j,k,iv2)*q_riemann(i,j,k,iv2));
 
-    F(i,j,k,UEDEN) = u_adv*(rhoetot + qint(i,j,k,QPRES));
+    F(i,j,k,UEDEN) = u_adv*(rhoetot + q_riemann(i,j,k,QPRES));
     F(i,j,k,UEINT) = u_adv*rhoeint;
 
     F(i,j,k,UTEMP) = 0.0;
@@ -397,20 +397,20 @@ HydroSim::compute_flux_from_q(const Box& bx,
 #endif
     // passively advected quantities
     for (int ipassive = 0; ipassive < npassive; ipassive++) {
-      int n  = upassmap(ipassive);
-      int nqp = qpassmap(ipassive);
+      int n  = cons_passive_index(ipassive);
+      int nqp = prim_passive_index(ipassive);
 
-      F(i,j,k,n) = F(i,j,k,URHO)*qint(i,j,k,nqp);
+      F(i,j,k,n) = F(i,j,k,URHO)*q_riemann(i,j,k,nqp);
     }
 
 #ifdef HYBRID_MOMENTUM
     // the hybrid routine uses the Godunov indices, not the full NQ state
     GpuArray<Real, NIFC> qface_zone;
-    qface_zone[IFCRHO] = qint(i,j,k,QRHO);
-    qface_zone[IFCU] = qint(i,j,k,QU);
-    qface_zone[IFCV] = qint(i,j,k,QV);
-    qface_zone[IFCW] = qint(i,j,k,QW);
-    qface_zone[IFCPRES] = qint(i,j,k,QPRES);
+    qface_zone[IFCRHO] = q_riemann(i,j,k,QRHO);
+    qface_zone[IFCU] = q_riemann(i,j,k,QU);
+    qface_zone[IFCV] = q_riemann(i,j,k,QV);
+    qface_zone[IFCW] = q_riemann(i,j,k,QW);
+    qface_zone[IFCPRES] = q_riemann(i,j,k,QPRES);
     GpuArray<Real, NUM_STATE> F_zone;
     for (int n = 0; n < NUM_STATE; n++) {
         F_zone[n] = F(i,j,k,n);
@@ -424,8 +424,8 @@ HydroSim::compute_flux_from_q(const Box& bx,
 }
 
 void
-hydro::store_godunov_state(const Box& bx,
-                           Array4<Real const> const& qint,
+hydro::store_face_state(const Box& bx,
+                           Array4<Real const> const& q_riemann,
 #ifdef RADIATION
                            Array4<Real const> const& lambda,
 #endif
@@ -441,16 +441,16 @@ hydro::store_godunov_state(const Box& bx,
 
 
 #ifdef HYBRID_MOMENTUM
-    qface(i,j,k,IFCRHO) = qint(i,j,k,QRHO);
+    qface(i,j,k,IFCRHO) = q_riemann(i,j,k,QRHO);
 #endif
-    qface(i,j,k,IFCU) = qint(i,j,k,QU);
-    qface(i,j,k,IFCV) = qint(i,j,k,QV);
-    qface(i,j,k,IFCW) = qint(i,j,k,QW);
-    qface(i,j,k,IFCPRES) = qint(i,j,k,QPRES);
+    qface(i,j,k,IFCU) = q_riemann(i,j,k,QU);
+    qface(i,j,k,IFCV) = q_riemann(i,j,k,QV);
+    qface(i,j,k,IFCW) = q_riemann(i,j,k,QW);
+    qface(i,j,k,IFCPRES) = q_riemann(i,j,k,QPRES);
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
       qface(i,j,k,IFCFLXLIM+g) = lambda(i,j,k,g);
-      qface(i,j,k,IFCERAD+g) = qint(i,j,k,QERAD+g);
+      qface(i,j,k,IFCERAD+g) = q_riemann(i,j,k,QERAD+g);
     }
 #endif
   });

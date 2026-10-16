@@ -113,7 +113,7 @@ Real integsmall(Real x)
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-amrex::GpuTuple<Real, Real> BdBdTIndefInteg (Real T, Real nu)
+amrex::GpuTuple<Real, Real> planckIntegralAndDeriv (Real T, Real nu)
 {
     // This routine evaluates the incomplete integral of the Planck function:
     // integ(x) = int_{0}^{x} b(x') dx'
@@ -187,7 +187,7 @@ amrex::GpuTuple<Real, Real> BdBdTIndefInteg (Real T, Real nu)
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real BIndefInteg(Real T, Real nu)
+Real planckIntegral(Real T, Real nu)
 {
     Real B;
 
@@ -225,9 +225,9 @@ Real BIndefInteg(Real T, Real nu)
 
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real BGroup(Real T, Real nu0, Real nu1)
+Real planckGroupIntegral(Real T, Real nu0, Real nu1)
 {
-    Real B = BIndefInteg(T, nu1) - BIndefInteg(T, nu0);
+    Real B = planckIntegral(T, nu1) - planckIntegral(T, nu0);
 
     return B;
 }

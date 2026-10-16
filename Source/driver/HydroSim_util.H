@@ -10,21 +10,21 @@
 using namespace amrex;
 
 #if AMREX_SPACEDIM == 1
-constexpr int dg0 = 1;
-constexpr int dg1 = 0;
-constexpr int dg2 = 0;
+constexpr int dim0_on = 1;
+constexpr int dim1_on = 0;
+constexpr int dim2_on = 0;
 #elif AMREX_SPACEDIM == 2
-constexpr int dg0 = 1;
-constexpr int dg1 = 1;
-constexpr int dg2 = 0;
+constexpr int dim0_on = 1;
+constexpr int dim1_on = 1;
+constexpr int dim2_on = 0;
 #else
-constexpr int dg0 = 1;
-constexpr int dg1 = 1;
-constexpr int dg2 = 1;
+constexpr int dim0_on = 1;
+constexpr int dim1_on = 1;
+constexpr int dim2_on = 1;
 #endif
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-constexpr int upassmap (int ipassive)
+constexpr int cons_passive_index (int ipassive)
 {
     if (ipassive < NumAdv) {
         // passive is one of the advected quantities
@@ -42,7 +42,7 @@ constexpr int upassmap (int ipassive)
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-constexpr int qpassmap (int ipassive)
+constexpr int prim_passive_index (int ipassive)
 {
     if (ipassive < NumAdv) {
         // passive is one of the advected quantities
@@ -60,7 +60,7 @@ constexpr int qpassmap (int ipassive)
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-bool mom_flux_has_p (const int mom_dir, const int flux_dir, const int coord)
+bool momentum_flux_has_pressure (const int mom_dir, const int flux_dir, const int coord)
 {
 
     amrex::ignore_unused(coord);

@@ -6,7 +6,7 @@
 #endif
 
 void
-HydroSim::rsrc(const Box& bx,
+HydroSim::fill_rotation_source(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real> const& source,
              const Real dt) {
@@ -132,7 +132,7 @@ HydroSim::rsrc(const Box& bx,
 
 
 void
-HydroSim::corrrsrc(const Box& bx,
+HydroSim::fill_rotation_correction(const Box& bx,
                  Array4<Real const> const& uold,
                  Array4<Real const> const& unew,
                  Array4<Real> const& source,
@@ -409,11 +409,11 @@ HydroSim::corrrsrc(const Box& bx,
       }
 
       SrEcorr += hdtInv * (mass_flux[0](i      ,j,k) * edge_Sr[0][0] * dx[0] +
-                           mass_flux[0](i+1*dg0,j,k) * edge_Sr[0][1] * dx[0] +
+                           mass_flux[0](i+1*dim0_on,j,k) * edge_Sr[0][1] * dx[0] +
                            mass_flux[1](i,j      ,k) * edge_Sr[1][0] * dx[1] +
-                           mass_flux[1](i,j+1*dg1,k) * edge_Sr[1][1] * dx[1] +
+                           mass_flux[1](i,j+1*dim1_on,k) * edge_Sr[1][1] * dx[1] +
                            mass_flux[2](i,j,k      ) * edge_Sr[2][0] * dx[2] +
-                           mass_flux[2](i,j,k+1*dg2) * edge_Sr[2][1] * dx[2]) / vol(i,j,k);
+                           mass_flux[2](i,j,k+1*dim2_on) * edge_Sr[2][1] * dx[2]) / vol(i,j,k);
 
     } else {
 #ifndef AMREX_USE_GPU

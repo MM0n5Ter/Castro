@@ -173,13 +173,13 @@ void conservative_to_primitive(int i, int j, int k,
     if (fill_passives) {
         // Load passively advected quantities into q
         for (int ipassive = 0; ipassive < npassive; ipassive++) {
-            int n  = upassmap(ipassive);
-            int iq = qpassmap(ipassive);
+            int n  = cons_passive_index(ipassive);
+            int iq = prim_passive_index(ipassive);
             q(iq) = uin(i,j,k,n) * rhoinv;
         }
     }
 
-    // get gamc, p, T, c, csml using q state
+    // get gamma1, p, T, c, csml using q state
     eos_rep_t eos_state;
     eos_state.T = q(QTEMP);
     eos_state.rho = q(QRHO);
@@ -258,18 +258,18 @@ void ctoprim(const Box& bx,
              Array4<Real> const& q_arr,
              Array4<Real> const& qaux_arr);
 
-void store_godunov_state(const Box& bx,
-                         Array4<Real const> const& qint,
+void store_face_state(const Box& bx,
+                         Array4<Real const> const& q_riemann,
 #ifdef RADIATION
                          Array4<Real const> const& lambda,
 #endif
                          Array4<Real> const& qface);
 
 #ifndef MHD
-void reset_edge_state_thermo(const Box& bx,
+void recompute_face_thermo(const Box& bx,
                              Array4<Real> const& qedge);
 
-void edge_state_temp_to_pres(const Box& bx,
+void face_pressure_from_temp(const Box& bx,
                              Array4<Real> const& qm,
                              Array4<Real> const& qp);
 #endif
@@ -303,7 +303,7 @@ enum class FluxForm : std::uint8_t {
     Integrated
 };
 
-void limit_hydro_fluxes_on_small_dens(const Box& bx,
+void limit_fluxes_for_density_floor(const Box& bx,
                                       int idir,
                                       Array4<Real const> const& u,
                                       Array4<Real const> const& vol,

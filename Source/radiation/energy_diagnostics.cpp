@@ -14,7 +14,7 @@ using std::endl;
 using namespace amrex;
 
 void
-HydroSim::do_energy_diagnostics()
+HydroSim::run_energy_diagnostics()
 {
   int finest_level = parent->finestLevel();
 
@@ -28,16 +28,16 @@ HydroSim::do_energy_diagnostics()
     Real m = 0.0, s = 0.0, r = 0.0, rr = 0.0, rry = 0.0;
 
     for (int lev = 0; lev <= finest_level; lev++) {
-      m += getLevel(lev).volWgtSum("density", prev_time + dt);
-      s += getLevel(lev).volWgtSum("rho_E",   prev_time + dt);
+      m += getLevel(lev).volumeIntegralSum("density", prev_time + dt);
+      s += getLevel(lev).volumeIntegralSum("rho_E",   prev_time + dt);
       if (!(!Radiation::do_multigroup)) {
           std::string rad_name;
           for (int igroup = 0; igroup < Radiation::nGroups; igroup++) {
               rad_name = "rad" + std::to_string(igroup);
-              r += getLevel(lev).volWgtSum(rad_name, prev_time + dt);
+              r += getLevel(lev).volumeIntegralSum(rad_name, prev_time + dt);
           }
       } else {
-          r += getLevel(lev).volWgtSum("rad", prev_time + dt);
+          r += getLevel(lev).volumeIntegralSum("rad", prev_time + dt);
       }
       if (lev < finest_level) {
           // If using deferred sync, also include flux register energy
@@ -60,7 +60,7 @@ HydroSim::do_energy_diagnostics()
       // been weighted by r^2 in spherical coords.  We multiply by an
       // additional 4*pi here because we want to weight them as covering
       // the full surface of a spherical shell.  This is compatible
-      // with what volWgtSum does for volumes.
+      // with what volumeIntegralSum does for volumes.
       rr  *= (4.0 * std::numbers::pi);
       rry *= (4.0 * std::numbers::pi);
     }
@@ -68,7 +68,7 @@ HydroSim::do_energy_diagnostics()
     if (Geom().IsRZ()) {
       // Internal to the radiation class, fluxes in flux registers have
       // been weighted by r in RZ coordinates.  We multiply by an
-      // additional 2*pi here to be compatible with what volWgtSum
+      // additional 2*pi here to be compatible with what volumeIntegralSum
       // does for volumes.
       rr  *= (2.0 * std::numbers::pi);
       rry *= (2.0 * std::numbers::pi);
@@ -91,8 +91,8 @@ HydroSim::do_energy_diagnostics()
 
     Real m = 0.0, s = 0.0;
     for (int lev = 0; lev <= finest_level; lev++) {
-      m += getLevel(lev).volWgtSum("density", prev_time + dt);
-      s += getLevel(lev).volWgtSum("rho_E",   prev_time + dt);
+      m += getLevel(lev).volumeIntegralSum("density", prev_time + dt);
+      s += getLevel(lev).volumeIntegralSum("rho_E",   prev_time + dt);
     }
     if (ParallelDescriptor::IOProcessor()) {
       int oldprec = cout.precision(20);

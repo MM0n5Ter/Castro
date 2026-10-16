@@ -6,7 +6,7 @@
 #include <RadSolve.H>
 #include <Radiation.H>  // for access to static physical constants only
 #include <rad_util.H>
-#include <problem_rad_source.H>
+#include <user_rad_source.H>
 
 #include <iostream>
 
@@ -1062,7 +1062,7 @@ void RadSolve::levelRhs(int level, MultiFab& rhs, const GroupEnergyCoupling& cou
 
           rhs_arr(i,j,k) *= r;
 
-          problem_rad_source(i, j, k, rhs_arr, geomdata, time, delta_t, igroup);
+          user_rad_source(i, j, k, rhs_arr, geomdata, time, delta_t, igroup);
       });
   }
 }

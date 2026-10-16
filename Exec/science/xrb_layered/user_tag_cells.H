@@ -1,0 +1,22 @@
+#ifndef user_tag_cells_H
+#define user_tag_cells_H
+
+#include <state_indices.H>
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void user_tag_cells(int i, int j, int k,
+                     Array4<char> const& tag,
+                     Array4<Real const> const& state,
+                     int level, const GeometryData& geomdata)
+{
+    // Tag on regions of with H > H_min and rho < cutoff_density.
+    // Note that H is the first species variable and so is in index USPEC of the state array.
+
+    if (state(i,j,k,URHO) > problem::cutoff_density &&
+        (state(i,j,k,USPEC) > state(i,j,k,URHO) * problem::H_min ||
+         state(i,j,k,USPEC+1) > state(i,j,k,URHO) * problem::He_min)) {
+        tag(i,j,k) = TagBox::SET;
+    }
+}
+
+#endif

@@ -26,7 +26,7 @@ namespace powell {
         // using 1-based indexing
 
         // we'll use the passed-in burn_t as our working state.  We need to
-        // sync it with the input state x.  The single_zone_react_source[]
+        // sync it with the input state x.  The cell_react_source[]
         // routine works off of burn_state.y[]
 
         auto burn_state = burn_state_in;
@@ -38,7 +38,7 @@ namespace powell {
 
         // get the reactive term for this state
 
-        const auto R_full = single_zone_react_source(burn_state);
+        const auto R_full = cell_react_source(burn_state);
 
         // now Z is evaluated with the current guess for U
         // we use ydot_a here to be U^n + dt_m C
@@ -88,7 +88,7 @@ namespace powell {
         // we don't actually need this reactive term, but it will
         // ensure that the state is all synced.
 
-        single_zone_react_source(burn_state);
+        cell_react_source(burn_state);
 
         // Instead of the decomposition into dw/dU and dR/dw, we instead use the
         // form from the simplified-SDC.  Note:
@@ -96,7 +96,7 @@ namespace powell {
 
         auto dt_m = burn_state.time;
 
-        single_zone_jac(burn_state, dt_m, Jac);
+        cell_burn_jacobian(burn_state, dt_m, Jac);
 
         Jac.mul(-dt_m);
         Jac.add_identity();

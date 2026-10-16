@@ -4,10 +4,10 @@
 using namespace amrex;
 
 void
-HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
+HydroSim::sdc_node_update(int m_start, int m_end, Real dt)
 {
 
-    BL_PROFILE("HydroSim::do_sdc_update()");
+    BL_PROFILE("HydroSim::sdc_node_update()");
 
     // NOTE: dt here is the full dt not the dt between time nodes
 
@@ -183,7 +183,7 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             U_center.resize(bx1, NUM_STATE);
             auto U_center_arr = U_center.array();
 
-            make_cell_center(bx1, Sborder.array(mfi), U_center_arr, domain_lo, domain_hi);
+            to_cell_center(bx1, Sborder.array(mfi), U_center_arr, domain_lo, domain_hi);
 
             // sometimes the Laplacian can make the species go negative near discontinuities
             amrex::ParallelFor(bx1,
@@ -196,7 +196,7 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             C_center.resize(bx1, NUM_STATE);
             auto C_center_arr = C_center.array();
 
-            make_cell_center(bx1, C_source.array(mfi), C_center_arr, domain_lo, domain_hi);
+            to_cell_center(bx1, C_source.array(mfi), C_center_arr, domain_lo, domain_hi);
 
             // solve for the updated cell-center U using our cell-centered C -- we
             // need to do this with one ghost cell
@@ -205,7 +205,7 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
 
             // initialize U_new with our guess for the new state, stored as
             // an average in Sreact
-            make_cell_center(bx1, Sreact.array(mfi), U_new_center_arr, domain_lo, domain_hi);
+            to_cell_center(bx1, Sreact.array(mfi), U_new_center_arr, domain_lo, domain_hi);
 
             auto lsdc_iteration = sdc_iteration;  // avoid capturing this
             const NodeStep center_step{U_center_arr, U_new_center_arr, C_center_arr};
@@ -240,7 +240,7 @@ HydroSim::do_sdc_update(int m_start, int m_end, Real dt)
             tlap.resize(bx, 1);
             auto const tlap_arr = tlap.array();
 
-            make_fourth_in_place(bx, R_new_arr, tlap_arr, domain_lo, domain_hi);
+            to_fourth_order_in_place(bx, R_new_arr, tlap_arr, domain_lo, domain_hi);
 
             // now do the conservative update using this <R> to get <U>
             // We'll also need to pass in <C>
@@ -334,7 +334,7 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
             U_center.resize(obx, NUM_STATE);
             auto const U_center_arr = U_center.array();
 
-            make_cell_center(obx, U_state.array(mfi), U_center_arr, domain_lo, domain_hi);
+            to_cell_center(obx, U_state.array(mfi), U_center_arr, domain_lo, domain_hi);
 
             // sometimes the Laplacian can make the species go
             // negative near discontinuities
@@ -367,7 +367,7 @@ HydroSim::assemble_old_react_source(MultiFab& U_state,
             tmp.resize(bx, 1);
             auto const tmp_arr = tmp.array();
 
-            make_fourth_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
+            to_fourth_order_in_place(bx, R_center_arr, tmp_arr, domain_lo, domain_hi);
 
             // copy this to the center
             R_source[mfi].copy(R_center, bx, 0, bx, 0, NUM_STATE);

@@ -15,15 +15,15 @@
 
 // Post initialization analytics.
 
-void problem_post_init();
+void user_post_init();
 
 // End of timestep analytics.
 
-void problem_post_timestep();
+void user_post_timestep();
 
 // Post restart analytics.
 
-void problem_post_restart();
+void user_post_restart();
 
 // Sum up the moment of inertia on the grid.
 

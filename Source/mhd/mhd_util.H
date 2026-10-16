@@ -9,7 +9,7 @@ using namespace amrex;
 // sound speed calc for ideal MHD
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
-eos_soundspeed_mhd(Real as, Real ca, Real bd) {
+fast_magnetosonic_speed(Real as, Real ca, Real bd) {
 
   // inputs:
   // as = P_g * gam1/rho

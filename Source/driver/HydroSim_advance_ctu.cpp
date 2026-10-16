@@ -12,7 +12,7 @@
 using namespace amrex;
 
 advance_status
-HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::advance_ctu_once (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
     // this routine will advance the old state data (called Sborder here)
     // to the new time, for a single level.  The new data is called
@@ -22,7 +22,7 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
-    BL_PROFILE("HydroSim::do_advance_ctu()");
+    BL_PROFILE("HydroSim::advance_ctu_once()");
 
     advance_status status {};
 
@@ -60,10 +60,10 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
         // Do the hydro update. We build directly off of Sborder, which
         // is the state that has already seen the burn.
 
-        if (failed(lev_data.initialize_do_advance(time, dt)) ||
-            failed(lev_data.pre_advance_operators(prev_time, dt)) ||
+        if (failed(lev_data.begin_level_advance(time, dt)) ||
+            failed(lev_data.before_advance_physics(prev_time, dt)) ||
             failed(lev_data.handle_old_sources(prev_time, dt)) ||
-            failed(lev_data.pre_hydro_operators(prev_time, dt)) ||
+            failed(lev_data.before_hydro_physics(prev_time, dt)) ||
 #ifndef MHD
             failed(lev_data.construct_ctu_hydro_source(prev_time, dt))) {
 #else
@@ -88,10 +88,10 @@ HydroSim::do_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-mem
         // terms. Do the second half of the reactions for Strang, or the
         // full burn for simplified SDC, and perform finalization steps.
 
-        if (failed(lev_data.post_hydro_operators(cur_time, dt)) ||
+        if (failed(lev_data.after_hydro_physics(cur_time, dt)) ||
             failed(lev_data.handle_new_sources(cur_time, dt)) ||
-            failed(lev_data.post_advance_operators(cur_time, dt)) ||
-            failed(lev_data.finalize_do_advance(cur_time, dt))) {
+            failed(lev_data.after_advance_physics(cur_time, dt)) ||
+            failed(lev_data.end_level_advance(cur_time, dt))) {
             return status;
         }
     }
@@ -140,7 +140,7 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
     // to restore the original old data.
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        getLevel(lev).save_data_for_retry();
+        getLevel(lev).stash_state_for_retry();
 
         // Clear the contribution to the fluxes from this step.
 
@@ -162,7 +162,7 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
             getLevel(lev).source_corrector.setVal(0.0, getLevel(lev).source_corrector.nGrow());
 
 #ifdef REACTIONS
-            MultiFab& SDC_react_new = getLevel(lev).get_new_data(Simplified_SDC_React_Type);
+            MultiFab& SDC_react_new = getLevel(lev).get_new_data(SDC_React_Source_Type);
             SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
 #endif
         }
@@ -175,9 +175,9 @@ HydroSim::redo_advance_ctu(Real dt, const advance_status& status)
 
 
 Real
-HydroSim::subcycle_advance_ctu(const LevelStep& step)
+HydroSim::advance_ctu_with_retries(const LevelStep& step)
 {
-    BL_PROFILE("HydroSim::subcycle_advance_ctu()");
+    BL_PROFILE("HydroSim::advance_ctu_with_retries()");
 
     // Start the subcycle time off with the main dt,
     // unless we already came in here with an estimate
@@ -278,13 +278,13 @@ HydroSim::subcycle_advance_ctu(const LevelStep& step)
         }
 
         // Swap the time levels. Only do this after the first iteration;
-        // the first iteration used the swap done in initialize_advance.
+        // the first iteration used the swap done in prepare_level_step.
         // After that, the only exception will be if we do a retry.
 
         if (do_swap) {
 
             for (int lev = level; lev <= max_level_to_advance; ++lev) {
-                getLevel(lev).swap_state_time_levels(0.0);
+                getLevel(lev).rotate_state_time_levels(0.0);
 
 #ifdef GRAVITY
                 if (do_grav) {
@@ -300,7 +300,7 @@ HydroSim::subcycle_advance_ctu(const LevelStep& step)
         // Set the relevant time levels.
 
         for_each_advanced_level([&] (HydroSim& lev_data) {
-            for (int k = 0; k < num_state_type; k++) {
+            for (int k = 0; k < n_state_types; k++) {
                 lev_data.state[k].setTimeLevel(subcycle_time + dt_subcycle, dt_subcycle, 0.0);
             }
         });
@@ -341,7 +341,7 @@ HydroSim::subcycle_advance_ctu(const LevelStep& step)
 
             // We do the hydro advance here, and record whether we completed it.
 
-            status = do_advance_ctu(subcycle_time, dt_subcycle);
+            status = advance_ctu_once(subcycle_time, dt_subcycle);
 
             for_each_advanced_level([] (HydroSim& lev_data) { lev_data.in_retry = false; });
 
@@ -403,7 +403,7 @@ HydroSim::subcycle_advance_ctu(const LevelStep& step)
 
     // Record the number of subcycles we took for diagnostic purposes.
 
-    for_each_advanced_level([this] (HydroSim& lev_data) { lev_data.num_subcycles_taken = sub_iteration; });
+    for_each_advanced_level([this] (HydroSim& lev_data) { lev_data.subcycles_used = sub_iteration; });
 
     if (sub_iteration > 1) {
 
@@ -414,7 +414,7 @@ HydroSim::subcycle_advance_ctu(const LevelStep& step)
         // it later.
 
         for (int lev = level; lev <= max_level_to_advance; ++lev) {
-            for (int k = 0; k < num_state_type; k++) {
+            for (int k = 0; k < n_state_types; k++) {
                 if (getLevel(lev).prev_state[k]->hasOldData()) {
                     getLevel(lev).state[k].replaceOldData(*getLevel(lev).prev_state[k]);
                 }

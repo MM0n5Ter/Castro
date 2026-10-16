@@ -9,7 +9,7 @@ namespace HLL {
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
-    HLLC_state(const int idir, const Real S_k, const Real S_c,
+    hllc_star_state(const int idir, const Real S_k, const Real S_c,
                GpuArray<Real, NQ> const& qstate, GpuArray<Real, NUM_STATE>& U) {
 
       Real u_k = 0.0;
@@ -21,29 +21,29 @@ namespace HLL {
         u_k = qstate[QW];
       }
 
-      Real hllc_factor = qstate[QRHO]*(S_k - u_k)/(S_k - S_c);
-      U[URHO] = hllc_factor;
+      Real star_factor = qstate[QRHO]*(S_k - u_k)/(S_k - S_c);
+      U[URHO] = star_factor;
 
       if (idir == 0) {
-        U[UMX]  = hllc_factor*S_c;
-        U[UMY]  = hllc_factor*qstate[QV];
-        U[UMZ]  = hllc_factor*qstate[QW];
+        U[UMX]  = star_factor*S_c;
+        U[UMY]  = star_factor*qstate[QV];
+        U[UMZ]  = star_factor*qstate[QW];
 
       } else if (idir == 1) {
-        U[UMX]  = hllc_factor*qstate[QU];
-        U[UMY]  = hllc_factor*S_c;
-        U[UMZ]  = hllc_factor*qstate[QW];
+        U[UMX]  = star_factor*qstate[QU];
+        U[UMY]  = star_factor*S_c;
+        U[UMZ]  = star_factor*qstate[QW];
 
       } else {
-        U[UMX]  = hllc_factor*qstate[QU];
-        U[UMY]  = hllc_factor*qstate[QV];
-        U[UMZ]  = hllc_factor*S_c;
+        U[UMX]  = star_factor*qstate[QU];
+        U[UMY]  = star_factor*qstate[QV];
+        U[UMZ]  = star_factor*S_c;
       }
 
-      U[UEDEN] = hllc_factor*(qstate[QRHOEI]/qstate[QRHO] +
+      U[UEDEN] = star_factor*(qstate[QRHOEI]/qstate[QRHO] +
                               0.5_rt*(qstate[QU]*qstate[QU] + qstate[QV]*qstate[QV] + qstate[QW]*qstate[QW]) +
                               (S_c - u_k)*(S_c + qstate[QPRES]/(qstate[QRHO]*(S_k - u_k))));
-      U[UEINT] = hllc_factor*qstate[QRHOEI]/qstate[QRHO];
+      U[UEINT] = star_factor*qstate[QRHOEI]/qstate[QRHO];
 
       U[UTEMP] = 0.0; // we don't evolve T
 
@@ -57,9 +57,9 @@ namespace HLL {
     #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
-          const int n  = upassmap(ipassive);
-          const int nqs = qpassmap(ipassive);
-          U[n] = hllc_factor*qstate[nqs];
+          const int n  = cons_passive_index(ipassive);
+          const int nqs = prim_passive_index(ipassive);
+          U[n] = star_factor*qstate[nqs];
       }
     }
 
@@ -69,13 +69,13 @@ namespace HLL {
     ///
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
-    compute_flux(const int idir, const Real bnd_fac, const int coord,
+    compute_flux(const int idir, const Real boundary_scale, const int coord,
                  GpuArray<Real, NUM_STATE> const& U, const Real p,
                  GpuArray<Real, NUM_STATE>& F) {
 
       Real u_flx = U[UMX+idir]/U[URHO];
 
-      if (bnd_fac == 0) {
+      if (boundary_scale == 0) {
         u_flx = 0.0;
       }
 
@@ -85,7 +85,7 @@ namespace HLL {
       F[UMY] = U[UMY]*u_flx;
       F[UMZ] = U[UMZ]*u_flx;
 
-      auto mom_check = mom_flux_has_p(idir, idir, coord);
+      auto mom_check = momentum_flux_has_pressure(idir, idir, coord);
 
       if (mom_check) {
         // we do not include the pressure term in any non-Cartesian
@@ -108,7 +108,7 @@ namespace HLL {
     #endif
 
       for (int ipassive=0; ipassive < npassive; ipassive++) {
-          const int n = upassmap(ipassive);
+          const int n = cons_passive_index(ipassive);
           F[n] = U[n]*u_flx;
       }
     }
@@ -145,8 +145,8 @@ namespace HLL {
     #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
-          const int n  = upassmap(ipassive);
-          const int nqs = qpassmap(ipassive);
+          const int n  = cons_passive_index(ipassive);
+          const int nqs = prim_passive_index(ipassive);
           U[n] = qstate[QRHO]*qstate[nqs];
       }
     }
@@ -178,35 +178,35 @@ namespace HLL {
 
       constexpr Real small_hll = 1.e-10_rt;
 
-      int ivel, ivelt, iveltt;
-      int imom, imomt, imomtt;
+      int ivel, ivel_t1, ivel_t2;
+      int imom, imom_t1, imom_t2;
 
       if (idir == 0) {
         ivel = QU;
-        ivelt = QV;
-        iveltt = QW;
+        ivel_t1 = QV;
+        ivel_t2 = QW;
 
         imom = UMX;
-        imomt = UMY;
-        imomtt = UMZ;
+        imom_t1 = UMY;
+        imom_t2 = UMZ;
 
       } else if (idir == 1) {
         ivel = QV;
-        ivelt = QU;
-        iveltt = QW;
+        ivel_t1 = QU;
+        ivel_t2 = QW;
 
         imom = UMY;
-        imomt = UMX;
-        imomtt = UMZ;
+        imom_t1 = UMX;
+        imom_t2 = UMZ;
 
       } else {
         ivel = QW;
-        ivelt = QU;
-        iveltt = QV;
+        ivel_t1 = QU;
+        ivel_t2 = QV;
 
         imom = UMZ;
-        imomt = UMX;
-        imomtt = UMY;
+        imom_t1 = UMX;
+        imom_t2 = UMY;
       }
 
       Real rhol_sqrt = std::sqrt(ql[QRHO]);
@@ -218,15 +218,15 @@ namespace HLL {
       // compute the average sound speed. This uses an approximation
       // that assumes gamma falls between 1
       // and 5/3
-      Real cavg = std::sqrt( (rhol_sqrt*cl*cl + rhor_sqrt*cr*cr)*rhod +
+      Real cs_mean = std::sqrt( (rhol_sqrt*cl*cl + rhor_sqrt*cr*cr)*rhod +
                              0.5_rt*rhol_sqrt*rhor_sqrt*rhod*rhod*std::pow(qr[ivel] - ql[ivel], 2));
 
 
       // Roe eigenvalues
       Real uavg = (rhol_sqrt*ql[ivel] + rhor_sqrt*qr[ivel])*rhod;
 
-      Real a1 = uavg - cavg;
-      Real a4 = uavg + cavg;
+      Real a1 = uavg - cs_mean;
+      Real a4 = uavg + cs_mean;
 
 
       // signal speeds
@@ -261,7 +261,7 @@ namespace HLL {
       // separately in the update, to accommodate different geometries
       fl_tmp = ql[QRHO]*ql[ivel]*ql[ivel];
       fr_tmp = qr[QRHO]*qr[ivel]*qr[ivel];
-      if (mom_flux_has_p(idir, idir, coord)) {
+      if (momentum_flux_has_pressure(idir, idir, coord)) {
         fl_tmp = fl_tmp + ql[QPRES];
         fr_tmp = fr_tmp + qr[QPRES];
       }
@@ -269,22 +269,22 @@ namespace HLL {
       flux_hll[imom] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[ivel] - ql[QRHO]*ql[ivel]);
 
       // transverse momentum flux
-      fl_tmp = ql[QRHO]*ql[ivel]*ql[ivelt];
-      fr_tmp = qr[QRHO]*qr[ivel]*qr[ivelt];
+      fl_tmp = ql[QRHO]*ql[ivel]*ql[ivel_t1];
+      fr_tmp = qr[QRHO]*qr[ivel]*qr[ivel_t1];
 
-      flux_hll[imomt] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[ivelt] - ql[QRHO]*ql[ivelt]);
+      flux_hll[imom_t1] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[ivel_t1] - ql[QRHO]*ql[ivel_t1]);
 
 
-      fl_tmp = ql[QRHO]*ql[ivel]*ql[iveltt];
-      fr_tmp = qr[QRHO]*qr[ivel]*qr[iveltt];
+      fl_tmp = ql[QRHO]*ql[ivel]*ql[ivel_t2];
+      fr_tmp = qr[QRHO]*qr[ivel]*qr[ivel_t2];
 
-      flux_hll[imomtt] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[iveltt] - ql[QRHO]*ql[iveltt]);
+      flux_hll[imom_t2] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[ivel_t2] - ql[QRHO]*ql[ivel_t2]);
 
       // total energy flux
-      Real rhoEl = ql[QRHOEI] + 0.5_rt*ql[QRHO]*(ql[ivel]*ql[ivel] + ql[ivelt]*ql[ivelt] + ql[iveltt]*ql[iveltt]);
+      Real rhoEl = ql[QRHOEI] + 0.5_rt*ql[QRHO]*(ql[ivel]*ql[ivel] + ql[ivel_t1]*ql[ivel_t1] + ql[ivel_t2]*ql[ivel_t2]);
       fl_tmp = ql[ivel]*(rhoEl + ql[QPRES]);
 
-      Real rhoEr = qr[QRHOEI] + 0.5_rt*qr[QRHO]*(qr[ivel]*qr[ivel] + qr[ivelt]*qr[ivelt] + qr[iveltt]*qr[iveltt]);
+      Real rhoEr = qr[QRHOEI] + 0.5_rt*qr[QRHO]*(qr[ivel]*qr[ivel] + qr[ivel_t1]*qr[ivel_t1] + qr[ivel_t2]*qr[ivel_t2]);
       fr_tmp = qr[ivel]*(rhoEr + qr[QPRES]);
 
       flux_hll[UEDEN] = (bp*fl_tmp - bm*fr_tmp)*bd + bp*bm*bd*(rhoEr - rhoEl);
@@ -299,8 +299,8 @@ namespace HLL {
 
       // passively-advected scalar fluxes
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
-          const int n  = upassmap(ipassive);
-          const int nqs = qpassmap(ipassive);
+          const int n  = cons_passive_index(ipassive);
+          const int nqs = prim_passive_index(ipassive);
 
           fl_tmp = ql[QRHO]*ql[nqs]*ql[ivel];
           fr_tmp = qr[QRHO]*qr[nqs]*qr[ivel];
@@ -317,7 +317,7 @@ namespace HLL {
     /// @param qr          the right interface state
     /// @param qaux_arr    the auxiliary state
     /// @param uflx        the flux through the interface
-    /// @param qint        an approximate Godunov state on the interface
+    /// @param q_riemann        an approximate Godunov state on the interface
     /// @param idir        coordinate direction for the solve (0 = x, 1 = y, 2 = z)
     ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -367,24 +367,24 @@ namespace HLL {
         int coord = geom.Coord();
 
         // deal with hard walls
-        Real bnd_fac = 1.0_rt;
+        Real boundary_scale = 1.0_rt;
 
         if (idir == 0) {
             if ((i == edges.lo[0] && edges.wall_lo) ||
                 (i == edges.hi[0]+1 && edges.wall_hi)) {
-                bnd_fac = 0.0_rt;
+                boundary_scale = 0.0_rt;
             }
 
         } else if (idir == 1) {
             if ((j == edges.lo[1] && edges.wall_lo) ||
                 (j == edges.hi[1]+1 && edges.wall_hi)) {
-                bnd_fac = 0.0_rt;
+                boundary_scale = 0.0_rt;
             }
 
         } else {
             if ((k == edges.lo[2] && edges.wall_lo) ||
                 (k == edges.hi[2]+1 && edges.wall_hi)) {
-                bnd_fac = 0.0_rt;
+                boundary_scale = 0.0_rt;
             }
         }
 
@@ -405,22 +405,22 @@ namespace HLL {
 
         // now we essentially get p and u on the
         // interface, but we won't use these in any flux construction.
-        Real csmall = amrex::max(small, small * qaux_arr(i,j,k,QC), small * qaux_arr(i-sx,j-sy,k-sz,QC));
-        Real cavg = 0.5_rt*(qaux_arr(i,j,k,QC) + qaux_arr(i-sx,j-sy,k-sz,QC));
+        Real cs_floor = amrex::max(small, small * qaux_arr(i,j,k,QC), small * qaux_arr(i-sx,j-sy,k-sz,QC));
+        Real cs_mean = 0.5_rt*(qaux_arr(i,j,k,QC) + qaux_arr(i-sx,j-sy,k-sz,QC));
 
-        Real gamcl = qaux_arr(i-sx,j-sy,k-sz,QGAM1);
-        Real gamcr = qaux_arr(i,j,k,QGAM1);
+        Real gamma1_l = qaux_arr(i-sx,j-sy,k-sz,QGAM1);
+        Real gamma1_r = qaux_arr(i,j,k,QGAM1);
 
     #ifdef TRUE_SDC
         if (use_reconstructed_gamma1 == 1) {
-            gamcl = ql(i,j,k,QGAM1P);
-            gamcr = qr(i,j,k,QGAM1P);
+            gamma1_l = ql(i,j,k,QGAM1P);
+            gamma1_r = qr(i,j,k,QGAM1P);
         }
     #endif
 
-        Real wsmall = small_dens*csmall;
-        Real wl = std::max(wsmall, std::sqrt(std::abs(gamcl*pl*rl)));
-        Real wr = std::max(wsmall, std::sqrt(std::abs(gamcr*pr*rr)));
+        Real wsmall = small_dens*cs_floor;
+        Real wl = std::max(wsmall, std::sqrt(std::abs(gamma1_l*pl*rl)));
+        Real wr = std::max(wsmall, std::sqrt(std::abs(gamma1_r*pr*rr)));
 
         Real wwinv = 1.0_rt/(wl + wr);
         Real pstar = ((wr*pl + wl*pr) + wl*wr*(ul - ur))*wwinv;
@@ -436,39 +436,39 @@ namespace HLL {
         Real ro;
         Real uo;
         Real po;
-        Real gamco;
+        Real gamma1_o;
 
         if (ustar > 0.0_rt) {
             ro = rl;
             uo = ul;
             po = pl;
-            gamco = gamcl;
+            gamma1_o = gamma1_l;
 
         } else if (!(ustar < 0.0_rt)) {
             ro = 0.5_rt*(rl + rr);
             uo = 0.5_rt*(ul + ur);
             po = 0.5_rt*(pl + pr);
-            gamco = 0.5_rt*(gamcl + gamcr);
+            gamma1_o = 0.5_rt*(gamma1_l + gamma1_r);
         } else {
             ro = rr;
             uo = ur;
             po = pr;
-            gamco = gamcr;
+            gamma1_o = gamma1_r;
 
         }
 
         ro = std::max(small_dens, ro);
 
         Real roinv = 1.0_rt/ro;
-        Real co = std::sqrt(std::abs(gamco*po*roinv));
-        co = std::max(csmall, co);
+        Real co = std::sqrt(std::abs(gamma1_o*po*roinv));
+        co = std::max(cs_floor, co);
         Real co2inv = 1.0_rt/(co*co);
 
         Real rstar = ro + (pstar - po)*co2inv;
         rstar = std::max(small_dens, rstar);
 
-        Real cstar = std::sqrt(std::abs(gamco*pstar/rstar));
-        cstar = std::max(cstar, csmall);
+        Real cstar = std::sqrt(std::abs(gamma1_o*pstar/rstar));
+        cstar = std::max(cstar, cs_floor);
 
         Real sgnm = std::copysign(1.0_rt, ustar);
         Real spout = co - sgnm*uo;
@@ -482,24 +482,24 @@ namespace HLL {
 
         Real scr = spout-spin;
         if (spout-spin == 0.0_rt) {
-            scr = small*cavg;
+            scr = small*cs_mean;
         }
 
         Real frac = (1.0_rt + (spout + spin)/scr)*0.5_rt;
         frac = amrex::Clamp(frac, 0.0_rt, 1.0_rt);
 
-        Real qint[NQ] = {0.0};
+        Real q_riemann[NQ] = {0.0};
 
-        qint[QRHO] = frac*rstar + (1.0_rt - frac)*ro;
-        qint[iu] = frac*ustar + (1.0_rt - frac)*uo;
-        qint[QPRES] = frac*pstar + (1.0_rt - frac)*po;
+        q_riemann[QRHO] = frac*rstar + (1.0_rt - frac)*ro;
+        q_riemann[iu] = frac*ustar + (1.0_rt - frac)*uo;
+        q_riemann[QPRES] = frac*pstar + (1.0_rt - frac)*po;
 
 
         // now we do the HLLC construction
 
         // use the simplest estimates of the wave speeds
-        Real S_l = std::min(ul - std::sqrt(gamcl*pl/rl), ur - std::sqrt(gamcr*pr/rr));
-        Real S_r = std::max(ul + std::sqrt(gamcl*pl/rl), ur + std::sqrt(gamcr*pr/rr));
+        Real S_l = std::min(ul - std::sqrt(gamma1_l*pl/rl), ur - std::sqrt(gamma1_r*pr/rr));
+        Real S_r = std::max(ul + std::sqrt(gamma1_l*pl/rl), ur + std::sqrt(gamma1_r*pr/rr));
 
         // estimate of the contact speed
         Real S_c = (pr - pl + rl*ul*(S_l - ul) - rr*ur*(S_r - ur))/
@@ -507,7 +507,7 @@ namespace HLL {
 
         GpuArray<Real, NQ> q_zone;
         GpuArray<Real, NUM_STATE> U_state;
-        GpuArray<Real, NUM_STATE> U_hllc_state;
+        GpuArray<Real, NUM_STATE> U_star_state;
         GpuArray<Real, NUM_STATE> F_state;
 
         if (S_r <= 0.0_rt) {
@@ -516,7 +516,7 @@ namespace HLL {
                 q_zone[n] = qr(i,j,k,n);
             }
             cons_state(q_zone, U_state);
-            compute_flux(idir, bnd_fac, coord,
+            compute_flux(idir, boundary_scale, coord,
                          U_state, pr, F_state);
 
         } else if (S_r > 0.0_rt && S_c <= 0.0_rt) {
@@ -525,13 +525,13 @@ namespace HLL {
                 q_zone[n] = qr(i,j,k,n);
             }
             cons_state(q_zone, U_state);
-            compute_flux(idir, bnd_fac, coord,
+            compute_flux(idir, boundary_scale, coord,
                          U_state, pr, F_state);
-            HLLC_state(idir, S_r, S_c, q_zone, U_hllc_state);
+            hllc_star_state(idir, S_r, S_c, q_zone, U_star_state);
 
             // correct the flux
             for (int n = 0; n < NUM_STATE; n++) {
-                F_state[n] = F_state[n] + S_r*(U_hllc_state[n] - U_state[n]);
+                F_state[n] = F_state[n] + S_r*(U_star_state[n] - U_state[n]);
             }
 
         } else if (S_c > 0.0_rt && S_l < 0.0_rt) {
@@ -540,13 +540,13 @@ namespace HLL {
                 q_zone[n] = ql(i,j,k,n);
             }
             cons_state(q_zone, U_state);
-            compute_flux(idir, bnd_fac, coord,
+            compute_flux(idir, boundary_scale, coord,
                          U_state, pl, F_state);
-            HLLC_state(idir, S_l, S_c, q_zone, U_hllc_state);
+            hllc_star_state(idir, S_l, S_c, q_zone, U_star_state);
 
             // correct the flux
             for (int n = 0; n < NUM_STATE; n++) {
-                F_state[n] = F_state[n] + S_l*(U_hllc_state[n] - U_state[n]);
+                F_state[n] = F_state[n] + S_l*(U_star_state[n] - U_state[n]);
             }
 
         } else {
@@ -555,7 +555,7 @@ namespace HLL {
                 q_zone[n] = ql(i,j,k,n);
             }
             cons_state(q_zone, U_state);
-            compute_flux(idir, bnd_fac, coord,
+            compute_flux(idir, boundary_scale, coord,
                          U_state, pl, F_state);
         }
 
@@ -569,18 +569,18 @@ namespace HLL {
         if (qface_comps == FaceComponents::Full) {
 
             for (int n = 0; n < NQ; n++) {
-                qface(i,j,k,n) = qint[n];
+                qface(i,j,k,n) = q_riemann[n];
             }
 
         } else {
 
     #ifdef HYBRID_MOMENTUM
-            qface(i,j,k,IFCRHO) = qint[QRHO];
+            qface(i,j,k,IFCRHO) = q_riemann[QRHO];
     #endif
-            qface(i,j,k,IFCU) = qint[QU];
-            qface(i,j,k,IFCV) = qint[QV];
-            qface(i,j,k,IFCW) = qint[QW];
-            qface(i,j,k,IFCPRES) = qint[QPRES];
+            qface(i,j,k,IFCU) = q_riemann[QU];
+            qface(i,j,k,IFCV) = q_riemann[QV];
+            qface(i,j,k,IFCW) = q_riemann[QW];
+            qface(i,j,k,IFCPRES) = q_riemann[QPRES];
 
         }
 

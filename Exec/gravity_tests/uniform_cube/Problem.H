@@ -4,4 +4,4 @@
 #define DO_PROBLEM_POST_INIT
 #endif
 
-void problem_post_init();
+void user_post_init();

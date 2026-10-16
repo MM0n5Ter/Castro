@@ -159,7 +159,7 @@ HydroSim::handle_old_sources(
     // these source terms changed the state.
 
     if (source_update == SourceUpdate::ApplyToState && print_update_diagnostics) {
-      evaluate_and_print_source_change(get_old_data(Source_Type), dt, "old-time sources");
+      report_source_change(get_old_data(Source_Type), dt, "old-time sources");
     }
 
     if (verbose > 0)
@@ -243,7 +243,7 @@ HydroSim::handle_new_sources(
     // these source terms changed the state.
 
     if (print_update_diagnostics) {
-      evaluate_and_print_source_change(get_new_data(Source_Type), dt, "new-time sources");
+      report_source_change(get_new_data(Source_Type), dt, "new-time sources");
     }
 
     if (verbose > 0)
@@ -426,10 +426,10 @@ HydroSim::apply_sources()
 // Note that the resultant output is volume-weighted.
 
 Vector<Real>
-HydroSim::evaluate_source_change(const MultiFab& source, Real dt, SumScope scope)
+HydroSim::sum_source_change(const MultiFab& source, Real dt, SumScope scope)
 {
 
-  BL_PROFILE("HydroSim::evaluate_source_change()");
+  BL_PROFILE("HydroSim::sum_source_change()");
 
   Vector<Real> update(source.nComp(), 0.0);
 
@@ -460,9 +460,9 @@ HydroSim::evaluate_source_change(const MultiFab& source, Real dt, SumScope scope
 // because we are interested in printing changes to energy, mass, etc.
 
 void
-HydroSim::evaluate_and_print_source_change (const MultiFab& source, Real dt, const std::string& source_name)
+HydroSim::report_source_change (const MultiFab& source, Real dt, const std::string& source_name)
 {
-    Vector<Real> update = evaluate_source_change(source, dt, SumScope::ThisRank);
+    Vector<Real> update = sum_source_change(source, dt, SumScope::ThisRank);
 
 #ifdef BL_LAZY
     Lazy::QueueReduction( [=] () mutable {
@@ -562,7 +562,7 @@ HydroSim::store_old_shock_flag (Real time, Real dt)
 // and the hydro advance.
 
 advance_status
-HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::before_advance_physics (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -612,7 +612,7 @@ HydroSim::pre_advance_operators (Real time, Real dt)  // NOLINT(readability-conv
 // but before the hydro advance.
 
 advance_status
-HydroSim::pre_hydro_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::before_hydro_physics (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -624,9 +624,9 @@ HydroSim::pre_hydro_operators (Real time, Real dt)  // NOLINT(readability-conver
     // be in sync due to any average down done, so fill them here.
 
     if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
-        MultiFab& react_src = get_new_data(Simplified_SDC_React_Type);
+        MultiFab& react_src = get_new_data(SDC_React_Source_Type);
 
-        AmrLevel::FillPatch(*this, react_src, react_src.nGrow(), time + dt, Simplified_SDC_React_Type, 0, react_src.nComp());
+        AmrLevel::FillPatch(*this, react_src, react_src.nGrow(), time + dt, SDC_React_Source_Type, 0, react_src.nComp());
     }
 #endif
 
@@ -637,7 +637,7 @@ HydroSim::pre_hydro_operators (Real time, Real dt)  // NOLINT(readability-conver
 // but before the corrector sources.
 
 advance_status
-HydroSim::post_hydro_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::after_hydro_physics (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -654,7 +654,7 @@ HydroSim::post_hydro_operators (Real time, Real dt)  // NOLINT(readability-conve
 // Perform all operations that occur after the corrector sources.
 
 advance_status
-HydroSim::post_advance_operators (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::after_advance_physics (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);

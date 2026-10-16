@@ -22,7 +22,7 @@
 ///
 AMREX_INLINE
 void
-initialize_cpp_runparams()
+load_runtime_params()
 {
 
     {
@@ -68,7 +68,7 @@ initialize_cpp_runparams()
 ///
 AMREX_INLINE
 void
-validate_runparams()
+check_runtime_params()
 {
 
     amrex::Vector<std::string> check_namespaces = {"hydrosim", "problem"};

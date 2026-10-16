@@ -73,8 +73,8 @@ HydroSim::trace_ppm_rad(const Box& bx,
   for (int n = 0; n < NQSRC; n++) {
     do_source_trace[n] = 0;
 
-    for (int k = lo[2]-2*dg2; k <= hi[2]+2*dg2; k++) {
-      for (int j = lo[1]-2*dg1; j <= hi[1]+2*dg1; j++) {
+    for (int k = lo[2]-2*dim2_on; k <= hi[2]+2*dim2_on; k++) {
+      for (int j = lo[1]-2*dim1_on; j <= hi[1]+2*dim1_on; j++) {
         for (int i = lo[0]-2; i <= hi[0]+2; i++) {
           if (std::abs(srcQ(i,j,k,n)) > 0.0_rt) {
             do_source_trace[n] = 1;
@@ -206,7 +206,7 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
       s = load_stencil(q_arr, idir, i, j, k, n);
       edge = ppm_reconstruct(s, flat);
-      traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
+      traced[n] = ppm_profile_integrals(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
     }
 
@@ -214,12 +214,12 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
     for (int ipassive = 0; ipassive < npassive; ++ipassive) {
 
-      const int n = qpassmap(ipassive);
-      const int nc = upassmap(ipassive);
+      const int n = prim_passive_index(ipassive);
+      const int nc = cons_passive_index(ipassive);
 
       s = load_passive_stencil(U_arr, rho_inv_arr, idir, i, j, k, nc);
       edge = ppm_reconstruct(s, flat);
-      traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
+      traced[n] = ppm_profile_integrals(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
     }
 
@@ -262,7 +262,7 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
           s = load_stencil(srcQ, idir, i, j, k, n);
           edge = ppm_reconstruct(s, flat);
-          src_traced[n] = ppm_int_profile(edge.lo, edge.hi, s[i0], un, cc, dtdx);
+          src_traced[n] = ppm_profile_integrals(edge.lo, edge.hi, s[i0], un, cc, dtdx);
 
       } else {
         src_traced[n] = {};
@@ -277,7 +277,7 @@ HydroSim::trace_ppm_rad(const Box& bx,
 
     for (int ipassive = 0; ipassive < npassive; ipassive++) {
 
-      int n = qpassmap(ipassive);
+      int n = prim_passive_index(ipassive);
 
       // Plus state on face i
       if ((idir == 0 && i >= vlo[0]) ||
@@ -615,42 +615,42 @@ HydroSim::trace_ppm_rad(const Box& bx,
       Real courn = dt/dx[0]*(cc+std::abs(un));
       Real eta = (1.0_rt - courn)/(cc*dt*std::abs(dloga(i,j,k)));
       Real dlogatmp = amrex::min(eta, 1.0_rt)*dloga(i,j,k);
-      Real sourcr = -0.5_rt*dt*rho*dlogatmp*un;
-      Real sourcp = sourcr*cgassq;
-      Real source = sourcp*h_g;
-      Real sourcer[NGROUPS];
+      Real geo_src_rho = -0.5_rt*dt*rho*dlogatmp*un;
+      Real geo_src_p = geo_src_rho*cgassq;
+      Real source = geo_src_p*h_g;
+      Real geo_src_er[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-        sourcer[g] = -0.5_rt*dt*dlogatmp*un*(lam0[g] + 1.0_rt)*er[g];
+        geo_src_er[g] = -0.5_rt*dt*dlogatmp*un*(lam0[g] + 1.0_rt)*er[g];
       }
 
       if (i <= vhi[0]) {
-        qm(i+1,j,k,QRHO) = qm(i+1,j,k,QRHO) + sourcr;
+        qm(i+1,j,k,QRHO) = qm(i+1,j,k,QRHO) + geo_src_rho;
         qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), lsmall_dens);
-        qm(i+1,j,k,QPRES ) = qm(i+1,j,k,QPRES ) + sourcp;
+        qm(i+1,j,k,QPRES ) = qm(i+1,j,k,QPRES ) + geo_src_p;
         qm(i+1,j,k,QRHOEI) = qm(i+1,j,k,QRHOEI) + source;
         for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QERAD+g) += sourcer[g];
+          qm(i+1,j,k,QERAD+g) += geo_src_er[g];
         }
-        qm(i+1,j,k,QPTOTAL) = qm(i+1,j,k,QPTOTAL) + sourcp;
+        qm(i+1,j,k,QPTOTAL) = qm(i+1,j,k,QPTOTAL) + geo_src_p;
         qm(i+1,j,k,QRHOEITOT) = qm(i+1,j,k,QRHOEI);
         for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QPTOTAL) += lamm[g]*sourcer[g];
+          qm(i+1,j,k,QPTOTAL) += lamm[g]*geo_src_er[g];
           qm(i+1,j,k,QRHOEITOT) += qm(i+1,j,k,QERAD+g);
           }
       }
 
       if (i >= vlo[0]) {
-        qp(i,j,k,QRHO) = qp(i,j,k,QRHO) + sourcr;
+        qp(i,j,k,QRHO) = qp(i,j,k,QRHO) + geo_src_rho;
         qp(i,j,k,QRHO) = amrex::max(qp(i,j,k,QRHO), lsmall_dens);
-        qp(i,j,k,QPRES) = qp(i,j,k,QPRES) + sourcp;
+        qp(i,j,k,QPRES) = qp(i,j,k,QPRES) + geo_src_p;
         qp(i,j,k,QRHOEI) = qp(i,j,k,QRHOEI) + source;
         for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QERAD+g) += sourcer[g];
+          qp(i,j,k,QERAD+g) += geo_src_er[g];
         }
-        qp(i,j,k,QPTOTAL) = qp(i,j,k,QPTOTAL) + sourcp;
+        qp(i,j,k,QPTOTAL) = qp(i,j,k,QPTOTAL) + geo_src_p;
         qp(i,j,k,QRHOEITOT) = qp(i,j,k,QRHOEI);
         for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QPTOTAL) += lamp[g]*sourcer[g];
+          qp(i,j,k,QPTOTAL) += lamp[g]*geo_src_er[g];
           qp(i,j,k,QRHOEITOT) += qp(i,j,k,QERAD+g);
         }
       }

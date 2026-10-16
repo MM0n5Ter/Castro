@@ -256,7 +256,7 @@ Gravity::read_params ()
 }
 
 void
-Gravity::output_job_info_params(std::ostream& jobInfoFile)
+Gravity::write_params_to_job_info(std::ostream& jobInfoFile)
 {
 #include <gravity_job_info_tests.H>
 }
@@ -475,15 +475,15 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
         delta_phi[lev - crse_level]->setVal(0.0);
     }
 
-    Vector< Vector<std::unique_ptr<MultiFab> > > ec_gdPhi(nlevs);
+    Vector< Vector<std::unique_ptr<MultiFab> > > ec_grad_phi(nlevs);
 
     for (int lev = crse_level; lev <= fine_level; ++lev) {
-        ec_gdPhi[lev - crse_level].resize(AMREX_SPACEDIM);
+        ec_grad_phi[lev - crse_level].resize(AMREX_SPACEDIM);
 
         const DistributionMapping& dm = LevelData[lev]->DistributionMap();
         for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-            ec_gdPhi[lev - crse_level][n] = std::make_unique<MultiFab>(LevelData[lev]->getEdgeBoxArray(n), dm, 1, 0);
-            ec_gdPhi[lev - crse_level][n]->setVal(0.0);
+            ec_grad_phi[lev - crse_level][n] = std::make_unique<MultiFab>(LevelData[lev]->getEdgeBoxArray(n), dm, 1, 0);
+            ec_grad_phi[lev - crse_level][n]->setVal(0.0);
         }
     }
 
@@ -564,7 +564,7 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
     solve_for_delta_phi(crse_level, fine_level,
                         amrex::GetVecOfPtrs(g_rhs),
                         amrex::GetVecOfPtrs(delta_phi),
-                        amrex::GetVecOfVecOfPtrs(ec_gdPhi));
+                        amrex::GetVecOfVecOfPtrs(ec_grad_phi));
 
     // In the all-periodic case we enforce that delta_phi averages to zero.
 
@@ -586,10 +586,10 @@ Gravity::gravity_sync (int crse_level, int fine_level, const Vector<MultiFab*>& 
         LevelData[lev]->get_new_data(Potential_Type).plus(*delta_phi[lev - crse_level], 0, 1, 0);
 
         for (int n = 0; n < AMREX_SPACEDIM; n++) {
-            grad_phi_curr[lev][n]->plus(*ec_gdPhi[lev - crse_level][n], 0, 1, 0);
+            grad_phi_curr[lev][n]->plus(*ec_grad_phi[lev - crse_level][n], 0, 1, 0);
         }
 
-        get_new_grav_vector(lev, LevelData[lev]->get_state_data(State_Type).curTime(),
+        fill_new_gravity_field(lev, LevelData[lev]->get_state_data(State_Type).curTime(),
                             LevelData[lev]->get_new_data(Gravity_Type));
 
     }
@@ -849,9 +849,9 @@ Gravity::copy_to_grav_vector (const MultiFab& grav, MultiFab& grav_vector, int n
 }
 
 void
-Gravity::get_old_grav_vector(int level, Real time, MultiFab& grav_vector)
+Gravity::fill_old_gravity_field(int level, Real time, MultiFab& grav_vector)
 {
-    BL_PROFILE("Gravity::get_old_grav_vector()");
+    BL_PROFILE("Gravity::fill_old_gravity_field()");
 
     int ng = grav_vector.nGrow();
 
@@ -891,7 +891,7 @@ Gravity::get_old_grav_vector(int level, Real time, MultiFab& grav_vector)
        grav.mult(-1.0, ng); // g = - grad(phi)
 
     } else {
-       amrex::Abort("Unknown gravity_type in get_old_grav_vector");
+       amrex::Abort("Unknown gravity_type in fill_old_gravity_field");
     }
 
     // Do the copy to the output vector.
@@ -908,18 +908,18 @@ Gravity::get_old_grav_vector(int level, Real time, MultiFab& grav_vector)
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
     if (cs == nullptr) {
-        amrex::Abort("unable to access using_point_mass");
+        amrex::Abort("unable to access point_mass_active");
     }
-    if (cs->using_point_mass()) {
+    if (cs->point_mass_active()) {
         MultiFab& phi = LevelData[level]->get_old_data(Potential_Type);
         add_point_mass_field(level,phi,grav_vector);
     }
 }
 
 void
-Gravity::get_new_grav_vector(int level, Real time, MultiFab& grav_vector)
+Gravity::fill_new_gravity_field(int level, Real time, MultiFab& grav_vector)
 {
-    BL_PROFILE("Gravity::get_new_grav_vector()");
+    BL_PROFILE("Gravity::fill_new_gravity_field()");
 
     int ng = grav_vector.nGrow();
 
@@ -959,7 +959,7 @@ Gravity::get_new_grav_vector(int level, Real time, MultiFab& grav_vector)
         grav.mult(-1.0, ng); // g = - grad(phi)
 
     } else {
-       amrex::Abort("Unknown gravity_type in get_new_grav_vector");
+       amrex::Abort("Unknown gravity_type in fill_new_gravity_field");
     }
 
     // Do the copy to the output vector.
@@ -976,9 +976,9 @@ Gravity::get_new_grav_vector(int level, Real time, MultiFab& grav_vector)
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(level));
     if (cs == nullptr) {
-        amrex::Abort("unable to access using_point_mass");
+        amrex::Abort("unable to access point_mass_active");
     }
-    if (cs->using_point_mass()) {
+    if (cs->point_mass_active()) {
         MultiFab& phi = LevelData[level]->get_new_data(Potential_Type);
         add_point_mass_field(level,phi,grav_vector);
     }
@@ -1170,7 +1170,7 @@ Gravity::check_level_grad_phi_curr(int level)
 void
 Gravity::build_composite_level_diff(int level,
                                           MultiFab& comp_phi,
-                                          const Vector<MultiFab*>& comp_gphi,
+                                          const Vector<MultiFab*>& comp_grad_phi,
                                           MultiFab& composite_level_phi_diff,
                                           GradPhiVector& composite_level_grad_phi_diff)
 {
@@ -1193,7 +1193,7 @@ Gravity::build_composite_level_diff(int level,
     for (int n = 0; n < AMREX_SPACEDIM; ++n) {
         composite_level_grad_phi_diff[n] = std::make_unique<MultiFab>(LevelData[level]->getEdgeBoxArray(n),
                                                                   LevelData[level]->DistributionMap(), 1, 0);
-        MultiFab::Copy(*composite_level_grad_phi_diff[n], *comp_gphi[n], 0, 0, 1, 0);
+        MultiFab::Copy(*composite_level_grad_phi_diff[n], *comp_grad_phi[n], 0, 0, 1, 0);
         composite_level_grad_phi_diff[n]->minus(*grad_phi_prev[level][n], 0, 1, 0);
     }
 
@@ -1541,11 +1541,11 @@ Gravity::bin_radial_mass(const Box& bx,
 
         } else {
 
-            for (int kk = 0; kk <= dg2 * (gravity::radial_bins_per_dx - 1); ++kk) {
+            for (int kk = 0; kk <= dim2_on * (gravity::radial_bins_per_dx - 1); ++kk) {
                 Real zz   = lo_k + (static_cast<Real>(kk) + 0.5_rt) * dz_frac;
                 Real zzsq = zz * zz;
 
-                for (int jj = 0; jj <= dg1 * (gravity::radial_bins_per_dx - 1); ++jj) {
+                for (int jj = 0; jj <= dim1_on * (gravity::radial_bins_per_dx - 1); ++jj) {
                     Real yy   = lo_j + (static_cast<Real>(jj) + 0.5_rt) * dy_frac;
                     Real yysq = yy * yy;
 
@@ -2271,11 +2271,11 @@ Gravity::set_multipole_boundary_phi(LevelRange levels, const Vector<MultiFab*>& 
 
                         evalLegendre(l, pl, cosTheta);
 
-                        Real r_U = std::pow(r, -l-1);
+                        Real r_out_pow = std::pow(r, -l-1);
 
                         // Make sure we undo the volume scaling here.
 
-                        phi_arr(i,j,k) += mIn0_arr(l,0,n) * pl.val * r_U * rmax_cubed;
+                        phi_arr(i,j,k) += mIn0_arr(l,0,n) * pl.val * r_out_pow * rmax_cubed;
 
                     }
 
@@ -2288,12 +2288,12 @@ Gravity::set_multipole_boundary_phi(LevelRange levels, const Vector<MultiFab*>& 
 
                             evalAssocLegendre(l, m, plm, cosTheta);
 
-                            Real r_U = std::pow(r, -l-1);
+                            Real r_out_pow = std::pow(r, -l-1);
 
                             // Make sure we undo the volume scaling here.
 
                             phi_arr(i,j,k) += (mInC_arr(l,m,n) * std::cos(m * phiAngle) + mInS_arr(l,m,n) * std::sin(m * phiAngle)) *
-                                              plm.val * r_U * rmax_cubed;
+                                              plm.val * r_out_pow * rmax_cubed;
 
                         }
                     }
@@ -2913,9 +2913,9 @@ Gravity::set_mass_offset_all_levels (Real time) const
     for (int lev = 0; lev <= parent->finestLevel(); lev++) {
         auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(lev));
         if (cs != nullptr) {
-            mass_offset += cs->volWgtSum("density", time);
+            mass_offset += cs->volumeIntegralSum("density", time);
         } else {
-            amrex::Abort("unable to access volWgtSum");
+            amrex::Abort("unable to access volumeIntegralSum");
         }
     }
 
@@ -2936,9 +2936,9 @@ Gravity::set_mass_offset_base_level (Real time) const
 
     auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(0));
     if (cs != nullptr) {
-        mass_offset = cs->volWgtSum("density", time, SumScope::AllRanks, CoveredZones::Include);  // do not mask off fine grids
+        mass_offset = cs->volumeIntegralSum("density", time, SumScope::AllRanks, CoveredZones::Include);  // do not mask off fine grids
     } else {
-        amrex::Abort("unable to access volWgtSum");
+        amrex::Abort("unable to access volumeIntegralSum");
     }
 
     normalize_mass_offset(old_mass_offset);
@@ -3514,9 +3514,9 @@ Gravity::sanity_check (int level)
 }
 
 void
-Gravity::update_max_rhs()
+Gravity::refresh_max_rhs()
 {
-    BL_PROFILE("Gravity::update_max_rhs()");
+    BL_PROFILE("Gravity::refresh_max_rhs()");
 
     // Calculate the maximum value of the RHS over all levels.
     // This should only be called at a synchronization point where

@@ -72,7 +72,7 @@ enum StateType : std::uint8_t {
                Mag_Type_z,
 #endif
 #ifdef REACTIONS
-               Simplified_SDC_React_Type
+               SDC_React_Source_Type
 #endif
 };
 
@@ -102,9 +102,9 @@ enum sources : std::uint8_t {
 
 // time integration method
 
-enum int_method : std::uint8_t {
+enum integrator_kind : std::uint8_t {
     CornerTransportUpwind = 0,
-    UnusedTimeIntegration,
+    UnusedIntegratorSlot,
     SpectralDeferredCorrections,
     SimplifiedSpectralDeferredCorrections
 };
@@ -217,7 +217,7 @@ void normalize_species (amrex::MultiFab& S_new, int ng);
 /// @param state        state
 /// @param ng           number of ghost cells
 ///
-void enforce_speed_limit (amrex::MultiFab& state, int ng);
+void clamp_to_speed_limit (amrex::MultiFab& state, int ng);
 
 #ifdef TRUE_SDC
 // Kernels of an SDC stage, for the Gauss-Lobatto and Radau node
@@ -464,7 +464,7 @@ public:
 /// @param how      ``VisMF::How`` object
 /// @param kind     full or small plotfile
 ///
-    void plotFileOutput(const std::string& dir,
+    void writePlotData(const std::string& dir,
                         ostream& os,
                         amrex::VisMF::How how,
                         const PlotfileKind kind);
@@ -476,13 +476,13 @@ public:
 /// @param dir       directory to write to
 /// @param io_time   how long it took to generate the plotfile/checkpoint
 ///
-    void writeJobInfo (const std::string& dir, const amrex::Real io_time);
+    void writeRunInfoFile (const std::string& dir, const amrex::Real io_time);
 
 
 ///
 /// Dump build info
 ///
-    static void writeBuildInfo ();
+    static void reportBuildInfo ();
 
 
 ///
@@ -496,7 +496,7 @@ public:
 ///
 /// Define tagging functions.
 ///
-    static void ErrorSetUp ();
+    static void TaggingSetUp ();
 
 ///
 /// Cleanup data descriptors at end of run.
@@ -516,7 +516,7 @@ public:
 ///
 /// Read particle-related inputs
 ///
-    static void read_particle_params ();
+    static void read_tracer_params ();
 
 ///
 /// Initialize particle locations and velocities (and strengths if relevant)
@@ -528,21 +528,21 @@ public:
 ///
 /// @param dir  directory containing checkpoint
 ///
-    void ParticleCheckPoint (const std::string& dir);
+    void TracerCheckPoint (const std::string& dir);
 
 ///
 /// Write particles in plotfile directories
 ///
 /// @param dir  directory containing plotfile
 ///
-    void ParticlePlotFile (const std::string& dir);
+    void TracerPlotFile (const std::string& dir);
 
 ///
 /// How to initialize at restart
 ///
 /// @param restart_file     path to restart file
 ///
-    void ParticlePostRestart (const std::string& restart_file);
+    void TracerPostRestart (const std::string& restart_file);
 
 ///
 /// Derived quantities associated with particles
@@ -551,7 +551,7 @@ public:
 /// @param time         current time
 /// @param ngrow        Number of ghost cells
 ///
-    std::unique_ptr<amrex::MultiFab> ParticleDerive (const std::string& name,
+    std::unique_ptr<amrex::MultiFab> TracerDerive (const std::string& name,
                                                      amrex::Real           time,
                                                      int            ngrow);
 
@@ -560,7 +560,7 @@ public:
 ///
 /// @param ngrow    number of ghost cells
 ///
-    void TimestampParticles (int ngrow);
+    void RecordTracerSamples (int ngrow);
 
 ///
 /// Advance the particles by dt
@@ -569,12 +569,12 @@ public:
 /// @param time         current time
 /// @param dt           timestep
 ///
-    void advance_particles (int iteration, amrex::Real time, amrex::Real dt);
+    void advance_tracers (int iteration, amrex::Real time, amrex::Real dt);
 
 #endif
 
 #ifdef LOWMACH_INIT
-    void LOWMACH_init ();
+    void LowMachSetup ();
 #endif
 
 
@@ -675,17 +675,17 @@ public:
 /// @param dt       the timestep to advance (e.g., go from time to
 ///                    time + dt)
 ///
-    advance_status do_advance_ctu (amrex::Real time, amrex::Real dt);
+    advance_status advance_ctu_once (amrex::Real time, amrex::Real dt);
 
 
 #ifndef AMREX_USE_GPU
-    amrex::Real do_advance_sdc (const LevelStep& step);
+    amrex::Real advance_level_sdc (const LevelStep& step);
 #endif
 
 ///
 /// Save a copy of the old state data for use by a retry.
 ///
-    void save_data_for_retry();
+    void stash_state_for_retry();
 
 ///
 /// Zero the flux, mass flux, radial pressure and radiation flux
@@ -714,7 +714,7 @@ public:
 ///                 time to time + dt) and the AMR subcycle position
 ///                 of this advance
 ///
-    amrex::Real subcycle_advance_ctu(const LevelStep& step);
+    amrex::Real advance_ctu_with_retries(const LevelStep& step);
 
 ///
 /// This is run at the start of an ::advance on a single level.
@@ -725,14 +725,14 @@ public:
 /// @param step     the time, the timestep to advance and the
 ///                 AMR subcycle position of this advance
 ///
-    void initialize_advance(const LevelStep& step);
+    void prepare_level_step(const LevelStep& step);
 
 ///
 /// If required, adds material lost in timestep to cumulative
 /// losses, does refluxing, and clears arrays/data containers
 /// initialized at start of the level's advance.
 ///
-    void finalize_advance();
+    void complete_level_step();
 
 ///
 /// The finest level advanced together with this one. Without subcycling
@@ -748,16 +748,16 @@ public:
 /// @param time     the current simulation time
 /// @param dt       the timestep to advance
 ///
-    advance_status initialize_do_advance (amrex::Real time, amrex::Real dt);
+    advance_status begin_level_advance (amrex::Real time, amrex::Real dt);
 
 ///
 /// Performed at the end of ::do_advance, cleans up temporary data
-/// created by ::initialize_do_advance
+/// created by ::begin_level_advance
 ///
 /// @param time     the current simulation time
 /// @param dt       the timestep to advance
 ///
-    advance_status finalize_do_advance (amrex::Real time, amrex::Real dt);
+    advance_status end_level_advance (amrex::Real time, amrex::Real dt);
 
 #ifdef MHD
 ///
@@ -856,7 +856,7 @@ public:
 ///
 /// Print information about energy budget.
 ///
-    void do_energy_diagnostics();
+    void run_energy_diagnostics();
 
 ///
 /// Do work after timestep().
@@ -898,19 +898,19 @@ public:
 ///
 /// Initialize a model using the self-consistent field method.
 ///
-    void scf_relaxation();
+    void relax_rotating_model();
 
 ///
 /// Perform the SCF method.
 ///
-    void do_hscf_solve();
+    void solve_rotating_equilibrium();
 #endif
 #endif
 
 ///
 /// Do work after restart with ``grown_factor`` > 1
 ///
-    void post_grown_restart ();
+    void after_grown_restart ();
 
 #ifdef DO_PROBLEM_POST_SIMULATION
 
@@ -919,7 +919,7 @@ public:
 ///
 /// @param amr_level    AMR levels in the simulation hierarchy
 ///
-    static void problem_post_simulation (amrex::Vector<std::unique_ptr<AmrLevel> >& amr_level);
+    static void user_post_simulation (amrex::Vector<std::unique_ptr<AmrLevel> >& amr_level);
 #endif
 
 
@@ -942,12 +942,12 @@ public:
 
 
 ///
-/// Apply the ::problem_tagging routine.
+/// Apply the ::user_tag_cells routine.
 ///
 /// @param tags         TagBoxArray of tags
 /// @param time         current time
 ///
-    void apply_problem_tags (amrex::TagBoxArray& tags, amrex::Real time);
+    void apply_user_tags (amrex::TagBoxArray& tags, amrex::Real time);
 
 
 ///
@@ -956,7 +956,7 @@ public:
 /// @param tags         TagBoxArray of tags
 /// @param time         current time
 ///
-    void apply_tagging_restrictions (amrex::TagBoxArray& tags, amrex::Real time);
+    void restrict_tagging_region (amrex::TagBoxArray& tags, amrex::Real time);
 
 
 ///
@@ -1000,7 +1000,7 @@ public:
 /// @param iteration    where we are in the current AMR subcycle
 /// @param ncycle       the number of subcycles at this level
 ///
-    void final_radiation_call (amrex::MultiFab& S_new,
+    void finish_radiation_step (amrex::MultiFab& S_new,
                                int iteration,
                                int ncycle);
 #endif
@@ -1012,7 +1012,7 @@ public:
 /// @param State    Current state (MultiFab)
 /// @param ng       number of ghost cells
 ///
-    void reset_internal_energy (
+    void fix_internal_energy (
 #ifdef MHD
                                 const MagFaceFields& B,
 #endif
@@ -1028,7 +1028,7 @@ public:
 /// @param Bz       magnetic field in z
 /// @param u        Current state (Fab)
 ///
-    static void reset_internal_energy (const amrex::Box& bx,
+    static void fix_internal_energy (const amrex::Box& bx,
 #ifdef MHD
                                 amrex::Array4<amrex::Real> const& Bx,
                                 amrex::Array4<amrex::Real> const& By,
@@ -1043,7 +1043,7 @@ public:
 /// @param B        face-centered magnetic field
 /// @param state    the state to operate on
 ///
-    static void add_magnetic_e (
+    static void add_magnetic_energy (
         const MagFaceFields& B,
         amrex::MultiFab& state);
 
@@ -1052,7 +1052,7 @@ public:
 /// @param B        face-centered magnetic field
 /// @param state    the state to operate on
 ///
-    void check_div_B (
+    void verify_div_b (
                       const MagFaceFields& B,
                       amrex::MultiFab& state);
 
@@ -1080,7 +1080,7 @@ public:
 /// Currently this is a lagged predictor for CTU and the
 /// time-centering correction for simplified SDC.
 ///
-    void create_source_corrector();
+    void build_source_corrector();
 
 
 ///
@@ -1093,7 +1093,7 @@ public:
 ///
 /// @param dt   timestep
 ///
-    void swap_state_time_levels (const amrex::Real dt);
+    void rotate_state_time_levels (const amrex::Real dt);
 
 #ifdef DIFFUSION
 #include <HydroSim_diffusion.H>
@@ -1108,7 +1108,7 @@ public:
 /// @param scope        sum over all ranks, or only over this rank's patches?
 /// @param covered      leave out the zones covered by the next finer level?
 ///
-    amrex::Real volWgtSum (const MultiFab& mf, int comp,
+    amrex::Real volumeIntegralSum (const MultiFab& mf, int comp,
                            SumScope scope=SumScope::AllRanks, CoveredZones covered=CoveredZones::Exclude);
 
 ///
@@ -1119,7 +1119,7 @@ public:
 /// @param scope        sum over all ranks, or only over this rank's patches?
 /// @param covered      leave out the zones covered by the next finer level?
 ///
-    amrex::Real volWgtSum (const std::string& name, amrex::Real time,
+    amrex::Real volumeIntegralSum (const std::string& name, amrex::Real time,
                            SumScope scope=SumScope::AllRanks, CoveredZones covered=CoveredZones::Exclude);
 
 ///
@@ -1130,7 +1130,7 @@ public:
 /// @param idir     Axis along which to compute distance from center
 /// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real locWgtSum (const MultiFab& mf, int comp, int idir, SumScope scope=SumScope::AllRanks);
+    amrex::Real positionWeightedSum (const MultiFab& mf, int comp, int idir, SumScope scope=SumScope::AllRanks);
 
 ///
 /// Volume weighted sum of the product of two quantities
@@ -1141,7 +1141,7 @@ public:
 /// @param comp2    integer index of quantity in second MultiFab
 /// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real volProductSum (const MultiFab& mf1, const MultiFab& mf2, int comp1, int comp2,
+    amrex::Real volumeWeightedProductSum (const MultiFab& mf1, const MultiFab& mf2, int comp1, int comp2,
                                SumScope scope=SumScope::AllRanks);
 
 
@@ -1153,7 +1153,7 @@ public:
 /// @param idir     Direction along which to weight
 /// @param scope    sum over all ranks, or only over this rank's patches?
 ///
-    amrex::Real locSquaredSum (const std::string& name, amrex::Real time, int idir,
+    amrex::Real positionSquaredWeightedSum (const std::string& name, amrex::Real time, int idir,
                                SumScope scope=SumScope::AllRanks);
 
 #ifdef GRAVITY
@@ -1174,19 +1174,19 @@ public:
 ///
 /// @return the contribution of this level to the strain
 ///
-    WaveStrain gwstrain (Real time, SumScope scope);
+    WaveStrain wave_strain (Real time, SumScope scope);
 #endif
 
 #ifdef GRAVITY
 ///
 /// Are we using point mass gravity?
 ///
-    static int using_point_mass ();
+    static int point_mass_active ();
 
 ///
 /// Return the value of the point mass.
 ///
-    static amrex::Real get_point_mass ();
+    static amrex::Real point_mass_value ();
 #endif
 
 
@@ -1210,7 +1210,7 @@ public:
 #include <HydroSim_sdc.H>
 #endif
 
-    static void extern_init ();
+    static void init_external_params ();
 
     static void read_params ();
 
@@ -1220,8 +1220,8 @@ public:
 ///
     HydroSim& getLevel (int lev);
 
-    void FluxRegCrseInit();
-    void FluxRegFineAdd();
+    void CoarseFluxRegInit();
+    void FineFluxRegAdd();
 
 
 ///
@@ -1251,7 +1251,7 @@ public:
 ///
 /// @param S  State
 ///
-    static void enforce_consistent_e (
+    static void make_energies_consistent (
 #ifdef MHD
                                const MagFaceFields& B,
 #endif
@@ -1264,7 +1264,7 @@ public:
 /// @param state        state
 /// @param ng           number of ghost cells
 ///
-    void enforce_min_density (amrex::MultiFab& state, int ng);
+    void apply_density_floor (amrex::MultiFab& state, int ng);
 
 ///
 /// After a hydro advance, check to see whether any density went too small.
@@ -1304,12 +1304,12 @@ public:
 ///
 /// Initialize the MultiFabs and flux registers that live as class members.
 ///
-    void initMFs ();
+    void allocate_level_mfs ();
 
 ///
 /// Calculates volume weight sums of variables and prints to screen
 ///
-    void sum_integrated_quantities ();
+    void print_integrated_sums ();
 
 ///
 /// Whether the integrated quantities are due at coarse step ``nstep``
@@ -1323,11 +1323,11 @@ public:
     bool integral_sums_due (int nstep, amrex::Real cumtime, amrex::Real dtlev) const;
 
 ///
-/// Problem-specific diagnostics (called by sum_integrated_quantities)
+/// Problem-specific diagnostics (called by print_integrated_sums)
 ///
-    void problem_diagnostics ();
+    void user_diagnostics ();
 
-    void write_info ();
+    void emit_run_info ();
 
 ///
 /// Return BCs
@@ -1342,17 +1342,17 @@ public:
 /// @param S        Current state
 /// @param time     current time
 ///
-    void define_new_center (const amrex::MultiFab& S, amrex::Real time);
-    void write_center ();
+    void update_center_estimate (const amrex::MultiFab& S, amrex::Real time);
+    void log_center_position ();
 
 ///
 /// @param time     current time
 /// @param dt       timestep
 ///
-    void pointmass_update(amrex::Real time, amrex::Real dt);
+    void accrete_onto_point_mass(amrex::Real time, amrex::Real dt);
 #endif
 
-    static void stopJob ();
+    static void requestStop ();
 
 ///
 /// Returns true if we're on the GPU and the total
@@ -1401,13 +1401,13 @@ public:
 ///     help prevent the number from getting too large), and that may be a
 ///     non-integer number.
 ///
-    static amrex::Real num_zones_advanced;
+    static amrex::Real cells_advanced_count;
 
 ///
 /// diagnostics
 ///
     static Vector<std::unique_ptr<std::fstream> > data_logs;
-    static Vector<std::unique_ptr<std::fstream> > problem_data_logs;
+    static Vector<std::unique_ptr<std::fstream> > user_data_logs;
 
 ///
 /// runtime parameters
@@ -1424,7 +1424,7 @@ protected:
 
 
 #ifdef GRAVITY
-    int get_numpts();
+    int radial_bin_count();
 
 
 ///
@@ -1459,7 +1459,7 @@ protected:
     amrex::MultiFab Erborder;
     amrex::MultiFab lamborder;
 
-    std::unique_ptr<RadSolve> rad_solver;
+    std::unique_ptr<RadSolve> radiation_solver;
 #endif
 
 
@@ -1596,7 +1596,7 @@ protected:
 
 ///
 /// For initialization of the C++ values of the runtime parameters
-  static int do_cxx_prob_initialize;
+  static int need_problem_setup;
 
 
 ///
@@ -1610,16 +1610,16 @@ protected:
 
     static bool      signalStopJob;
     static int       radius_grow;
-    static std::vector<std::string> err_list_names;
-    static std::vector<int> err_list_ng;
-    static int              num_err_list_default;
+    static std::vector<std::string> tag_field_names;
+    static std::vector<int> tag_field_ngrow;
+    static int              n_default_tag_fields;
     static amrex::BCRec     phys_bc;
 
-    static int         lastDtPlotLimited;
-    static amrex::Real lastDtBeforePlotLimiting;
+    static int         prevDtClippedForPlot;
+    static amrex::Real prevDtBeforePlotClip;
 
     int in_retry;
-    int num_subcycles_taken;
+    int subcycles_used;
 
     amrex::Real lastDt;
 
@@ -1628,15 +1628,15 @@ protected:
 /// for keeping track of the amount of CPU or GPU time used -- this will persist
 /// after restarts
 ///
-    static amrex::Real      previousCPUTimeUsed;
-    static amrex::Real      startCPUTime;
+    static amrex::Real      priorRunCPUTime;
+    static amrex::Real      runStartCPUTime;
 
 ///
 /// Get total CPU time
 ///
     static amrex::Real getCPUTime();
 
-    bool             FillPatchedOldState_ok;
+    bool             old_state_filled;
 
 
 ///
@@ -1668,11 +1668,11 @@ protected:
     static amrex::IntVect hydro_tile_size;
     static amrex::IntVect no_tile_size;
 
-    static int hydro_tile_size_has_been_tuned;
-    static Long largest_box_from_hydro_tile_size_tuning;
+    static int tile_size_autotuned;
+    static Long autotuned_max_box_cells;
 
     static int SDC_Source_Type;
-    static int num_state_type;
+    static int n_state_types;
 
 
     // counters for various retries in HydroSim
@@ -1681,7 +1681,7 @@ protected:
 /// subcycle capability
 ///
     int sub_iteration;
-    int sub_ncycle;
+    int subcycle_count;
     amrex::Real dt_subcycle;
     amrex::Real dt_advance;
 
@@ -1744,7 +1744,7 @@ HydroSim::getLevel (int lev)
 
 inline
 void
-HydroSim::stopJob()
+HydroSim::requestStop()
 {
   signalStopJob = true;
 
@@ -1761,14 +1761,14 @@ HydroSim::get_output_at_completion()
 #ifdef GRAVITY
 inline
 amrex::Real
-HydroSim::get_point_mass ()
+HydroSim::point_mass_value ()
 {
     return point_mass;
 }
 
 inline
 int
-HydroSim::using_point_mass ()
+HydroSim::point_mass_active ()
 {
     return use_point_mass;
 }

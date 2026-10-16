@@ -84,7 +84,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     for (int igroup=0; igroup<nGroups; igroup++) {
       rhs.setVal(0.0);
       deferred_sync(level, rhs, igroup);
-      rhstoEr(rhs, delta_t, level);
+      rhsToRadEnergy(rhs, delta_t, level);
       MultiFab::Add(Er_new, rhs, 0, igroup, 1, 0);
     }
   }
@@ -153,7 +153,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     }
   }
 
-  RadSolve* const solver = hydrosim->rad_solver.get();
+  RadSolve* const solver = hydrosim->radiation_solver.get();
 
   InnerResidual inner;
   Real rel_rhoe, abs_rhoe;
@@ -223,7 +223,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
     }
 
     // djdT is both input and output
-    compute_etat(etaT, etaTz,
+    compute_eta_coefs(etaT, etaTz,
                  eta1, djdT,
                  dkdT, dedT,
                  Er_star, rho,
@@ -296,7 +296,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
       } // end loop over groups
 
       // Check for convergence *before* acceleration step:
-      inner = check_convergence_er(Er_new, Er_pi,
+      inner = check_rad_convergence(Er_new, Er_pi,
                                    kappa_p, etaTz, temp_new, delta_t);
 
       if (verbose >= 2) {
@@ -405,7 +405,7 @@ void Radiation::MGFLD_implicit_update(int level, int iteration, int ncycle)
                            djdT, dkdT, dedT, // output
                            level, it+1, 0);
 
-    check_convergence_matt(rhoe_new, rhoe_star, rhoe_step, Er_new,
+    check_matter_convergence(rhoe_new, rhoe_star, rhoe_step, Er_new,
                            temp_new, temp_star,
                            rho, kappa_p, jg, dedT, delta_t,
                            rel_rhoe, abs_rhoe, rel_FT, abs_FT, rel_T, abs_T);

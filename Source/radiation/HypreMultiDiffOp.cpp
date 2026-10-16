@@ -49,9 +49,9 @@ void AuxVar::collapse()
   // "before-the-beginning" position.
 
   // There is one property that can be useful in dealing with the hypre
-  // semi-structured interface:  Call two AuxVar objects or two Connex
+  // semi-structured interface:  Call two AuxVar objects or two StencilLink
   // lists "similar" if they point to the same locations in the same order.
-  // If two AuxVar objects are built whose Connex lists are similar up to
+  // If two AuxVar objects are built whose StencilLink lists are similar up to
   // a point, and all the latter entries point only to locations already
   // referenced in the similar initial sections, then after being
   // collapsed the two AuxVars will be similar.  If one AuxVar is then
@@ -60,14 +60,14 @@ void AuxVar::collapse()
   // AuxVar to include additional entries so long as they don't point
   // to any new locations not already established in the graph.
 
-  for (std::list<Connex>::iterator it = a.begin(); it != a.end(); ) {
+  for (std::list<StencilLink>::iterator it = a.begin(); it != a.end(); ) {
     AuxVar *o = it->other;
     if (o) {
-      std::list<Connex>::iterator kt = it;
+      std::list<StencilLink>::iterator kt = it;
       a.insert(++kt, o->a.begin(), o->a.end());
 
       // multiply inserted entries by it->var here:
-      for (std::list<Connex>::iterator jt = it; ++jt != kt; ) {
+      for (std::list<StencilLink>::iterator jt = it; ++jt != kt; ) {
         jt->val *= it->val;
       }
 
@@ -82,11 +82,11 @@ void AuxVar::collapse()
 
   // Combine entries that point to same cell:
 
-  for (std::list<Connex>::iterator it = a.begin(); it != a.end(); ++it) {
-    for (std::list<Connex>::iterator jt = it; ++jt != a.end(); ) {
+  for (std::list<StencilLink>::iterator it = a.begin(); it != a.end(); ++it) {
+    for (std::list<StencilLink>::iterator jt = it; ++jt != a.end(); ) {
       if (it->same_target(*jt)) {
         it->val += jt->val;
-        std::list<Connex>::iterator kt = jt;
+        std::list<StencilLink>::iterator kt = jt;
         --jt;
         a.erase(kt);
       }
@@ -111,7 +111,7 @@ int AuxVar::get_locations(Vector<int>& levels, Vector<IntVect>& cells)
   cells.resize(n);
 
   int i = 0;
-  for (std::list<Connex>::iterator it = a.begin(); it != a.end(); ++it) {
+  for (std::list<StencilLink>::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
       return 2; // failure
     }
@@ -133,7 +133,7 @@ int AuxVar::get_coeffs(Vector<Real>& values)
   values.resize(n);
 
   int i = 0;
-  for (std::list<Connex>::iterator it = a.begin(); it != a.end(); ++it) {
+  for (std::list<StencilLink>::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
       return 2; // failure
     }
@@ -1337,12 +1337,12 @@ void HypreMultiDiffOp::SPalpha(int level, const MultiFab& a)
   MultiFab::Copy(*SPa[level], a, 0, 0, 1, 0);
 }
 
-void HypreMultiDiffOp::hmac (const Box& bx,
+void HypreMultiDiffOp::ml_fill_alpha_coefs (const Box& bx,
                            Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
                            Array4<Real const> const& a,
                            Real alpha)
 {
-    BL_PROFILE("HypreMultiDiffOp::hmac");
+    BL_PROFILE("HypreMultiDiffOp::ml_fill_alpha_coefs");
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -1358,12 +1358,12 @@ void HypreMultiDiffOp::hmac (const Box& bx,
     Gpu::synchronize();
 }
 
-void HypreMultiDiffOp::hmbc (const Box& bx,
+void HypreMultiDiffOp::ml_fill_beta_coefs (const Box& bx,
                            Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
                            Array4<Real const> const& b,
                            Real beta, const Real* dx, int n)
 {
-    BL_PROFILE("HypreMultiDiffOp::hmbc");
+    BL_PROFILE("HypreMultiDiffOp::ml_fill_beta_coefs");
 
     if (n == 0) {
 
@@ -1409,7 +1409,7 @@ void HypreMultiDiffOp::hmbc (const Box& bx,
 }
 
 void
-HypreMultiDiffOp::hmmat (const Box& bx,
+HypreMultiDiffOp::ml_bc_matrix_fix (const Box& bx,
                        Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
                        int cdir, int bct, int bho, Real bcl,
                        Array4<int const> const& mask,
@@ -1498,8 +1498,8 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
     const Real fac = beta / (h * h);
 
-    Real bfm, bfv;
-    Real bfm2, h2, th2;
+    Real bc_coef_m, bc_coef_v;
+    Real bc_coef_m2, h2, th2;
 
     if (bct == AMREX_LO_DIRICHLET) {
 
@@ -1507,27 +1507,27 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             h2 = 0.5e0_rt * h;
             th2 = 3.e0_rt * h2;
-            bfm = fac * (th2 - bcl) / (bcl + h2) - fac;
-            bfm2 = fac * (bcl - h2) / (bcl + th2);
+            bc_coef_m = fac * (th2 - bcl) / (bcl + h2) - fac;
+            bc_coef_m2 = fac * (bcl - h2) / (bcl + th2);
 
         }
         else {
 
-            bfv = (beta / h) / (0.5e0_rt * h + bcl);
-            bfm = bfv - fac;
+            bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+            bc_coef_m = bc_coef_v - fac;
 
         }
 
     }
     else if (bct == AMREX_LO_NEUMANN) {
 
-        bfm = -fac;
-        bfm2 = 0.e0_rt;
+        bc_coef_m = -fac;
+        bc_coef_m2 = 0.e0_rt;
 
     }
     else {
 
-        amrex::Error("hmmat: unsupported boundary type");
+        amrex::Error("ml_bc_matrix_fix: unsupported boundary type");
 
     }
 
@@ -1538,10 +1538,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (xlo && mask(i-1,j,k) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[2] += bfm2 * b(i,j,k);
+                    mat(i,j,k)[2] += bc_coef_m2 * b(i,j,k);
                 }
 
             }
@@ -1551,10 +1551,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (xhi && mask(i+1,j,k) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i+1,j,k);
+                mat(i,j,k)[0] += bc_coef_m * b(i+1,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[1] += bfm2 * b(i+1,j,k);
+                    mat(i,j,k)[1] += bc_coef_m2 * b(i+1,j,k);
                 }
 
             }
@@ -1564,10 +1564,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (ylo && mask(i,j-1,k) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[3] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[4] += bfm2 * b(i,j,k);
+                    mat(i,j,k)[4] += bc_coef_m2 * b(i,j,k);
                 }
 
             }
@@ -1577,10 +1577,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (yhi && mask(i,j+1,k) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i,j+1,k);
+                mat(i,j,k)[0] += bc_coef_m * b(i,j+1,k);
                 mat(i,j,k)[4] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[3] += bfm2 * b(i,j+1,k);
+                    mat(i,j,k)[3] += bc_coef_m2 * b(i,j+1,k);
                 }
 
             }
@@ -1590,10 +1590,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (zlo && mask(i,j,k-1) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[5] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[6] += bfm2 * b(i,j,k);
+                    mat(i,j,k)[6] += bc_coef_m2 * b(i,j,k);
                 }
 
             }
@@ -1603,10 +1603,10 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 
             if (zhi && mask(i,j,k+1) > 0) {
 
-                mat(i,j,k)[0] += bfm * b(i,j,k+1);
+                mat(i,j,k)[0] += bc_coef_m * b(i,j,k+1);
                 mat(i,j,k)[6] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[5] += bfm2 * b(i,j,k+1);
+                    mat(i,j,k)[5] += bc_coef_m2 * b(i,j,k+1);
                 }
 
             }
@@ -1618,7 +1618,7 @@ HypreMultiDiffOp::hmmat (const Box& bx,
 }
 
 void
-HypreMultiDiffOp::hmmat3 (const Box& bx,
+HypreMultiDiffOp::ml_bc_matrix_fix_typed (const Box& bx,
                         int ori_lo, int idir,
                         Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
                         int cdir, int bctype,
@@ -1630,7 +1630,7 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                         const GeometryData& geomdata, Real c,
                         Array4<Real const> const& spa)
 {
-    BL_PROFILE("HypreMultiDiffOp::hmmat3");
+    BL_PROFILE("HypreMultiDiffOp::ml_bc_matrix_fix_typed");
 
     bool xlo = false;
     bool ylo = false;
@@ -1722,8 +1722,8 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
     {
         const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
-        Real bfm, bfv;
-        Real bfm2, h2, th2;
+        Real bc_coef_m, bc_coef_v;
+        Real bc_coef_m2, h2, th2;
         int bct;
 
         if (mask.contains(i-1,j,k)) {
@@ -1742,59 +1742,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
                     }
                     else  {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i,j,k);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[2] += bfm2;
+                    mat(i,j,k)[2] += bc_coef_m2;
                 }
 
             }
@@ -1816,59 +1816,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i+1,j,k);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i+1,j,k);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i+1,j,k);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i+1,j,k);
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i+1,j,k);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i+1,j,k);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i+1,j,k);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i+1,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[1] += bfm2;
+                    mat(i,j,k)[1] += bc_coef_m2;
                 }
 
             }
@@ -1890,59 +1890,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i,j,k);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[3] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[4] += bfm2;
+                    mat(i,j,k)[4] += bc_coef_m2;
                 }
 
             }
@@ -1964,59 +1964,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j+1,k);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i,j+1,k);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i,j+1,k);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i,j+1,k);
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j+1,k);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i,j+1,k);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i,j+1,k);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i,j+1,k);
                 mat(i,j,k)[4] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[3] += bfm2;
+                    mat(i,j,k)[3] += bc_coef_m2;
                 }
 
             }
@@ -2038,59 +2038,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i,j,k);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[5] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[6] += bfm2;
+                    mat(i,j,k)[6] += bc_coef_m2;
                 }
 
             }
@@ -2112,59 +2112,59 @@ HypreMultiDiffOp::hmmat3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k+1);
-                        bfm2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k+1);
+                        bc_coef_m = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k+1);
+                        bc_coef_m2 = fac * (bcl - h2) / (bcl + th2) * b(i,j,k+1);
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k+1);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_m = bc_coef_v * b(i,j,k+1);
                     }
 
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
 
-                    bfm  = 0.e0_rt;
-                    bfm2 = 0.e0_rt;
+                    bc_coef_m  = 0.e0_rt;
+                    bc_coef_m2 = 0.e0_rt;
 
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        bfm2 = -0.125e0_rt * bfv;
+                        bc_coef_m  =  0.375e0_rt * bc_coef_v;
+                        bc_coef_m2 = -0.125e0_rt * bc_coef_v;
                     }
                     else {
-                        bfm = 0.25e0_rt * bfv;
+                        bc_coef_m = 0.25e0_rt * bc_coef_v;
                     }
 
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
 
-                    bfv = 2.e0_rt * c * beta * r / h;
+                    bc_coef_v = 2.e0_rt * c * beta * r / h;
 
                     if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        bfm2 = -0.5e0_rt * spa(i,j,k) * bfv;
+                        bc_coef_m  =  1.5e0_rt * spa(i,j,k) * bc_coef_v;
+                        bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * bc_coef_v;
                     }
                     else {
-                        bfm = spa(i,j,k) * bfv;
+                        bc_coef_m = spa(i,j,k) * bc_coef_v;
                     }
 
                 }
 #ifndef AMREX_USE_GPU
                 else {
 
-                    amrex::Error("hmmat3: unsupported boundary type");
+                    amrex::Error("ml_bc_matrix_fix_typed: unsupported boundary type");
 
                 }
 #endif
 
-                mat(i,j,k)[0] += bfm - fac * b(i,j,k+1);
+                mat(i,j,k)[0] += bc_coef_m - fac * b(i,j,k+1);
                 mat(i,j,k)[6] = 0.e0_rt;
                 if (bho >= 1) {
-                    mat(i,j,k)[5] += bfm2;
+                    mat(i,j,k)[5] += bc_coef_m2;
                 }
 
             }
@@ -2230,10 +2230,10 @@ void HypreMultiDiffOp::loadMatrix()
 
       // build matrix interior
 
-      hmac(reg, matfab.array(), (*acoefs[level])[mfi].array(), alpha);
+      ml_fill_alpha_coefs(reg, matfab.array(), (*acoefs[level])[mfi].array(), alpha);
 
       for (idim = 0; idim < AMREX_SPACEDIM; idim++) {
-          hmbc(reg, matfab.array(), (*bcoefs[level])[idim][mfi].array(),
+          ml_fill_beta_coefs(reg, matfab.array(), (*bcoefs[level])[idim][mfi].array(),
                beta, geom[level].CellSize(), idim);
       }
 
@@ -2255,7 +2255,7 @@ void HypreMultiDiffOp::loadMatrix()
           // for the linear solver:
 
           if (!(reg[oitr()] == domain[oitr()])) {
-              hmmat(reg, matfab.array(), cdir, bct, bho, bcl,
+              ml_bc_matrix_fix(reg, matfab.array(), cdir, bct, bho, bcl,
                     msk.array(), (*bcoefs[level])[idim][mfi].array(),
                     beta, geom[level].CellSize());
           } else {
@@ -2271,7 +2271,7 @@ void HypreMultiDiffOp::loadMatrix()
             if (SPa[level]) {
                 pSPa = (*SPa[level])[mfi].array();
             }
-            hmmat3(reg, oitr().isLow(), idim, matfab.array(), cdir, bctype,
+            ml_bc_matrix_fix_typed(reg, oitr().isLow(), idim, matfab.array(), cdir, bctype,
                    tfp, bho, bcl, msk.array(), (*bcoefs[level])[idim][mfi].array(),
                    beta, geom[level].CellSize(), geom[level].data(),
                    flux_factor, pSPa);
@@ -2284,7 +2284,7 @@ void HypreMultiDiffOp::loadMatrix()
           // stencil using Neumann BC:
 
           const RadBoundCond bct_coarse = AMREX_LO_NEUMANN;
-          hmmat(reg, matfab.array(), cdir, bct_coarse, bho, bcl,
+          ml_bc_matrix_fix(reg, matfab.array(), cdir, bct_coarse, bho, bcl,
                 msk.array(), (*bcoefs[level])[idim][mfi].array(),
                 beta, geom[level].CellSize());
         }
@@ -2595,7 +2595,7 @@ void HypreMultiDiffOp::loadLevelVectors(int level,
               tfp = tf.array();
               bctype = -1;
             }
-            HypreDiffOp::hbvec3(reg,
+            HypreDiffOp::bc_rhs_fix_typed(reg,
                               oitr().isLow(), idim,
                               f->array(fcomp),
                               cdir, bctype,
@@ -2607,7 +2607,7 @@ void HypreMultiDiffOp::loadLevelVectors(int level,
                               beta, geom[level].data());
           }
           else {
-              HypreDiffOp::hbvec(reg, f->array(fcomp),
+              HypreDiffOp::bc_rhs_fix(reg, f->array(fcomp),
                                cdir, bct, bho, bcl,
                                fs.array(bdcomp), msk.array(),
                                (*bcoefs[level])[idim][mfi].array(),
@@ -2710,7 +2710,7 @@ void HypreMultiDiffOp::loadLevelVectorB(int level,
               tfp = tf.array();
               bctype = -1;
             }
-            HypreDiffOp::hbvec3(reg,
+            HypreDiffOp::bc_rhs_fix_typed(reg,
                               oitr().isLow(), idim,
                               f->array(),
                               cdir, bctype,
@@ -2722,7 +2722,7 @@ void HypreMultiDiffOp::loadLevelVectorB(int level,
                               beta, geom[level].data());
           }
           else {
-              HypreDiffOp::hbvec(reg, f->array(),
+              HypreDiffOp::bc_rhs_fix(reg, f->array(),
                                cdir, bct, bho, bcl,
                                fs.array(bdcomp), msk.array(),
                                (*bcoefs[level])[idim][mfi].array(),
@@ -3847,7 +3847,7 @@ void HypreMultiDiffOp::boundaryFlux(int level,
                         sp_arr = (*SPa[level])[mfi].array();
                     }
 
-                    HDIFFOP::hbflx3(Flux[idim][mfi].array(),
+                    HDIFFOP::bc_face_flux_typed(Flux[idim][mfi].array(),
                                   Soln[mfi].array(icomp),
                                   reg,
                                   cdir, bctype,
@@ -3862,7 +3862,7 @@ void HypreMultiDiffOp::boundaryFlux(int level,
                                   sp_arr);
                 }
                 else {
-                    HDIFFOP::hbflx(Flux[idim][mfi].array(),
+                    HDIFFOP::bc_face_flux(Flux[idim][mfi].array(),
                                  Soln[mfi].array(icomp),
                                  reg,
                                  cdir, bct, bho, bcl,

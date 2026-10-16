@@ -97,7 +97,7 @@ main (int   argc,
     if (argc >= 2 &&
         std::any_of(argv + 1, argv + argc,
                     [] (const char* arg) { return std::string(arg) == "--describe"; })) {
-        HydroSim::writeBuildInfo();
+        HydroSim::reportBuildInfo();
         return 0;
     }
 
@@ -187,7 +187,7 @@ main (int   argc,
     }
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-    HydroSim::problem_post_simulation(amr->getAmrLevels());
+    HydroSim::user_post_simulation(amr->getAmrLevels());
 #endif
 
     // Write final checkpoint and plotfile
@@ -213,7 +213,7 @@ main (int   argc,
     // object because we need to scale it by the number of zones on the coarse grid.
 
     long numPtsCoarseGrid = amr->getLevel(0).boxArray().numPts();
-    Real fom = HydroSim::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
+    Real fom = HydroSim::cells_advanced_count * static_cast<Real>(numPtsCoarseGrid);
 
     print_run_stamp("Ending");
 

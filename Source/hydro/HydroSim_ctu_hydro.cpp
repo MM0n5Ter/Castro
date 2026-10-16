@@ -56,7 +56,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #ifdef REACTIONS
   MultiFab tmp_SDC_mf;
   MultiFab& SDC_react_source = hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections ?
-                               get_new_data(Simplified_SDC_React_Type) : tmp_SDC_mf;
+                               get_new_data(SDC_React_Source_Type) : tmp_SDC_mf;
 #endif
 
   // we will treat the hydro source as any other source term
@@ -68,7 +68,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
     amrex::Abort("HydroSim::construct_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
   }
 
-  int nstep_fsp = -1;
+  int n_freq_substeps = -1;
 
   AmrLevel::FillPatch(*this, Erborder, NUM_GROW, time, Rad_Type, 0, Radiation::nGroups);
 
@@ -108,7 +108,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
        // If we haven't done any tuning yet, set the tile size to an arbitrary
        // small value to start with.
 
-       if (hydro_tile_size_has_been_tuned == 0) {
+       if (tile_size_autotuned == 0) {
            hydro_tile_size[0] = 16;
 #if AMREX_SPACEDIM >= 2
            hydro_tile_size[1] = 16;
@@ -122,8 +122,8 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
        // bigger than the biggest box from our previous tuning. If so,
        // we need to re-compute the tile size.
        for (MFIter mfi(S_new, false); mfi.isValid(); ++mfi) {
-           if (mfi.validbox().numPts() > largest_box_from_hydro_tile_size_tuning) {
-               hydro_tile_size_has_been_tuned = 0;
+           if (mfi.validbox().numPts() > autotuned_max_box_cells) {
+               tile_size_autotuned = 0;
            }
 
            // Also, sum up the number of bytes in the state data.
@@ -134,7 +134,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 #ifdef _OPENMP
 #ifdef RADIATION
-#pragma omp parallel reduction(max:nstep_fsp)
+#pragma omp parallel reduction(max:n_freq_substeps)
 #else
 #pragma omp parallel
 #endif
@@ -142,7 +142,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   {
 
 #ifdef RADIATION
-    int priv_nstep_fsp = -1;
+    int priv_n_freq_substeps = -1;
 #endif
 
     // Declare local storage now. This should be done outside the
@@ -187,12 +187,12 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
     FArrayBox pradial(The_Async_Arena());
 #endif
 #if AMREX_SPACEDIM == 3
-    FArrayBox qmyx(The_Async_Arena()), qpyx(The_Async_Arena());
-    FArrayBox qmzx(The_Async_Arena()), qpzx(The_Async_Arena());
-    FArrayBox qmxy(The_Async_Arena()), qpxy(The_Async_Arena());
-    FArrayBox qmzy(The_Async_Arena()), qpzy(The_Async_Arena());
-    FArrayBox qmxz(The_Async_Arena()), qpxz(The_Async_Arena());
-    FArrayBox qmyz(The_Async_Arena()), qpyz(The_Async_Arena());
+    FArrayBox qym_tx(The_Async_Arena()), qyp_tx(The_Async_Arena());
+    FArrayBox qzm_tx(The_Async_Arena()), qzp_tx(The_Async_Arena());
+    FArrayBox qxm_ty(The_Async_Arena()), qxp_ty(The_Async_Arena());
+    FArrayBox qzm_ty(The_Async_Arena()), qzp_ty(The_Async_Arena());
+    FArrayBox qxm_tz(The_Async_Arena()), qxp_tz(The_Async_Arena());
+    FArrayBox qym_tz(The_Async_Arena()), qyp_tz(The_Async_Arena());
 #endif
 
     MultiFab& old_source = get_old_data(Source_Type);
@@ -325,7 +325,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       if (ppm_type == 0) {
 
-        ctu_plm_states(obx, bx,
+        plm_interface_states(obx, bx,
                        U_old_arr, rho_inv_arr,
                        q_arr,
                        qaux_arr,
@@ -336,14 +336,14 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       } else {
 
 #ifdef RADIATION
-        ctu_ppm_rad_states(obx, bx,
+        ppm_rad_interface_states(obx, bx,
                            U_old_arr, rho_inv_arr,
                            q_arr, qaux_arr, src_q_arr,
                            qm_arrs, qp_arrs, dloga_arrs,
                            dt);
 #else
 
-        ctu_ppm_states(obx, bx,
+        ppm_interface_states(obx, bx,
                        U_old_arr, rho_inv_arr,
                        q_arr, qaux_arr, src_q_arr,
                        qm_arrs, qp_arrs, dloga_arrs,
@@ -467,9 +467,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       auto final_riemann_solve = [&] (const Box& nbx, int idir,
                                       InterfaceOutput const& out) {
-          hydro::reset_edge_state_thermo(nbx, ql_arr);
+          hydro::recompute_face_thermo(nbx, ql_arr);
 
-          hydro::reset_edge_state_thermo(nbx, qr_arr);
+          hydro::recompute_face_thermo(nbx, qr_arr);
 
 #ifdef REACTIONS
           if (hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
@@ -564,9 +564,9 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
       const amrex::Real hdtdy = 0.5*dt/dx[1];
       const amrex::Real hdtdz = 0.5*dt/dx[2];
 
-      const amrex::Real cdtdx = dt/dx[0]/3.0;
-      const amrex::Real cdtdy = dt/dx[1]/3.0;
-      const amrex::Real cdtdz = dt/dx[2]/3.0;
+      const amrex::Real coef_dtdx = dt/dx[0]/3.0;
+      const amrex::Real coef_dtdy = dt/dx[1]/3.0;
+      const amrex::Real coef_dtdz = dt/dx[2]/3.0;
 
       // compute F^x
       // [lo(1), lo(2)-1, lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
@@ -583,39 +583,39 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
 
       // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& tyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
+      const Box& ybx_tx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      auto qmyx_arr = resize_tile_fab(qmyx, tyxbx, NQ);
-      auto qpyx_arr = resize_tile_fab(qpyx, tyxbx, NQ);
+      auto qym_tx_arr = resize_tile_fab(qym_tx, ybx_tx, NQ);
+      auto qyp_tx_arr = resize_tile_fab(qyp_tx, ybx_tx, NQ);
 
       // ftmp1 = fx
       // rftmp1 = rfx
       // qfacetmp1 = qfacex
-      transverse_correct_single(tyxbx, 0, 1,
-                   qym_arr, qmyx_arr,
-                   qyp_arr, qpyx_arr,
+      transverse_correct_single(ybx_tx, 0, 1,
+                   qym_arr, qym_tx_arr,
+                   qyp_arr, qyp_tx_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdx);
-      hydro::reset_edge_state_thermo(tyxbx, qmyx.array());
+                   hdt, coef_dtdx);
+      hydro::recompute_face_thermo(ybx_tx, qym_tx.array());
 
-      hydro::reset_edge_state_thermo(tyxbx, qpyx.array());
+      hydro::recompute_face_thermo(ybx_tx, qyp_tx.array());
 
       // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& tzxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
+      const Box& zbx_tx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      auto qmzx_arr = resize_tile_fab(qmzx, tzxbx, NQ);
-      auto qpzx_arr = resize_tile_fab(qpzx, tzxbx, NQ);
+      auto qzm_tx_arr = resize_tile_fab(qzm_tx, zbx_tx, NQ);
+      auto qzp_tx_arr = resize_tile_fab(qzp_tx, zbx_tx, NQ);
 
-      transverse_correct_single(tzxbx, 0, 2,
-                   qzm_arr, qmzx_arr,
-                   qzp_arr, qpzx_arr,
+      transverse_correct_single(zbx_tx, 0, 2,
+                   qzm_arr, qzm_tx_arr,
+                   qzp_arr, qzp_tx_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdx);
-      hydro::reset_edge_state_thermo(tzxbx, qmzx.array());
+                   hdt, coef_dtdx);
+      hydro::recompute_face_thermo(zbx_tx, qzm_tx.array());
 
-      hydro::reset_edge_state_thermo(tzxbx, qpzx.array());
+      hydro::recompute_face_thermo(zbx_tx, qzp_tx.array());
 
       // compute F^y
       // [lo(1)-1, lo(2), lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
@@ -630,42 +630,42 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                           qaux_arr, shk_arr,
                           1, FaceComponents::Reduced);
       // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), lo(3)+1]
-      const Box& txybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
+      const Box& xbx_ty = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      auto qmxy_arr = resize_tile_fab(qmxy, txybx, NQ);
-      auto qpxy_arr = resize_tile_fab(qpxy, txybx, NQ);
+      auto qxm_ty_arr = resize_tile_fab(qxm_ty, xbx_ty, NQ);
+      auto qxp_ty_arr = resize_tile_fab(qxp_ty, xbx_ty, NQ);
 
       // ftmp1 = fy
       // rftmp1 = rfy
       // qfacetmp1 = qfacey
-      transverse_correct_single(txybx, 1, 0,
-                   qxm_arr, qmxy_arr,
-                   qxp_arr, qpxy_arr,
+      transverse_correct_single(xbx_ty, 1, 0,
+                   qxm_arr, qxm_ty_arr,
+                   qxp_arr, qxp_ty_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdy);
-      hydro::reset_edge_state_thermo(txybx, qmxy.array());
+                   hdt, coef_dtdy);
+      hydro::recompute_face_thermo(xbx_ty, qxm_ty.array());
 
-      hydro::reset_edge_state_thermo(txybx, qpxy.array());
+      hydro::recompute_face_thermo(xbx_ty, qxp_ty.array());
 
       // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), lo(3)+1]
-      const Box& tzybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
+      const Box& zbx_ty = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      auto qmzy_arr = resize_tile_fab(qmzy, tzybx, NQ);
-      auto qpzy_arr = resize_tile_fab(qpzy, tzybx, NQ);
+      auto qzm_ty_arr = resize_tile_fab(qzm_ty, zbx_ty, NQ);
+      auto qzp_ty_arr = resize_tile_fab(qzp_ty, zbx_ty, NQ);
 
       // ftmp1 = fy
       // rftmp1 = rfy
       // qfacetmp1 = qfacey
-      transverse_correct_single(tzybx, 1, 2,
-                   qzm_arr, qmzy_arr,
-                   qzp_arr, qpzy_arr,
+      transverse_correct_single(zbx_ty, 1, 2,
+                   qzm_arr, qzm_ty_arr,
+                   qzp_arr, qzp_ty_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdy);
-      hydro::reset_edge_state_thermo(tzybx, qmzy.array());
+                   hdt, coef_dtdy);
+      hydro::recompute_face_thermo(zbx_ty, qzm_ty.array());
 
-      hydro::reset_edge_state_thermo(tzybx, qpzy.array());
+      hydro::recompute_face_thermo(zbx_ty, qzp_ty.array());
 
       // compute F^z
       // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)+1]
@@ -680,42 +680,42 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                           qaux_arr, shk_arr,
                           2, FaceComponents::Reduced);
       // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
-      const Box& txzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
+      const Box& xbx_tz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      auto qmxz_arr = resize_tile_fab(qmxz, txzbx, NQ);
-      auto qpxz_arr = resize_tile_fab(qpxz, txzbx, NQ);
+      auto qxm_tz_arr = resize_tile_fab(qxm_tz, xbx_tz, NQ);
+      auto qxp_tz_arr = resize_tile_fab(qxp_tz, xbx_tz, NQ);
 
       // ftmp1 = fz
       // rftmp1 = rfz
       // qfacetmp1 = qfacez
-      transverse_correct_single(txzbx, 2, 0,
-                   qxm_arr, qmxz_arr,
-                   qxp_arr, qpxz_arr,
+      transverse_correct_single(xbx_tz, 2, 0,
+                   qxm_arr, qxm_tz_arr,
+                   qxp_arr, qxp_tz_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdz);
-      hydro::reset_edge_state_thermo(txzbx, qmxz.array());
+                   hdt, coef_dtdz);
+      hydro::recompute_face_thermo(xbx_tz, qxm_tz.array());
 
-      hydro::reset_edge_state_thermo(txzbx, qpxz.array());
+      hydro::recompute_face_thermo(xbx_tz, qxp_tz.array());
 
       // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
-      const Box& tyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
+      const Box& ybx_tz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      auto qmyz_arr = resize_tile_fab(qmyz, tyzbx, NQ);
-      auto qpyz_arr = resize_tile_fab(qpyz, tyzbx, NQ);
+      auto qym_tz_arr = resize_tile_fab(qym_tz, ybx_tz, NQ);
+      auto qyp_tz_arr = resize_tile_fab(qyp_tz, ybx_tz, NQ);
 
       // ftmp1 = fz
       // rftmp1 = rfz
       // qfacetmp1 = qfacez
-      transverse_correct_single(tyzbx, 2, 1,
-                   qym_arr, qmyz_arr,
-                   qyp_arr, qpyz_arr,
+      transverse_correct_single(ybx_tz, 2, 1,
+                   qym_arr, qym_tz_arr,
+                   qyp_arr, qyp_tz_arr,
                    qaux_arr,
                    tmp1_faces,
-                   hdt, cdtdz);
-      hydro::reset_edge_state_thermo(tyzbx, qmyz.array());
+                   hdt, coef_dtdz);
+      hydro::recompute_face_thermo(ybx_tz, qym_tz.array());
 
-      hydro::reset_edge_state_thermo(tyzbx, qpyz.array());
+      hydro::recompute_face_thermo(ybx_tz, qyp_tz.array());
 
       // we now have q?zx, q?yx, q?zy, q?xy, q?yz, q?xz
 
@@ -725,26 +725,26 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // compute F^{y|z}
       // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
-      const Box& cyzbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
+      const Box& ybx_cz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
       // ftmp1 = fyz
       // rftmp1 = rfyz
       // qfacetmp1 = qfaceyz
-      riemann_flux_and_state(cyzbx,
-                          qmyz_arr, qpyz_arr,
+      riemann_flux_and_state(ybx_cz,
+                          qym_tz_arr, qyp_tz_arr,
                           tmp1_out,
                           qaux_arr, shk_arr,
                           1, FaceComponents::Reduced);
 
       // compute F^{z|y}
       // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)+1]
-      const Box& czybx = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
+      const Box& zbx_cy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
       // ftmp2 = fzy
       // rftmp2 = rfzy
       // qfacetmp2 = qfacezy
-      riemann_flux_and_state(czybx,
-                          qmzy_arr, qpzy_arr,
+      riemann_flux_and_state(zbx_cy,
+                          qzm_ty_arr, qzp_ty_arr,
                           tmp2_out,
                           qaux_arr, shk_arr,
                           2, FaceComponents::Reduced);
@@ -768,26 +768,26 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // compute F^{z|x}
       // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
-      const Box& czxbx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
+      const Box& zbx_cx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       // ftmp1 = fzx
       // rftmp1 = rfzx
       // qfacetmp1 = qfacezx
-      riemann_flux_and_state(czxbx,
-                          qmzx_arr, qpzx_arr,
+      riemann_flux_and_state(zbx_cx,
+                          qzm_tx_arr, qzp_tx_arr,
                           tmp1_out,
                           qaux_arr, shk_arr,
                           2, FaceComponents::Reduced);
 
       // compute F^{x|z}
       // [lo(1), lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
-      const Box& cxzbx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
+      const Box& xbx_cz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       // ftmp2 = fxz
       // rftmp2 = rfxz
       // qfacetmp2 = qfacexz
-      riemann_flux_and_state(cxzbx,
-                          qmxz_arr, qpxz_arr,
+      riemann_flux_and_state(xbx_cz,
+                          qxm_tz_arr, qxp_tz_arr,
                           tmp2_out,
                           qaux_arr, shk_arr,
                           0, FaceComponents::Reduced);
@@ -813,26 +813,26 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 
       // compute F^{x|y}
       // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), hi(3)+1]
-      const Box& cxybx = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
+      const Box& xbx_cy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
       // ftmp1 = fxy
       // rftmp1 = rfxy
       // qfacetmp1 = qfacexy
-      riemann_flux_and_state(cxybx,
-                          qmxy_arr, qpxy_arr,
+      riemann_flux_and_state(xbx_cy,
+                          qxm_ty_arr, qxp_ty_arr,
                           tmp1_out,
                           qaux_arr, shk_arr,
                           0, FaceComponents::Reduced);
 
       // compute F^{y|x}
       // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+dg(2), hi(3)+1]
-      const Box& cyxbx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
+      const Box& ybx_cx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
       // ftmp2 = fyx
       // rftmp2 = rfyx
       // qfacetmp2 = qfaceyx
-      riemann_flux_and_state(cyxbx,
-                          qmyx_arr, qpyx_arr,
+      riemann_flux_and_state(ybx_cx,
+                          qym_tx_arr, qyp_tx_arr,
                           tmp2_out,
                           qaux_arr, shk_arr,
                           1, FaceComponents::Reduced);
@@ -879,17 +879,17 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
           });
 
-          apply_av(nbx, idir, div_arr, U_old_arr, flux_arr);
+          apply_art_visc(nbx, idir, div_arr, U_old_arr, flux_arr);
 
 #ifdef RADIATION
           Array4<Real> const rad_flux_arr = (rad_flux[idir]).array();
           Array4<Real const> const Erin_arr = Erborder.array(mfi);
 
-          apply_av_rad(nbx, idir, div_arr, Erin_arr, rad_flux_arr);
+          apply_rad_art_visc(nbx, idir, div_arr, Erin_arr, rad_flux_arr);
 #endif
 
           if (limit_fluxes_on_small_dens == 1) {
-              hydro::limit_hydro_fluxes_on_small_dens
+              hydro::limit_fluxes_for_density_floor
                   (nbx, idir,
                    Sborder.array(mfi),
                    volume.array(mfi),
@@ -951,7 +951,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
 
 #ifdef RADIATION
-      priv_nstep_fsp = ctu_rad_cons_update(bx,
+      priv_n_freq_substeps = ctu_rad_cons_update(bx,
                      update_arr,
                      Erborder.array(mfi),
                      Er_new.array(mfi),
@@ -971,7 +971,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                      volume.array(mfi),
                      dt);
 
-      nstep_fsp = std::max(nstep_fsp, priv_nstep_fsp);
+      n_freq_substeps = std::max(n_freq_substeps, priv_n_freq_substeps);
 #endif
 
 
@@ -992,7 +992,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #if AMREX_SPACEDIM <= 2
         // get the scaled radial pressure -- we need to treat this specially
 
-        if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
+        if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
             Array4<Real> pradial_fab = pradial.array();
 
             amrex::ParallelFor(nbx,
@@ -1026,7 +1026,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #endif
 
 #if AMREX_SPACEDIM <= 2
-            if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
+            if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
                 Array4<Real> pradial_fab = pradial.array();
                 Array4<Real> P_radial_fab = P_radial.array(mfi);
 
@@ -1059,11 +1059,11 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #ifdef AMREX_USE_GPU
       if (hydrosim::hydro_memory_footprint_ratio > 0.0) {
 
-          if (hydro_tile_size_has_been_tuned == 0) {
+          if (tile_size_autotuned == 0) {
 
               // Keep a running record of the largest box we've encountered.
 
-              largest_box_from_hydro_tile_size_tuning = amrex::max(largest_box_from_hydro_tile_size_tuning,
+              autotuned_max_box_cells = amrex::max(autotuned_max_box_cells,
                                                                    mfi.validbox().numPts());
 
               // If we're tuning the hydro tile size during this timestep, we will record
@@ -1088,7 +1088,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
                   // maximum tile size.
                   Gpu::synchronize();
                   hydro_tile_size = maximum_tile_size;
-                  hydro_tile_size_has_been_tuned = 1;
+                  tile_size_autotuned = 1;
               }
               else if (mfi.tileIndex() == mfi.length() - 1) {
                   // If we reached the last tile and we haven't gone over the
@@ -1100,7 +1100,7 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #if AMREX_SPACEDIM == 3
                   hydro_tile_size[2] = 1024;
 #endif
-                  hydro_tile_size_has_been_tuned = 1;
+                  tile_size_autotuned = 1;
               }
 
           }
@@ -1128,11 +1128,11 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
 #ifdef BL_LAZY
     Lazy::QueueReduction( [=] () mutable {
 #endif
-       ParallelDescriptor::ReduceIntMax(nstep_fsp, ParallelDescriptor::IOProcessorNumber());
-       if (ParallelDescriptor::IOProcessor() && nstep_fsp > 0) {
+       ParallelDescriptor::ReduceIntMax(n_freq_substeps, ParallelDescriptor::IOProcessorNumber());
+       if (ParallelDescriptor::IOProcessor() && n_freq_substeps > 0) {
          std::cout << "Radiation f-space advection on level " << llevel
-                   << " takes as many as " << nstep_fsp;
-         if (nstep_fsp == 1) {
+                   << " takes as many as " << n_freq_substeps;
+         if (n_freq_substeps == 1) {
            std::cout<< " substep.\n";
          }
          else {
@@ -1169,15 +1169,15 @@ HydroSim::construct_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-
   // Must define new value of "center" after advecting on the grid
 
   if (moving_center == 1) {
-      define_new_center(S_new, time);
+      update_center_estimate(S_new, time);
   }
 #endif
 
   // Perform reflux (for non-subcycling advances).
 
   if (parent->subcyclingMode() == "None" && do_reflux == 1) {
-      FluxRegCrseInit();
-      FluxRegFineAdd();
+      CoarseFluxRegInit();
+      FineFluxRegAdd();
   }
 
   if (verbose) {

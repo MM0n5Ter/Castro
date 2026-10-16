@@ -15,7 +15,7 @@
 #include <format>
 #include <ranges>
 
-#include <problem_initialize_state_data.H>
+#include <user_initial_state.H>
 
 using std::string;
 using namespace amrex;
@@ -60,14 +60,14 @@ HydroSim::advance (Real time,
     const LevelStep step{time, dt, amr_iteration, amr_ncycle};
 
     for (int lev = level; lev <= max_level_to_advance; ++lev) {
-        getLevel(lev).initialize_advance(step);
+        getLevel(lev).prepare_level_step(step);
     }
 
     // Do the advance.
 
     if (time_integration_method == CornerTransportUpwind || time_integration_method == SimplifiedSpectralDeferredCorrections) {
 
-        dt_new = std::min(dt_new, subcycle_advance_ctu(step));
+        dt_new = std::min(dt_new, advance_ctu_with_retries(step));
 
 #ifndef MHD
 #ifndef AMREX_USE_GPU
@@ -76,7 +76,7 @@ HydroSim::advance (Real time,
 
       for (int iter = 0; iter < sdc_order+sdc_extra; ++iter) {
         sdc_iteration = iter;
-        dt_new = do_advance_sdc(step);
+        dt_new = advance_level_sdc(step);
       }
 
 #endif // TRUE_SDC
@@ -94,20 +94,20 @@ HydroSim::advance (Real time,
 #ifdef GRAVITY
         // Update the point mass.
         if (use_point_mass == 1) {
-            getLevel(lev).pointmass_update(time, dt);
+            getLevel(lev).accrete_onto_point_mass(time, dt);
         }
 #endif
 
 #ifdef RADIATION
         MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
-        getLevel(lev).final_radiation_call(S_new, amr_iteration, amr_ncycle);
+        getLevel(lev).finish_radiation_step(S_new, amr_iteration, amr_ncycle);
 #endif
 
 #ifdef AMREX_PARTICLES
-        getLevel(lev).advance_particles(amr_iteration, time, dt);
+        getLevel(lev).advance_tracers(amr_iteration, time, dt);
 #endif
 
-        getLevel(lev).finalize_advance();
+        getLevel(lev).complete_level_step();
     }
 
     return dt_new;
@@ -150,11 +150,11 @@ timestep_check_failed (HydroSim& lev, HydroSim::StateTime state_time, Real dt)
 }
 
 advance_status
-HydroSim::initialize_do_advance (Real time, Real dt)
+HydroSim::begin_level_advance (Real time, Real dt)
 {
     amrex::ignore_unused(time);
 
-    BL_PROFILE("HydroSim::initialize_do_advance()");
+    BL_PROFILE("HydroSim::begin_level_advance()");
 
     advance_status status {};
 
@@ -172,7 +172,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
 
 #ifdef GRAVITY
     if (moving_center == 1) {
-        define_new_center(get_old_data(State_Type), time);
+        update_center_estimate(get_old_data(State_Type), time);
     }
 #endif
 
@@ -197,7 +197,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
 #endif
       // for the CTU unsplit method, we always start with the old
       // state note: although clean_state has already been done on
-      // the old state in initialize_advance, we still need to do
+      // the old state in prepare_level_step, we still need to do
       // another here to ensure the ghost zones are thermodynamically
       // consistent
       Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
@@ -211,7 +211,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
 
     } else if (time_integration_method == SpectralDeferredCorrections) {
 
-      // we'll handle the filling inside of do_advance_sdc
+      // we'll handle the filling inside of advance_level_sdc
       Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
 
     } else {
@@ -236,7 +236,7 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     if (hydrosim::time_integration_method == CornerTransportUpwind ||
         hydrosim::time_integration_method == SimplifiedSpectralDeferredCorrections) {
         if (!in_retry) {
-            create_source_corrector();
+            build_source_corrector();
         }
     }
 
@@ -254,11 +254,11 @@ HydroSim::initialize_do_advance (Real time, Real dt)
     // the point where we can bail out later in the advance, so let's just
     // go directly into a retry now if we're too far away from the needed dt.
 
-    const bool is_first_step_on_this_level =
+    const bool first_step_here =
         std::ranges::none_of(std::views::iota(0, level + 1),
                              [this] (int lev) { return getLevel(lev).iteration > 1; });
 
-    if (hydrosim::check_dt_before_advance && !is_first_step_on_this_level) {
+    if (hydrosim::check_dt_before_advance && !first_step_here) {
         if (timestep_check_failed(*this, StateTime::Old, dt)) {
             status.success = false;
             status.retry.reason = "pre-advance timestep validity check failed";
@@ -271,11 +271,11 @@ HydroSim::initialize_do_advance (Real time, Real dt)
 
 
 advance_status
-HydroSim::finalize_do_advance (Real time, Real dt)
+HydroSim::end_level_advance (Real time, Real dt)
 {
     amrex::ignore_unused(time);
 
-    BL_PROFILE("HydroSim::finalize_do_advance()");
+    BL_PROFILE("HydroSim::end_level_advance()");
 
     advance_status status {};
 
@@ -318,16 +318,16 @@ HydroSim::finalize_do_advance (Real time, Real dt)
 
 
 void
-HydroSim::initialize_advance(const LevelStep& step)
+HydroSim::prepare_level_step(const LevelStep& step)
 {
-    BL_PROFILE("HydroSim::initialize_advance()");
+    BL_PROFILE("HydroSim::prepare_level_step()");
 
     // Save the current iteration.
 
     iteration = step.amr_iteration;
 
     sub_iteration = 0;
-    sub_ncycle = 0;
+    subcycle_count = 0;
     dt_subcycle = 1.e200;
     dt_advance = step.dt;
 
@@ -336,7 +336,7 @@ HydroSim::initialize_advance(const LevelStep& step)
     // Reset the retry information.
 
     in_retry = 0;
-    num_subcycles_taken = 1;
+    subcycles_used = 1;
 
     // If the level below this just triggered a special regrid,
     // the coarse contribution to this level's FluxRegister
@@ -345,7 +345,7 @@ HydroSim::initialize_advance(const LevelStep& step)
 
     if (use_post_step_regrid == 1 && level > 0 &&
         getLevel(level-1).post_step_regrid == 1 && step.amr_iteration == 1) {
-        getLevel(level-1).FluxRegCrseInit();
+        getLevel(level-1).CoarseFluxRegInit();
     }
 
     // The option of whether to do a multilevel initialization is
@@ -354,7 +354,7 @@ HydroSim::initialize_advance(const LevelStep& step)
 
 #ifdef RADIATION
     if (do_radiation) {
-        radiation->pre_timestep(level);
+        radiation->before_timestep(level);
     }
 
     Erborder.define(grids, dmap, Radiation::nGroups, NUM_GROW);
@@ -367,7 +367,7 @@ HydroSim::initialize_advance(const LevelStep& step)
     // This must be done before the swap because it relies on the new data.
 
     if (level == 0 && do_grav == 1 && gravity->get_gravity_type() == "FullPoisson") {
-        gravity->update_max_rhs();
+        gravity->refresh_max_rhs();
     }
 #endif
 
@@ -378,7 +378,7 @@ HydroSim::initialize_advance(const LevelStep& step)
 
     // Swap the new data from the last timestep into the old state data.
 
-    swap_state_time_levels(step.dt);
+    rotate_state_time_levels(step.dt);
 
 #ifdef GRAVITY
     if (do_grav == 1) {
@@ -448,7 +448,7 @@ HydroSim::initialize_advance(const LevelStep& step)
                     Real vy_orig = s(i,j,k,UMY) / s(i,j,k,URHO);
                     Real vz_orig = s(i,j,k,UMZ) / s(i,j,k,URHO);
 
-                    problem_initialize_state_data(i, j, k, s, geomdata);
+                    user_initial_state(i, j, k, s, geomdata);
 
                     s(i,j,k,UMX) = s(i,j,k,URHO) * vx_orig;
                     s(i,j,k,UMY) = s(i,j,k,URHO) * vy_orig;
@@ -582,13 +582,13 @@ HydroSim::zero_flux_accumulators ()
 
 
 void
-HydroSim::finalize_advance()
+HydroSim::complete_level_step()
 {
-    BL_PROFILE("HydroSim::finalize_advance()");
+    BL_PROFILE("HydroSim::complete_level_step()");
 
     if (do_reflux == 1 && parent->subcyclingMode() != "None") {
-        FluxRegCrseInit();
-        FluxRegFineAdd();
+        CoarseFluxRegInit();
+        FineFluxRegAdd();
     }
 
     // The mass_fluxes array currently holds only the fluxes
@@ -643,7 +643,7 @@ HydroSim::finalize_advance()
     // Each level is finalized separately, even when advanced together.
     // Count only this level's zones in the cumulative performance statistic.
 
-    num_zones_advanced += static_cast<Real>(grids.numPts()) / static_cast<Real>(getLevel(0).grids.numPts());
+    cells_advanced_count += static_cast<Real>(grids.numPts()) / static_cast<Real>(getLevel(0).grids.numPts());
 
     if (verbose < 1) {
         return;

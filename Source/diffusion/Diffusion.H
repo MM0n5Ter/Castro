@@ -41,7 +41,7 @@ public:
 ///
 /// @param jobInfoFile
 ///
-  static void output_job_info_params(std::ostream& jobInfoFile);
+  static void write_params_to_job_info(std::ostream& jobInfoFile);
 
 
 ///
@@ -63,7 +63,7 @@ public:
 /// @param temp_cond_coef
 /// @param DiffTerm
 ///
-  void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
+  void apply_conduction_operator(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
                CoefficientVector& temp_cond_coef, amrex::MultiFab& DiffTerm);
 
 ///
@@ -71,7 +71,7 @@ public:
 /// @param U_arr
 /// @param coeff_arr
 ///
-  static void fill_temp_cond(const amrex::Box& bx,
+  static void fill_conductivity(const amrex::Box& bx,
                              amrex::Array4<amrex::Real const> const& U_arr,
                              amrex::Array4<amrex::Real> const& coeff_arr);
 
@@ -80,7 +80,7 @@ public:
 /// @param U_arr
 /// @param coeff_arr
 ///
-  static void fill_temp_diff_coeff(const amrex::Box& bx,
+  static void fill_thermal_diffusivity(const amrex::Box& bx,
                                    amrex::Array4<amrex::Real const> const& U_arr,
                                    amrex::Array4<amrex::Real> const& coeff_arr);
 
@@ -101,7 +101,7 @@ protected:
 /// @param temp_cond_coef
 /// @param DiffTerm
 ///
-  void applyop_mlmg(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
+  void apply_conduction_operator_mlmg(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
                     CoefficientVector& temp_cond_coef, amrex::MultiFab& DiffTerm);
 
 };

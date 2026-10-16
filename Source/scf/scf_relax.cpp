@@ -50,7 +50,7 @@ namespace scf {
 
 }
 
-void HydroSim::scf_relaxation() {
+void HydroSim::relax_rotating_model() {
 
     AMREX_ASSERT(level == 0);
 
@@ -80,7 +80,7 @@ void HydroSim::scf_relaxation() {
 
     // Now do the SCF solve.
 
-    do_hscf_solve();
+    solve_rotating_equilibrium();
 
     // Update the gravitational field. Since we don't need this
     // during the iterations, we only do it once at the end.
@@ -88,7 +88,7 @@ void HydroSim::scf_relaxation() {
     for (int lev = 0; lev <= parent->finestLevel(); ++lev)
     {
         MultiFab& grav_new = getLevel(lev).get_new_data(Gravity_Type);
-        gravity->get_new_grav_vector(lev, getLevel(lev).state[Gravity_Type].curTime(), grav_new);
+        gravity->fill_new_gravity_field(lev, getLevel(lev).state[Gravity_Type].curTime(), grav_new);
     }
 
     // Perform a final pass to ensure we're consistent with AMR.
@@ -100,7 +100,7 @@ void HydroSim::scf_relaxation() {
 }
 
 void
-HydroSim::do_hscf_solve()
+HydroSim::solve_rotating_equilibrium()
 {
 
     const int finest_level = parent->finestLevel();

@@ -3,7 +3,7 @@
 using namespace amrex;
 
 void
-HydroSim::pointmass_update(Real time, Real dt)
+HydroSim::accrete_onto_point_mass(Real time, Real dt)
 {
 
     amrex::ignore_unused(time);

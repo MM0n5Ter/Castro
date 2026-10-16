@@ -15,9 +15,9 @@
 using namespace amrex;
 
 void
-HydroSim::problem_post_timestep()
+HydroSim::user_post_timestep()
 {
-    BL_PROFILE("HydroSim::problem_post_timestep()");
+    BL_PROFILE("HydroSim::user_post_timestep()");
 
     using namespace binarywd;
     using namespace problem;
@@ -274,39 +274,39 @@ HydroSim::wd_update (Real time, Real dt)
     mass_P   = amrex::get<12>(hv);
     mass_S   = amrex::get<13>(hv);
 
-    const int nfoo_sum = 28;
-    Real foo_sum[nfoo_sum] = { 0.0 };
+    const int n_sum_vals = 28;
+    Real sum_vals[n_sum_vals] = { 0.0 };
 
     for (int i = 0; i <= 6; ++i) {
-        foo_sum[i  ] = vol_P[i];
-        foo_sum[i+7] = vol_S[i];
+        sum_vals[i  ] = vol_P[i];
+        sum_vals[i+7] = vol_S[i];
     }
 
-    foo_sum[14] = mass_P;
-    foo_sum[15] = mass_S;
+    sum_vals[14] = mass_P;
+    sum_vals[15] = mass_S;
 
     for (int i = 0; i <= 2; ++i) {
-        foo_sum[i+16] = com_P[i];
-        foo_sum[i+19] = com_S[i];
-        foo_sum[i+22] = vel_P[i];
-        foo_sum[i+25] = vel_S[i];
+        sum_vals[i+16] = com_P[i];
+        sum_vals[i+19] = com_S[i];
+        sum_vals[i+22] = vel_P[i];
+        sum_vals[i+25] = vel_S[i];
     }
 
-    amrex::ParallelDescriptor::ReduceRealSum(foo_sum, nfoo_sum);
+    amrex::ParallelDescriptor::ReduceRealSum(sum_vals, n_sum_vals);
 
     for (int i = 0; i <= 6; ++i) {
-        vol_P[i] = foo_sum[i  ];
-        vol_S[i] = foo_sum[i+7];
+        vol_P[i] = sum_vals[i  ];
+        vol_S[i] = sum_vals[i+7];
     }
 
-    mass_P = foo_sum[14];
-    mass_S = foo_sum[15];
+    mass_P = sum_vals[14];
+    mass_S = sum_vals[15];
 
     for (int i = 0; i <= 2; ++i) {
-        com_P[i] = foo_sum[i+16];
-        com_S[i] = foo_sum[i+19];
-        vel_P[i] = foo_sum[i+22];
-        vel_S[i] = foo_sum[i+25];
+        com_P[i] = sum_vals[i+16];
+        com_S[i] = sum_vals[i+19];
+        vel_P[i] = sum_vals[i+22];
+        vel_S[i] = sum_vals[i+25];
     }
 
     // Compute effective WD radii
@@ -501,7 +501,7 @@ Real HydroSim::norm(const Real a[]) {
 
 
 
-void HydroSim::problem_post_init() {
+void HydroSim::user_post_init() {
 
   using namespace binarywd;
   using namespace problem;
@@ -511,13 +511,13 @@ void HydroSim::problem_post_init() {
   // This should generally be the last operation
   // in this function.
 
-  problem_post_timestep();
+  user_post_timestep();
 
 }
 
 
 
-void HydroSim::problem_post_restart() {
+void HydroSim::user_post_restart() {
 
   using namespace binarywd;
   using namespace problem;
@@ -545,7 +545,7 @@ void HydroSim::problem_post_restart() {
           log.close();
 
           if (do_sums && (sum_interval > 0 || sum_per > 0))
-              sum_integrated_quantities();
+              print_integrated_sums();
 
       }
 
@@ -794,7 +794,7 @@ HydroSim::update_relaxation(Real time, Real dt) {
     const GpuArray<Real, 3> com_primary{com_P[0], com_P[1], com_P[2]};
     const GpuArray<Real, 3> com_secondary{com_S[0], com_S[1], com_S[2]};
 
-    const GpuArray<Real, 3> L1 = get_lagrange_points(mass_P, mass_S, com_primary, com_secondary).L1;
+    const GpuArray<Real, 3> L1 = find_lagrange_points(mass_P, mass_S, com_primary, com_secondary).L1;
 
     const auto dx = geom.CellSizeArray();
     const auto coord = geom.Coord();
@@ -987,9 +987,9 @@ HydroSim::problem_sums ()
 
     int dataprecision = 16; // Number of digits after the decimal point, for float data
 
-    int datwidth      = 25; // Floating point data in scientific notation
-    int fixwidth      = 25; // Floating point data not in scientific notation
-    int intwidth      = 12; // Integer data
+    int col_width      = 25; // Floating point data in scientific notation
+    int time_col_width      = 25; // Floating point data not in scientific notation
+    int step_col_width      = 12; // Integer data
 
     wd_dist_init[problem::axis_1 - 1] = 1.0;
 
@@ -1071,21 +1071,21 @@ HydroSim::problem_sums ()
 
                   std::ostringstream header;
 
-                  header << std::setw(intwidth) << "#   TIMESTEP";              ++n;
-                  header << std::setw(fixwidth) << "                     TIME"; ++n;
+                  header << std::setw(step_col_width) << "#   TIMESTEP";              ++n;
+                  header << std::setw(time_col_width) << "                     TIME"; ++n;
 
-                  header << std::setw(datwidth) << "              WD DISTANCE"; ++n;
-                  header << std::setw(fixwidth) << "                 WD ANGLE"; ++n;
-                  header << std::setw(datwidth) << "                     ADOT"; ++n;
-                  header << std::setw(datwidth) << "                     MDOT"; ++n;
+                  header << std::setw(col_width) << "              WD DISTANCE"; ++n;
+                  header << std::setw(time_col_width) << "                 WD ANGLE"; ++n;
+                  header << std::setw(col_width) << "                     ADOT"; ++n;
+                  header << std::setw(col_width) << "                     MDOT"; ++n;
 
                   header << std::endl;
 
-                  log << std::setw(intwidth) << "#   COLUMN 1";
-                  log << std::setw(fixwidth) << "                        2";
+                  log << std::setw(step_col_width) << "#   COLUMN 1";
+                  log << std::setw(time_col_width) << "                        2";
 
                   for (int i = 3; i <= n; ++i) {
-                      log << std::setw(datwidth) << i;
+                      log << std::setw(col_width) << i;
                   }
 
                   log << std::endl;
@@ -1096,20 +1096,20 @@ HydroSim::problem_sums ()
 
               log << std::fixed;
 
-              log << std::setw(intwidth)                                     << timestep;
-              log << std::setw(fixwidth) << std::setprecision(dataprecision) << time;
+              log << std::setw(step_col_width)                                     << timestep;
+              log << std::setw(time_col_width) << std::setprecision(dataprecision) << time;
 
               log << std::scientific;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << separation;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << separation;
 
               log << std::fixed;
-              log << std::setw(fixwidth) << std::setprecision(dataprecision) << angle;
+              log << std::setw(time_col_width) << std::setprecision(dataprecision) << angle;
 
               log << std::scientific;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P_rad + vel_S_rad;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P_rad + vel_S_rad;
 
               log << std::scientific;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << mdot;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << mdot;
 
               log << std::endl;
 
@@ -1134,43 +1134,43 @@ HydroSim::problem_sums ()
 
                   std::ostringstream header;
 
-                  header << std::setw(intwidth) << "#   TIMESTEP";              ++n;
-                  header << std::setw(fixwidth) << "                     TIME"; ++n;
-                  header << std::setw(datwidth) << "             PRIMARY MASS"; ++n;
-                  header << std::setw(datwidth) << "             PRIMARY MDOT"; ++n;
-                  header << std::setw(datwidth) << "          PRIMARY MAG COM"; ++n;
+                  header << std::setw(step_col_width) << "#   TIMESTEP";              ++n;
+                  header << std::setw(time_col_width) << "                     TIME"; ++n;
+                  header << std::setw(col_width) << "             PRIMARY MASS"; ++n;
+                  header << std::setw(col_width) << "             PRIMARY MDOT"; ++n;
+                  header << std::setw(col_width) << "          PRIMARY MAG COM"; ++n;
 #if (AMREX_SPACEDIM == 3)
-                  header << std::setw(datwidth) << "            PRIMARY X COM"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Y COM"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Z COM"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY X COM"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Y COM"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Z COM"; ++n;
 #else
-                  header << std::setw(datwidth) << "            PRIMARY R COM"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Z COM"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY R COM"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Z COM"; ++n;
 #endif
-                  header << std::setw(datwidth) << "          PRIMARY MAG VEL"; ++n;
-                  header << std::setw(datwidth) << "          PRIMARY RAD VEL"; ++n;
-                  header << std::setw(datwidth) << "          PRIMARY ANG VEL"; ++n;
+                  header << std::setw(col_width) << "          PRIMARY MAG VEL"; ++n;
+                  header << std::setw(col_width) << "          PRIMARY RAD VEL"; ++n;
+                  header << std::setw(col_width) << "          PRIMARY ANG VEL"; ++n;
 #if (AMREX_SPACEDIM == 3)
-                  header << std::setw(datwidth) << "            PRIMARY X VEL"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Y VEL"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Z VEL"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY X VEL"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Y VEL"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Z VEL"; ++n;
 #else
-                  header << std::setw(datwidth) << "            PRIMARY R VEL"; ++n;
-                  header << std::setw(datwidth) << "            PRIMARY Z VEL"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY R VEL"; ++n;
+                  header << std::setw(col_width) << "            PRIMARY Z VEL"; ++n;
 #endif
-                  header << std::setw(datwidth) << "       PRIMARY T_FREEFALL"; ++n;
-                  header << std::setw(datwidth) << "     PRIMARY ROCHE RADIUS"; ++n;
+                  header << std::setw(col_width) << "       PRIMARY T_FREEFALL"; ++n;
+                  header << std::setw(col_width) << "     PRIMARY ROCHE RADIUS"; ++n;
                   for (int i = 0; i <= 6; ++i) {
                       header << "       PRIMARY 1E" << i << " RADIUS";          ++n;
                   }
 
                   header << std::endl;
 
-                  log << std::setw(intwidth) << "#   COLUMN 1";
-                  log << std::setw(fixwidth) << "                        2";
+                  log << std::setw(step_col_width) << "#   COLUMN 1";
+                  log << std::setw(time_col_width) << "                        2";
 
                   for (int i = 3; i <= n; ++i) {
-                      log << std::setw(datwidth) << i;
+                      log << std::setw(col_width) << i;
                   }
 
                   log << std::endl;
@@ -1181,31 +1181,31 @@ HydroSim::problem_sums ()
 
               log << std::fixed;
 
-              log << std::setw(intwidth)                                     << timestep;
-              log << std::setw(fixwidth) << std::setprecision(dataprecision) << time;
+              log << std::setw(step_col_width)                                     << timestep;
+              log << std::setw(time_col_width) << std::setprecision(dataprecision) << time;
 
               log << std::scientific;
 
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << mass_P;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << mdot_P;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_P_mag;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_P[0];
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_P[1];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << mass_P;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << mdot_P;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_P_mag;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_P[0];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_P[1];
 #if (AMREX_SPACEDIM == 3)
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_P[2];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_P[2];
 #endif
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P_mag;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P_rad;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P_phi;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P[0];
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P[1];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P_mag;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P_rad;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P_phi;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P[0];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P[1];
 #if (AMREX_SPACEDIM == 3)
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_P[2];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_P[2];
 #endif
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << t_ff_P;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << roche_rad_P;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << t_ff_P;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << roche_rad_P;
               for (int i = 0; i <= 6; ++i) {
-                  log << std::setw(datwidth) << std::setprecision(dataprecision) << rad_P[i];
+                  log << std::setw(col_width) << std::setprecision(dataprecision) << rad_P[i];
               }
 
               log << std::endl;
@@ -1232,43 +1232,43 @@ HydroSim::problem_sums ()
 
                   std::ostringstream header;
 
-                  header << std::setw(intwidth) << "#   TIMESTEP";              ++n;
-                  header << std::setw(fixwidth) << "                     TIME"; ++n;
-                  header << std::setw(datwidth) << "           SECONDARY MASS"; ++n;
-                  header << std::setw(datwidth) << "           SECONDARY MDOT"; ++n;
-                  header << std::setw(datwidth) << "        SECONDARY MAG COM"; ++n;
+                  header << std::setw(step_col_width) << "#   TIMESTEP";              ++n;
+                  header << std::setw(time_col_width) << "                     TIME"; ++n;
+                  header << std::setw(col_width) << "           SECONDARY MASS"; ++n;
+                  header << std::setw(col_width) << "           SECONDARY MDOT"; ++n;
+                  header << std::setw(col_width) << "        SECONDARY MAG COM"; ++n;
 #if (AMREX_SPACEDIM == 3)
-                  header << std::setw(datwidth) << "          SECONDARY X COM"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Y COM"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Z COM"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY X COM"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Y COM"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Z COM"; ++n;
 #else
-                  header << std::setw(datwidth) << "          SECONDARY R COM"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Z COM"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY R COM"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Z COM"; ++n;
 #endif
-                  header << std::setw(datwidth) << "        SECONDARY MAG VEL"; ++n;
-                  header << std::setw(datwidth) << "        SECONDARY RAD VEL"; ++n;
-                  header << std::setw(datwidth) << "        SECONDARY ANG VEL"; ++n;
+                  header << std::setw(col_width) << "        SECONDARY MAG VEL"; ++n;
+                  header << std::setw(col_width) << "        SECONDARY RAD VEL"; ++n;
+                  header << std::setw(col_width) << "        SECONDARY ANG VEL"; ++n;
 #if (AMREX_SPACEDIM == 3)
-                  header << std::setw(datwidth) << "          SECONDARY X VEL"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Y VEL"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Z VEL"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY X VEL"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Y VEL"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Z VEL"; ++n;
 #else
-                  header << std::setw(datwidth) << "          SECONDARY R VEL"; ++n;
-                  header << std::setw(datwidth) << "          SECONDARY Z VEL"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY R VEL"; ++n;
+                  header << std::setw(col_width) << "          SECONDARY Z VEL"; ++n;
 #endif
-                  header << std::setw(datwidth) << "     SECONDARY T_FREEFALL"; ++n;
-                  header << std::setw(datwidth) << "   SECONDARY ROCHE RADIUS"; ++n;
+                  header << std::setw(col_width) << "     SECONDARY T_FREEFALL"; ++n;
+                  header << std::setw(col_width) << "   SECONDARY ROCHE RADIUS"; ++n;
                   for (int i = 0; i <= 6; ++i) {
                       header << "     SECONDARY 1E" << i << " RADIUS";          ++n;
                   }
 
                   header << std::endl;
 
-                  log << std::setw(intwidth) << "#   COLUMN 1";
-                  log << std::setw(fixwidth) << "                        2";
+                  log << std::setw(step_col_width) << "#   COLUMN 1";
+                  log << std::setw(time_col_width) << "                        2";
 
                   for (int i = 3; i <= n; ++i) {
-                      log << std::setw(datwidth) << i;
+                      log << std::setw(col_width) << i;
                   }
 
                   log << std::endl;
@@ -1279,31 +1279,31 @@ HydroSim::problem_sums ()
 
               log << std::fixed;
 
-              log << std::setw(intwidth)                                     << timestep;
-              log << std::setw(fixwidth) << std::setprecision(dataprecision) << time;
+              log << std::setw(step_col_width)                                     << timestep;
+              log << std::setw(time_col_width) << std::setprecision(dataprecision) << time;
 
               log << std::scientific;
 
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << mass_S;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << mdot_S;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_S_mag;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_S[0];
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_S[1];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << mass_S;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << mdot_S;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_S_mag;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_S[0];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_S[1];
 #if (AMREX_SPACEDIM == 3)
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << com_S[2];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << com_S[2];
 #endif
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S_mag;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S_rad;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S_phi;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S[0];
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S[1];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S_mag;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S_rad;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S_phi;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S[0];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S[1];
 #if (AMREX_SPACEDIM == 3)
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << vel_S[2];
+              log << std::setw(col_width) << std::setprecision(dataprecision) << vel_S[2];
 #endif
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << t_ff_S;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << roche_rad_S;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << t_ff_S;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << roche_rad_S;
               for (int i = 0; i <= 6; ++i) {
-                  log << std::setw(datwidth) << std::setprecision(dataprecision) << rad_S[i];
+                  log << std::setw(col_width) << std::setprecision(dataprecision) << rad_S[i];
               }
 
               log << std::endl;
@@ -1330,18 +1330,18 @@ HydroSim::problem_sums ()
 
                   std::ostringstream header;
 
-                  header << std::setw(intwidth) << "#   TIMESTEP";              ++n;
-                  header << std::setw(fixwidth) << "                     TIME"; ++n;
-                  header << std::setw(datwidth) << "          ROTATION PERIOD"; ++n;
-                  header << std::setw(datwidth) << "       ROTATION FREQUENCY"; ++n;
+                  header << std::setw(step_col_width) << "#   TIMESTEP";              ++n;
+                  header << std::setw(time_col_width) << "                     TIME"; ++n;
+                  header << std::setw(col_width) << "          ROTATION PERIOD"; ++n;
+                  header << std::setw(col_width) << "       ROTATION FREQUENCY"; ++n;
 
                   header << std::endl;
 
-                  log << std::setw(intwidth) << "#   COLUMN 1";
-                  log << std::setw(fixwidth) << "                        2";
+                  log << std::setw(step_col_width) << "#   COLUMN 1";
+                  log << std::setw(time_col_width) << "                        2";
 
                   for (int i = 3; i <= n; ++i) {
-                      log << std::setw(datwidth) << i;
+                      log << std::setw(col_width) << i;
                   }
 
                   log << std::endl;
@@ -1352,13 +1352,13 @@ HydroSim::problem_sums ()
 
               log << std::fixed;
 
-              log << std::setw(intwidth)                                     << timestep;
-              log << std::setw(fixwidth) << std::setprecision(dataprecision) << time;
+              log << std::setw(step_col_width)                                     << timestep;
+              log << std::setw(time_col_width) << std::setprecision(dataprecision) << time;
 
               log << std::scientific;
 
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << rotational_period;
-              log << std::setw(datwidth) << std::setprecision(dataprecision) << (2.0 * M_PI / rotational_period);
+              log << std::setw(col_width) << std::setprecision(dataprecision) << rotational_period;
+              log << std::setw(col_width) << std::setprecision(dataprecision) << (2.0 * M_PI / rotational_period);
 
               log << std::endl;
 

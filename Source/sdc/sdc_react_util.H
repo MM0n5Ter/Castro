@@ -44,7 +44,7 @@ okay_to_burn(GpuArray<Real, NUM_STATE> const& state) {
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 GpuArray<Real, NUM_STATE>
-single_zone_react_source(burn_t& burn_state) {
+cell_react_source(burn_t& burn_state) {
 
     // note: we want this burn_state to come out of here so we can
     // reuse it elsewhere
@@ -100,20 +100,20 @@ single_zone_react_source(burn_t& burn_state) {
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 GpuArray<Real, NUM_STATE>
-single_zone_react_source(const int i, const int j, const int k,
+cell_react_source(const int i, const int j, const int k,
                          Array4<const Real> const& state) {
 
     burn_t burn_state;
 
     copy_cons_to_burn_type(i, j, k, state, burn_state);
 
-    return single_zone_react_source(burn_state);
+    return cell_react_source(burn_state);
 }
 
 template <typename T>
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
-single_zone_jac(burn_t& burn_state, const Real dt, T& Jac) {
+cell_burn_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
 
 #ifdef SIMPLIFIED_SDC
 #ifndef AMREX_USE_GPU
@@ -163,7 +163,7 @@ single_zone_jac(burn_t& burn_state, const Real dt, T& Jac) {
 
         // we are assuming here that the burn_state is
         // thermodynamically consistent.  This will be true if we
-        // called single_zone_react_source first.
+        // called cell_react_source first.
 
         eos_xderivs_t eos_xderivs = composition_derivatives(burn_state);
 

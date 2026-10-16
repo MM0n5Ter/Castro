@@ -100,7 +100,7 @@
 /// @param uin   the conserved state
 /// @param flux  the flux in direction idir
 ///
-    void apply_av(const amrex::Box& bx,
+    void apply_art_visc(const amrex::Box& bx,
                   const int idir,
                   amrex::Array4<amrex::Real const> const& div,
                   amrex::Array4<amrex::Real const> const& uin,
@@ -117,7 +117,7 @@
 /// @param Erin     the radiation energy
 /// @param radflux  the radiation energy flux in direction idir
 ///
-    void apply_av_rad(const amrex::Box& bx,
+    void apply_rad_art_visc(const amrex::Box& bx,
                       const int idir,
                       amrex::Array4<amrex::Real const> const& div,
                       amrex::Array4<amrex::Real const> const& Erin,
@@ -170,7 +170,7 @@
 ///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
-    void ctu_ppm_states(const amrex::Box& bx, const amrex::Box& vbx,
+    void ppm_interface_states(const amrex::Box& bx, const amrex::Box& vbx,
                         amrex::Array4<amrex::Real const> const& U_arr,
                         amrex::Array4<amrex::Real const> const& rho_inv_arr,
                         amrex::Array4<amrex::Real const> const& q_arr,
@@ -200,7 +200,7 @@
 ///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
-    void ctu_plm_states(const amrex::Box& bx, const amrex::Box& vbx,
+    void plm_interface_states(const amrex::Box& bx, const amrex::Box& vbx,
                         amrex::Array4<amrex::Real const> const& U_arr,
                         amrex::Array4<amrex::Real const> const& rho_inv_arr,
                         amrex::Array4<amrex::Real const> const& q_arr,
@@ -231,7 +231,7 @@
 ///                 y = theta); only read in 1-d and 2-d
 /// @param dt       timestep
 ///
-    void ctu_ppm_rad_states(const amrex::Box& bx, const amrex::Box& vbx,
+    void ppm_rad_interface_states(const amrex::Box& bx, const amrex::Box& vbx,
                             amrex::Array4<amrex::Real const> const& U_arr,
                             amrex::Array4<amrex::Real const> const& rho_inv_arr,
                             amrex::Array4<amrex::Real const> const& q_arr,
@@ -259,7 +259,7 @@
 /// @param qm          left interface state, e.g., q_{i-1/2,j,k,L}
 /// @param qp          right interface state, e.g., q_{i-1/2,j,k,R}
 ///
-    void mol_plm_reconstruct(const amrex::Box& bx,
+    void plm_face_states_mol(const amrex::Box& bx,
                              const int idir,
                              amrex::Array4<amrex::Real const> const& q_arr,
                              amrex::Array4<amrex::Real const> const& flatcoef_arr,
@@ -281,7 +281,7 @@
 /// @param qm          left interface state, e.g., q_{i-1/2,j,k,L}
 /// @param qp          right interface state, e.g., q_{i-1/2,j,k,R}
 ///
-    void mol_ppm_reconstruct(const amrex::Box& bx,
+    void ppm_face_states_mol(const amrex::Box& bx,
                              const int idir,
                              amrex::Array4<amrex::Real const> const& q_arr,
                              amrex::Array4<amrex::Real const> const& flatcoef_arr,
@@ -327,7 +327,7 @@
 /// @param flux  hydrodynamic flux in direction idir
 ///
      void
-     mol_diffusive_flux(const amrex::Box& bx,
+     add_mol_conduction_flux(const amrex::Box& bx,
                         const int idir,
                         amrex::Array4<amrex::Real const> const& U,
                         amrex::Array4<amrex::Real const> const& cond,
@@ -370,7 +370,7 @@
 /// @param qaux      auxiliary state
 /// @param faces_t   fluxes, Godunov state and geometry on the idir_t faces
 /// @param hdt       1/2 * timestep
-/// @param cdtdx     weighted timestep over cell width from the CTU algorithm
+/// @param coef_dtdx     weighted timestep over cell width from the CTU algorithm
 ///
      void transverse_correct_single(const amrex::Box& bx,
                        int idir_t, int idir_n,
@@ -380,7 +380,7 @@
                        amrex::Array4<amrex::Real> const& qpo,
                        amrex::Array4<amrex::Real const> const& qaux,
                        TransverseFaces const& faces_t,
-                       amrex::Real hdt, amrex::Real cdtdx);
+                       amrex::Real hdt, amrex::Real coef_dtdx);
 
 ///
 /// Add the transverse flux difference in idir_t to the interface states in
@@ -396,7 +396,7 @@
 /// @param qaux      auxiliary state
 /// @param faces_t   fluxes, Godunov state and geometry on the idir_t faces
 /// @param hdt       1/2 * timestep
-/// @param cdtdx     weighted timestep over cell width from the CTU algorithm
+/// @param coef_dtdx     weighted timestep over cell width from the CTU algorithm
 ///
      void transverse_correct_single_impl(const amrex::Box& bx,
                               int idir_t, int idir_n, int d,
@@ -404,7 +404,7 @@
                               amrex::Array4<amrex::Real> const& qo_arr,
                               amrex::Array4<amrex::Real const> const& qaux,
                               TransverseFaces const& faces_t,
-                              amrex::Real hdt, amrex::Real cdtdx);
+                              amrex::Real hdt, amrex::Real coef_dtdx);
 
 ///
 /// The final transverse update where the flux difference in both
@@ -422,8 +422,8 @@
 /// @param qaux      auxiliary state
 /// @param faces_t1  fluxes and Godunov state on the idir_t1 faces
 /// @param faces_t2  fluxes and Godunov state on the idir_t2 faces
-/// @param cdtdx_t1  weight * timestep in idir_t1 direction
-/// @param cdtdx_t2  weight * timestep in idir_t2 direction
+/// @param coef_dtdx_t1  weight * timestep in idir_t1 direction
+/// @param coef_dtdx_t2  weight * timestep in idir_t2 direction
 ///
      static void transverse_correct_final(const amrex::Box& bx,
                       int idir_n, int idir_t1, int idir_t2,
@@ -434,7 +434,7 @@
                       amrex::Array4<amrex::Real const> const& qaux,
                       TransverseFaces const& faces_t1,
                       TransverseFaces const& faces_t2,
-                      amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
+                      amrex::Real coef_dtdx_t1, amrex::Real coef_dtdx_t2);
 
 ///
 /// The final transverse update where the flux difference in both
@@ -450,8 +450,8 @@
 /// @param qaux      auxiliary state
 /// @param faces_t1  fluxes and Godunov state on the idir_t1 faces
 /// @param faces_t2  fluxes and Godunov state on the idir_t2 faces
-/// @param cdtdx_t1  weight * timestep in idir_t1 direction
-/// @param cdtdx_t2  weight * timestep in idir_t2 direction
+/// @param coef_dtdx_t1  weight * timestep in idir_t1 direction
+/// @param coef_dtdx_t2  weight * timestep in idir_t2 direction
 ///
      static void transverse_correct_final_impl(const amrex::Box& bx,
                              int idir_n, int idir_t1, int idir_t2, int d,
@@ -460,7 +460,7 @@
                              amrex::Array4<amrex::Real const> const& qaux,
                              TransverseFaces const& faces_t1,
                              TransverseFaces const& faces_t2,
-                             amrex::Real cdtdx_t1, amrex::Real cdtdx_t2);
+                             amrex::Real coef_dtdx_t1, amrex::Real coef_dtdx_t2);
 
 ///
 /// The zone data the characteristic tracing reads in one direction
@@ -582,7 +582,7 @@
 /// A general interface to the pure hydrodynamics and radiation
 /// Riemann solvers which takes the left and right interface states,
 /// qm and qp, and computes the flux through the interface and the
-/// godunov state (qint) on the interface
+/// godunov state (q_riemann) on the interface
 ///
 /// @param bx          the box to operate over
 /// @param qm          left state on the interface
@@ -602,8 +602,8 @@
                              const int idir, const FaceComponents qface_comps);
 
     void
-    compute_flux_from_q(const amrex::Box& bx,
-                        amrex::Array4<amrex::Real const> const& qint,
+    flux_from_face_state(const amrex::Box& bx,
+                        amrex::Array4<amrex::Real const> const& q_riemann,
                         amrex::Array4<amrex::Real> const& F,
                         const int idir);
 
@@ -614,7 +614,7 @@
 /// interface but just outside the domain.  This ensures that the flux
 /// through the reflecting boundary is zero.
 ///
-   void enforce_reflect_states(const amrex::Box& bx, const int idir,
+   void mirror_states_at_walls(const amrex::Box& bx, const int idir,
                                amrex::Array4<amrex::Real> const& qm,
                                amrex::Array4<amrex::Real> const& qp);
 
@@ -631,7 +631,7 @@
                         const amrex::Real dt);
 #endif
 
-    void do_enforce_minimum_density(const amrex::Box& bx,
+    void apply_density_floor_box(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const DensityResetReport report);
 
@@ -692,7 +692,7 @@
 #ifdef TRUE_SDC
 
     void
-    fourth_interfaces(const amrex::Box& bx,
+    fourth_order_face_values(const amrex::Box& bx,
                       const int idir, const int ncomp,
                       amrex::Array4<amrex::Real const> const& a,
                       amrex::Array4<amrex::Real> const& a_int);
@@ -707,52 +707,52 @@
            amrex::Array4<amrex::Real> const& ar);
 
     void
-    fourth_avisc(const amrex::Box& bx,
+    fourth_order_art_visc(const amrex::Box& bx,
                  amrex::Array4<amrex::Real const> const& q,
                  amrex::Array4<amrex::Real const> const& qaux,
                  amrex::Array4<amrex::Real> const& avis,
                  const int idir);
 
     void
-    fourth_add_diffusive_flux(const amrex::Box& bx,
+    fourth_order_conduction_flux(const amrex::Box& bx,
                               amrex::Array4<amrex::Real const> const& q,
                               const int temp_comp,
-                              amrex::Array4<amrex::Real const> const& qint,
+                              amrex::Array4<amrex::Real const> const& q_riemann,
                               amrex::Array4<amrex::Real> const& F,
                               const int idir, const bool is_avg);
 
     static
-    void make_cell_center(const Box& bx,
+    void to_cell_center(const Box& bx,
                           Array4<Real const> const& U,
                           Array4<Real> const& U_cc,
                           GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
 
     static
-    void make_cell_center_in_place(const Box& bx,
+    void to_cell_center_in_place(const Box& bx,
                                    Array4<Real> const& U,
                                    Array4<Real> const& tmp,
                                    GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
 
     static
-    void compute_lap_term(const Box& bx,
+    void laplacian_term(const Box& bx,
                           Array4<Real const> const& U,
                           Array4<Real> const& lap, const int ncomp,
                           GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
 
     static
-    void make_fourth_average(const Box& bx,
+    void to_fourth_order_average(const Box& bx,
                              Array4<Real> const& q,
                              Array4<Real const> const& q_bar,
                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
 
     static
-    void make_fourth_in_place(const Box& bx,
+    void to_fourth_order_in_place(const Box& bx,
                               Array4<Real> const& q,
                               Array4<Real> const& tmp,
                               GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
 
     static
-    void make_fourth_in_place_n(const Box& bx,
+    void to_fourth_order_in_place_n(const Box& bx,
                                 Array4<Real> const& q, const int ncomp,
                                 Array4<Real> const& tmp,
                                 GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);

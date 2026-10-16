@@ -18,7 +18,7 @@ HydroSim::assemble_old_diff_source(MultiFab& state_in, Real time, Real dt, Multi
 
     MultiFab TempDiffTerm(grids, dmap, 1, 0);
 
-    add_temp_diffusion_to_source(state_in, time, TempDiffTerm, source);
+    add_conduction_to_source(state_in, time, TempDiffTerm, source);
 
     if (verbose > 1)
     {
@@ -49,14 +49,14 @@ HydroSim::assemble_new_diff_source(MultiFab& state_old, MultiFab& state_new, Rea
 
     Real mult_factor = 0.5;
 
-    add_temp_diffusion_to_source(state_new, time, TempDiffTerm, source, mult_factor);
+    add_conduction_to_source(state_new, time, TempDiffTerm, source, mult_factor);
 
     // Time center the source term.
 
     mult_factor = -0.5;
     Real old_time = time - dt;
 
-    add_temp_diffusion_to_source(state_old, old_time, TempDiffTerm, source, mult_factor);
+    add_conduction_to_source(state_old, old_time, TempDiffTerm, source, mult_factor);
 
     if (verbose > 1)
     {
@@ -80,14 +80,14 @@ HydroSim::assemble_new_diff_source(MultiFab& state_old, MultiFab& state_new, Rea
 // **********************************************************************************************
 
 void
-HydroSim::add_temp_diffusion_to_source (MultiFab& state_in, Real t, MultiFab& DiffTerm, MultiFab& ext_src, Real mult_factor)
+HydroSim::add_conduction_to_source (MultiFab& state_in, Real t, MultiFab& DiffTerm, MultiFab& ext_src, Real mult_factor)
 {
     BL_PROFILE("HydroSim::add_temp_diffusion_to_sources()");
 
     // Define an explicit temperature update.
     DiffTerm.setVal(0.);
     if (diffuse_temp == 1) {
-        getTempDiffusionTerm(t, state_in, DiffTerm);
+        computeConductionTerm(t, state_in, DiffTerm);
     }
 
     if (diffuse_temp == 1) {
@@ -98,9 +98,9 @@ HydroSim::add_temp_diffusion_to_source (MultiFab& state_in, Real t, MultiFab& Di
 
 
 void
-HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDiffTerm)
+HydroSim::computeConductionTerm (Real time, MultiFab& state_in, MultiFab& TempDiffTerm)
 {
-    BL_PROFILE("HydroSim::getTempDiffusionTerm()");
+    BL_PROFILE("HydroSim::computeConductionTerm()");
 
    // Fill coefficients at this level.
    Diffusion::CoefficientVector coeffs(AMREX_SPACEDIM);
@@ -137,7 +137,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
                Array4<Real> const coeff_arr = coeff_cc.array();
                Array4<Real const> const U_arr = grown_state.array(mfi);
 
-               Diffusion::fill_temp_cond(obx, U_arr, coeff_arr);
+               Diffusion::fill_conductivity(obx, U_arr, coeff_arr);
 
                for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -175,7 +175,7 @@ HydroSim::getTempDiffusionTerm (Real time, MultiFab& state_in, MultiFab& TempDif
        }
 
        // Evaluates ∇ ⋅(k_th ∇T) using AMReX
-       diffusion->applyop(level, Temperature, CrseTemp, coeffs, TempDiffTerm);
+       diffusion->apply_conduction_operator(level, Temperature, CrseTemp, coeffs, TempDiffTerm);
 
    } else {
        // Evaluates ∇ ⋅(k_th ∇T) without using AMReX

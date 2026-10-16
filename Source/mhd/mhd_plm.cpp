@@ -112,40 +112,40 @@ HydroSim::plm(const Box& bx,
     }
 
     // MHD Source Terms
-    Real smhd[NEVEC];
+    Real mhd_src[NEVEC];
 
-    smhd[IEVEC_RHO] = 0.0_rt;
-    smhd[IEVEC_U] = q_zone(QMAGX) / q_zone(QRHO);
-    smhd[IEVEC_V] = q_zone(QMAGY) / q_zone(QRHO);
-    smhd[IEVEC_W] = q_zone(QMAGZ) / q_zone(QRHO);
-    smhd[IEVEC_P] = q_zone(QMAGX) * q_zone(QU) +
+    mhd_src[IEVEC_RHO] = 0.0_rt;
+    mhd_src[IEVEC_U] = q_zone(QMAGX) / q_zone(QRHO);
+    mhd_src[IEVEC_V] = q_zone(QMAGY) / q_zone(QRHO);
+    mhd_src[IEVEC_W] = q_zone(QMAGZ) / q_zone(QRHO);
+    mhd_src[IEVEC_P] = q_zone(QMAGX) * q_zone(QU) +
                     q_zone(QMAGY) * q_zone(QV) +
                     q_zone(QMAGZ) * q_zone(QW);
 
     if (idir == 0) {
-      smhd[IEVEC_BT] = q_zone(QV);
-      smhd[IEVEC_BTT] = q_zone(QW);
+      mhd_src[IEVEC_BT] = q_zone(QV);
+      mhd_src[IEVEC_BTT] = q_zone(QW);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (Bx(i+1,j,k) - Bx(i,j,k)) / dx[idir];
       }
 
     } else if (idir == 1) {
-      smhd[IEVEC_BT] = q_zone(QU);
-      smhd[IEVEC_BTT] = q_zone(QW);
+      mhd_src[IEVEC_BT] = q_zone(QU);
+      mhd_src[IEVEC_BTT] = q_zone(QW);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (By(i,j+1,k) - By(i,j,k)) / dx[idir];
       }
 
     } else {
-      smhd[IEVEC_BT] = q_zone(QU);
-      smhd[IEVEC_BTT] = q_zone(QV);
+      mhd_src[IEVEC_BT] = q_zone(QU);
+      mhd_src[IEVEC_BTT] = q_zone(QV);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (Bz(i,j,k+1) - Bz(i,j,k)) / dx[idir];
       }
     }
@@ -210,66 +210,66 @@ HydroSim::plm(const Box& bx,
 
     if (idir == 0) {
       qleft(i+1,j,k,QRHO) = amrex::max(small_dens,
-                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i+1,j,k,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i+1,j,k,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i+1,j,k,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i+1,j,k,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i+1,j,k,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i+1,j,k,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i+1,j,k,QPRES) = amrex::max(small_pres,
-                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
       qleft(i+1,j,k,QMAGX) = Bx(i+1,j,k); // Bx stuff
-      qleft(i+1,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qleft(i+1,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i+1,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qleft(i+1,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else if (idir == 1) {
       qleft(i,j+1,k,QRHO) = amrex::max(small_dens,
-                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i,j+1,k,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i,j+1,k,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i,j+1,k,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i,j+1,k,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i,j+1,k,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i,j+1,k,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i,j+1,k,QPRES) = amrex::max(small_pres,
-                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
-      qleft(i,j+1,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
+      qleft(i,j+1,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
       qleft(i,j+1,k,QMAGY) = By(i,j+1,k); // By stuff
-      qleft(i,j+1,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i,j+1,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else {
       qleft(i,j,k+1,QRHO) = amrex::max(small_dens,
-                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i,j,k+1,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i,j,k+1,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i,j,k+1,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_zone(QRHO) + 0.5_rt*summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i,j,k+1,QU) = q_zone(QU) + 0.5_rt*summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i,j,k+1,QV) = q_zone(QV) + 0.5_rt*summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i,j,k+1,QW) = q_zone(QW) + 0.5_rt*summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i,j,k+1,QPRES) = amrex::max(small_pres,
-                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_zone(QPRES) + 0.5_rt*summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
-      qleft(i,j,k+1,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qleft(i,j,k+1,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i,j,k+1,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qleft(i,j,k+1,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
       qleft(i,j,k+1,QMAGZ) = Bz(i,j,k+1); // Bz stuff
     }
 
     // right state at i-1/2
     qright(i,j,k,QRHO) = amrex::max(small_dens,
-                                    q_zone(QRHO) + 0.5_rt*summ_m[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-    qright(i,j,k,QU) = q_zone(QU) + 0.5_rt*summ_m[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-    qright(i,j,k,QV) = q_zone(QV) + 0.5_rt*summ_m[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-    qright(i,j,k,QW) = q_zone(QW) + 0.5_rt*summ_m[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                    q_zone(QRHO) + 0.5_rt*summ_m[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+    qright(i,j,k,QU) = q_zone(QU) + 0.5_rt*summ_m[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+    qright(i,j,k,QV) = q_zone(QV) + 0.5_rt*summ_m[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+    qright(i,j,k,QW) = q_zone(QW) + 0.5_rt*summ_m[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
     qright(i,j,k,QPRES) = amrex::max(small_pres,
-                                     q_zone(QPRES) + 0.5_rt*summ_m[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                     q_zone(QPRES) + 0.5_rt*summ_m[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
     if (idir == 0) {
       qright(i,j,k,QMAGX) = Bx(i,j,k); // Bx stuff
-      qright(i,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qright(i,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qright(i,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else if (idir == 1) {
-      qright(i,j,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
+      qright(i,j,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
       qright(i,j,k,QMAGY) = By(i,j,k); // By stuff
-      qright(i,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGZ) = q_zone(QMAGZ) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else {
-      qright(i,j,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qright(i,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGX) = q_zone(QMAGX) + 0.5_rt*summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qright(i,j,k,QMAGY) = q_zone(QMAGY) + 0.5_rt*summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
       qright(i,j,k,QMAGZ) = Bz(i,j,k); // Bz stuff
     }
 

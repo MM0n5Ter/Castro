@@ -154,7 +154,7 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
 
   // Add radiation source terms to rho*u, rhoE, and Er
 
-  int nstep_fsp = -1;
+  int n_freq_substeps = -1;
 
   if (radiation::comoving) {
 
@@ -211,13 +211,13 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
         nhat[2] = (qz(i,j,k+1,IFCERAD+g) - qz(i,j,k,IFCERAD+g))/dx[2];
 #endif
 
-        Real GnDotu[3];
+        Real grad_u_dot_n[3];
 
-        GnDotu[0] = nhat[0] * dudx[0] + nhat[1] * dudx[1] + nhat[2] * dudx[2];
-        GnDotu[1] = nhat[0] * dudy[0] + nhat[1] * dudy[1] + nhat[2] * dudy[2];
-        GnDotu[2] = nhat[0] * dudz[0] + nhat[1] * dudz[1] + nhat[2] * dudz[2];
+        grad_u_dot_n[0] = nhat[0] * dudx[0] + nhat[1] * dudx[1] + nhat[2] * dudx[2];
+        grad_u_dot_n[1] = nhat[0] * dudy[0] + nhat[1] * dudy[1] + nhat[2] * dudy[2];
+        grad_u_dot_n[2] = nhat[0] * dudz[0] + nhat[1] * dudz[1] + nhat[2] * dudz[2];
 
-        Real nnColonDotGu = (nhat[0] * GnDotu[0] + nhat[1] * GnDotu[1] + nhat[2] * GnDotu[2]) /
+        Real nn_colon_grad_u = (nhat[0] * grad_u_dot_n[0] + nhat[1] * grad_u_dot_n[1] + nhat[2] * grad_u_dot_n[2]) /
           (nhat[0] * nhat[0] + nhat[1] * nhat[1] + nhat[2] * nhat[2] + 1.e-50_rt);
 
         Real lamc;
@@ -237,7 +237,7 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
         Real Eddf = Edd_factor(lamc);
         Real f1 = (1.0_rt - Eddf) * 0.5_rt;
         Real f2 = (3.0_rt * Eddf - 1.0_rt) * 0.5_rt;
-        af[g] = -(f1*divu + f2*nnColonDotGu);
+        af[g] = -(f1*divu + f2*nn_colon_grad_u);
 
         if (radiation::fspace_advection_type == 1) {
           Real Eddfxp = Edd_factor(qx(i+1,j,k,IFCFLXLIM+g));
@@ -274,28 +274,28 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
 
 
 #if AMREX_SPACEDIM == 1
-          Real Egdc = 0.5_rt * (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g));
+          Real E_face_avg = 0.5_rt * (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g));
           Erout(i,j,k,g) = Erout(i,j,k,g) + dt * ux * Gf1E[0]
-            - dt * f2 * Egdc * nnColonDotGu;
+            - dt * f2 * E_face_avg * nn_colon_grad_u;
 #endif
 #if AMREX_SPACEDIM == 2
-          Real Egdc = 0.25_rt * (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g) +
+          Real E_face_avg = 0.25_rt * (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g) +
                                  qy(i,j,k,IFCERAD+g) + qy(i,j+1,k,IFCERAD+g));
           Erout(i,j,k,g) = Erout(i,j,k,g) + dt * (ux * Gf1E[0] + uy * Gf1E[1])
-            - dt * f2 * Egdc * nnColonDotGu;
+            - dt * f2 * E_face_avg * nn_colon_grad_u;
 #endif
 #if AMREX_SPACEDIM == 3
-          Real Egdc = (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g) +
+          Real E_face_avg = (qx(i,j,k,IFCERAD+g) + qx(i+1,j,k,IFCERAD+g) +
                        qy(i,j,k,IFCERAD+g) + qy(i,j+1,k,IFCERAD+g) +
                        qz(i,j,k,IFCERAD+g) + qz(i,j,k+1,IFCERAD+g) ) / 6.0_rt;
           Erout(i,j,k,g) = Erout(i,j,k,g) + dt * (ux * Gf1E[0] + uy * Gf1E[1] + uz * Gf1E[2])
-            - dt * f2 * Egdc * nnColonDotGu;
+            - dt * f2 * E_face_avg * nn_colon_grad_u;
 #endif
 
         }
       }
 
-      int nstep_fsp_tmp = 1;
+      int n_freq_substeps_tmp = 1;
 
       if (NGROUPS > 1) {
         GpuArray<Real, NGROUPS> ustar;
@@ -303,22 +303,22 @@ HydroSim::ctu_rad_cons_update(const Box& bx,
           ustar[g] = Erout(i,j,k,g) / Erscale[g];
         }
 
-        update_one_species(NGROUPS, ustar, af, dlognu, dt, nstep_fsp_tmp);
+        update_one_species(NGROUPS, ustar, af, dlognu, dt, n_freq_substeps_tmp);
 
         for (int g = 0; g < NGROUPS; g++) {
           Erout(i,j,k,g) = ustar[g] * Erscale[g];
         }
       }
 
-      return nstep_fsp_tmp;
+      return n_freq_substeps_tmp;
 
     });
 
     ReduceTuple hv = reduce_data.value();
-    nstep_fsp = amrex::get<0>(hv);
+    n_freq_substeps = amrex::get<0>(hv);
 
   }
 
-  return nstep_fsp;
+  return n_freq_substeps;
 }
 

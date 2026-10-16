@@ -61,7 +61,7 @@ int Radiation::pure_hydro = 0;
 
 // static initialization, must be called before HydroSim::variableSetUp
 
-void Radiation::read_static_params()
+void Radiation::parse_static_params()
 {
   ParmParse pp("radiation");
 
@@ -510,7 +510,7 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
     flux_cons[level]->setVal(0.0);
 
     // For deferred sync, flux_cons_old does not need to be defined here.
-    // It will be set in the deferred_sync_setup routine.
+    // It will be set in the prepare_deferred_sync routine.
 
     flux_trial[level] = std::make_unique<FluxRegister>(grids, dmap, crse_ratio, level, nGroups);
     flux_trial[level]->setVal(0.0);
@@ -703,9 +703,9 @@ void Radiation::post_init(int level)
     return;
 }
 
-void Radiation::pre_timestep(int level)
+void Radiation::before_timestep(int level)
 {
-  BL_PROFILE("Radiation::pre_timestep");
+  BL_PROFILE("Radiation::before_timestep");
   int fine_level = parent->finestLevel();
   int ncycle     = parent->nCycle(level);
 
@@ -1309,9 +1309,9 @@ void Radiation::getBndryDataMG(MGRadBndry& mgbd, MultiFab& Er,
   mgbd.setBndryFluxConds(rad_bc);
 }
 
-void Radiation::getBndryDataMG_ga(MGRadBndry& mgbd, MultiFab& Er, int level)
+void Radiation::getBndryDataMG_accel(MGRadBndry& mgbd, MultiFab& Er, int level)
 {
-  BL_PROFILE("Radiation::getBndryDataMG_ga");
+  BL_PROFILE("Radiation::getBndryDataMG_accel");
   HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
@@ -1780,9 +1780,9 @@ void Radiation::SGFLD_compute_rosseland(FArrayBox& kappa_r, const FArrayBox& sta
   Gpu::synchronize();
 }
 
-void Radiation::deferred_sync_setup(int crse_level)
+void Radiation::prepare_deferred_sync(int crse_level)
 {
-  BL_PROFILE("Radiation::deferred_sync_setup");
+  BL_PROFILE("Radiation::prepare_deferred_sync");
   if (verbose && ParallelDescriptor::IOProcessor()) {
     std::cout << "Radiation deferred sync setup for coarse level " << crse_level << "..." << std::endl;
   }

@@ -7,7 +7,7 @@ Currently supports two different Embiggen modes:
    (old level 0 -> new level 1, old level 1 -> new level 2, ...).
    A new level 0 is created and initialized during restart
    where the extended regions at level 0 are initialized according to
-   problem_initialize_state_data() and the regions overlapping
+   user_initial_state() and the regions overlapping
    the original coarse level, or the new level 1 is initialized
    by averaging down the data from the new level 1 grids.
 
@@ -21,7 +21,7 @@ Currently supports two different Embiggen modes:
    Extend the existing level 0 domain in the theta direction
    without adding a new AMR level. Existing data are preserved
    and copied into the enlarged domain. Newly added cells are
-   initialized during restart via problem_initialize_state_data().
+   initialized during restart via user_initial_state().
    This is designed for 2D Spherical Geometry specifically.
    It needs the new theta upper boundary in radian and the
    blocking factor used for running the simulation
@@ -267,6 +267,6 @@ Then you need to:
 Note that you should only set `hydrosim.old_theta_ncell = 240`
 once after you restart. This parameter tells hydrosim that it needs
 to initialize new zones that are larger than this based on
-`problem_initialize_state_data()`.
+`user_initial_state()`.
 
 ----------------------------------------------------

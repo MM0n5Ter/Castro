@@ -179,7 +179,7 @@ ppm_reconstruct(const ZoneStencil& s,
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
-ppm_reconstruct_pslope(const HydrostaticStencils& hse, const amrex::Real flatcoef,
+ppm_hse_reconstruct(const HydrostaticStencils& hse, const amrex::Real flatcoef,
                        const amrex::Real dx,
                        amrex::Real& sm, amrex::Real& sp) {
 
@@ -284,7 +284,7 @@ struct ParabolaIntegrals {
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 ParabolaIntegrals
-ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
+ppm_profile_integrals(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
                 const amrex::Real u, const amrex::Real c, const amrex::Real dtdx) {
 
   ParabolaIntegrals integrals;
@@ -356,7 +356,7 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::GpuTuple<Real, Real>
-ppm_int_profile_single(const Real sm, const Real sp, const Real sc,
+ppm_profile_integrals_1wave(const Real sm, const Real sp, const Real sc,
                        const Real lam, const Real dtdx) {
 
   // Integrate the parabolic profile to the edge of the cell.

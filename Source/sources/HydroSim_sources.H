@@ -154,7 +154,7 @@
 ///                 globally over all processes (AllRanks)
 ///                 or locally just on this processor (ThisRank)?
 ///
-    amrex::Vector<amrex::Real> evaluate_source_change(const amrex::MultiFab& source, amrex::Real dt,
+    amrex::Vector<amrex::Real> sum_source_change(const amrex::MultiFab& source, amrex::Real dt,
                                                       SumScope scope = SumScope::AllRanks);
 
 
@@ -165,7 +165,7 @@
 /// @param dt           timestep (will multiply the update)
 /// @param source_name  string to associate with this source
 ///
-    void evaluate_and_print_source_change(const amrex::MultiFab& source, amrex::Real dt,
+    void report_source_change(const amrex::MultiFab& source, amrex::Real dt,
                                           const std::string& source_name);
 
 
@@ -356,7 +356,7 @@
 /// @param dt       timestep
 ///
 
-    advance_status pre_advance_operators (amrex::Real time, amrex::Real dt);
+    advance_status before_advance_physics (amrex::Real time, amrex::Real dt);
 
 #ifdef SHOCK_VAR
 ///
@@ -377,7 +377,7 @@
 /// @param dt       timestep
 ///
 
-    advance_status pre_hydro_operators (amrex::Real time, amrex::Real dt);
+    advance_status before_hydro_physics (amrex::Real time, amrex::Real dt);
 
 
 ///
@@ -388,7 +388,7 @@
 /// @param dt       timestep
 ///
 
-    advance_status post_hydro_operators (amrex::Real time, amrex::Real dt);
+    advance_status after_hydro_physics (amrex::Real time, amrex::Real dt);
 
 
 ///
@@ -398,6 +398,6 @@
 /// @param dt       timestep
 ///
 
-    advance_status post_advance_operators (amrex::Real time, amrex::Real dt);
+    advance_status after_advance_physics (amrex::Real time, amrex::Real dt);
 
 #endif

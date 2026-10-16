@@ -30,9 +30,9 @@
 #include <omp.h>
 #endif
 
-#include <problem_initialize_state_data.H>
-#include <problem_checkpoint.H>
-#include <problem_restart.H>
+#include <user_initial_state.H>
+#include <user_checkpoint.H>
+#include <user_restart.H>
 #include <AMReX_buildInfo.H>
 
 using std::string;
@@ -48,7 +48,7 @@ using namespace amrex;
 // 2: Source_Type was added to the checkpoint
 // 3: A ReactHeader file was generated and the maximum de/dt was stored there
 // 4: Reactions_Type added to checkpoint; ReactHeader functionality deprecated
-// 5: Simplified_SDC_Source_Type and Simplified_SDC_React_Type added to checkpoint
+// 5: Simplified_SDC_Source_Type and SDC_React_Source_Type added to checkpoint
 // 6: Simplified_SDC_Source_Type removed from HydroSim
 // 7: A weights field was added to Reactions_Type; number of ghost zones increased to NUM_GROW
 // 8: Reactions_Type modified to use rho * omegadot instead of omegadot; rho * auxdot added
@@ -93,16 +93,16 @@ HydroSim::restart (Amr&     papa,
     // trying to read from checkpoint; if nonexisting, set it to 0.
     if (input_version == -1) {
         if (ParallelDescriptor::IOProcessor()) {
-            std::string FullPathHydroSimHeaderFile = papa.theRestartFile();
-            FullPathHydroSimHeaderFile += "/HydroSimHeader";
-            std::ifstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
-            if (HydroSimHeaderFile.good()) {
+            std::string SimHeaderFilePath = papa.theRestartFile();
+            SimHeaderFilePath += "/HydroSimHeader";
+            std::ifstream SimHeaderStream(SimHeaderFilePath);
+            if (SimHeaderStream.good()) {
                 std::string label;
                 // first line: Checkpoint version: ?
-                std::getline(HydroSimHeaderFile, label, ':');
-                HydroSimHeaderFile >> input_version;
-                if (HydroSimHeaderFile.fail()) {
-                    amrex::Error("unable to read the checkpoint version from " + FullPathHydroSimHeaderFile);
+                std::getline(SimHeaderStream, label, ':');
+                SimHeaderStream >> input_version;
+                if (SimHeaderStream.fail()) {
+                    amrex::Error("unable to read the checkpoint version from " + SimHeaderFilePath);
                 }
             } else {
                 input_version = 0;
@@ -124,8 +124,8 @@ HydroSim::restart (Amr&     papa,
 
     if (ParallelDescriptor::IOProcessor()) {
 
-        if (read_checkpoint_value(papa.theRestartFile() + "/dtHeader", lastDtBeforePlotLimiting)) {
-            lastDtPlotLimited = 1;
+        if (read_checkpoint_value(papa.theRestartFile() + "/dtHeader", prevDtBeforePlotClip)) {
+            prevDtClippedForPlot = 1;
         }
 
     }
@@ -134,14 +134,14 @@ HydroSim::restart (Amr&     papa,
 
     if (ParallelDescriptor::IOProcessor()) {
 
-      std::string FullPathStateList = papa.theRestartFile();
-      FullPathStateList += "/state_names.txt";
-      std::ifstream StateListFile(FullPathStateList);
+      std::string StateListPath = papa.theRestartFile();
+      StateListPath += "/state_names.txt";
+      std::ifstream StateListStream(StateListPath);
 
-      if (StateListFile.good()) {
+      if (StateListStream.good()) {
         std::string var;
         for (int n = 0; n < NUM_STATE; n++) {
-          StateListFile >> var;
+          StateListStream >> var;
           if (var != desc_lst[State_Type].name(n)) {
             amrex::Error("state variables do not agree");
           }
@@ -149,8 +149,8 @@ HydroSim::restart (Amr&     papa,
       }
     }
 
-    ParallelDescriptor::Bcast(&lastDtPlotLimited, 1, ParallelDescriptor::IOProcessorNumber());
-    ParallelDescriptor::Bcast(&lastDtBeforePlotLimiting, 1, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::Bcast(&prevDtClippedForPlot, 1, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::Bcast(&prevDtBeforePlotClip, 1, ParallelDescriptor::IOProcessorNumber());
 
     // also need to mod checkPoint function to store the new version in a text file
 
@@ -158,15 +158,15 @@ HydroSim::restart (Amr&     papa,
 
     buildMetrics();
 
-    initMFs();
+    allocate_level_mfs();
 
     // get the elapsed CPU time to now;
     if (level == 0 && ParallelDescriptor::IOProcessor())
     {
       // get elapsed CPU time
-      read_checkpoint_value(parent->theRestartFile() + "/CPUtime", previousCPUTimeUsed);
+      read_checkpoint_value(parent->theRestartFile() + "/CPUtime", priorRunCPUTime);
 
-      std::cout << "read CPU time: " << previousCPUTimeUsed << "\n";
+      std::cout << "read CPU time: " << priorRunCPUTime << "\n";
 
     }
 
@@ -183,12 +183,12 @@ HydroSim::restart (Amr&     papa,
     if (do_rotation && level == 0)
     {
         // get current value of the rotation period
-        std::string FullPathRotationFile = parent->theRestartFile();
-        FullPathRotationFile += "/Rotation";
-        std::ifstream RotationFile(FullPathRotationFile);
+        std::string RotationFilePath = parent->theRestartFile();
+        RotationFilePath += "/Rotation";
+        std::ifstream RotationInfoStream(RotationFilePath);
 
-        if (RotationFile.is_open()) {
-            RotationFile >> hydrosim::rotational_period;
+        if (RotationInfoStream.is_open()) {
+            RotationInfoStream >> hydrosim::rotational_period;
             amrex::Print() << "  Based on the checkpoint, setting the rotational period to "
                            << std::setprecision(7) << std::fixed << hydrosim::rotational_period << " s.\n";
         }
@@ -201,7 +201,7 @@ HydroSim::restart (Amr&     papa,
         // eliminating the need for a broadcast
         std::string dir = parent->theRestartFile();
 
-        problem_restart(dir);
+        user_restart(dir);
     }
 
     if ( (grown_factor > 1) && (parent->maxLevel() < 1) )
@@ -289,7 +289,7 @@ HydroSim::restart (Amr&     papa,
                {
                    // C++ problem initialization; has no effect if not implemented
                    // by a problem setup (defaults to an empty routine).
-                   problem_initialize_state_data(i, j, k, s, geomdata);
+                   user_initial_state(i, j, k, s, geomdata);
                });
 #endif
            }
@@ -329,7 +329,7 @@ HydroSim::restart (Amr&     papa,
                     // The box might be partially outside of the original domain
                     // Only fill data for those that are out.
                     if (j >= old_theta_ncell) {
-                        problem_initialize_state_data(i, j, k, s, geomdata);
+                        user_initial_state(i, j, k, s, geomdata);
                     }
                 });
             }
@@ -361,7 +361,7 @@ HydroSim::restart (Amr&     papa,
       radiation->regrid(level, grids, dmap);
       radiation->restart(level, grids, dmap, parent->theRestartFile(), is);
 
-      rad_solver = std::make_unique<RadSolve>(parent, level, grids, dmap);
+      radiation_solver = std::make_unique<RadSolve>(parent, level, grids, dmap);
     }
 #endif
 
@@ -380,7 +380,7 @@ HydroSim::restart (Amr&     papa,
         parent->setStartTime(reset_checkpoint_time);
         parent->setCumTime(reset_checkpoint_time);
 
-        for (int n = 0; n < num_state_type; ++n) {
+        for (int n = 0; n < n_state_types; ++n) {
             StateData& cur_state = get_state_data(n);
             cur_state.setOldTimeLevel(reset_checkpoint_time-dt);
             cur_state.setNewTimeLevel(reset_checkpoint_time   );
@@ -403,7 +403,7 @@ HydroSim::restart (Amr&     papa,
 void
 HydroSim::set_state_in_checkpoint (Vector<int>& state_in_checkpoint)
 {
-    for (int i=0; i<num_state_type; ++i) {
+    for (int i=0; i<n_state_types; ++i) {
         state_in_checkpoint[i] = 1;
     }
 }
@@ -428,7 +428,7 @@ HydroSim::checkPoint(const std::string& dir,
 #endif
 
 #ifdef AMREX_PARTICLES
-  ParticleCheckPoint(dir);
+  TracerCheckPoint(dir);
 #endif
 
   if (level != 0 || !ParallelDescriptor::IOProcessor()) {
@@ -436,29 +436,29 @@ HydroSim::checkPoint(const std::string& dir,
   }
 
   {
-      std::string FullPathHydroSimHeaderFile = dir;
-      FullPathHydroSimHeaderFile += "/HydroSimHeader";
-      std::ofstream HydroSimHeaderFile(FullPathHydroSimHeaderFile);
-      if (!HydroSimHeaderFile.good()) {
-          amrex::FileOpenFailed(FullPathHydroSimHeaderFile);
+      std::string SimHeaderFilePath = dir;
+      SimHeaderFilePath += "/HydroSimHeader";
+      std::ofstream SimHeaderStream(SimHeaderFilePath);
+      if (!SimHeaderStream.good()) {
+          amrex::FileOpenFailed(SimHeaderFilePath);
       }
 
-      HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
+      SimHeaderStream << "Checkpoint version: " << current_version << std::endl;
   }
 
-  writeJobInfo(dir, io_time);
+  writeRunInfoFile(dir, io_time);
 
   {
       // output the list of state variables, so we can do a sanity check on restart
-      std::string FullPathStateList = dir;
-      FullPathStateList += "/state_names.txt";
-      std::ofstream StateListFile(FullPathStateList);
-      if (!StateListFile.good()) {
-          amrex::FileOpenFailed(FullPathStateList);
+      std::string StateListPath = dir;
+      StateListPath += "/state_names.txt";
+      std::ofstream StateListStream(StateListPath);
+      if (!StateListStream.good()) {
+          amrex::FileOpenFailed(StateListPath);
       }
 
       for (int n = 0; n < NUM_STATE; n++) {
-        StateListFile << desc_lst[State_Type].name(n) << "\n";
+        StateListStream << desc_lst[State_Type].name(n) << "\n";
       }
   }
 
@@ -467,43 +467,43 @@ HydroSim::checkPoint(const std::string& dir,
   // this dt will be read in and used to limit the next timestep
   // appropriately, rather than the shortened timestep.
 
-  if (lastDtPlotLimited == 1) {
+  if (prevDtClippedForPlot == 1) {
 
-      std::string FullPathdtHeaderFile = dir;
-      FullPathdtHeaderFile += "/dtHeader";
-      std::ofstream dtHeaderFile(FullPathdtHeaderFile);
-      if (!dtHeaderFile.good()) {
-          amrex::FileOpenFailed(FullPathdtHeaderFile);
+      std::string DtFilePath = dir;
+      DtFilePath += "/dtHeader";
+      std::ofstream DtStream(DtFilePath);
+      if (!DtStream.good()) {
+          amrex::FileOpenFailed(DtFilePath);
       }
 
-      dtHeaderFile << lastDtBeforePlotLimiting << std::endl;
+      DtStream << prevDtBeforePlotClip << std::endl;
 
   }
 
   {
       // store elapsed CPU time
-      std::string FullPathCPUFile = dir;
-      FullPathCPUFile += "/CPUtime";
-      std::ofstream CPUFile(FullPathCPUFile);
-      if (!CPUFile.good()) {
-          amrex::FileOpenFailed(FullPathCPUFile);
+      std::string CPUTimeFilePath = dir;
+      CPUTimeFilePath += "/CPUtime";
+      std::ofstream CPUTimeStream(CPUTimeFilePath);
+      if (!CPUTimeStream.good()) {
+          amrex::FileOpenFailed(CPUTimeFilePath);
       }
 
-      CPUFile << std::setprecision(17) << getCPUTime();
+      CPUTimeStream << std::setprecision(17) << getCPUTime();
   }
 
 #ifdef GRAVITY
   if (use_point_mass) {
 
       // store current value of the point mass
-      std::string FullPathPMFile = dir;
-      FullPathPMFile += "/point_mass";
-      std::ofstream PMFile(FullPathPMFile);
-      if (!PMFile.good()) {
-          amrex::FileOpenFailed(FullPathPMFile);
+      std::string PointMassFilePath = dir;
+      PointMassFilePath += "/point_mass";
+      std::ofstream PointMassStream(PointMassFilePath);
+      if (!PointMassStream.good()) {
+          amrex::FileOpenFailed(PointMassFilePath);
       }
 
-      PMFile << std::setprecision(17) << point_mass << std::endl;
+      PointMassStream << std::setprecision(17) << point_mass << std::endl;
 
   }
 #endif
@@ -511,23 +511,23 @@ HydroSim::checkPoint(const std::string& dir,
 #ifdef ROTATION
   if (do_rotation) {
       // store current value of the rotation period
-      std::string FullPathRotationFile = dir;
-      FullPathRotationFile += "/Rotation";
-      std::ofstream RotationFile(FullPathRotationFile);
-      if (!RotationFile.good()) {
-          amrex::FileOpenFailed(FullPathRotationFile);
+      std::string RotationFilePath = dir;
+      RotationFilePath += "/Rotation";
+      std::ofstream RotationInfoStream(RotationFilePath);
+      if (!RotationInfoStream.good()) {
+          amrex::FileOpenFailed(RotationFilePath);
       }
 
-      RotationFile << std::scientific;
-      RotationFile.precision(19);
+      RotationInfoStream << std::scientific;
+      RotationInfoStream.precision(19);
 
-      RotationFile << std::setw(30) << hydrosim::rotational_period << std::endl;
+      RotationInfoStream << std::setw(30) << hydrosim::rotational_period << std::endl;
   }
 #endif
 
   {
       // store any problem-specific stuff
-      problem_checkpoint(dir);
+      user_checkpoint(dir);
   }
 }
 
@@ -556,8 +556,8 @@ HydroSim::setPlotVariables ()
 
 #ifdef REACTIONS
   if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
-      for (int i = 0; i < desc_lst[Simplified_SDC_React_Type].nComp(); i++) {
-          parent->deleteStatePlotVar(desc_lst[Simplified_SDC_React_Type].name(i));
+      for (int i = 0; i < desc_lst[SDC_React_Source_Type].nComp(); i++) {
+          parent->deleteStatePlotVar(desc_lst[SDC_React_Source_Type].name(i));
       }
   }
 #endif
@@ -567,7 +567,7 @@ HydroSim::setPlotVariables ()
 
 
 void
-HydroSim::writeJobInfo (const std::string& dir, const Real io_time)
+HydroSim::writeRunInfoFile (const std::string& dir, const Real io_time)
 {
 
   // job_info file with details about the run
@@ -889,10 +889,10 @@ HydroSim::writeJobInfo (const std::string& dir, const Real io_time)
 #endif
 
 #ifdef GRAVITY
-  gravity->output_job_info_params(jobInfoFile);
+  gravity->write_params_to_job_info(jobInfoFile);
 #endif
 #ifdef DIFFUSION
-  diffusion->output_job_info_params(jobInfoFile);
+  diffusion->write_params_to_job_info(jobInfoFile);
 #endif
 
 #include <prob_job_info_tests.H>
@@ -905,7 +905,7 @@ HydroSim::writeJobInfo (const std::string& dir, const Real io_time)
 
 
 void
-HydroSim::writeBuildInfo ()
+HydroSim::reportBuildInfo ()
 {
   std::string PrettyLine = std::string(78, '=') + "\n";
 
@@ -983,7 +983,7 @@ HydroSim::writePlotFile(const std::string& dir,
                       ostream& os,
                       VisMF::How how)
 {
-  plotFileOutput(dir, os, how, PlotfileKind::Full);
+  writePlotData(dir, os, how, PlotfileKind::Full);
 }
 
 
@@ -992,18 +992,18 @@ HydroSim::writeSmallPlotFile (const std::string& dir,
                             ostream&       os,
                             VisMF::How     how)
 {
-  plotFileOutput(dir, os, how, PlotfileKind::Small);
+  writePlotData(dir, os, how, PlotfileKind::Small);
 }
 
 
 void
-HydroSim::plotFileOutput(const std::string& dir,
+HydroSim::writePlotData(const std::string& dir,
                        ostream& os,
                        VisMF::How how,
                        const PlotfileKind kind)
 {
 #ifdef AMREX_PARTICLES
-  ParticlePlotFile(dir);
+  TracerPlotFile(dir);
 #endif
 
     //
@@ -1152,11 +1152,11 @@ HydroSim::plotFileOutput(const std::string& dir,
 #ifdef RADIATION
         if (do_radiation && Radiation::do_multigroup) {
           std::ofstream groupfile;
-          std::string FullPathGroupFile = dir;
-          FullPathGroupFile += "/RadiationGroups";
-          groupfile.open(FullPathGroupFile.c_str(), std::ios::out);
+          std::string GroupFilePath = dir;
+          GroupFilePath += "/RadiationGroups";
+          groupfile.open(GroupFilePath.c_str(), std::ios::out);
           if (!groupfile.good()) {
-              amrex::FileOpenFailed(FullPathGroupFile);
+              amrex::FileOpenFailed(GroupFilePath);
           }
 
           radiation->write_groups(groupfile);
@@ -1282,24 +1282,24 @@ HydroSim::plotFileOutput(const std::string& dir,
     const Real io_time = ParallelDescriptor::second() - io_start_time;
 
     if (level == 0 && ParallelDescriptor::IOProcessor()) {
-        writeJobInfo(dir, io_time);
+        writeRunInfoFile(dir, io_time);
     }
 
 #ifdef GRAVITY
     if (use_point_mass && level == 0) {
 
         // store current value of the point mass
-        std::ofstream PMFile;
-        std::string FullPathPMFile = dir;
-        FullPathPMFile += "/point_mass";
-        PMFile.open(FullPathPMFile.c_str(), std::ios::out);
-        if (!PMFile.good()) {
-            amrex::FileOpenFailed(FullPathPMFile);
+        std::ofstream PointMassStream;
+        std::string PointMassFilePath = dir;
+        PointMassFilePath += "/point_mass";
+        PointMassStream.open(PointMassFilePath.c_str(), std::ios::out);
+        if (!PointMassStream.good()) {
+            amrex::FileOpenFailed(PointMassFilePath);
         }
 
-        PMFile << std::setprecision(17) << point_mass << std::endl;
+        PointMassStream << std::setprecision(17) << point_mass << std::endl;
 
-        PMFile.close();
+        PointMassStream.close();
 
     }
 #endif

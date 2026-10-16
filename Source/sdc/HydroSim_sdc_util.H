@@ -185,7 +185,7 @@ sdc_update_o2(const int i, const int j, const int k,
         burn_t burn_state;
 
         copy_cons_to_burn_type(U_new, burn_state);
-        R_full = single_zone_react_source(burn_state);
+        R_full = cell_react_source(burn_state);
     }
 
     for (int n = 0; n < NUM_STATE; ++n) {
@@ -230,7 +230,7 @@ instantaneous_react(const int i, const int j, const int k,
     GpuArray<Real, NUM_STATE> R_source;
 
     if (okay_to_burn(i, j, k, state)) {
-        R_source = single_zone_react_source(i, j, k, state);
+        R_source = cell_react_source(i, j, k, state);
     } else {
         for (int n = 0; n < NUM_STATE; ++n) {
             R_source[n] = 0.0_rt;

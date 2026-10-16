@@ -92,7 +92,7 @@ public:
 ///
 /// @param jobInfoFile      std::ostream object
 ///
-  static void output_job_info_params(std::ostream& jobInfoFile);
+  static void write_params_to_job_info(std::ostream& jobInfoFile);
 
 
 ///
@@ -186,7 +186,7 @@ public:
 /// The RHS we will use is the density multiplied by 4*pi*G and also
 /// multiplied by the metric terms, just as it would be in a real solve.
 ///
-  void update_max_rhs();
+  void refresh_max_rhs();
 
 ///
 /// Solve Poisson's equation to find the gravitational potential
@@ -254,13 +254,13 @@ public:
 ///
 /// @param level                       level index
 /// @param comp_phi                    MultiFab containing computed phi
-/// @param comp_gphi                   Vector of MultiFabs containing computed grad phi
+/// @param comp_grad_phi                   Vector of MultiFabs containing computed grad phi
 /// @param composite_level_phi_diff        MultiFab, computed minus level phi
 /// @param composite_level_grad_phi_diff   Vector of MultiFabs, computed minus level grad phi
 ///
   void build_composite_level_diff(int level,
                                         amrex::MultiFab& comp_phi,
-                                        const amrex::Vector<amrex::MultiFab*>& comp_gphi,
+                                        const amrex::Vector<amrex::MultiFab*>& comp_grad_phi,
                                         amrex::MultiFab& composite_level_phi_diff,
                                         GradPhiVector& composite_level_grad_phi_diff);
 
@@ -284,7 +284,7 @@ public:
 /// @param time         Current time
 /// @param grav_vector  MultiFab containing gravity vector
 ///
-  void get_old_grav_vector(int level, amrex::Real time, amrex::MultiFab& grav_vector);
+  void fill_old_gravity_field(int level, amrex::Real time, amrex::MultiFab& grav_vector);
 
 ///
 /// Get new gravity vector
@@ -293,7 +293,7 @@ public:
 /// @param time         Current time
 /// @param grav_vector  MultiFab containing gravity vector
 ///
-  void get_new_grav_vector(int level, amrex::Real time, amrex::MultiFab& grav_vector);
+  void fill_new_gravity_field(int level, amrex::Real time, amrex::MultiFab& grav_vector);
 
 ///
 /// Test whether using the edge-based gradients

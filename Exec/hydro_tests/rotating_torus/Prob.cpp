@@ -25,11 +25,11 @@ HydroSim::compute_moment_of_inertia()
     for (int lev = 0; lev <= finest_level; ++lev) {
 
         // Get the HydroSim level
-        HydroSim& hs_lev = getLevel(lev);
+        HydroSim& sim_lev = getLevel(lev);
 
         // Add up the moment of inertia on this level
         int idir = -1; // So we do r**2, rather than any particular direction
-        moment += hs_lev.locSquaredSum("density", time, idir, SumScope::ThisRank);
+        moment += sim_lev.positionSquaredWeightedSum("density", time, idir, SumScope::ThisRank);
 
     }
 
@@ -41,7 +41,7 @@ HydroSim::compute_moment_of_inertia()
 }
 
 void
-HydroSim::problem_post_init() {
+HydroSim::user_post_init() {
 
     if (level != 0) return;
 
@@ -52,7 +52,7 @@ HydroSim::problem_post_init() {
 }
 
 void
-HydroSim::problem_post_restart() {
+HydroSim::user_post_restart() {
 
     if (level != 0) return;
 
@@ -63,7 +63,7 @@ HydroSim::problem_post_restart() {
 }
 
 void
-HydroSim::problem_post_timestep() {
+HydroSim::user_post_timestep() {
 
     if (level != 0) return;
 

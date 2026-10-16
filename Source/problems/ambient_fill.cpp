@@ -1,9 +1,9 @@
 #include <ambient.H>
 #include <HydroSim.H>
-#include <HydroSim_bc_fill_nd.H>
+#include <HydroSim_bc_fill.H>
 
 void
-ambient_denfill(const Box& bx, Array4<Real> const& state,
+ambient_density_fill(const Box& bx, Array4<Real> const& state,
                 Geometry const& geom, const Vector<BCRec>& bcr)
 {
 

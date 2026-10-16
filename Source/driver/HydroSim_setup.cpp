@@ -7,8 +7,8 @@
 #include <AMReX_LevelBld.H>
 #include <AMReX_ParmParse.H>
 #include <HydroSim.H>
-#include <HydroSim_bc_fill_nd.H>
-#include <HydroSim_generic_fill.H>
+#include <HydroSim_bc_fill.H>
+#include <HydroSim_default_fill.H>
 #include <Derive.H>
 #include <runtime_parameters.H>
 #ifdef RADIATION
@@ -149,7 +149,7 @@ HydroSim::variableSetUp ()
 
 
   // initialize the start time for our CPU-time tracker
-  startCPUTime = ParallelDescriptor::second();
+  runStartCPUTime = ParallelDescriptor::second();
 
 
   // Output the git commit hashes used to build the executable.
@@ -190,7 +190,7 @@ HydroSim::variableSetUp ()
 
   // Initialize the runtime parameters for any of the external
   // microphysics
-  extern_init();
+  init_external_params();
 
   // set small positive values of the "small" quantities if they are
   // negative
@@ -401,7 +401,7 @@ HydroSim::variableSetUp ()
   if (time_integration_method == SimplifiedSpectralDeferredCorrections) {
 
       store_in_checkpoint = true;
-      desc_lst.addDescriptor(Simplified_SDC_React_Type, IndexType::TheCellType(),
+      desc_lst.addDescriptor(SDC_React_Source_Type, IndexType::TheCellType(),
                              StateDescriptor::Point, 1, NQ,
                              interp, state_data_extrap, store_in_checkpoint);
 
@@ -512,7 +512,7 @@ HydroSim::variableSetUp ()
   name[UMU_N] = "mu_n";
 #endif
 
-  BndryFunc stateBndryFunc(hs_statefill);
+  BndryFunc stateBndryFunc(fill_state_bc);
   stateBndryFunc.setRunOnGPU(true);
 
   desc_lst.setComponent(State_Type,
@@ -521,14 +521,14 @@ HydroSim::variableSetUp ()
                         bcs,
                         stateBndryFunc);
 
-  BndryFunc genericBndryFunc(hs_generic_fill);
-  genericBndryFunc.setRunOnGPU(true);
+  BndryFunc defaultBndryFunc(default_bc_fill);
+  defaultBndryFunc.setRunOnGPU(true);
 
 #ifdef MHD
   set_mag_field_bc(bc, phys_bc);
-  desc_lst.setComponent(Mag_Type_x, 0, "b_x", bc, genericBndryFunc);
-  desc_lst.setComponent(Mag_Type_y, 0, "b_y", bc, genericBndryFunc);
-  desc_lst.setComponent(Mag_Type_z, 0, "b_z", bc, genericBndryFunc);
+  desc_lst.setComponent(Mag_Type_x, 0, "b_x", bc, defaultBndryFunc);
+  desc_lst.setComponent(Mag_Type_y, 0, "b_y", bc, defaultBndryFunc);
+  desc_lst.setComponent(Mag_Type_z, 0, "b_z", bc, defaultBndryFunc);
 #endif
 
 
@@ -536,16 +536,16 @@ HydroSim::variableSetUp ()
 #ifdef GRAVITY
   set_scalar_bc(bc,phys_bc);
   replace_inflow_bc(bc);
-  desc_lst.setComponent(Potential_Type,0,"phiGrav",bc,genericBndryFunc);
+  desc_lst.setComponent(Potential_Type,0,"phiGrav",bc,defaultBndryFunc);
   set_vel_bc<0>(bc,phys_bc);
   replace_inflow_bc(bc);
-  desc_lst.setComponent(Gravity_Type,0,"grav_x",bc,genericBndryFunc);
+  desc_lst.setComponent(Gravity_Type,0,"grav_x",bc,defaultBndryFunc);
   set_vel_bc<1>(bc,phys_bc);
   replace_inflow_bc(bc);
-  desc_lst.setComponent(Gravity_Type,1,"grav_y",bc,genericBndryFunc);
+  desc_lst.setComponent(Gravity_Type,1,"grav_y",bc,defaultBndryFunc);
   set_vel_bc<2>(bc,phys_bc);
   replace_inflow_bc(bc);
-  desc_lst.setComponent(Gravity_Type,2,"grav_z",bc,genericBndryFunc);
+  desc_lst.setComponent(Gravity_Type,2,"grav_z",bc,defaultBndryFunc);
 #endif
 
   // Source term array will use source fill
@@ -561,10 +561,10 @@ HydroSim::variableSetUp ()
     replace_inflow_bc(source_bcs[i]);
   }
 
-  desc_lst.setComponent(Source_Type, URHO, state_type_source_names, source_bcs, genericBndryFunc);
+  desc_lst.setComponent(Source_Type, URHO, state_type_source_names, source_bcs, defaultBndryFunc);
 
 #ifdef REACTIONS
-  desc_lst.setComponent(Reactions_Type, 0, "rho_enuc", bc, genericBndryFunc);
+  desc_lst.setComponent(Reactions_Type, 0, "rho_enuc", bc, defaultBndryFunc);
 
   if (store_omegadot == 1) {
 
@@ -575,7 +575,7 @@ HydroSim::variableSetUp ()
           set_scalar_bc(bc,phys_bc);
           replace_inflow_bc(bc);
           name_react = "rho_omegadot_" + short_spec_names_cxx[i];
-          desc_lst.setComponent(Reactions_Type, 1+i, name_react, bc,genericBndryFunc);
+          desc_lst.setComponent(Reactions_Type, 1+i, name_react, bc,defaultBndryFunc);
       }
 #if NAUX_NET > 0
       std::string name_aux;
@@ -583,7 +583,7 @@ HydroSim::variableSetUp ()
           set_scalar_bc(bc,phys_bc);
           replace_inflow_bc(bc);
           name_aux = "rho_auxdot_" + short_aux_names_cxx[i];
-          desc_lst.setComponent(Reactions_Type, 1+NumSpec+i, name_aux, bc, genericBndryFunc);
+          desc_lst.setComponent(Reactions_Type, 1+NumSpec+i, name_aux, bc, defaultBndryFunc);
       }
 #endif
   }
@@ -591,10 +591,10 @@ HydroSim::variableSetUp ()
   set_scalar_bc(bc,phys_bc);
   replace_inflow_bc(bc);
   if (store_omegadot == 1) {
-    desc_lst.setComponent(Reactions_Type, NumSpec+NumAux+1, "in_nse", bc, genericBndryFunc);
+    desc_lst.setComponent(Reactions_Type, NumSpec+NumAux+1, "in_nse", bc, defaultBndryFunc);
   }
   else {
-    desc_lst.setComponent(Reactions_Type, 1, "in_nse", bc, genericBndryFunc);
+    desc_lst.setComponent(Reactions_Type, 1, "in_nse", bc, defaultBndryFunc);
   }
 #endif
   // names for the burn_weights that are manually added to the plotfile
@@ -619,9 +619,9 @@ HydroSim::variableSetUp ()
           set_scalar_bc(bc,phys_bc);
           replace_inflow_bc(bc);
 
-          desc_lst.setComponent(Simplified_SDC_React_Type, i,
+          desc_lst.setComponent(SDC_React_Source_Type, i,
                                 std::format("sdc_react_source_{}", i),
-                                bc, genericBndryFunc);
+                                bc, defaultBndryFunc);
       }
   }
 #endif
@@ -643,14 +643,14 @@ HydroSim::variableSetUp ()
   if (!Radiation::do_multigroup) {
     desc_lst
       .setComponent(Rad_Type, Rad, "rad", bc,
-                    genericBndryFunc);
+                    defaultBndryFunc);
   }
   else {
       for (int i = 0; i < Radiation::nGroups; i++) {
         rad_name = std::format("rad{}", i);
         desc_lst
           .setComponent(Rad_Type, i, rad_name, bc,
-                        genericBndryFunc);
+                        defaultBndryFunc);
       }
   }
 #endif
@@ -683,63 +683,63 @@ HydroSim::variableSetUp ()
     }
 
     desc_lst.setComponent(SDC_Source_Type, URHO, sdc_source_names, sdc_source_bcs,
-                          genericBndryFunc);
+                          defaultBndryFunc);
   }
 #endif
 
-  num_state_type = desc_lst.size();
+  n_state_types = desc_lst.size();
 
   //
   // DEFINE DERIVED QUANTITIES
   //
   // Pressure
   //
-  derive_lst.add("pressure",IndexType::TheCellType(),1,derived_fields::hs_derpres,the_same_box);
+  derive_lst.add("pressure",IndexType::TheCellType(),1,derived_fields::derive_pressure,the_same_box);
   derive_lst.addComponent("pressure",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Kinetic energy
   //
-  derive_lst.add("kineng",IndexType::TheCellType(),1,derived_fields::hs_derkineng,the_same_box);
+  derive_lst.add("kineng",IndexType::TheCellType(),1,derived_fields::derive_kinetic_energy,the_same_box);
   derive_lst.addComponent("kineng",desc_lst,State_Type, URHO, 1);
   derive_lst.addComponent("kineng",desc_lst,State_Type, UMX, 3);
 
   //
   // Sound speed (c)
   //
-  derive_lst.add("soundspeed",IndexType::TheCellType(),1,derived_fields::hs_dersoundspeed,the_same_box);
+  derive_lst.add("soundspeed",IndexType::TheCellType(),1,derived_fields::derive_sound_speed,the_same_box);
   derive_lst.addComponent("soundspeed",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Gamma_1
   //
-  derive_lst.add("Gamma_1",IndexType::TheCellType(),1,derived_fields::hs_dergamma1,the_same_box);
+  derive_lst.add("Gamma_1",IndexType::TheCellType(),1,derived_fields::derive_gamma1,the_same_box);
   derive_lst.addComponent("Gamma_1",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Mach number(M)
   //
-  derive_lst.add("MachNumber",IndexType::TheCellType(),1,derived_fields::hs_dermachnumber,the_same_box);
+  derive_lst.add("MachNumber",IndexType::TheCellType(),1,derived_fields::derive_mach,the_same_box);
   derive_lst.addComponent("MachNumber",desc_lst,State_Type, URHO, NUM_STATE);
 
 #if (AMREX_SPACEDIM == 1)
   //
   // Wave speed u+c
   //
-  derive_lst.add("uplusc",IndexType::TheCellType(),1,derived_fields::hs_deruplusc,the_same_box);
+  derive_lst.add("uplusc",IndexType::TheCellType(),1,derived_fields::derive_u_plus_cs,the_same_box);
   derive_lst.addComponent("uplusc",desc_lst,State_Type, URHO, NUM_STATE);
 
   //
   // Wave speed u-c
   //
-  derive_lst.add("uminusc",IndexType::TheCellType(),1,derived_fields::hs_deruminusc,the_same_box);
+  derive_lst.add("uminusc",IndexType::TheCellType(),1,derived_fields::derive_u_minus_cs,the_same_box);
   derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
 #endif
 
   //
   // Entropy (S)
   //
-  derive_lst.add("entropy",IndexType::TheCellType(),1,derived_fields::hs_derentropy,the_same_box);
+  derive_lst.add("entropy",IndexType::TheCellType(),1,derived_fields::derive_entropy,the_same_box);
   derive_lst.addComponent("entropy",desc_lst,State_Type,URHO,NUM_STATE);
 
 #ifdef DIFFUSION
@@ -747,21 +747,21 @@ HydroSim::variableSetUp ()
     //
     // thermal conductivity (k_th)
     //
-    derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derived_fields::hs_dercond,the_same_box);
+    derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derived_fields::derive_conductivity,the_same_box);
     derive_lst.addComponent("thermal_cond",desc_lst,State_Type,URHO,NUM_STATE);
 
 
     //
     // thermal diffusivity (k_th/(rho c_v))
     //
-    derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derived_fields::hs_derdiffcoeff,the_same_box);
+    derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derived_fields::derive_diffusivity,the_same_box);
     derive_lst.addComponent("diff_coeff",desc_lst,State_Type,URHO,NUM_STATE);
 
 
     //
     // diffusion term (the divergence of thermal flux)
     //
-    derive_lst.add("diff_term",IndexType::TheCellType(),1,derived_fields::hs_derdiffterm,grow_box_by_one);
+    derive_lst.add("diff_term",IndexType::TheCellType(),1,derived_fields::derive_conduction_term,grow_box_by_one);
     derive_lst.addComponent("diff_term",desc_lst,State_Type,URHO,NUM_STATE);
 
 
@@ -771,7 +771,7 @@ HydroSim::variableSetUp ()
   //
   // Vorticity
   //
-  derive_lst.add("magvort",IndexType::TheCellType(),1,derived_fields::hs_dermagvort,grow_box_by_one);
+  derive_lst.add("magvort",IndexType::TheCellType(),1,derived_fields::derive_vorticity,grow_box_by_one);
   // Here we exploit the fact that UMX = URHO + 1
   //   in order to use the correct interpolation.
   if (UMX != URHO+1) {
@@ -782,29 +782,29 @@ HydroSim::variableSetUp ()
   //
   // Div(u)
   //
-  derive_lst.add("divu",IndexType::TheCellType(),1,derived_fields::hs_derdivu,grow_box_by_one);
+  derive_lst.add("divu",IndexType::TheCellType(),1,derived_fields::derive_div_velocity,grow_box_by_one);
   derive_lst.addComponent("divu",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("divu",desc_lst,State_Type,UMX,3);
 
   //
   // Internal energy as derived from rho*E, part of the state
   //
-  derive_lst.add("eint_E",IndexType::TheCellType(),1,derived_fields::hs_dereint1,the_same_box);
+  derive_lst.add("eint_E",IndexType::TheCellType(),1,derived_fields::derive_eint_from_total,the_same_box);
   derive_lst.addComponent("eint_E",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Internal energy as derived from rho*e, part of the state
   //
-  derive_lst.add("eint_e",IndexType::TheCellType(),1,derived_fields::hs_dereint2,the_same_box);
+  derive_lst.add("eint_e",IndexType::TheCellType(),1,derived_fields::derive_eint_from_rhoe,the_same_box);
   derive_lst.addComponent("eint_e",desc_lst,State_Type,URHO,NUM_STATE);
 
   //
   // Log(density)
   //
-  derive_lst.add("logden",IndexType::TheCellType(),1,derived_fields::hs_derlogden,the_same_box);
+  derive_lst.add("logden",IndexType::TheCellType(),1,derived_fields::derive_log_density,the_same_box);
   derive_lst.addComponent("logden",desc_lst,State_Type,URHO,NUM_STATE);
 
-  derive_lst.add("StateErr",IndexType::TheCellType(),3,derived_fields::hs_derstate,grow_box_by_one);
+  derive_lst.add("StateErr",IndexType::TheCellType(),3,derived_fields::derive_state_copy,grow_box_by_one);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,UTEMP,1);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,USPEC,1);
@@ -814,7 +814,7 @@ HydroSim::variableSetUp ()
   //
   for (int i = 0; i < NumSpec; i++){
     std::string spec_string = "X(" + short_spec_names_cxx[i] + ")";
-    derive_lst.add(spec_string,IndexType::TheCellType(),1,derived_fields::hs_derspec,the_same_box);
+    derive_lst.add(spec_string,IndexType::TheCellType(),1,derived_fields::derive_species,the_same_box);
     derive_lst.addComponent(spec_string,desc_lst,State_Type,URHO,1);
     derive_lst.addComponent(spec_string,desc_lst,State_Type,USPEC+i,1);
   }
@@ -824,12 +824,12 @@ HydroSim::variableSetUp ()
   // Abar and Ye
   // note: if we are using aux thermodynamics, then abar is already an aux quantity
   //
-  derive_lst.add("abar",IndexType::TheCellType(),1,derived_fields::hs_derabar,the_same_box);
+  derive_lst.add("abar",IndexType::TheCellType(),1,derived_fields::derive_mean_mass_number,the_same_box);
   derive_lst.addComponent("abar",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("abar",desc_lst,State_Type,USPEC,NumSpec);
 
 #ifdef REACTIONS
-  derive_lst.add("Ye",IndexType::TheCellType(),1,derived_fields::hs_derye,the_same_box);
+  derive_lst.add("Ye",IndexType::TheCellType(),1,derived_fields::derive_electron_fraction,the_same_box);
   derive_lst.addComponent("Ye",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("Ye",desc_lst,State_Type,USPEC,NumSpec);
 #endif
@@ -838,15 +838,15 @@ HydroSim::variableSetUp ()
   //
   // Velocities
   //
-  derive_lst.add("x_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
+  derive_lst.add("x_velocity",IndexType::TheCellType(),1,derived_fields::derive_velocity,the_same_box);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,UMX,1);
 
-  derive_lst.add("y_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
+  derive_lst.add("y_velocity",IndexType::TheCellType(),1,derived_fields::derive_velocity,the_same_box);
   derive_lst.addComponent("y_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("y_velocity",desc_lst,State_Type,UMY,1);
 
-  derive_lst.add("z_velocity",IndexType::TheCellType(),1,derived_fields::hs_dervel,the_same_box);
+  derive_lst.add("z_velocity",IndexType::TheCellType(),1,derived_fields::derive_velocity,the_same_box);
   derive_lst.addComponent("z_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("z_velocity",desc_lst,State_Type,UMZ,1);
 
@@ -856,47 +856,47 @@ HydroSim::variableSetUp ()
   // Sound-crossing time t_s == dx / c_s
   // Ratio of these is t_s_t_e == t_s / t_e
   //
-  derive_lst.add("t_sound_t_enuc", IndexType::TheCellType(), 1, derived_fields::hs_derenuctimescale, the_same_box);
+  derive_lst.add("t_sound_t_enuc", IndexType::TheCellType(), 1, derived_fields::derive_burn_time_ratio, the_same_box);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, State_Type, URHO, NUM_STATE);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, Reactions_Type, 0, 1);
 
   //
   // Nuclear energy generation rate
   //
-  derive_lst.add("enuc", IndexType::TheCellType(), 1, derived_fields::hs_derenuc, the_same_box);
+  derive_lst.add("enuc", IndexType::TheCellType(), 1, derived_fields::derive_energy_rate, the_same_box);
   derive_lst.addComponent("enuc", desc_lst, State_Type, URHO, 1);
   derive_lst.addComponent("enuc", desc_lst, Reactions_Type, 0, 1);
 #endif
 
-  derive_lst.add("magvel",IndexType::TheCellType(),1,derived_fields::hs_dermagvel,the_same_box);
+  derive_lst.add("magvel",IndexType::TheCellType(),1,derived_fields::derive_speed,the_same_box);
   derive_lst.addComponent("magvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("magvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("radvel",IndexType::TheCellType(),1,derived_fields::hs_derradialvel,the_same_box);
+  derive_lst.add("radvel",IndexType::TheCellType(),1,derived_fields::derive_radial_velocity,the_same_box);
   derive_lst.addComponent("radvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("radvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("circvel",IndexType::TheCellType(),1,derived_fields::hs_dercircvel,the_same_box);
+  derive_lst.add("circvel",IndexType::TheCellType(),1,derived_fields::derive_circular_velocity,the_same_box);
   derive_lst.addComponent("circvel",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("circvel",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("magmom",IndexType::TheCellType(),1,derived_fields::hs_dermagmom,the_same_box);
+  derive_lst.add("magmom",IndexType::TheCellType(),1,derived_fields::derive_momentum_magnitude,the_same_box);
   derive_lst.addComponent("magmom",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_x",IndexType::TheCellType(),1,derived_fields::hs_derangmomx,the_same_box);
+  derive_lst.add("angular_momentum_x",IndexType::TheCellType(),1,derived_fields::derive_ang_mom_x,the_same_box);
   derive_lst.addComponent("angular_momentum_x",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_x",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_y",IndexType::TheCellType(),1,derived_fields::hs_derangmomy,the_same_box);
+  derive_lst.add("angular_momentum_y",IndexType::TheCellType(),1,derived_fields::derive_ang_mom_y,the_same_box);
   derive_lst.addComponent("angular_momentum_y",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_y",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("angular_momentum_z",IndexType::TheCellType(),1,derived_fields::hs_derangmomz,the_same_box);
+  derive_lst.add("angular_momentum_z",IndexType::TheCellType(),1,derived_fields::derive_ang_mom_z,the_same_box);
   derive_lst.addComponent("angular_momentum_z",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("angular_momentum_z",desc_lst,State_Type,UMX,3);
 
 #ifdef GRAVITY
-  derive_lst.add("maggrav",IndexType::TheCellType(),1,derived_fields::hs_dermaggrav,the_same_box);
+  derive_lst.add("maggrav",IndexType::TheCellType(),1,derived_fields::derive_grav_magnitude,the_same_box);
   derive_lst.addComponent("maggrav",desc_lst,Gravity_Type,0,3);
 #endif
 
@@ -906,16 +906,16 @@ HydroSim::variableSetUp ()
   // in each cell.  We only intend to use it in plotfiles for debugging
   // purposes.  We'll actually set the values in writePlotFile().
   //
-  derive_lst.add("particle_count",IndexType::TheCellType(),1,derived_fields::hs_dernull,the_same_box);
+  derive_lst.add("particle_count",IndexType::TheCellType(),1,derived_fields::derive_nothing,the_same_box);
   derive_lst.addComponent("particle_count",desc_lst,State_Type,URHO,1);
 
-  derive_lst.add("total_particle_count",IndexType::TheCellType(),1,derived_fields::hs_dernull,the_same_box);
+  derive_lst.add("total_particle_count",IndexType::TheCellType(),1,derived_fields::derive_nothing,the_same_box);
   derive_lst.addComponent("total_particle_count",desc_lst,State_Type,URHO,1);
 #endif
 
 #ifdef RADIATION
   if (Radiation::do_multigroup) {
-    derive_lst.add("Ertot", IndexType::TheCellType(),1,derived_fields::hs_derertot,the_same_box);
+    derive_lst.add("Ertot", IndexType::TheCellType(),1,derived_fields::derive_total_rad_energy,the_same_box);
     derive_lst.addComponent("Ertot",desc_lst,Rad_Type,0,Radiation::nGroups);
   }
 #endif
@@ -925,17 +925,17 @@ HydroSim::variableSetUp ()
 //
 //Magentic Field Cell Centered
 //x component
-  derive_lst.add("B_x", IndexType::TheCellType(), 1, derived_fields::hs_dermagcenx, the_same_box);
+  derive_lst.add("B_x", IndexType::TheCellType(), 1, derived_fields::derive_b_center_x, the_same_box);
   derive_lst.addComponent("B_x", desc_lst, Mag_Type_x, 0, 1);
 //y component
-  derive_lst.add("B_y", IndexType::TheCellType(), 1, derived_fields::hs_dermagceny, the_same_box);
+  derive_lst.add("B_y", IndexType::TheCellType(), 1, derived_fields::derive_b_center_y, the_same_box);
   derive_lst.addComponent("B_y", desc_lst, Mag_Type_y, 0, 1);
 //z component
-  derive_lst.add("B_z", IndexType::TheCellType(), 1, derived_fields::hs_dermagcenz, the_same_box);
+  derive_lst.add("B_z", IndexType::TheCellType(), 1, derived_fields::derive_b_center_z, the_same_box);
   derive_lst.addComponent("B_z", desc_lst, Mag_Type_z, 0, 1);
 
 //Divergence of B
-  derive_lst.add("Div_B", IndexType::TheCellType(), 1, derived_fields::hs_derdivb, the_same_box);
+  derive_lst.add("Div_B", IndexType::TheCellType(), 1, derived_fields::derive_div_b, the_same_box);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_x, 0, 1);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_y, 0, 1);
   derive_lst.addComponent("Div_B", desc_lst, Mag_Type_z, 0, 1);
@@ -945,7 +945,7 @@ HydroSim::variableSetUp ()
 
 #if NAUX_NET > 0
   for (int i = 0; i < NumAux; i++)  {
-    derive_lst.add(short_aux_names_cxx[i], IndexType::TheCellType(), 1, derived_fields::hs_derspec, the_same_box);
+    derive_lst.add(short_aux_names_cxx[i], IndexType::TheCellType(), 1, derived_fields::derive_species, the_same_box);
     derive_lst.addComponent(short_aux_names_cxx[i], desc_lst, State_Type, URHO, 1);
     derive_lst.addComponent(short_aux_names_cxx[i], desc_lst, State_Type, UAUXV+i, 1);
   }
@@ -958,47 +958,47 @@ HydroSim::variableSetUp ()
   //
   // DEFINE ERROR ESTIMATION QUANTITIES
   //
-  err_list_names.emplace_back("density");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("density");
+  tag_field_ngrow.push_back(1);
 
-  err_list_names.emplace_back("Temp");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("Temp");
+  tag_field_ngrow.push_back(1);
 
-  err_list_names.emplace_back("pressure");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("pressure");
+  tag_field_ngrow.push_back(1);
 
-  err_list_names.emplace_back("x_velocity");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("x_velocity");
+  tag_field_ngrow.push_back(1);
 
 #if (AMREX_SPACEDIM >= 2)
-  err_list_names.emplace_back("y_velocity");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("y_velocity");
+  tag_field_ngrow.push_back(1);
 #endif
 
 #if (AMREX_SPACEDIM == 3)
-  err_list_names.emplace_back("z_velocity");
-  err_list_ng.push_back(1);
+  tag_field_names.emplace_back("z_velocity");
+  tag_field_ngrow.push_back(1);
 #endif
 
 #ifdef REACTIONS
-  err_list_names.emplace_back("t_sound_t_enuc");
-  err_list_ng.push_back(0);
+  tag_field_names.emplace_back("t_sound_t_enuc");
+  tag_field_ngrow.push_back(0);
 
-  err_list_names.emplace_back("enuc");
-  err_list_ng.push_back(0);
+  tag_field_names.emplace_back("enuc");
+  tag_field_ngrow.push_back(0);
 #endif
 
 #ifdef RADIATION
   if (do_radiation && !Radiation::do_multigroup) {
-      err_list_names.emplace_back("rad");
-      err_list_ng.push_back(1);
+      tag_field_names.emplace_back("rad");
+      tag_field_ngrow.push_back(1);
   }
 #endif
 
   // Save the number of built-in functions; this will help us
   // distinguish between those, and the ones the user is about to add.
 
-  num_err_list_default = static_cast<int>(err_list_names.size());
+  n_default_tag_fields = static_cast<int>(tag_field_names.size());
 
   //
   // Construct an array holding the names of the source terms.

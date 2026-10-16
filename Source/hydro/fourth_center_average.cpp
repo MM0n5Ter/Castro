@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-HydroSim::make_cell_center(const Box& bx,
+HydroSim::to_cell_center(const Box& bx,
                          Array4<Real const> const& U,
                          Array4<Real> const& U_cc,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -46,7 +46,7 @@ HydroSim::make_cell_center(const Box& bx,
 }
 
 void
-HydroSim::make_cell_center_in_place(const Box& bx,
+HydroSim::to_cell_center_in_place(const Box& bx,
                                   Array4<Real> const& U,
                                   Array4<Real> const& tmp,
                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -84,7 +84,7 @@ HydroSim::make_cell_center_in_place(const Box& bx,
 
 
 void
-HydroSim::compute_lap_term(const Box& bx,
+HydroSim::laplacian_term(const Box& bx,
                          Array4<Real const> const& U,
                          Array4<Real> const& lap, const int ncomp,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -112,7 +112,7 @@ HydroSim::compute_lap_term(const Box& bx,
 
 
 void
-HydroSim::make_fourth_average(const Box& bx,
+HydroSim::to_fourth_order_average(const Box& bx,
                             Array4<Real> const& q_arr,
                             Array4<Real const> const& q_bar_arr,
                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -141,7 +141,7 @@ HydroSim::make_fourth_average(const Box& bx,
 
 
 void
-HydroSim::make_fourth_in_place(const Box& bx,
+HydroSim::to_fourth_order_in_place(const Box& bx,
                              Array4<Real> const& q_arr,
                              Array4<Real> const& tmp,
                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
@@ -151,13 +151,13 @@ HydroSim::make_fourth_in_place(const Box& bx,
   // Note: this routine is not tile safe.
 
   for (int n = 0; n < q_arr.nComp(); n++) {
-    make_fourth_in_place_n(bx, q_arr, n, tmp, domlo, domhi);
+    to_fourth_order_in_place_n(bx, q_arr, n, tmp, domlo, domhi);
   }
 }
 
 
 void
-HydroSim::make_fourth_in_place_n(const Box& bx,
+HydroSim::to_fourth_order_in_place_n(const Box& bx,
                                Array4<Real> const& q_arr, const int ncomp,
                                Array4<Real> const& tmp,
                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {

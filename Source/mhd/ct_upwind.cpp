@@ -82,7 +82,7 @@ HydroSim::corner_couple(const Box& bx,
   // (e.g. Ez_{i-1/2,j-1/2,k})
 
   int sgn = epsilon_ijk(d1, d2, d3);
-  Real cdtdx = dt/(3.0_rt * dx[d1]);
+  Real coef_dtdx = dt/(3.0_rt * dx[d1]);
 
   // UMAGD1 corresponds to d1, and UMAGD2 to d2, UMAGD3 to d3
   int UMAGD1 = UMAGX + d1;
@@ -103,7 +103,7 @@ HydroSim::corner_couple(const Box& bx,
     for (int n = 0; n < NUM_STATE; n++) {
       if (n != UTEMP) {
         utmp[n] = ur(i,j,k,n) -
-          cdtdx*(flxd2(i+cr[0],j+cr[1],k+cr[2],n) - flxd2(i,j,k,n));
+          coef_dtdx*(flxd2(i+cr[0],j+cr[1],k+cr[2],n) - flxd2(i,j,k,n));
 
       } else {
         utmp[n] = 0.0_rt;
@@ -123,7 +123,7 @@ HydroSim::corner_couple(const Box& bx,
     //
     // we use b[] to captured the j+1/2 indexing into Ez
 
-    utmp[UMAGD1] = ur(i,j,k,UMAGD1) - sgn * cdtdx *
+    utmp[UMAGD1] = ur(i,j,k,UMAGD1) - sgn * coef_dtdx *
       (Ed3(i+b[0],j+b[1],k+b[2]) - Ed3(i,j,k));
 
     // d3 -- this is in the plane of the face
@@ -136,7 +136,7 @@ HydroSim::corner_couple(const Box& bx,
     // we use err(:) for the first E term, elr(:) for the
     // second, and erl(:) for the third
 
-    utmp[UMAGD3] = ur(i,j,k,UMAGD3) + sgn * 0.5_rt * cdtdx *
+    utmp[UMAGD3] = ur(i,j,k,UMAGD3) + sgn * 0.5_rt * coef_dtdx *
       ((Ed1(i+err[0],j+err[1],k+err[2]) - Ed1(i+elr[0],j+elr[1],k+elr[2])) +
        (Ed1(i+erl[0],j+erl[1],k+erl[2]) - Ed1(i,j,k)));
 
@@ -177,7 +177,7 @@ HydroSim::corner_couple(const Box& bx,
     for (int n = 0; n < NUM_STATE; n++) {
       if (n != UTEMP) {
         utmp[n] = ul(i,j,k,n) -
-          cdtdx*(flxd2(i+cr[0],j+cr[1],k+cr[2],n) -
+          coef_dtdx*(flxd2(i+cr[0],j+cr[1],k+cr[2],n) -
                  flxd2(i+cl[0],j+cl[1],k+cl[2],n));
 
       } else {
@@ -187,10 +187,10 @@ HydroSim::corner_couple(const Box& bx,
 
     // left state on the interface (e.g. B_{i-1/2,j,k,L} or `+`)
 
-    utmp[UMAGD1] = ul(i,j,k,UMAGD1) - sgn * cdtdx *
+    utmp[UMAGD1] = ul(i,j,k,UMAGD1) - sgn * coef_dtdx *
       (Ed3(i+b[0],j+b[1],k+b[2]) - Ed3(i,j,k));
 
-    utmp[UMAGD3] = ul(i,j,k,UMAGD3) + sgn * 0.5_rt * cdtdx *
+    utmp[UMAGD3] = ul(i,j,k,UMAGD3) + sgn * 0.5_rt * coef_dtdx *
       ((Ed1(i+err[0],j+err[1],k+err[2]) - Ed1(i+elr[0],j+elr[1],k+elr[2])) +
        (Ed1(i+erl[0],j+erl[1],k+erl[2]) - Ed1(i+ell[0],j+ell[1],k+ell[2])));
 

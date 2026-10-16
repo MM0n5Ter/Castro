@@ -1,5 +1,5 @@
-#ifndef HYDROSIM_HYPREABEC_H
-#define HYDROSIM_HYPREABEC_H
+#ifndef HYDROSIM_HYPREDIFFOP_H
+#define HYDROSIM_HYPREDIFFOP_H
 
 #include <AMReX_Array.H>
 #include <AMReX_MultiFab.H>
@@ -130,25 +130,25 @@ class HypreDiffOp {
 ///
   void boundaryFlux(amrex::MultiFab* Flux, amrex::MultiFab& Er, int icomp, BC_Mode inhom);
 
-  void hacoef (const amrex::Box& bx,
+  void fill_alpha_coefs (const amrex::Box& bx,
                amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                amrex::Array4<amrex::Real const> const& a,
                amrex::Real alpha);
 
-  void hbcoef (const amrex::Box& bx,
+  void fill_beta_coefs (const amrex::Box& bx,
                amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                amrex::Array4<amrex::Real const> const& b,
                amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx,
                int idir);
 
-  void hbmat (const amrex::Box& bx,
+  void bc_matrix_fix (const amrex::Box& bx,
               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
               int cdir, int bct, amrex::Real bcl,
               amrex::Array4<int const> const& mask,
               amrex::Array4<amrex::Real const> const& b,
               amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx);
 
-  void hbmat3 (const amrex::Box& bx,
+  void bc_matrix_fix_typed (const amrex::Box& bx,
                int ori_lo, int idir,
                amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                int cdir, int bctype,
@@ -169,7 +169,7 @@ class HypreDiffOp {
 ///
   void setupSolver(amrex::Real _reltol, amrex::Real _abstol, int maxiter);
 
-  static void hbvec (const amrex::Box& bx,
+  static void bc_rhs_fix (const amrex::Box& bx,
                      amrex::Array4<amrex::Real> const& vec,
                      int cdir, int bct, int bho, amrex::Real bcl,
                      amrex::Array4<amrex::Real const> const& bcval,
@@ -177,7 +177,7 @@ class HypreDiffOp {
                      amrex::Array4<amrex::Real const> const& b,
                      amrex::Real beta, const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx);
 
-  static void hbvec3 (const amrex::Box& bx,
+  static void bc_rhs_fix_typed (const amrex::Box& bx,
                       int ori_lo, int idir,
                       amrex::Array4<amrex::Real> const& vec,
                       int cdir, int bct,

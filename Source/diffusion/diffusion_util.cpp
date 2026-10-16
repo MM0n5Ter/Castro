@@ -12,7 +12,7 @@
 using namespace amrex;
 
 void
-Diffusion::fill_temp_cond(const Box& bx,
+Diffusion::fill_conductivity(const Box& bx,
                           Array4<Real const> const& U_arr,
                           Array4<Real> const& coeff_arr) {
 
@@ -61,7 +61,7 @@ Diffusion::fill_temp_cond(const Box& bx,
 
 
 void
-Diffusion::fill_temp_diff_coeff(const Box& bx,
+Diffusion::fill_thermal_diffusivity(const Box& bx,
                                 Array4<Real const> const& U_arr,
                                 Array4<Real> const& coeff_arr) {
 

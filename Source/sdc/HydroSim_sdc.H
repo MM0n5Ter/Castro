@@ -4,7 +4,7 @@
 #include <AMReX_REAL.H>
 
 #ifndef AMREX_USE_GPU
-void do_sdc_update(int m_start, int m_end, amrex::Real dt);
+void sdc_node_update(int m_start, int m_end, amrex::Real dt);
 #endif
 
 #ifdef REACTIONS

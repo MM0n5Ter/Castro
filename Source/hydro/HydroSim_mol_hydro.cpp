@@ -44,7 +44,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
   int coord = geom.Coord();
 #endif
 
-  BL_PROFILE_VAR("HydroSim::advance_hydro_ca_umdrv()", HS_UMDRV);
+  BL_PROFILE_VAR("HydroSim::advance_hydro_ca_umdrv()", MOL_UPDATE_TIMER);
 
 #if AMREX_SPACEDIM >= 2
   GpuArray<int, 3> domain_lo = geom.Domain().loVect3d();
@@ -252,7 +252,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
               // construct the interface states in the idir direction
               // operate on nbx1
-              fourth_interfaces(nbx1,
+              fourth_order_face_values(nbx1,
                                 idir, n,
                                 q_arr, q_int_arr);
 
@@ -290,7 +290,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             // operate on ibx[idir]
             if (diffuse_temp == 1) {
               bool is_avg = true;
-              fourth_add_diffusive_flux(ibx[idir],
+              fourth_order_conduction_flux(ibx[idir],
                                         q_arr, QTEMP,
                                         q_avg_arr, f_avg_arr,
                                         idir, is_avg);
@@ -331,7 +331,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
               if (test) return;
 
-              Real lap = trans_laplacian(i, j, k, n, idir, q_avg_arr, domain);
+              Real lap = transverse_laplacian(i, j, k, n, idir, q_avg_arr, domain);
 
               q_fc_arr(i,j,k,n) = q_avg_arr(i,j,k,n) - (1.0_rt/24.0_rt) * lap;
 
@@ -340,7 +340,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             // compute the face-center fluxes F(q_fc)
             Array4<Real> const f_arr = (flux[idir]).array();
 
-            compute_flux_from_q(nbx, q_fc_arr, f_arr, idir);
+            flux_from_face_state(nbx, q_fc_arr, f_arr, idir);
 
             if (do_hydro == 0) {
 
@@ -357,7 +357,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             if (diffuse_temp == 1) {
               // add the diffusive flux to F(q_fc) if needed
               bool is_avg = false;
-              fourth_add_diffusive_flux(nbx,
+              fourth_order_conduction_flux(nbx,
                                         T_cc.array(mfi), 0,
                                         q_fc_arr, flux[idir].array(),
                                         idir, is_avg);
@@ -372,7 +372,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
             {
 
-              Real lap = trans_laplacian(i, j, k, n, idir, f_avg_arr, domain);
+              Real lap = transverse_laplacian(i, j, k, n, idir, f_avg_arr, domain);
 
               flux_arr(i,j,k,n) += (1.0_rt/24.0_rt) * lap;
 
@@ -395,7 +395,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
               auto q_bar_arr = q_bar.array(mfi);
               auto qaux_bar_arr = qaux_bar.array(mfi);
 
-              fourth_avisc(nbx,
+              fourth_order_art_visc(nbx,
                            q_bar_arr, qaux_bar_arr,
                            avis_arr, idir);
 
@@ -434,7 +434,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
             // store the Godunov state
             auto qe_arr = (qe[idir]).array();
-            hydro::store_godunov_state(nbx, q_avg_arr, qe_arr);
+            hydro::store_face_state(nbx, q_avg_arr, qe_arr);
 
           }
 
@@ -473,21 +473,21 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
                 dq.resize(obx, NQ);
                 auto dq_arr = dq.array();
 
-                mol_plm_reconstruct(obx, idir,
+                plm_face_states_mol(obx, idir,
                                     q_arr, flatcoef_arr, src_q_arr,
                                     dq_arr,
                                     qm_arr, qp_arr);
 
               } else {
 
-                mol_ppm_reconstruct(obx, idir,
+                ppm_face_states_mol(obx, idir,
                                     q_arr, flatcoef_arr,
                                     qm_arr, qp_arr);
               }
 
               // ppm_temp_fix = 1
               if (ppm_temp_fix == 1) {
-                  hydro::edge_state_temp_to_pres(obx, qm.array(), qp.array());
+                  hydro::face_pressure_from_temp(obx, qm.array(), qp.array());
               }
 
               const Box& nbx = amrex::surroundingNodes(bx, idir);
@@ -517,7 +517,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
               });
 
               // apply artificial viscosity
-              apply_av(nbx, idir, div_arr, uin_arr, flux_arr);
+              apply_art_visc(nbx, idir, div_arr, uin_arr, flux_arr);
 
             } else {
                 // we are not doing hydro, so simply zero out the fluxes
@@ -547,11 +547,11 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
             cond.resize(obx, 1);
             auto cond_arr = cond.array();
 
-            Diffusion::fill_temp_cond(obx, Sborder.array(mfi), cond_arr);
+            Diffusion::fill_conductivity(obx, Sborder.array(mfi), cond_arr);
 
             const Box& nbx = amrex::surroundingNodes(bx, idir);
 
-            mol_diffusive_flux(nbx, idir,
+            add_mol_conduction_flux(nbx, idir,
                                uin_arr, cond_arr,
                                flux[idir].array());
 #endif
@@ -572,7 +572,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 
                 // apply the density flux limiter
                 if (limit_fluxes_on_small_dens == 1) {
-                    hydro::limit_hydro_fluxes_on_small_dens(nbx, idir,
+                    hydro::limit_fluxes_for_density_floor(nbx, idir,
                                                             Sborder.array(mfi),
                                                             volume.array(mfi),
                                                             flux[idir].array(),
@@ -646,7 +646,7 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
 #if AMREX_SPACEDIM <= 2
           // get the scaled radial pressure -- we need to treat this specially
 
-          if (idir == 0 && !mom_flux_has_p(0, 0, coord)) {
+          if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
               Array4<Real> const qex_arr = qe[idir].array();
 
               amrex::ParallelFor(nbx,
@@ -701,10 +701,10 @@ HydroSim::construct_mol_hydro_source(Real time, Real dt, MultiFab& A_update)
   }  // end of omp parallel region
 
 
-  BL_PROFILE_VAR_STOP(HS_UMDRV);
+  BL_PROFILE_VAR_STOP(MOL_UPDATE_TIMER);
 
   if (print_update_diagnostics) {
-      evaluate_and_print_source_change(A_update, dt, "hydro source");
+      report_source_change(A_update, dt, "hydro source");
     }
 
     if (verbose > 0)

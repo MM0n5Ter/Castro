@@ -599,7 +599,7 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 #endif
             });
 
-            apply_av(nbox, idir, div_arr, u_arr, flux_arr);
+            apply_art_visc(nbox, idir, div_arr, u_arr, flux_arr);
 
             hydro::normalize_species_fluxes(nbox, flux_arr);
 
@@ -717,8 +717,8 @@ HydroSim::construct_ctu_mhd_source(Real time, Real dt)
 
     if (parent->subcyclingMode() == "None") {
         if (do_reflux == 1) {
-            FluxRegCrseInit();
-            FluxRegFineAdd();
+            CoarseFluxRegInit();
+            FineFluxRegAdd();
         }
     }
 

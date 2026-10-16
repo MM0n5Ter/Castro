@@ -27,7 +27,7 @@ HydroSim::assemble_old_rotation_source(MultiFab& state_in, Real time, Real dt, M
     {
         const Box& bx = mfi.tilebox();
 
-        rsrc(bx, state_in.array(mfi), source.array(mfi), dt);
+        fill_rotation_source(bx, state_in.array(mfi), source.array(mfi), dt);
 
     }
 
@@ -83,7 +83,7 @@ HydroSim::assemble_new_rotation_source(MultiFab& state_old, MultiFab& state_new,
                                                             (*mass_fluxes[1]).const_array(mfi),
                                                             (*mass_fluxes[2]).const_array(mfi)};
 
-            corrrsrc(bx,
+            fill_rotation_correction(bx,
                      state_old.array(mfi), state_new.array(mfi),
                      source.array(mfi),
                      mass_flux,

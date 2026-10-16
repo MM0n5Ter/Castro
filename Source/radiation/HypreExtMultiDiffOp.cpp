@@ -1046,7 +1046,7 @@ void HypreExtMultiDiffOp::boundaryDterm(int level,
           tf_arr = tf.array();
           bctype = -1;
         }
-        HDIFFOP::hdterm3(Dterm[idim][mfi].array(),
+        HDIFFOP::bc_face_dterm_typed(Dterm[idim][mfi].array(),
                        Soln[mfi].array(icomp),
                        reg,
                        cdir, bctype, tf_arr, bcl,
@@ -1056,7 +1056,7 @@ void HypreExtMultiDiffOp::boundaryDterm(int level,
                        geom[level].CellSizeArray());
       }
       else {
-          HDIFFOP::hdterm(Dterm[idim][mfi].array(),
+          HDIFFOP::bc_face_dterm(Dterm[idim][mfi].array(),
                         Soln[mfi].array(icomp),
                         reg,
                         cdir, bct, bcl,

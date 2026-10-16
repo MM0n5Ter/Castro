@@ -21,7 +21,7 @@ namespace {
 }
 
 void
-HydroSim::read_particle_params ()
+HydroSim::read_tracer_params ()
 {
 
   ParmParse pp("particles");
@@ -59,7 +59,7 @@ HydroSim::init_particles ()
 }
 
 void
-HydroSim::ParticleCheckPoint(const std::string& dir)
+HydroSim::TracerCheckPoint(const std::string& dir)
 {
     if (level == 0)
     {
@@ -69,7 +69,7 @@ HydroSim::ParticleCheckPoint(const std::string& dir)
 }
 
 void
-HydroSim::ParticlePlotFile(const std::string& dir)
+HydroSim::TracerPlotFile(const std::string& dir)
 {
     if (level == 0)
     {
@@ -81,7 +81,7 @@ HydroSim::ParticlePlotFile(const std::string& dir)
 }
 
 void
-HydroSim::ParticlePostRestart (const std::string& restart_file)
+HydroSim::TracerPostRestart (const std::string& restart_file)
 {
     if (level == 0)
     {
@@ -115,11 +115,11 @@ HydroSim::ParticlePostRestart (const std::string& restart_file)
 }
 
 std::unique_ptr<MultiFab>
-HydroSim::ParticleDerive(const std::string& name,
+HydroSim::TracerDerive(const std::string& name,
                        Real               time,
                        int                ngrow)
 {
-    BL_PROFILE("HydroSim::ParticleDerive()");
+    BL_PROFILE("HydroSim::TracerDerive()");
 
   if (TracerPC && name == "particle_count")
   {
@@ -135,7 +135,7 @@ HydroSim::ParticleDerive(const std::string& name,
       //
       // We want the total particle count at this level or higher.
       //
-      auto derive_dat = ParticleDerive("particle_count",time,ngrow);
+      auto derive_dat = TracerDerive("particle_count",time,ngrow);
 
       IntVect trr(AMREX_D_DECL(1,1,1));
 
@@ -191,7 +191,7 @@ HydroSim::ParticleDerive(const std::string& name,
 }
 
 void
-HydroSim::TimestampParticles (int ngrow)
+HydroSim::RecordTracerSamples (int ngrow)
 {
     static bool first = true;
     static int imax = -1;
@@ -199,8 +199,8 @@ HydroSim::TimestampParticles (int ngrow)
     {
         first = false;
 
-        // have to do it here, not in read_particle_params, because Density, ..., are set after
-        // read_particle_params is called.
+        // have to do it here, not in read_tracer_params, because Density, ..., are set after
+        // read_tracer_params is called.
         if (particles::timestamp_density) {
             timestamp_indices.push_back(URHO);
             std::cout << "Density = " << URHO << std::endl;
@@ -248,7 +248,7 @@ HydroSim::TimestampParticles (int ngrow)
 #endif
 
 void
-HydroSim::advance_particles(int iteration, Real time, Real dt)
+HydroSim::advance_tracers(int iteration, Real time, Real dt)
 {
     if (TracerPC)
     {

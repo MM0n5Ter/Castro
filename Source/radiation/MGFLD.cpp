@@ -3,7 +3,7 @@
 #include <filter.H>
 #include <blackbody.H>
 #include <opacity.H>
-#include <problem_emissivity.H>
+#include <user_emissivity.H>
 
 #include <iostream>
 
@@ -14,13 +14,13 @@
 using namespace amrex;
 
 Radiation::InnerResidual
-Radiation::check_convergence_er(const MultiFab& Er_new, const MultiFab& Er_pi,
+Radiation::check_rad_convergence(const MultiFab& Er_new, const MultiFab& Er_pi,
                                 const MultiFab& kappa_p,
                                 const MultiFab& etaTz,
                                 const MultiFab& temp_new,
                                 Real delta_t)
 {
-  BL_PROFILE("Radiation::check_convergence_er (MGFLD)");
+  BL_PROFILE("Radiation::check_rad_convergence (MGFLD)");
 
   ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpMax> reduce_op;
   ReduceData<Real, Real, Real> reduce_data(reduce_op);
@@ -82,7 +82,7 @@ Radiation::check_convergence_er(const MultiFab& Er_new, const MultiFab& Er_pi,
 }
 
 
-void Radiation::check_convergence_matt(const MultiFab& rhoe_new, const MultiFab& rhoe_star,
+void Radiation::check_matter_convergence(const MultiFab& rhoe_new, const MultiFab& rhoe_star,
                                        const MultiFab& rhoe_step, const MultiFab& Er_new,
                                        const MultiFab& temp_new, const MultiFab& temp_star,
                                        const MultiFab& rho,
@@ -195,7 +195,7 @@ void Radiation::compute_coupling(MultiFab& coupT,
 }
 
 
-void Radiation::compute_etat(MultiFab& etaT, MultiFab& etaTz,
+void Radiation::compute_eta_coefs(MultiFab& etaT, MultiFab& etaTz,
                              MultiFab& eta1, MultiFab& djdT,
                              const MultiFab& dkdT, const MultiFab& dedT,
                              const MultiFab& Er_star, const MultiFab& rho,
@@ -403,7 +403,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
           Real Teff = amrex::max(temp_new_arr(i,j,k), 1.e-50_rt);
 
           Real B1, dBdT1;
-          amrex::Tie(B1, dBdT1) = BdBdTIndefInteg(Teff, 0.0_rt);
+          amrex::Tie(B1, dBdT1) = planckIntegralAndDeriv(Teff, 0.0_rt);
 
           for (int g = 0; g < NGROUPS; ++g) {
 
@@ -418,7 +418,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
 
               Real B0 = B1;
               Real dBdT0 = dBdT1;
-              amrex::Tie(B1, dBdT1) = BdBdTIndefInteg(Teff, xnup);
+              amrex::Tie(B1, dBdT1) = planckIntegralAndDeriv(Teff, xnup);
               Real Bg = B1 - B0;
               Real dBdT = dBdT1 - dBdT0;
 
@@ -427,7 +427,7 @@ void Radiation::eos_opacity_emissivity(const MultiFab& S_new,
 
               // Allow a problem to override this emissivity.
 
-              problem_emissivity(i, j, k, g,
+              user_emissivity(i, j, k, g,
                                  nugroup_loc, xnu_loc,
                                  temp_new_arr(i,j,k), kappa_p_arr(i,j,k,g),
                                  dkdT_arr(i,j,k,g), jg_arr(i,j,k,g), djdT_arr(i,j,k,g));
@@ -465,7 +465,7 @@ void Radiation::gray_accel(MultiFab& Er_new, MultiFab& Er_pi,
 
   MultiFab Er_zero(grids, dmap, 1, 0);
   Er_zero.setVal(0.0);
-  getBndryDataMG_ga(mgbd, Er_zero, level);
+  getBndryDataMG_accel(mgbd, Er_zero, level);
 
   MultiFab spec(grids, dmap, nGroups, 1);
 
@@ -936,9 +936,9 @@ void Radiation::update_matter(MultiFab& rhoe_new, MultiFab& temp_new,
                     cpT = cpT + kpp(i,j,k,g) * Er_n(i,j,k,g) - jg_arr(i,j,k,g);
                 }
 
-                Real scrch_re = cpT - (re_s(i,j,k) - re_2(i,j,k)) * cdt1;
+                Real scratch_re = cpT - (re_s(i,j,k) - re_2(i,j,k)) * cdt1;
 
-                Real dTemp = etTz(i,j,k) * scrch_re;
+                Real dTemp = etTz(i,j,k) * scratch_re;
 
                 if (std::abs(dTemp / (Tp_n(i,j,k) + 1.e-50_rt)) > fac) {
                     dTemp = std::copysign(fac * Tp_n(i,j,k), dTemp);
@@ -1265,7 +1265,7 @@ void Radiation::compute_limiter(int level, const BoxArray& grids,
 }
 
 
-void Radiation::estimate_gamrPr(const FArrayBox& state, const FArrayBox& Er,
+void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArrayBox& Er,
                                 FArrayBox& gPr, const Real*dx, const Box& box)
 {
     auto gPr_arr = gPr.array();
@@ -1881,7 +1881,7 @@ void Radiation::bisect_matter(MultiFab& rhoe_new, MultiFab& temp_new,
 }
 
 
-void Radiation::rhstoEr(MultiFab& rhs, Real dt, int level)
+void Radiation::rhsToRadEnergy(MultiFab& rhs, Real dt, int level)
 {
     auto geomdata = parent->Geom(level).data();
 

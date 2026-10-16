@@ -123,7 +123,7 @@ HydroSim::ppm_mhd(const Box& bx,
       for (int ii = 0; ii < NEVEC; ii++) {
         Real speed = lam(ii);
 
-        amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], speed, dtdx);
+        amrex::Tie(Ipt, Imt) = ppm_profile_integrals_1wave(edge.lo, edge.hi, s[i0], speed, dtdx);
 
         // we do a special correction here for waves that are not
         // moving toward the interface.  It doesn't make sense to
@@ -147,51 +147,51 @@ HydroSim::ppm_mhd(const Box& bx,
 
       // q_{i+1/2, L} uses the fastest wave moving to the right
       Real lambda_max = amrex::max(lam(NEVEC-1), 0.0_rt);
-      amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], lambda_max, dtdx);
+      amrex::Tie(Ipt, Imt) = ppm_profile_integrals_1wave(edge.lo, edge.hi, s[i0], lambda_max, dtdx);
       q_ref_left[n] = Ipt;
 
       // q_{i+1/2, L} uses the fastest wave moving to the left
       Real lambda_min = amrex::min(lam(0), 0.0_rt);
-      amrex::Tie(Ipt, Imt) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], lambda_min, dtdx);
+      amrex::Tie(Ipt, Imt) = ppm_profile_integrals_1wave(edge.lo, edge.hi, s[i0], lambda_min, dtdx);
       q_ref_right[n] = Imt;
 
     }
 
     // MHD Source Terms
-    Real smhd[NEVEC];
+    Real mhd_src[NEVEC];
 
-    smhd[IEVEC_RHO] = 0.0_rt;
-    smhd[IEVEC_U] = q_zone(QMAGX) / q_zone(QRHO);
-    smhd[IEVEC_V] = q_zone(QMAGY) / q_zone(QRHO);
-    smhd[IEVEC_W] = q_zone(QMAGZ) / q_zone(QRHO);
-    smhd[IEVEC_P] = q_zone(QMAGX) * q_zone(QU) +
+    mhd_src[IEVEC_RHO] = 0.0_rt;
+    mhd_src[IEVEC_U] = q_zone(QMAGX) / q_zone(QRHO);
+    mhd_src[IEVEC_V] = q_zone(QMAGY) / q_zone(QRHO);
+    mhd_src[IEVEC_W] = q_zone(QMAGZ) / q_zone(QRHO);
+    mhd_src[IEVEC_P] = q_zone(QMAGX) * q_zone(QU) +
                     q_zone(QMAGY) * q_zone(QV) +
                     q_zone(QMAGZ) * q_zone(QW);
 
     if (idir == 0) {
-      smhd[IEVEC_BT] = q_zone(QV);
-      smhd[IEVEC_BTT] = q_zone(QW);
+      mhd_src[IEVEC_BT] = q_zone(QV);
+      mhd_src[IEVEC_BTT] = q_zone(QW);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (Bx(i+1,j,k) - Bx(i,j,k)) / dx[idir];
       }
 
     } else if (idir == 1) {
-      smhd[IEVEC_BT] = q_zone(QU);
-      smhd[IEVEC_BTT] = q_zone(QW);
+      mhd_src[IEVEC_BT] = q_zone(QU);
+      mhd_src[IEVEC_BTT] = q_zone(QW);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (By(i,j+1,k) - By(i,j,k)) / dx[idir];
       }
 
     } else {
-      smhd[IEVEC_BT] = q_zone(QU);
-      smhd[IEVEC_BTT] = q_zone(QV);
+      mhd_src[IEVEC_BT] = q_zone(QU);
+      mhd_src[IEVEC_BTT] = q_zone(QV);
 
       // cross-talk of normal magnetic field direction
-      for (auto & source : smhd) {
+      for (auto & source : mhd_src) {
           source *= (Bz(i,j,k+1) - Bz(i,j,k)) / dx[idir];
       }
     }
@@ -228,26 +228,26 @@ HydroSim::ppm_mhd(const Box& bx,
     }
 
     qright(i,j,k,QRHO) = amrex::max(small_dens,
-                                    q_ref_right[IEVEC_RHO] - summ_m[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-    qright(i,j,k,QU) = q_ref_right[IEVEC_U] - summ_m[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-    qright(i,j,k,QV) = q_ref_right[IEVEC_V] - summ_m[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-    qright(i,j,k,QW) = q_ref_right[IEVEC_W] - summ_m[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                    q_ref_right[IEVEC_RHO] - summ_m[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+    qright(i,j,k,QU) = q_ref_right[IEVEC_U] - summ_m[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+    qright(i,j,k,QV) = q_ref_right[IEVEC_V] - summ_m[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+    qright(i,j,k,QW) = q_ref_right[IEVEC_W] - summ_m[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
     qright(i,j,k,QPRES) = amrex::max(small_pres,
-                                     q_ref_right[IEVEC_P] - summ_m[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                     q_ref_right[IEVEC_P] - summ_m[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
     if (idir == 0) {
       qright(i,j,k,QMAGX) = Bx(i,j,k); // Bx stuff
-      qright(i,j,k,QMAGY) = q_ref_right[IEVEC_BT] -  summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qright(i,j,k,QMAGZ) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGY) = q_ref_right[IEVEC_BT] -  summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qright(i,j,k,QMAGZ) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else if (idir == 1) {
-      qright(i,j,k,QMAGX) = q_ref_right[IEVEC_BT] - summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
+      qright(i,j,k,QMAGX) = q_ref_right[IEVEC_BT] - summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
       qright(i,j,k,QMAGY) = By(i,j,k); // By stuff
-      qright(i,j,k,QMAGZ) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGZ) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else {
-      qright(i,j,k,QMAGX) = q_ref_right[IEVEC_BT] - summ_m[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qright(i,j,k,QMAGY) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qright(i,j,k,QMAGX) = q_ref_right[IEVEC_BT] - summ_m[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qright(i,j,k,QMAGY) = q_ref_right[IEVEC_BTT] - summ_m[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
       qright(i,j,k,QMAGZ) = Bz(i,j,k); // Bz stuff
     }
 
@@ -282,41 +282,41 @@ HydroSim::ppm_mhd(const Box& bx,
 
     if (idir == 0) {
       qleft(i+1,j,k,QRHO) = amrex::max(small_dens,
-                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i+1,j,k,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i+1,j,k,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i+1,j,k,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i+1,j,k,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i+1,j,k,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i+1,j,k,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i+1,j,k,QPRES) = amrex::max(small_pres,
-                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
       qleft(i+1,j,k,QMAGX) = Bx(i+1,j,k); // Bx stuff
-      qleft(i+1,j,k,QMAGY) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qleft(i+1,j,k,QMAGZ) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i+1,j,k,QMAGY) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qleft(i+1,j,k,QMAGZ) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else if (idir == 1) {
       qleft(i,j+1,k,QRHO) = amrex::max(small_dens,
-                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i,j+1,k,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i,j+1,k,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i,j+1,k,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i,j+1,k,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i,j+1,k,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i,j+1,k,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i,j+1,k,QPRES) = amrex::max(small_pres,
-                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
-      qleft(i,j+1,k,QMAGX) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
+      qleft(i,j+1,k,QMAGX) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
       qleft(i,j+1,k,QMAGY) = By(i,j+1,k); // By stuff
-      qleft(i,j+1,k,QMAGZ) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i,j+1,k,QMAGZ) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
 
     } else {
       qleft(i,j,k+1,QRHO) = amrex::max(small_dens,
-                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*smhd[IEVEC_RHO]);
-      qleft(i,j,k+1,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*smhd[IEVEC_U];
-      qleft(i,j,k+1,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*smhd[IEVEC_V];
-      qleft(i,j,k+1,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*smhd[IEVEC_W];
+                                       q_ref_left[IEVEC_RHO] - summ_p[IEVEC_RHO] + 0.5_rt*dt*mhd_src[IEVEC_RHO]);
+      qleft(i,j,k+1,QU) = q_ref_left[IEVEC_U] - summ_p[IEVEC_U] + 0.5_rt*dt*mhd_src[IEVEC_U];
+      qleft(i,j,k+1,QV) = q_ref_left[IEVEC_V] - summ_p[IEVEC_V] + 0.5_rt*dt*mhd_src[IEVEC_V];
+      qleft(i,j,k+1,QW) = q_ref_left[IEVEC_W] - summ_p[IEVEC_W] + 0.5_rt*dt*mhd_src[IEVEC_W];
       qleft(i,j,k+1,QPRES) = amrex::max(small_pres,
-                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*smhd[IEVEC_P]);
+                                        q_ref_left[IEVEC_P] - summ_p[IEVEC_P] + 0.5_rt*dt*mhd_src[IEVEC_P]);
 
-      qleft(i,j,k+1,QMAGX) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*smhd[IEVEC_BT];
-      qleft(i,j,k+1,QMAGY) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*smhd[IEVEC_BTT];
+      qleft(i,j,k+1,QMAGX) = q_ref_left[IEVEC_BT] - summ_p[IEVEC_BT] + 0.5_rt*dt*mhd_src[IEVEC_BT];
+      qleft(i,j,k+1,QMAGY) = q_ref_left[IEVEC_BTT] - summ_p[IEVEC_BTT] + 0.5_rt*dt*mhd_src[IEVEC_BTT];
       qleft(i,j,k+1,QMAGZ) = Bz(i,j,k+1); // Bz stuff
     }
 
@@ -343,7 +343,7 @@ HydroSim::ppm_mhd(const Box& bx,
 
       s = load_stencil(q_arr, idir, i, j, k, v);
       edge = ppm_reconstruct(s, flat);
-      amrex::Tie(Ips, Ims) = ppm_int_profile_single(edge.lo, edge.hi, s[i0], un, dtdx);
+      amrex::Tie(Ips, Ims) = ppm_profile_integrals_1wave(edge.lo, edge.hi, s[i0], un, dtdx);
 
       if (idir == 0) {
         qleft(i+1,j,k,QSPEC+n) = Ips;

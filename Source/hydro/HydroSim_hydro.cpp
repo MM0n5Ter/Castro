@@ -102,13 +102,13 @@ HydroSim::cons_to_prim_fourth(const Real time)
             Elixir elix_u_cc = U_cc.elixir();
             auto const U_cc_arr = U_cc.array();
 
-            make_cell_center(qbxm1, Sborder.array(mfi), U_cc_arr, domain_lo, domain_hi);
+            to_cell_center(qbxm1, Sborder.array(mfi), U_cc_arr, domain_lo, domain_hi);
 
             // enforce the minimum density on the new cell-centered state
-            do_enforce_minimum_density(qbxm1, U_cc.array(), density_reset_report(verbose));
+            apply_density_floor_box(qbxm1, U_cc.array(), density_reset_report(verbose));
 
             // and ensure that the internal energy is positive
-            reset_internal_energy(qbxm1, U_cc.array());
+            fix_internal_energy(qbxm1, U_cc.array());
 
             // convert U_avg to q_bar -- this will be done on all NUM_GROW
             // ghost cells.
@@ -165,12 +165,12 @@ HydroSim::cons_to_prim_fourth(const Real time)
       // this will create q, qaux in NUM_GROW-1 ghost cells, but that's
       // we need here
 
-      make_fourth_average(qbxm1, q.array(mfi), q_bar.array(mfi), domain_lo, domain_hi);
+      to_fourth_order_average(qbxm1, q.array(mfi), q_bar.array(mfi), domain_lo, domain_hi);
 
       // not sure if we need to convert qaux this way, or if we can
       // just evaluate it (we may not need qaux at all actually)
 
-      make_fourth_average(qbxm1, qaux.array(mfi), qaux_bar.array(mfi), domain_lo, domain_hi);
+      to_fourth_order_average(qbxm1, qaux.array(mfi), qaux_bar.array(mfi), domain_lo, domain_hi);
 
     }
 

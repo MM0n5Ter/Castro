@@ -82,7 +82,7 @@ public:
   int do_sync;               ///< perform sync (if false zero out sync source)
   int do_kappa_stm_emission;
 
-  static void read_static_params();
+  static void parse_static_params();
 
 ///
 /// Physical constants for use in multigroup, made static and public
@@ -220,7 +220,7 @@ public:
 ///
 /// @param level
 ///
-  void pre_timestep(int level);
+  void before_timestep(int level);
 
 
 ///
@@ -233,7 +233,7 @@ public:
 ///
 /// @param level
 ///
-  void deferred_sync_setup(int level);
+  void prepare_deferred_sync(int level);
 
 
 ///
@@ -292,7 +292,7 @@ public:
 /// @param dx
 /// @param box
 ///
-  void estimate_gamrPr(const amrex::FArrayBox& state, const amrex::FArrayBox& Er,
+  void estimate_rad_gamma_pressure(const amrex::FArrayBox& state, const amrex::FArrayBox& Er,
                        amrex::FArrayBox& gPr, const amrex::Real* dx, const amrex::Box& box);
 
 
@@ -429,7 +429,7 @@ public:
 /// @param Er
 /// @param level
 ///
-  void getBndryDataMG_ga(MGRadBndry& mgbd, amrex::MultiFab& Er, int level);
+  void getBndryDataMG_accel(MGRadBndry& mgbd, amrex::MultiFab& Er, int level);
 
 
 ///
@@ -514,10 +514,10 @@ public:
 /// Fills patches with state information on extended region
 ///
 /// @param kappa_r
-/// @param hclaw
+/// @param sim_level_ptr
 /// @param igroup
 ///
-  void get_rosseland(amrex::MultiFab& kappa_r, amrex::AmrLevel* hclaw, int igroup = 0);
+  void get_rosseland(amrex::MultiFab& kappa_r, amrex::AmrLevel* sim_level_ptr, int igroup = 0);
 
 ///
 /// For the interior opacities, temperature is assumed to be known (input)
@@ -544,12 +544,12 @@ public:
 /// @param dcf
 /// @param delta_t
 /// @param c
-/// @param hclaw
+/// @param sim_level_ptr
 /// @param igroup
 ///
   void get_rosseland_v_dcf(amrex::MultiFab& kappa_r, amrex::MultiFab& v, amrex::MultiFab& dcf,
                            amrex::Real delta_t, amrex::Real c,
-                           amrex::AmrLevel* hclaw,
+                           amrex::AmrLevel* sim_level_ptr,
                            int igroup = 0);
 
 ///
@@ -618,7 +618,7 @@ public:
 /// @param temp_new
 /// @param delta_t
 ///
-  InnerResidual check_convergence_er(const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
+  InnerResidual check_rad_convergence(const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
                                      const amrex::MultiFab& kappa_p,
                                      const amrex::MultiFab& etaTz,
                                      const amrex::MultiFab& temp_new,
@@ -643,7 +643,7 @@ public:
 /// @param rel_T
 /// @param abs_T
 ///
-  void check_convergence_matt(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& rhoe_star,
+  void check_matter_convergence(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& rhoe_star,
                               const amrex::MultiFab& rhoe_step, const amrex::MultiFab& Er_new,
                               const amrex::MultiFab& temp_new, const amrex::MultiFab& temp_star,
                               const amrex::MultiFab& rho,
@@ -676,7 +676,7 @@ public:
 /// @param delta_t
 /// @param ptc_tau
 ///
-  void compute_etat(amrex::MultiFab& etaT, amrex::MultiFab& etaTz,
+  void compute_eta_coefs(amrex::MultiFab& etaT, amrex::MultiFab& etaTz,
                     amrex::MultiFab& eta1, amrex::MultiFab& djdT,
                     const amrex::MultiFab& dkdT, const amrex::MultiFab& dedT,
                     const amrex::MultiFab& Er_star, const amrex::MultiFab& rho,
@@ -832,7 +832,7 @@ public:
 /// @param dt
 /// @param level
 ///
-  void rhstoEr(amrex::MultiFab& rhs, amrex::Real dt, int level);
+  void rhsToRadEnergy(amrex::MultiFab& rhs, amrex::Real dt, int level);
 
 ///
 /// </ MGFLD>

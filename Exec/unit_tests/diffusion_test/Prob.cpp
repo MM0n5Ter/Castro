@@ -5,7 +5,7 @@
 using namespace amrex;
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-void HydroSim::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
+void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
 
   // compute the norm of the solution vs. the analytic solution
 
@@ -41,7 +41,7 @@ void HydroSim::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_l
             tmp.resize(bx, 1);
             auto tmp_arr = tmp.array();
 
-            hydrosim.make_fourth_in_place(bx,
+            hydrosim.to_fourth_order_in_place(bx,
                                         analytic->array(mfi),
                                         tmp_arr,
                                         domain_lo, domain_hi);

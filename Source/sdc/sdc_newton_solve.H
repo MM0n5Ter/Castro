@@ -40,11 +40,11 @@ namespace newton {
         // This is used with the Newton solve and returns f and the
         // Jacobian
 
-        // single_zone_react_source will use burn_state.y[] to fill
+        // cell_react_source will use burn_state.y[] to fill
         // burn_state.rho, burn_state.e, and burn_state.xn[] and then call
         // the EOS to get the temperature.
 
-        const auto R_full = single_zone_react_source(burn_state);
+        const auto R_full = cell_react_source(burn_state);
 
         // we are solving J dU = -f
         // where f is evaluated with the current guess for U
@@ -63,11 +63,11 @@ namespace newton {
         // the simplified-SDC.  Note: we are
         // not including density anymore.
 
-        // note: single_zone_jac assumes that the burn_state is in sync
+        // note: cell_burn_jacobian assumes that the burn_state is in sync
         // already with the current solution guess.  In this case, that
-        // was done in single_zone_react_source.
+        // was done in cell_react_source.
 
-        single_zone_jac(burn_state, dt_m, Jac);
+        cell_burn_jacobian(burn_state, dt_m, Jac);
 
         // Our Jacobian has the form:  J = I - dt dR/dw dwdU
         // so now we fix that

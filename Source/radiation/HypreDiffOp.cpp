@@ -287,7 +287,7 @@ void HypreDiffOp::boundaryFlux(MultiFab* Flux, MultiFab& Soln, int icomp,
                     if (SPa != 0) {
                         sp_arr = (*SPa)[si].array();
                     }
-                    HDIFFOP::hbflx3(Flux[idim][si].array(),
+                    HDIFFOP::bc_face_flux_typed(Flux[idim][si].array(),
                                   Soln[si].array(icomp),
                                   reg,
                                   cdir, bctype,
@@ -301,7 +301,7 @@ void HypreDiffOp::boundaryFlux(MultiFab* Flux, MultiFab& Soln, int icomp,
                                   sp_arr);
                 }
                 else {
-                    HDIFFOP::hbflx(Flux[idim][si].array(),
+                    HDIFFOP::bc_face_flux(Flux[idim][si].array(),
                                  Soln[si].array(icomp),
                                  reg,
                                  cdir, bct, bho, bcl,
@@ -349,7 +349,7 @@ void HypreDiffOp::getFaceMetric(Vector<Real>& r,
   }
 }
 
-void HypreDiffOp::hacoef (const Box& bx,
+void HypreDiffOp::fill_alpha_coefs (const Box& bx,
                         Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         Array4<Real const> const& a,
                         Real alpha)
@@ -368,7 +368,7 @@ void HypreDiffOp::hacoef (const Box& bx,
     Gpu::synchronize();
 }
 
-void HypreDiffOp::hbcoef (const Box& bx,
+void HypreDiffOp::fill_beta_coefs (const Box& bx,
                         Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         Array4<Real const> const& b,
                         Real beta, const GpuArray<Real, AMREX_SPACEDIM>& dx,
@@ -415,7 +415,7 @@ void HypreDiffOp::hbcoef (const Box& bx,
     Gpu::synchronize();
 }
 
-void HypreDiffOp::hbmat (const Box& bx,
+void HypreDiffOp::bc_matrix_fix (const Box& bx,
                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                        int cdir, int bct, Real bcl,
                        Array4<int const> const& mask,
@@ -504,18 +504,18 @@ void HypreDiffOp::hbmat (const Box& bx,
 
     const Real fac = beta / (h * h);;
 
-    Real bfv, bfm;
+    Real bc_coef_v, bc_coef_m;
 
     if (bct == AMREX_LO_DIRICHLET) {
-        bfv = fac * h / (0.5e0_rt * h + bcl);
-        bfm = bfv - fac;
+        bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+        bc_coef_m = bc_coef_v - fac;
     }
     else if (bct == AMREX_LO_NEUMANN) {
-        bfv = beta / h;
-        bfm = -fac;
+        bc_coef_v = beta / h;
+        bc_coef_m = -fac;
     }
     else {
-        amrex::Error("hbmat: unsupported boundary type");
+        amrex::Error("bc_matrix_fix: unsupported boundary type");
     }
 
     amrex::ParallelFor(bx,
@@ -524,7 +524,7 @@ void HypreDiffOp::hbmat (const Box& bx,
         if (mask.contains(i-1,j,k)) {
 
             if (xlo && mask(i-1,j,k) > 0) {
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[0] = 0.e0_rt;
             }
 
@@ -532,14 +532,14 @@ void HypreDiffOp::hbmat (const Box& bx,
         else if (mask.contains(i+1,j,k)) {
 
             if (xhi && mask(i+1,j,k) > 0) {
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm * b(i+1,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m * b(i+1,j,k);
             }
 
         }
         else if (mask.contains(i,j-1,k)) {
 
             if (ylo && mask(i,j-1,k) > 0) {
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
             }
 
@@ -547,14 +547,14 @@ void HypreDiffOp::hbmat (const Box& bx,
         else if (mask.contains(i,j+1,k)) {
 
             if (yhi && mask(i,j+1,k) > 0) {
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm * b(i,j+1,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m * b(i,j+1,k);
             }
 
         }
         else if (mask.contains(i,j,k-1)) {
 
             if (zlo && mask(i,j,k-1) > 0) {
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m * b(i,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
             }
 
@@ -562,7 +562,7 @@ void HypreDiffOp::hbmat (const Box& bx,
         else if (mask.contains(i,j,k+1)) {
 
             if (zhi && mask(i,j,k+1) > 0) {
-                mat(i,j,k)[3] += bfm * b(i,j,k+1);
+                mat(i,j,k)[3] += bc_coef_m * b(i,j,k+1);
             }
 
         }
@@ -571,7 +571,7 @@ void HypreDiffOp::hbmat (const Box& bx,
     Gpu::synchronize();
 }
 
-void HypreDiffOp::hbmat3 (const Box& bx,
+void HypreDiffOp::bc_matrix_fix_typed (const Box& bx,
                         int ori_lo, int idir,
                         Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         int cdir, int bctype,
@@ -676,7 +676,7 @@ void HypreDiffOp::hbmat3 (const Box& bx,
         const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
         int bct;
-        Real bfm, bfv;
+        Real bc_coef_m, bc_coef_v;
 
         if (mask.contains(i-1,j,k)) {
 
@@ -690,27 +690,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[0] = 0.e0_rt;
 
             }
@@ -728,27 +728,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i+1,j,k);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i+1,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i+1,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i+1,j,k);
 
             }
 
@@ -765,27 +765,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
 
             }
@@ -803,27 +803,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j+1,k);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i,j+1,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j+1,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i,j+1,k);
 
             }
 
@@ -841,27 +841,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
 
             }
@@ -879,27 +879,27 @@ void HypreDiffOp::hbmat3 (const Box& bx,
                 }
 
                 if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k+1);
+                    bc_coef_v = fac * h / (0.5e0_rt * h + bcl);
+                    bc_coef_m = bc_coef_v * b(i,j,k+1);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
+                    bc_coef_m = 0.e0_rt;
                 }
                 else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                 }
                 else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
+                    bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbmat3: unsupported boundary type");
+                    amrex::Error("bc_matrix_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k+1);
+                mat(i,j,k)[AMREX_SPACEDIM] += bc_coef_m - fac * b(i,j,k+1);
 
             }
 
@@ -935,10 +935,10 @@ void HypreDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
 
     // build matrix interior
 
-    hacoef(reg, matfab.array(), (*acoefs)[ai].array(), alpha);
+    fill_alpha_coefs(reg, matfab.array(), (*acoefs)[ai].array(), alpha);
 
     for (idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        hbcoef(reg, matfab.array(), (*bcoefs[idim])[ai].array(), beta, dx, idim);
+        fill_beta_coefs(reg, matfab.array(), (*bcoefs[idim])[ai].array(), beta, dx, idim);
     }
 
     // add b.c.'s to matrix diagonal, and
@@ -968,7 +968,7 @@ void HypreDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
           pSPa = (*SPa)[ai].array();
         }
 
-        hbmat3(reg, oitr().isLow(), idim,
+        bc_matrix_fix_typed(reg, oitr().isLow(), idim,
                matfab.array(), cdir, bctype,
                tfp, bcl, msk.array(),
                (*bcoefs[idim])[ai].array(),
@@ -976,7 +976,7 @@ void HypreDiffOp::setupSolver(Real _reltol, Real _abstol, int maxiter)
                pSPa);
       }
       else {
-          hbmat(reg, matfab.array(), cdir, bct, bcl, msk.array(), (*bcoefs[idim])[ai].array(), beta, dx);
+          bc_matrix_fix(reg, matfab.array(), cdir, bct, bcl, msk.array(), (*bcoefs[idim])[ai].array(), beta, dx);
       }
     }
 
@@ -1152,7 +1152,7 @@ void HypreDiffOp::clearSolver()
   }
 }
 
-void HypreDiffOp::hbvec3 (const Box& bx,
+void HypreDiffOp::bc_rhs_fix_typed (const Box& bx,
                         int ori_lo, int idir,
                         Array4<Real> const& vec,
                         int cdir, int bctype,
@@ -1251,7 +1251,7 @@ void HypreDiffOp::hbvec3 (const Box& bx,
         const Real r = face_metric(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, ori_lo);
 
         int bct;
-        Real bfv, h2, th2;
+        Real bc_coef_v, h2, th2;
 
         if (mask.contains(i-1,j,k)) {
 
@@ -1268,27 +1268,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i,j,k);
+                    bc_coef_v = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i-1,j,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i-1,j,k);
 
             }
 
@@ -1308,27 +1308,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i+1,j,k);
+                    bc_coef_v = bc_coef_v * b(i+1,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i+1,j,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i+1,j,k);
 
             }
 
@@ -1348,27 +1348,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i,j,k);
+                    bc_coef_v = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j-1,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i,j-1,k);
 
             }
 
@@ -1388,27 +1388,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i,j+1,k);
+                    bc_coef_v = bc_coef_v * b(i,j+1,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j+1,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i,j+1,k);
 
             }
 
@@ -1428,27 +1428,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i,j,k);
+                    bc_coef_v = bc_coef_v * b(i,j,k);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j,k-1);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i,j,k-1);
 
             }
 
@@ -1468,27 +1468,27 @@ void HypreDiffOp::hbvec3 (const Box& bx,
                     if (bho >= 1) {
                         h2 = 0.5e0_rt * h;
                         th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                        bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
                     }
                     else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                        bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
                     }
 
-                    bfv = bfv * b(i,j,k+1);
+                    bc_coef_v = bc_coef_v * b(i,j,k+1);
                 }
                 else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
+                    bc_coef_v = beta * r / h;
                 }
                 else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
+                    bc_coef_v = 2.e0_rt * beta * r / h;
                 }
 #ifndef AMREX_USE_GPU
                 else {
-                    amrex::Error("hbvec3: unsupported boundary type");
+                    amrex::Error("bc_rhs_fix_typed: unsupported boundary type");
                 }
 #endif
 
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j,k+1);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * bcval(i,j,k+1);
 
             }
 
@@ -1498,7 +1498,7 @@ void HypreDiffOp::hbvec3 (const Box& bx,
     Gpu::synchronize();
 }
 
-void HypreDiffOp::hbvec (const Box& bx,
+void HypreDiffOp::bc_rhs_fix (const Box& bx,
                        Array4<Real> const& vec,
                        int cdir, int bct, int bho, Real bcl,
                        Array4<Real const> const& bcval,
@@ -1514,7 +1514,7 @@ void HypreDiffOp::hbvec (const Box& bx,
     bool yhi = false;
     bool zhi = false;
 
-    Real h, bfv, h2, th2;
+    Real h, bc_coef_v, h2, th2;
 
     if (AMREX_SPACEDIM == 1) {
         if (cdir == 0) {
@@ -1584,17 +1584,17 @@ void HypreDiffOp::hbvec (const Box& bx,
         if (bho >= 1) {
             h2 = 0.5e0_rt * h;
             th2 = 3.e0_rt * h2;
-            bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+            bc_coef_v = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
         }
         else {
-            bfv = (beta / h) / (0.5e0_rt * h + bcl);
+            bc_coef_v = (beta / h) / (0.5e0_rt * h + bcl);
         }
     }
     else if (bct == AMREX_LO_NEUMANN) {
-        bfv = beta / h;
+        bc_coef_v = beta / h;
     }
     else {
-        amrex::Error("hbvec: unsupported boundary type");
+        amrex::Error("bc_rhs_fix: unsupported boundary type");
     }
 
     amrex::ParallelFor(bx,
@@ -1604,7 +1604,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (xlo && mask(i-1,j,k) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i,j,k) * bcval(i-1,j,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i,j,k) * bcval(i-1,j,k);
 
             }
 
@@ -1613,7 +1613,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (xhi && mask(i+1,j,k) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i+1,j,k) * bcval(i+1,j,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i+1,j,k) * bcval(i+1,j,k);
 
             }
 
@@ -1622,7 +1622,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (ylo && mask(i,j-1,k) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i,j,k) * bcval(i,j-1,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i,j,k) * bcval(i,j-1,k);
 
             }
 
@@ -1631,7 +1631,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (yhi && mask(i,j+1,k) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i,j+1,k) * bcval(i,j+1,k);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i,j+1,k) * bcval(i,j+1,k);
 
             }
 
@@ -1640,7 +1640,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (zlo && mask(i,j,k-1) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i,j,k) * bcval(i,j,k-1);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i,j,k) * bcval(i,j,k-1);
 
             }
 
@@ -1649,7 +1649,7 @@ void HypreDiffOp::hbvec (const Box& bx,
 
             if (zhi && mask(i,j,k+1) > 0) {
 
-                vec(i,j,k) = vec(i,j,k) + bfv * b(i,j,k+1) * bcval(i,j,k+1);
+                vec(i,j,k) = vec(i,j,k) + bc_coef_v * b(i,j,k+1) * bcval(i,j,k+1);
 
             }
 
@@ -1732,7 +1732,7 @@ void HypreDiffOp::solve(MultiFab& dest, int icomp, MultiFab& rhs, BC_Mode inhom)
             tfp = tf.array();
             bctype = -1;
           }
-          hbvec3(reg,
+          bc_rhs_fix_typed(reg,
                  oitr().isLow(), idim,
                  f->array(fcomp),
                  cdir, bct,
@@ -1744,7 +1744,7 @@ void HypreDiffOp::solve(MultiFab& dest, int icomp, MultiFab& rhs, BC_Mode inhom)
                  beta, geom.data());
         }
         else {
-            hbvec(reg, f->array(fcomp),
+            bc_rhs_fix(reg, f->array(fcomp),
                   cdir, bct, bho, bcl,
                   fs.array(bdcomp), msk.array(),
                   (*bcoefs[idim])[di].array(),

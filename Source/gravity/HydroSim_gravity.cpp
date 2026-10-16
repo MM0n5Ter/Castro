@@ -64,7 +64,7 @@ HydroSim::assemble_old_gravity (Real time)
         // Create a copy of the current (composite) data on this level.
 
         MultiFab comp_phi;
-        Vector<std::unique_ptr<MultiFab> > comp_gphi(AMREX_SPACEDIM);
+        Vector<std::unique_ptr<MultiFab> > comp_grad_phi(AMREX_SPACEDIM);
 
         if (applies_composite_correction()) {
 
@@ -72,8 +72,8 @@ HydroSim::assemble_old_gravity (Real time)
             MultiFab::Copy(comp_phi, phi_old, 0, 0, phi_old.nComp(), phi_old.nGrow());
 
             for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                comp_gphi[n] = std::make_unique<MultiFab>(getEdgeBoxArray(n), dmap, 1, 0);
-                MultiFab::Copy(*comp_gphi[n], *gravity->get_grad_phi_prev(level)[n], 0, 0, 1, 0);
+                comp_grad_phi[n] = std::make_unique<MultiFab>(getEdgeBoxArray(n), dmap, 1, 0);
+                MultiFab::Copy(*comp_grad_phi[n], *gravity->get_grad_phi_prev(level)[n], 0, 0, 1, 0);
             }
 
         }
@@ -97,7 +97,7 @@ HydroSim::assemble_old_gravity (Real time)
 
             gravity->build_composite_level_diff(level,
                                                       comp_phi,
-                                                      amrex::GetVecOfPtrs(comp_gphi),
+                                                      amrex::GetVecOfPtrs(comp_grad_phi),
                                                       composite_level_phi_diff,
                                                       composite_level_grad_phi_diff);
 
@@ -107,7 +107,7 @@ HydroSim::assemble_old_gravity (Real time)
             MultiFab::Copy(phi_old, comp_phi, 0, 0, phi_old.nComp(), phi_old.nGrow());
 
             for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                MultiFab::Copy(*gravity->get_grad_phi_prev(level)[n], *comp_gphi[n], 0, 0, 1, 0);
+                MultiFab::Copy(*gravity->get_grad_phi_prev(level)[n], *comp_grad_phi[n], 0, 0, 1, 0);
             }
 
         }
@@ -127,7 +127,7 @@ HydroSim::assemble_old_gravity (Real time)
 
     // Define the old gravity vector.
 
-    gravity->get_old_grav_vector(level, time, grav_old);
+    gravity->fill_old_gravity_field(level, time, grav_old);
 
     if (verbose > 0)
     {
@@ -256,7 +256,7 @@ HydroSim::assemble_new_gravity (Real time)
 
     // Define new gravity vector.
 
-    gravity->get_new_grav_vector(level, time, grav_new);
+    gravity->fill_new_gravity_field(level, time, grav_new);
 
     if (gravity->get_gravity_type() == "FullPoisson" && level <= gravity->get_max_solve_level() && parent->subcyclingMode() != "None") {
 
@@ -640,21 +640,21 @@ void HydroSim::assemble_new_gravity_source(MultiFab& state_old, MultiFab& state_
                         g[n] = 0.5_rt * (gnew(i,j,k,n) + gold(i,j,k,n));
                     }
 
-                    Real gxl = 0.5_rt * (g[0] + 0.5_rt * (gnew(i-1*dg0,j,k,0) + gold(i-1*dg0,j,k,0)));
-                    Real gxr = 0.5_rt * (g[0] + 0.5_rt * (gnew(i+1*dg0,j,k,0) + gold(i+1*dg0,j,k,0)));
+                    Real gxl = 0.5_rt * (g[0] + 0.5_rt * (gnew(i-1*dim0_on,j,k,0) + gold(i-1*dim0_on,j,k,0)));
+                    Real gxr = 0.5_rt * (g[0] + 0.5_rt * (gnew(i+1*dim0_on,j,k,0) + gold(i+1*dim0_on,j,k,0)));
 
-                    Real gyl = 0.5_rt * (g[1] + 0.5_rt * (gnew(i,j-1*dg1,k,1) + gold(i,j-1*dg1,k,1)));
-                    Real gyr = 0.5_rt * (g[1] + 0.5_rt * (gnew(i,j+1*dg1,k,1) + gold(i,j+1*dg1,k,1)));
+                    Real gyl = 0.5_rt * (g[1] + 0.5_rt * (gnew(i,j-1*dim1_on,k,1) + gold(i,j-1*dim1_on,k,1)));
+                    Real gyr = 0.5_rt * (g[1] + 0.5_rt * (gnew(i,j+1*dim1_on,k,1) + gold(i,j+1*dim1_on,k,1)));
 
-                    Real gzl = 0.5_rt * (g[2] + 0.5_rt * (gnew(i,j,k-1*dg2,2) + gold(i,j,k-1*dg2,2)));
-                    Real gzr = 0.5_rt * (g[2] + 0.5_rt * (gnew(i,j,k+1*dg2,2) + gold(i,j,k+1*dg2,2)));
+                    Real gzl = 0.5_rt * (g[2] + 0.5_rt * (gnew(i,j,k-1*dim2_on,2) + gold(i,j,k-1*dim2_on,2)));
+                    Real gzr = 0.5_rt * (g[2] + 0.5_rt * (gnew(i,j,k+1*dim2_on,2) + gold(i,j,k+1*dim2_on,2)));
 
                     SrEcorr += hdtInv * (flux0(i      ,j,k) * gxl * dx[0] +
-                                         flux0(i+1*dg0,j,k) * gxr * dx[0] +
+                                         flux0(i+1*dim0_on,j,k) * gxr * dx[0] +
                                          flux1(i,j      ,k) * gyl * dx[1] +
-                                         flux1(i,j+1*dg1,k) * gyr * dx[1] +
+                                         flux1(i,j+1*dim1_on,k) * gyr * dx[1] +
                                          flux2(i,j,k      ) * gzl * dx[2] +
-                                         flux2(i,j,k+1*dg2) * gzr * dx[2]) / vol(i,j,k);
+                                         flux2(i,j,k+1*dim2_on) * gzr * dx[2]) / vol(i,j,k);
 
                 }
 

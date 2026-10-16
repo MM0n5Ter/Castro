@@ -58,14 +58,14 @@ HydroSim::cons_update_hydro(const Box& bx,
 
       U_new(i,j,k,n) = U_new(i,j,k,n) - dt * pdu;
 
-    } else if (n == UMX && !mom_flux_has_p(0, 0, geomdata.Coord())) {
+    } else if (n == UMX && !momentum_flux_has_pressure(0, 0, geomdata.Coord())) {
         // Add gradp term to momentum equation -- only for axisymmetric
         // coords (and only for the radial flux).
 
         U_new(i,j,k,UMX) += - dt * (qe[0](i+1,j,k,IFCPRES) - qe[0](i,j,k,IFCPRES)) / geomdata.CellSize(0);
 
 #if AMREX_SPACEDIM >= 2
-    } else if (n == UMY && !mom_flux_has_p(1, 1, geomdata.Coord())) {
+    } else if (n == UMY && !momentum_flux_has_pressure(1, 1, geomdata.Coord())) {
         // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
         Real r = geomdata.ProbLo(0) + (static_cast<Real>(i) + 0.5_rt) * geomdata.CellSize(0);
@@ -77,7 +77,7 @@ HydroSim::cons_update_hydro(const Box& bx,
 
 
 void
-HydroSim::ctu_ppm_states(const Box& bx, const Box& vbx,
+HydroSim::ppm_interface_states(const Box& bx, const Box& vbx,
                        Array4<Real const> const& U_arr,
                        Array4<Real const> const& rho_inv_arr,
                        Array4<Real const> const& q_arr,
@@ -100,14 +100,14 @@ HydroSim::ctu_ppm_states(const Box& bx, const Box& vbx,
     fields.dloga = dloga[idir];
     trace_ppm(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
+    mirror_states_at_walls(bx, idir, qm[idir], qp[idir]);
   }
 }
 
 
 #ifdef RADIATION
 void
-HydroSim::ctu_ppm_rad_states(const Box& bx, const Box& vbx,
+HydroSim::ppm_rad_interface_states(const Box& bx, const Box& vbx,
                            Array4<Real const> const& U_arr,
                            Array4<Real const> const& rho_inv_arr,
                            Array4<Real const> const& q_arr,
@@ -126,14 +126,14 @@ HydroSim::ctu_ppm_rad_states(const Box& bx, const Box& vbx,
     fields.dloga = dloga[idir];
     trace_ppm_rad(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
+    mirror_states_at_walls(bx, idir, qm[idir], qp[idir]);
   }
 }
 #endif
 
 
 void
-HydroSim::ctu_plm_states(const Box& bx, const Box& vbx,
+HydroSim::plm_interface_states(const Box& bx, const Box& vbx,
                        Array4<Real const> const& U_arr,
                        Array4<Real const> const& rho_inv_arr,
                        Array4<Real const> const& q_arr,
@@ -170,7 +170,7 @@ HydroSim::ctu_plm_states(const Box& bx, const Box& vbx,
     fields.dloga = dloga[idir];
     trace_plm(bx, idir, fields, qm[idir], qp[idir], vbx, dt);
 
-    enforce_reflect_states(bx, idir, qm[idir], qp[idir]);
+    mirror_states_at_walls(bx, idir, qm[idir], qp[idir]);
   }
 }
 
@@ -222,7 +222,7 @@ hydro::add_sdc_source_to_states(const Box& bx, const int idir, const Real dt,
 
         for (int ipassive = 0; ipassive < npassive; ipassive++) {
 
-            int n = qpassmap(ipassive);
+            int n = prim_passive_index(ipassive);
 
             if (idir == 0) {
                 qleft(i,j,k,n) += 0.5 * dt * sdc_src(i-1,j,k,n);

@@ -12,7 +12,7 @@
 
 using namespace amrex;
 
-void HydroSim::problem_post_init()
+void HydroSim::user_post_init()
 {
     BL_ASSERT(level == 0);
 
@@ -25,7 +25,7 @@ void HydroSim::problem_post_init()
     Real time = state[State_Type].curTime();
 
     for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, sum_scope);
+        actual_mass += getLevel(lev).volumeIntegralSum("density", time, sum_scope);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
@@ -97,7 +97,7 @@ void HydroSim::problem_post_init()
     actual_mass = 0.0;
 
     for (int lev = 0; lev <= parent->finestLevel(); lev++) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, sum_scope);
+        actual_mass += getLevel(lev).volumeIntegralSum("density", time, sum_scope);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);

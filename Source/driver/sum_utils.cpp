@@ -57,19 +57,19 @@ namespace {
 }
 
 Real
-HydroSim::volWgtSum (const std::string& name, Real time, SumScope scope, CoveredZones covered)
+HydroSim::volumeIntegralSum (const std::string& name, Real time, SumScope scope, CoveredZones covered)
 {
     auto mf = derive(name, time, 0);
 
     BL_ASSERT(mf);
 
-    return volWgtSum(*mf, 0, scope, covered);
+    return volumeIntegralSum(*mf, 0, scope, covered);
 }
 
 Real
-HydroSim::volWgtSum (const MultiFab& mf, int comp, SumScope scope, CoveredZones covered)
+HydroSim::volumeIntegralSum (const MultiFab& mf, int comp, SumScope scope, CoveredZones covered)
 {
-    BL_PROFILE("HydroSim::volWgtSum()");
+    BL_PROFILE("HydroSim::volumeIntegralSum()");
 
     bool mask_available = level < parent->finestLevel() && covered == CoveredZones::Exclude;
 
@@ -97,9 +97,9 @@ HydroSim::volWgtSum (const MultiFab& mf, int comp, SumScope scope, CoveredZones 
 }
 
 Real
-HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, SumScope scope)
+HydroSim::positionWeightedSum (const MultiFab& mf, int comp, int idir, SumScope scope)
 {
-    BL_PROFILE("HydroSim::locWgtSum()");
+    BL_PROFILE("HydroSim::positionWeightedSum()");
 
     bool mask_available = level < parent->finestLevel();
 
@@ -158,12 +158,12 @@ HydroSim::locWgtSum (const MultiFab& mf, int comp, int idir, SumScope scope)
 }
 
 Real
-HydroSim::volProductSum (const MultiFab& mf1,
+HydroSim::volumeWeightedProductSum (const MultiFab& mf1,
                        const MultiFab& mf2,
                        int comp1, int comp2,
                        SumScope scope)
 {
-    BL_PROFILE("HydroSim::volProductSum()");
+    BL_PROFILE("HydroSim::volumeWeightedProductSum()");
 
     bool mask_available = level < parent->finestLevel();
 
@@ -187,12 +187,12 @@ HydroSim::volProductSum (const MultiFab& mf1,
 }
 
 Real
-HydroSim::locSquaredSum (const std::string& name,
+HydroSim::positionSquaredWeightedSum (const std::string& name,
                        Real               time,
                        int                idir,
                        SumScope           scope)
 {
-    BL_PROFILE("HydroSim::locSquaredSum()");
+    BL_PROFILE("HydroSim::positionSquaredWeightedSum()");
 
     auto mf = derive(name, time, 0);
 
@@ -254,11 +254,11 @@ HydroSim::locSquaredSum (const std::string& name,
 
 #ifdef GRAVITY
 HydroSim::WaveStrain
-HydroSim::gwstrain (Real time, SumScope scope) {
+HydroSim::wave_strain (Real time, SumScope scope) {
 
     amrex::ignore_unused(time);
 
-    BL_PROFILE("HydroSim::gwstrain()");
+    BL_PROFILE("HydroSim::wave_strain()");
 
     WaveStrain strain;
 

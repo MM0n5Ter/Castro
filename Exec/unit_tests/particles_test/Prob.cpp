@@ -8,7 +8,7 @@ using namespace amrex;
 using ParticleType = Particle<1, 1>;
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-void HydroSim::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
+void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
 
     int nlevels = amr_level.size();
 

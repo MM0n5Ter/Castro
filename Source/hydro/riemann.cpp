@@ -100,28 +100,28 @@ HydroSim::riemann_flux_and_state(const Box& bx,
 
             // first find the interface state on the current interface
 
-            const RiemannState qint = riemann_state(i, j, k, idir,
+            const RiemannVars q_riemann = solve_interface_state(i, j, k, idir,
                                                     qm, qp, qaux_arr,
                                                     edges,
                                                     do_ppm_temp_fix, temp_guess);
 
             // now use the interface state to compute and store the flux
 
-            compute_flux_q(i, j, k, idir,
+            flux_from_interface_state(i, j, k, idir,
                            geomdata,
-                           qint, flx,
+                           q_riemann, flx,
 #ifdef RADIATION
                            out.rad_flux,
 #endif
                            qface, qface_comps);
 
-            // now do the passives -- we didn't include them in qint, qface, or flux above
+            // now do the passives -- we didn't include them in q_riemann, qface, or flux above
 
             // the passives are always just upwinded, so we do that here
             // regardless of the solver
 
-            Real sgnm = std::copysign(1.0_rt, qint.vel.un);
-            if (qint.vel.un == 0.0_rt) {
+            Real sgnm = std::copysign(1.0_rt, q_riemann.vel.un);
+            if (q_riemann.vel.un == 0.0_rt) {
                 sgnm = 0.0_rt;
             }
 
@@ -129,8 +129,8 @@ HydroSim::riemann_flux_and_state(const Box& bx,
             Real fm = 0.5_rt*(1.0_rt - sgnm);
 
             for (int ipassive = 0; ipassive < npassive; ipassive++) {
-                int nqp = qpassmap(ipassive);
-                int n  = upassmap(ipassive);
+                int nqp = prim_passive_index(ipassive);
+                int n  = cons_passive_index(ipassive);
 
                 Real X_int = fp * qm(i,j,k,nqp) + fm * qp(i,j,k,nqp);
 

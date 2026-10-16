@@ -49,12 +49,12 @@ TimestepLimiter::estdt_rad (const MultiFab& stateMF, const GeometryData& geomdat
 
         FArrayBox gPr;
         gPr.resize(tbox);
-        global::the_radiation_ptr->estimate_gamrPr(stateMF[mfi], radMF[mfi], gPr, geomdata.CellSize(), vbox);
+        global::the_radiation_ptr->estimate_rad_gamma_pressure(stateMF[mfi], radMF[mfi], gPr, geomdata.CellSize(), vbox);
 
         auto u = stateMF[mfi].array();
         auto gPr_arr = gPr.array();
 
-        // Note that we synchronize in the call to estimate_gamrPr. Ideally
+        // Note that we synchronize in the call to estimate_rad_gamma_pressure. Ideally
         // we would merge these into one loop later (probably by making that
         // call occur on a zone-by-zone basis) so that we can simplify.
 

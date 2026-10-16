@@ -1,6 +1,6 @@
 program bc
 
-  use blackbody_module, only : BGroup
+  use blackbody_module, only : planckGroupIntegral
 
   implicit none
 
@@ -37,6 +37,6 @@ program bc
   read(*,*) T
 
   print *, "T = ", T
-  print *, ((BGroup(T, xnu(igroup), xnu(igroup+1))), igroup=0,ngroups-1)
+  print *, ((planckGroupIntegral(T, xnu(igroup), xnu(igroup+1))), igroup=0,ngroups-1)
 
 end program bc

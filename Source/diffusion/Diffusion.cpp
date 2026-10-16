@@ -19,7 +19,7 @@ Diffusion::Diffusion(Amr* Parent, BCRec* _phys_bc)
 
 
 void
-Diffusion::output_job_info_params(std::ostream& jobInfoFile)
+Diffusion::write_params_to_job_info(std::ostream& jobInfoFile)
 {
 #include <diffusion_job_info_tests.H>
 }
@@ -42,11 +42,11 @@ Diffusion::register_level (int                   level,
 }
 
 void
-Diffusion::applyop (int level, MultiFab& Temperature,
+Diffusion::apply_conduction_operator (int level, MultiFab& Temperature,
                     MultiFab& CrseTemp, CoefficientVector& temp_cond_coef,
                     MultiFab& DiffTerm)
 {
-    applyop_mlmg(level, Temperature, CrseTemp, temp_cond_coef, DiffTerm);
+    apply_conduction_operator_mlmg(level, Temperature, CrseTemp, temp_cond_coef, DiffTerm);
 }
 
 
@@ -82,11 +82,11 @@ Diffusion::set_solver_bc_types ()
 }
 
 void
-Diffusion::applyop_mlmg (int level, MultiFab& Temperature,
+Diffusion::apply_conduction_operator_mlmg (int level, MultiFab& Temperature,
                          MultiFab& CrseTemp, CoefficientVector& temp_cond_coef,
                          MultiFab& DiffTerm)
 {
-    BL_PROFILE("Diffusion::applyop_mlmg()");
+    BL_PROFILE("Diffusion::apply_conduction_operator_mlmg()");
 
     if (verbose && ParallelDescriptor::IOProcessor()) {
         std::cout << "   " << '\n';

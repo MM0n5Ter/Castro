@@ -140,7 +140,7 @@ void Radiation::single_group_update(int level, int iteration, int ncycle)
   FluxRegister* flux_out =
       (level > 0) ? flux_trial[level].get() : nullptr;
 
-  RadSolve* const solver = hydrosim->rad_solver.get();
+  RadSolve* const solver = hydrosim->radiation_solver.get();
 
   solver->levelBndry(bd);
 

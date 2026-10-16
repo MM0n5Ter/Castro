@@ -12,7 +12,7 @@
 
 using namespace amrex;
 
-void HydroSim::problem_post_init()
+void HydroSim::user_post_init()
 {
     BL_ASSERT(level == 0);
 

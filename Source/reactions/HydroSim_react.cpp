@@ -95,7 +95,7 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 
         // If we're not burning, just initialize the reactions data to zero.
 
-        MultiFab& SDC_react_new = get_new_data(Simplified_SDC_React_Type);
+        MultiFab& SDC_react_new = get_new_data(SDC_React_Source_Type);
         SDC_react_new.setVal(0.0, SDC_react_new.nGrow());
 
         R_old.setVal(0.0, R_old.nGrow());
@@ -132,7 +132,7 @@ HydroSim::handle_new_reactions (Real time, Real dt)
 // Are there any zones in State that can burn?
 
 static bool
-valid_zones_to_burn(const MultiFab& State)
+burnable_cells_exist(const MultiFab& State)
 {
 
     // The default values of the limiters are 0 and 1.e200, respectively.
@@ -276,7 +276,7 @@ HydroSim::react_state(MultiFab& s, MultiFab& r, Real time, Real dt, const BurnHa
 
     // Check if reactions are enabled and we have any zones to burn.
 
-    if (do_react != 1 || !valid_zones_to_burn(s)) {
+    if (do_react != 1 || !burnable_cells_exist(s)) {
 
         // Ensure we always have valid data, even if we don't do the burn.
         r.setVal(0.0, r.nGrow());
@@ -634,7 +634,7 @@ HydroSim::react_state(Real time, Real dt)
     const int ng = S_new.nGrow();
 
     MultiFab& reactions = get_new_data(Reactions_Type);
-    MultiFab& SDC_react = get_new_data(Simplified_SDC_React_Type);
+    MultiFab& SDC_react = get_new_data(SDC_React_Source_Type);
 
     reactions.setVal(0.0, reactions.nGrow());
 
@@ -951,8 +951,8 @@ HydroSim::react_state(Real time, Real dt)
         S_new.FillBoundary(geom.periodicity());
     }
 
-    Real cur_time = get_state_data(Simplified_SDC_React_Type).curTime();
-    AmrLevel::FillPatch(*this, SDC_react, SDC_react.nGrow(), cur_time, Simplified_SDC_React_Type, 0, SDC_react.nComp());
+    Real cur_time = get_state_data(SDC_React_Source_Type).curTime();
+    AmrLevel::FillPatch(*this, SDC_react, SDC_react.nGrow(), cur_time, SDC_React_Source_Type, 0, SDC_react.nComp());
 
     if (print_update_diagnostics) {
 

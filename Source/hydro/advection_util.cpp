@@ -337,7 +337,7 @@ HydroSim::divu(const Box& bx,
 
 
 void
-HydroSim::apply_av(const Box& bx,
+HydroSim::apply_art_visc(const Box& bx,
                  const int idir,
                  Array4<Real const> const& div,
                  Array4<Real const> const& uin,
@@ -360,14 +360,14 @@ HydroSim::apply_av(const Box& bx,
 
       Real div1;
       if (idir == 0) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
-                            div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
+          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dim1_on,k) +
+                            div(i,j,k+dim2_on) + div(i,j+dim1_on,k+dim2_on));
       } else if (idir == 1) {
           div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dg2) + div(i+1,j,k+dg2));
+                            div(i,j,k+dim2_on) + div(i+1,j,k+dim2_on));
       } else {
           div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dg1,k) + div(i+1,j+dg1,k));
+                            div(i,j+dim1_on,k) + div(i+1,j+dim1_on,k));
       }
 
       div1 = diff_coeff * std::min(0.0_rt, div1);
@@ -393,9 +393,9 @@ HydroSim::apply_av(const Box& bx,
           if (idir == 0) {
               div_var = div1 * (uin(i,j,k,n) - uin(i-1,j,k,n));
           } else if (idir == 1) {
-              div_var = div1 * (uin(i,j,k,n) - uin(i,j-dg1,k,n));
+              div_var = div1 * (uin(i,j,k,n) - uin(i,j-dim1_on,k,n));
           } else {
-              div_var = div1 * (uin(i,j,k,n) - uin(i,j,k-dg2,n));
+              div_var = div1 * (uin(i,j,k,n) - uin(i,j,k-dim2_on,n));
           }
 
           flux(i,j,k,n) += dL * div_var;
@@ -406,7 +406,7 @@ HydroSim::apply_av(const Box& bx,
 
 #ifdef RADIATION
 void
-HydroSim::apply_av_rad(const Box& bx,
+HydroSim::apply_rad_art_visc(const Box& bx,
                      const int idir,
                      Array4<Real const> const& div,
                      Array4<Real const> const& Erin,
@@ -424,14 +424,14 @@ HydroSim::apply_av_rad(const Box& bx,
 
       Real div1;
       if (idir == 0) {
-          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
-                            div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
+          div1 = 0.25_rt * (div(i,j,k) + div(i,j+dim1_on,k) +
+                            div(i,j,k+dim2_on) + div(i,j+dim1_on,k+dim2_on));
       } else if (idir == 1) {
           div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dg2) + div(i+1,j,k+dg2));
+                            div(i,j,k+dim2_on) + div(i+1,j,k+dim2_on));
       } else {
           div1 = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dg1,k) + div(i+1,j+dg1,k));
+                            div(i,j+dim1_on,k) + div(i+1,j+dim1_on,k));
       }
 
       div1 = diff_coeff * std::min(0.0_rt, div1);
@@ -443,9 +443,9 @@ HydroSim::apply_av_rad(const Box& bx,
           if (idir == 0) {
               div_var = div1 * (Erin(i,j,k,n) - Erin(i-1,j,k,n));
           } else if (idir == 1) {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j-dg1,k,n));
+              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j-dim1_on,k,n));
           } else {
-              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j,k-dg2,n));
+              div_var = div1 * (Erin(i,j,k,n) - Erin(i,j,k-dim2_on,n));
           }
 
           radflux(i,j,k,n) += dx[idir] * div_var;
@@ -525,7 +525,7 @@ HydroSim::scale_rad_flux(const Box& bx,
 
 #ifndef MHD
 void
-hydro::limit_hydro_fluxes_on_small_dens(const Box& bx,
+hydro::limit_fluxes_for_density_floor(const Box& bx,
                                         int idir,
                                         Array4<Real const> const& u,
                                         Array4<Real const> const& vol,
@@ -629,7 +629,7 @@ hydro::limit_hydro_fluxes_on_small_dens(const Box& bx,
 
 
 void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-HydroSim::do_enforce_minimum_density(const Box& bx,
+HydroSim::apply_density_floor_box(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const DensityResetReport report) {
 
@@ -669,7 +669,7 @@ HydroSim::do_enforce_minimum_density(const Box& bx,
 #endif
 
       for (int ipassive = 0; ipassive < npassive; ipassive++) {
-          const int n = upassmap(ipassive);
+          const int n = cons_passive_index(ipassive);
           state_arr(i,j,k,n) *= (small_dens / state_arr(i,j,k,URHO));
       }
 
@@ -726,7 +726,7 @@ HydroSim::do_enforce_minimum_density(const Box& bx,
 
 
 void
-HydroSim::enforce_reflect_states(const Box& bx, const int idir,
+HydroSim::mirror_states_at_walls(const Box& bx, const int idir,
                                Array4<Real> const& qm,
                                Array4<Real> const& qp) {
 

@@ -1194,7 +1194,7 @@ static void ExtendThetaDomain() {
                     // for regions of intersection.
                     // We keep new cells with initial values equal to 0.
                     // Once hydrosim restarts with the new checkpoint file
-                    // the new cells with be filled using problem_initialize_state_data
+                    // the new cells with be filled using user_initial_state
 
                     new_mf->ParallelCopy(*old_mf, 0, 0, ncomp);
 

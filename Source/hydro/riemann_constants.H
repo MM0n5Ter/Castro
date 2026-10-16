@@ -6,7 +6,7 @@
 using namespace amrex::literals;
 
 struct riemann_constants {
-    static constexpr amrex::Real smlp1 = 1.e-10_rt;
+    static constexpr amrex::Real small_p_frac = 1.e-10_rt;
     static constexpr amrex::Real small = 1.e-8_rt;
     static constexpr amrex::Real smallu = 1.e-12_rt;
     static constexpr amrex::Real riemann_integral_tol = 1.e-8_rt;

@@ -30,7 +30,7 @@
 /// @param state    Current state
 /// @param DiffTerm MultiFab to save term to
 ///
-void getTempDiffusionTerm (amrex::Real time, amrex::MultiFab& state, amrex::MultiFab& DiffTerm);
+void computeConductionTerm (amrex::Real time, amrex::MultiFab& state, amrex::MultiFab& DiffTerm);
 
 
 ///
@@ -43,7 +43,7 @@ void getTempDiffusionTerm (amrex::Real time, amrex::MultiFab& state, amrex::Mult
 /// @param mult_factor  Real, factor to multiply diffusion
 ///                     sources by before adding to other sources.
 ///
-void add_temp_diffusion_to_source (amrex::MultiFab& state, amrex::Real t,
+void add_conduction_to_source (amrex::MultiFab& state, amrex::Real t,
                                    amrex::MultiFab& DiffTerm, amrex::MultiFab& ext_src,
                                    amrex::Real mult_factor = 1.0);
 

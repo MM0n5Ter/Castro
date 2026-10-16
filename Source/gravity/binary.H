@@ -5,25 +5,25 @@
 // calculate generic properties of binary orbits.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real gforce (Real M, Real r)
+Real point_gravity_force (Real M, Real r)
 {
     return -C::Gconst * M / (r * r) * std::copysign(1.0_rt, r);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real dgforcedr (Real M, Real r)
+Real point_gravity_force_deriv (Real M, Real r)
 {
     return 2.0_rt * C::Gconst * M / (r * r * r) * std::copysign(1.0_rt, r);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real cforce (Real M, Real a, Real r)
+Real centrifugal_force (Real M, Real a, Real r)
 {
     return C::Gconst * M / (a * a * a) * r;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real dcforcedr (Real M, Real a, Real r)
+Real centrifugal_force_deriv (Real M, Real a, Real r)
 {
 
     amrex::ignore_unused(r);
@@ -34,21 +34,21 @@ Real dcforcedr (Real M, Real a, Real r)
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real fL (Real M1, Real M2, Real r1, Real r2, Real r, Real a)
 {
-    Real g1 = gforce(M1, r - r1);
-    Real g2 = gforce(M2, r - r2);
+    Real g1 = point_gravity_force(M1, r - r1);
+    Real g2 = point_gravity_force(M2, r - r2);
 
-    Real c = cforce(M1 + M2, a, r);
+    Real c = centrifugal_force(M1 + M2, a, r);
 
     return g1 + g2 + c;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real fdLdr (Real M1, Real M2, Real r1, Real r2, Real r, Real a)
+Real lagrange_residual_deriv (Real M1, Real M2, Real r1, Real r2, Real r, Real a)
 {
-    Real dg_1 = dgforcedr(M1, r - r1);
-    Real dg_2 = dgforcedr(M2, r - r2);
+    Real dg_1 = point_gravity_force_deriv(M1, r - r1);
+    Real dg_2 = point_gravity_force_deriv(M2, r - r2);
 
-    Real dc = dcforcedr(M1 + M2, a, r);
+    Real dc = centrifugal_force_deriv(M1 + M2, a, r);
 
     return dg_1 + dg_2 + dc;
 }
@@ -60,7 +60,7 @@ Real fdLdr (Real M1, Real M2, Real r1, Real r2, Real r, Real a)
 // We assume that r comes in with a valid starting guess value.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void lagrange_iterate (Real& r, Real mass_1, Real mass_2, Real r1, Real r2, Real a, Real r_min, Real r_max)
+void solve_lagrange_point (Real& r, Real mass_1, Real mass_2, Real r1, Real r2, Real a, Real r_min, Real r_max)
 {
     // Root-find parameters
 
@@ -145,7 +145,7 @@ struct LagrangePoints
 // closest to it (assuming we're on the coarse grid).
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-LagrangePoints get_lagrange_points (Real mass_1, Real mass_2,
+LagrangePoints find_lagrange_points (Real mass_1, Real mass_2,
                                     const GpuArray<Real, 3>& com_1, const GpuArray<Real, 3>& com_2)
 {
     LagrangePoints points;
@@ -171,7 +171,7 @@ LagrangePoints get_lagrange_points (Real mass_1, Real mass_2,
 
     r = 0.0_rt;
 
-    lagrange_iterate(r, mass_1, mass_2, r1, r2, a, r1, r2);
+    solve_lagrange_point(r, mass_1, mass_2, r1, r2, a, r1, r2);
 
     // Now turn this radial distance into a grid coordinate.
 
@@ -183,7 +183,7 @@ LagrangePoints get_lagrange_points (Real mass_1, Real mass_2,
 
     r = r2 + 0.5_rt * a;
 
-    lagrange_iterate(r, mass_1, mass_2, r1, r2, a, r2, 0.0_rt);
+    solve_lagrange_point(r, mass_1, mass_2, r1, r2, a, r2, 0.0_rt);
 
     for (int n = 0; n < 3; ++n) {
         points.L2[n] = r * (com_2[n] - com_1[n]) / a;
@@ -193,7 +193,7 @@ LagrangePoints get_lagrange_points (Real mass_1, Real mass_2,
 
     r = r1 - 0.5_rt * a;
 
-    lagrange_iterate(r, mass_1, mass_2, r1, r2, a, 0.0_rt, r1);
+    solve_lagrange_point(r, mass_1, mass_2, r1, r2, a, 0.0_rt, r1);
 
     for (int n = 0; n < 3; ++n) {
         points.L3[n] = r * (com_2[n] - com_1[n]) / a;
@@ -217,7 +217,7 @@ struct RocheRadii
 // pass in a distance scale.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-RocheRadii get_roche_radii (Real mass_ratio, Real a = 1.0_rt)
+RocheRadii roche_lobe_radii (Real mass_ratio, Real a = 1.0_rt)
 {
     RocheRadii radii;
 

@@ -408,7 +408,7 @@ void update_roche_radii ()
                            std::pow(problem::com_P[1] - problem::com_S[1], 2) +
                            std::pow(problem::com_P[2] - problem::com_S[2], 2));
 
-        const RocheRadii radii = get_roche_radii(problem::mass_S / problem::mass_P, r);
+        const RocheRadii radii = roche_lobe_radii(problem::mass_S / problem::mass_P, r);
         problem::roche_rad_S = radii.r_1;
         problem::roche_rad_P = radii.r_2;
 
@@ -594,7 +594,7 @@ void binary_setup ()
 
         // Compute initial Roche radii
 
-        const RocheRadii radii = get_roche_radii(problem::mass_S / problem::mass_P);
+        const RocheRadii radii = roche_lobe_radii(problem::mass_S / problem::mass_P);
         problem::roche_rad_S = radii.r_1;
         problem::roche_rad_P = radii.r_2;
 

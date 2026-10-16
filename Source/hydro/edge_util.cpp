@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-hydro::reset_edge_state_thermo(const Box& bx,
+hydro::recompute_face_thermo(const Box& bx,
                                Array4<Real> const& qedge)
 {
 
@@ -78,7 +78,7 @@ hydro::reset_edge_state_thermo(const Box& bx,
 
 
 void
-hydro::edge_state_temp_to_pres(const Box& bx,
+hydro::face_pressure_from_temp(const Box& bx,
                                Array4<Real> const& qm,
                                Array4<Real> const& qp)
 {

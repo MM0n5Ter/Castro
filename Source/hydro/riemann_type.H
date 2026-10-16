@@ -6,7 +6,7 @@
 
 using namespace amrex::literals;
 
-struct RiemannState
+struct RiemannVars
 {
     // velocity components normal and transverse to the interface
     struct Velocity
@@ -23,14 +23,14 @@ struct RiemannState
         amrex::Real er[NGROUPS];
         amrex::Real p_g;
         amrex::Real rhoe_g;
-        amrex::Real gamcg;
+        amrex::Real gamma1_gas;
     };
 #endif
 
     amrex::Real rho;
     amrex::Real p;
     amrex::Real rhoe;
-    amrex::Real gamc;
+    amrex::Real gamma1;
     Velocity vel;
 
 #ifdef RADIATION
@@ -40,11 +40,11 @@ struct RiemannState
 };
 
 
-struct RiemannAux
+struct RiemannParams
 {
-    amrex::Real csmall;
-    amrex::Real cavg;
-    amrex::Real bnd_fac;
+    amrex::Real cs_floor;
+    amrex::Real cs_mean;
+    amrex::Real boundary_scale;
 };
 
 
@@ -66,19 +66,19 @@ struct DomainEdges
 
 struct RiemannProblem
 {
-    RiemannState left;
-    RiemannState right;
-    RiemannAux aux;
+    RiemannVars left;
+    RiemannVars right;
+    RiemannParams aux;
 };
 
 
 AMREX_INLINE
-std::ostream& operator<< (std::ostream& o, RiemannState const& rs)
+std::ostream& operator<< (std::ostream& o, RiemannVars const& rs)
 {
     o << "rho  = " << rs.rho << std::endl;
     o << "p    = " << rs.p << std::endl;
     o << "rhoe = " << rs.rhoe << std::endl;
-    o << "gamc = " << rs.gamc << std::endl;
+    o << "gamma1 = " << rs.gamma1 << std::endl;
     o << "un   = " << rs.vel.un << std::endl;
     o << "ut   = " << rs.vel.ut << std::endl;
     o << "utt  = " << rs.vel.utt << std::endl;
@@ -87,11 +87,11 @@ std::ostream& operator<< (std::ostream& o, RiemannState const& rs)
 
 
 AMREX_INLINE
-std::ostream& operator<< (std::ostream& o, RiemannAux const& ra)
+std::ostream& operator<< (std::ostream& o, RiemannParams const& ra)
 {
-    o << "csmall  = " << ra.csmall << std::endl;
-    o << "cavg    = " << ra.cavg << std::endl;
-    o << "bnd_fac = " << ra.bnd_fac << std::endl;
+    o << "cs_floor  = " << ra.cs_floor << std::endl;
+    o << "cs_mean    = " << ra.cs_mean << std::endl;
+    o << "boundary_scale = " << ra.boundary_scale << std::endl;
     return o;
 }
 
@@ -106,9 +106,9 @@ load_input_states(const int i, const int j, const int k, const int idir,
     const amrex::Real small = 1.e-8_rt;
 
     RiemannProblem states;
-    RiemannState& ql = states.left;
-    RiemannState& qr = states.right;
-    RiemannAux& raux = states.aux;
+    RiemannVars& ql = states.left;
+    RiemannVars& qr = states.right;
+    RiemannParams& riemann_aux = states.aux;
 
     // fill the states directly from inputs
 
@@ -124,16 +124,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
         qr.vel.ut = qright_arr(i,j,k,QV);
         qr.vel.utt = qright_arr(i,j,k,QW);
 
-        raux.csmall = amrex::max(small,
+        riemann_aux.cs_floor = amrex::max(small,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i-1,j,k,QC)));
-        raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i-1,j,k,QC));
+        riemann_aux.cs_mean = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i-1,j,k,QC));
 
-        ql.gamc = qaux_arr(i-1,j,k,QGAM1);
-        qr.gamc = qaux_arr(i,j,k,QGAM1);
+        ql.gamma1 = qaux_arr(i-1,j,k,QGAM1);
+        qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.rad.gamcg = qaux_arr(i-1,j,k,QGAM1GAS);
-        qr.rad.gamcg = qaux_arr(i,j,k,QGAM1GAS);
+        ql.rad.gamma1_gas = qaux_arr(i-1,j,k,QGAM1GAS);
+        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
             ql.rad.lam[g] = qaux_arr(i-1,j,k,QFLXLIM+g);
@@ -150,16 +150,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
         qr.vel.ut = qright_arr(i,j,k,QU);
         qr.vel.utt = qright_arr(i,j,k,QW);
 
-        raux.csmall = amrex::max(small,
+        riemann_aux.cs_floor = amrex::max(small,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i,j-1,k,QC)));
-        raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j-1,k,QC));
+        riemann_aux.cs_mean = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j-1,k,QC));
 
-        ql.gamc = qaux_arr(i,j-1,k,QGAM1);
-        qr.gamc = qaux_arr(i,j,k,QGAM1);
+        ql.gamma1 = qaux_arr(i,j-1,k,QGAM1);
+        qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.rad.gamcg = qaux_arr(i,j-1,k,QGAM1GAS);
-        qr.rad.gamcg = qaux_arr(i,j,k,QGAM1GAS);
+        ql.rad.gamma1_gas = qaux_arr(i,j-1,k,QGAM1GAS);
+        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
             ql.rad.lam[g] = qaux_arr(i,j-1,k,QFLXLIM+g);
@@ -176,16 +176,16 @@ load_input_states(const int i, const int j, const int k, const int idir,
         qr.vel.ut = qright_arr(i,j,k,QU);
         qr.vel.utt = qright_arr(i,j,k,QV);
 
-        raux.csmall = amrex::max(small,
+        riemann_aux.cs_floor = amrex::max(small,
                                  small * amrex::max(qaux_arr(i,j,k,QC), qaux_arr(i,j,k-1,QC)));
-        raux.cavg = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j,k-1,QC));
+        riemann_aux.cs_mean = 0.5_rt * (qaux_arr(i,j,k,QC) + qaux_arr(i,j,k-1,QC));
 
-        ql.gamc = qaux_arr(i,j,k-1,QGAM1);
-        qr.gamc = qaux_arr(i,j,k,QGAM1);
+        ql.gamma1 = qaux_arr(i,j,k-1,QGAM1);
+        qr.gamma1 = qaux_arr(i,j,k,QGAM1);
 
 #ifdef RADIATION
-        ql.rad.gamcg = qaux_arr(i,j,k-1,QGAM1GAS);
-        qr.rad.gamcg = qaux_arr(i,j,k,QGAM1GAS);
+        ql.rad.gamma1_gas = qaux_arr(i,j,k-1,QGAM1GAS);
+        qr.rad.gamma1_gas = qaux_arr(i,j,k,QGAM1GAS);
 
         for (int g = 0; g < NGROUPS; g++) {
             ql.rad.lam[g] = qaux_arr(i,j,k-1,QFLXLIM+g);
@@ -224,8 +224,8 @@ load_input_states(const int i, const int j, const int k, const int idir,
 
 #ifdef TRUE_SDC
     if (use_reconstructed_gamma1 == 1) {
-        ql.gamc = qleft_arr(i,j,k,QGAM1P);
-        qr.gamc = qright_arr(i,j,k,QGAM1P);
+        ql.gamma1 = qleft_arr(i,j,k,QGAM1P);
+        qr.gamma1 = qright_arr(i,j,k,QGAM1P);
     }
 #endif
 
@@ -253,7 +253,7 @@ load_input_states(const int i, const int j, const int k, const int idir,
 
         ql.rhoe = ql.rho * eos_state.e;
         ql.p = eos_state.p;
-        ql.gamc = eos_state.gam1;
+        ql.gamma1 = eos_state.gam1;
     }
 
     if (qr.rhoe <= 0.0_rt || qr.p < small_pres) {
@@ -277,7 +277,7 @@ load_input_states(const int i, const int j, const int k, const int idir,
 
         qr.rhoe = qr.rho * eos_state.e;
         qr.p = eos_state.p;
-        qr.gamc = eos_state.gam1;
+        qr.gamma1 = eos_state.gam1;
     }
 
     return states;

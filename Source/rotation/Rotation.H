@@ -299,7 +299,7 @@ GpuArray<Real, 3> inertial_rotation(const GpuArray<Real, 3>& vec,
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Array2D<Real, 0, 2, 0, 2> fill_dt_omega_matrix(const Real dt, const GpuArray<Real, 3>& omega)
 {
-    // Fill in dt_omega_matrix. This is used in function corrrsrc
+    // Fill in dt_omega_matrix. This is used in function fill_rotation_correction
 
     Array2D<Real, 0, 2, 0, 2> dt_omega_matrix = {};
 

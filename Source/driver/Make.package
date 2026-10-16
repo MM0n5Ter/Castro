@@ -20,13 +20,13 @@ CEXE_headers += HydroSim_io.H
 CEXE_headers += state_indices.H
 CEXE_headers += runtime_parameters.H
 CEXE_sources += sum_utils.cpp
-CEXE_sources += sum_integrated_quantities.cpp
+CEXE_sources += print_integrated_sums.cpp
 
 CEXE_headers += Derive.H
 CEXE_sources += Derive.cpp
 
-CEXE_headers += HydroSim_generic_fill.H
-CEXE_sources += HydroSim_generic_fill.cpp
+CEXE_headers += HydroSim_default_fill.H
+CEXE_sources += HydroSim_default_fill.cpp
 
 CEXE_headers += HydroSim_util.H
 CEXE_headers += global.H

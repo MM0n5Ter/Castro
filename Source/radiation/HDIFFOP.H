@@ -1,5 +1,5 @@
-#ifndef _HABEC_H_
-#define _HABEC_H_
+#ifndef HDIFFOP_KERNELS_H
+#define HDIFFOP_KERNELS_H
 
 #include <AMReX_Array4.H>
 #include <AMReX_REAL.H>
@@ -16,7 +16,7 @@ namespace HDIFFOP
     // alpha*phi - div(beta*grad phi) + div(\vec{c}*phi)
 
     AMREX_INLINE
-    void hbflx (Array4<Real> const flux,
+    void bc_face_flux (Array4<Real> const flux,
                 Array4<Real> const er,
                 const Box& reg,
                 int cdir, int bct, int bho, Real bcl,
@@ -87,27 +87,27 @@ namespace HDIFFOP
         }
 #endif
 
-        Real bfv, bfm, bfm2;
+        Real bc_coef_v, bc_coef_m, bc_coef_m2;
 
         if (bct == AMREX_LO_DIRICHLET) {
             if (bho >= 1) {
                 Real h2 = 0.5e0_rt * h;
                 Real th2 = 3.e0_rt * h2;
-                bfv = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2));
-                bfm = (beta / h) * (th2 - bcl) / (bcl + h2);
-                bfm2 = (beta / h) * (bcl - h2) / (bcl + th2);
+                bc_coef_v = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2));
+                bc_coef_m = (beta / h) * (th2 - bcl) / (bcl + h2);
+                bc_coef_m2 = (beta / h) * (bcl - h2) / (bcl + th2);
             }
             else {
-                bfv = beta / (0.5e0_rt * h + bcl);
-                bfm = bfv;
+                bc_coef_v = beta / (0.5e0_rt * h + bcl);
+                bc_coef_m = bc_coef_v;
             }
         }
         else {
-            amrex::Error("hbflx: unsupported boundary type");
+            amrex::Error("bc_face_flux: unsupported boundary type");
         }
 
         if (inhom == 0) {
-            bfv = 0.e0_rt;
+            bc_coef_v = 0.e0_rt;
         }
 
         int reg_ilo = reg.loVect3d()[0];
@@ -122,9 +122,9 @@ namespace HDIFFOP
             for (int k = reg_klo; k <= reg_khi; ++k) {
                 for (int j = reg_jlo; j <= reg_jhi; ++j) {
                     if (mask(i-1,j,k) > 0) {
-                        flux(i,j,k) = b(i,j,k) * (bfv * bcval(i-1,j,k) - bfm * er(i,j,k));
+                        flux(i,j,k) = b(i,j,k) * (bc_coef_v * bcval(i-1,j,k) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bfm2 * er(i+1,j,k);
+                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bc_coef_m2 * er(i+1,j,k);
                         }
                     }
                 }
@@ -135,9 +135,9 @@ namespace HDIFFOP
             for (int k = reg_klo; k <= reg_khi; ++k) {
                 for (int j = reg_jlo; j <= reg_jhi; ++j) {
                     if (mask(i+1,j,k) > 0) {
-                        flux(i+1,j,k) = -b(i+1,j,k) * (bfv * bcval(i+1,j,k) - bfm * er(i,j,k));
+                        flux(i+1,j,k) = -b(i+1,j,k) * (bc_coef_v * bcval(i+1,j,k) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i+1,j,k) = flux(i+1,j,k) + b(i+1,j,k) * bfm2 * er(i-1,j,k);
+                            flux(i+1,j,k) = flux(i+1,j,k) + b(i+1,j,k) * bc_coef_m2 * er(i-1,j,k);
                         }
                     }
                 }
@@ -148,9 +148,9 @@ namespace HDIFFOP
             for (int k = reg_klo; k <= reg_khi; ++k) {
                 for (int i = reg_ilo; i <= reg_ihi; ++i) {
                     if (mask(i,j-1,k) > 0) {
-                        flux(i,j,k) = b(i,j,k) * (bfv * bcval(i,j-1,k) - bfm * er(i,j,k));
+                        flux(i,j,k) = b(i,j,k) * (bc_coef_v * bcval(i,j-1,k) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bfm2 * er(i,j+1,k);
+                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bc_coef_m2 * er(i,j+1,k);
                         }
                     }
                 }
@@ -161,9 +161,9 @@ namespace HDIFFOP
             for (int k = reg_klo; k <= reg_khi; ++k) {
                 for (int i = reg_ilo; i <= reg_ihi; ++i) {
                     if (mask(i,j+1,k) > 0) {
-                        flux(i,j+1,k) = -b(i,j+1,k) * (bfv * bcval(i,j+1,k) - bfm * er(i,j,k));
+                        flux(i,j+1,k) = -b(i,j+1,k) * (bc_coef_v * bcval(i,j+1,k) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i,j+1,k) = flux(i,j+1,k) + b(i,j+1,k) * bfm2 * er(i,j-1,k);
+                            flux(i,j+1,k) = flux(i,j+1,k) + b(i,j+1,k) * bc_coef_m2 * er(i,j-1,k);
                         }
                     }
                 }
@@ -174,24 +174,24 @@ namespace HDIFFOP
             for (int j = reg_jlo; j <= reg_jhi; ++j) {
                 for (int i = reg_ilo; i <= reg_ihi; ++i) {
                     if (mask(i,j,k-1) > 0) {
-                        flux(i,j,k) = b(i,j,k) * (bfv * bcval(i,j,k-1) - bfm * er(i,j,k));
+                        flux(i,j,k) = b(i,j,k) * (bc_coef_v * bcval(i,j,k-1) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bfm2 * er(i,j,k+1);
+                            flux(i,j,k) = flux(i,j,k) - b(i,j,k) * bc_coef_m2 * er(i,j,k+1);
                         }
                     }
                 }
             }
         }
         else if (!(z_right)) {
-            std::cout << "hbflx: impossible face orientation" << std::endl;
+            std::cout << "bc_face_flux: impossible face orientation" << std::endl;
         } else {
             int k = reg_khi;
             for (int j = reg_jlo; j <= reg_jhi; ++j) {
                 for (int i = reg_ilo; i <= reg_ihi; ++i) {
                     if (mask(i,j,k+1) > 0) {
-                        flux(i,j,k+1) = -b(i,j,k+1) * (bfv * bcval(i,j,k+1) - bfm * er(i,j,k));
+                        flux(i,j,k+1) = -b(i,j,k+1) * (bc_coef_v * bcval(i,j,k+1) - bc_coef_m * er(i,j,k));
                         if (bho >= 1) {
-                            flux(i,j,k+1) = flux(i,j,k+1) + b(i,j,k+1) * bfm2 * er(i,j,k-1);
+                            flux(i,j,k+1) = flux(i,j,k+1) + b(i,j,k+1) * bc_coef_m2 * er(i,j,k-1);
                         }
                     }
                 }
@@ -200,7 +200,7 @@ namespace HDIFFOP
     }
 
     AMREX_INLINE
-    void hbflx3 (Array4<Real> const flux,
+    void bc_face_flux_typed (Array4<Real> const flux,
                  Array4<Real const> const er,
                  const Box& reg,
                  int cdir, int bctype,
@@ -293,7 +293,7 @@ namespace HDIFFOP
         {
             const Real r = face_metric(i, j, k, reg.loVect()[0], reg.hiVect()[0], geomdata, ori.coordDir(), ori.isLow());
 
-            Real bfv, bfm, bfm2, h2, th2;
+            Real bc_coef_v, bc_coef_m, bc_coef_m2, h2, th2;
             int bct;
 
             if (mask.contains(i+icp,j+jcp,k+kcp)) {
@@ -308,45 +308,45 @@ namespace HDIFFOP
                         if (bho >= 1) {
                             h2 = 0.5e0_rt * h;
                             th2 = 3.e0_rt * h2;
-                            bfv = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
-                            bfm = (beta / h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                            bfm2 = (beta / h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
+                            bc_coef_v = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
+                            bc_coef_m = (beta / h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                            bc_coef_m2 = (beta / h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
                         }
                         else {
-                            bfv = beta / (0.5e0_rt * h + bcl) * b(i,j,k);
-                            bfm = bfv;
+                            bc_coef_v = beta / (0.5e0_rt * h + bcl) * b(i,j,k);
+                            bc_coef_m = bc_coef_v;
                         }
                     }
                     else if (bct == AMREX_LO_NEUMANN) {
-                        bfv  = beta * r;
-                        bfm  = 0.e0_rt;
-                        bfm2 = 0.e0_rt;
+                        bc_coef_v  = beta * r;
+                        bc_coef_m  = 0.e0_rt;
+                        bc_coef_m2 = 0.e0_rt;
                     }
                     else if (bct == AMREX_LO_MARSHAK) {
-                        bfv = 2.e0_rt * beta * r;
+                        bc_coef_v = 2.e0_rt * beta * r;
                         if (bho >= 1) {
-                            bfm  =  0.375e0_rt * c * bfv;
-                            bfm2 = -0.125e0_rt * c * bfv;
+                            bc_coef_m  =  0.375e0_rt * c * bc_coef_v;
+                            bc_coef_m2 = -0.125e0_rt * c * bc_coef_v;
                         }
                         else {
-                            bfm = 0.25e0_rt * c * bfv;
+                            bc_coef_m = 0.25e0_rt * c * bc_coef_v;
                         }
                     }
                     else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                        bfv = 2.e0_rt * beta * r;
+                        bc_coef_v = 2.e0_rt * beta * r;
                         if (bho >= 1) {
-                            bfm =   1.5e0_rt * spa(i,j,k) * c * bfv;
-                            bfm2 = -0.5e0_rt * spa(i,j,k) * c * bfv;
+                            bc_coef_m =   1.5e0_rt * spa(i,j,k) * c * bc_coef_v;
+                            bc_coef_m2 = -0.5e0_rt * spa(i,j,k) * c * bc_coef_v;
                         }
                         else {
-                            bfm = spa(i,j,k) * c * bfv;
+                            bc_coef_m = spa(i,j,k) * c * bc_coef_v;
                         }
                     }
                     else {
-                        amrex::Error("hbflx3: unsupported boundary type");
+                        amrex::Error("bc_face_flux_typed: unsupported boundary type");
                     }
                     if (inhom == 0) {
-                        bfv = 0.e0_rt;
+                        bc_coef_v = 0.e0_rt;
                     }
 
                     Real flux_sign = 1.0_rt;
@@ -355,10 +355,10 @@ namespace HDIFFOP
                         flux_sign = -1.0_rt;
                     }
 
-                    flux(i+iep,j+jep,k+kep) = flux_sign * (bfv * bcval(i+icp,j+jcp,k+kcp) - bfm * er(i,j,k));
+                    flux(i+iep,j+jep,k+kep) = flux_sign * (bc_coef_v * bcval(i+icp,j+jcp,k+kcp) - bc_coef_m * er(i,j,k));
 
                     if (bho >= 1) {
-                        Real df = -bfm2 * er(i-icp,j-jcp,k-kcp);
+                        Real df = -bc_coef_m2 * er(i-icp,j-jcp,k-kcp);
                         flux(i+iep,j+jep,k+kep) -= flux_sign * df;
                     }
                 }
@@ -367,7 +367,7 @@ namespace HDIFFOP
     }
 
     AMREX_INLINE
-    void hdterm (Array4<Real> const dterm,
+    void bc_face_dterm (Array4<Real> const dterm,
                  Array4<Real> const er,
                  const Box& reg,
                  int cdir, int bct, Real bcl,
@@ -469,7 +469,7 @@ namespace HDIFFOP
     }
 
     AMREX_INLINE
-    void hdterm3 (Array4<Real> const dterm,
+    void bc_face_dterm_typed (Array4<Real> const dterm,
                   Array4<Real const> const er,
                   const Box& reg,
                   int cdir, int bctype,

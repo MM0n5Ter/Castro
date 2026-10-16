@@ -216,24 +216,24 @@ HydroSim::trace_plm(const Box& bx, const int idir,
     Real trace_fac1 = 0.25_rt*dtdL*(e[0] - e[1])*(1.0_rt - std::copysign(1.0_rt, e[1]));
     Real trace_fac2 = 0.25_rt*dtdL*(e[0] - e[2])*(1.0_rt - std::copysign(1.0_rt, e[2]));
 
-    Real apright = trace_fac2*alphap;
-    Real amright = trace_fac0*alpham;
+    Real ap_right = trace_fac2*alphap;
+    Real am_right = trace_fac0*alpham;
 
-    Real azrright = trace_fac1*alpha0r;
-    Real azeright = trace_fac1*alpha0e;
-    Real azut1rght = trace_fac1*alpha0ut;
-    Real azutt1rght = trace_fac1*alpha0utt;
+    Real az_rho_right = trace_fac1*alpha0r;
+    Real az_e_right = trace_fac1*alpha0e;
+    Real az_ut_right = trace_fac1*alpha0ut;
+    Real az_utt_right = trace_fac1*alpha0utt;
 
     if ((idir == 0 && i >= vlo[0]) ||
         (idir == 1 && j >= vlo[1]) ||
         (idir == 2 && k >= vlo[2])) {
 
-      qp(i,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + apright + amright + azrright);
-      qp(i,j,k,QUN) = un_ref + (apright - amright)*cc/rho;
-      qp(i,j,k,QUT) = ut_ref + azut1rght;
-      qp(i,j,k,QUTT) = utt_ref + azutt1rght;
-      qp(i,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (apright + amright)*csq);
-      qp(i,j,k,QRHOEI) = rhoe_ref + (apright + amright)*enth*csq + azeright;
+      qp(i,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + ap_right + am_right + az_rho_right);
+      qp(i,j,k,QUN) = un_ref + (ap_right - am_right)*cc/rho;
+      qp(i,j,k,QUT) = ut_ref + az_ut_right;
+      qp(i,j,k,QUTT) = utt_ref + az_utt_right;
+      qp(i,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (ap_right + am_right)*csq);
+      qp(i,j,k,QRHOEI) = rhoe_ref + (ap_right + am_right)*enth*csq + az_e_right;
 
       // add the source terms
       qp(i,j,k,QRHO  ) += 0.5_rt*dt*srcQ(i,j,k,QRHO);
@@ -260,21 +260,21 @@ HydroSim::trace_plm(const Box& bx, const int idir,
     trace_fac1 = 0.25_rt*dtdL*(e[2] - e[1])*(1.0_rt + std::copysign(1.0_rt, e[1]));
     trace_fac2 = 0.0_rt; //  FOURTH*dtdx*(e(3) - e(3))*(1.0_rt + sign(1.0_rt, e(3)))
 
-    Real apleft = trace_fac2*alphap;
-    Real amleft = trace_fac0*alpham;
+    Real ap_left = trace_fac2*alphap;
+    Real am_left = trace_fac0*alpham;
 
-    Real azrleft = trace_fac1*alpha0r;
-    Real azeleft = trace_fac1*alpha0e;
-    Real azut1left = trace_fac1*alpha0ut;
-    Real azutt1left = trace_fac1*alpha0utt;
+    Real az_rho_left = trace_fac1*alpha0r;
+    Real az_e_left = trace_fac1*alpha0e;
+    Real az_ut_left = trace_fac1*alpha0ut;
+    Real az_utt_left = trace_fac1*alpha0utt;
 
     if (idir == 0 && i <= vhi[0]) {
-      qm(i+1,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + apleft + amleft + azrleft);
-      qm(i+1,j,k,QUN) = un_ref + (apleft - amleft)*cc/rho;
-      qm(i+1,j,k,QUT) = ut_ref + azut1left;
-      qm(i+1,j,k,QUTT) = utt_ref + azutt1left;
-      qm(i+1,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i+1,j,k,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i+1,j,k,QRHO) = amrex::max(lsmall_dens, rho_ref + ap_left + am_left + az_rho_left);
+      qm(i+1,j,k,QUN) = un_ref + (ap_left - am_left)*cc/rho;
+      qm(i+1,j,k,QUT) = ut_ref + az_ut_left;
+      qm(i+1,j,k,QUTT) = utt_ref + az_utt_left;
+      qm(i+1,j,k,QPRES) = amrex::max(lsmall_pres, p_ref + (ap_left + am_left)*csq);
+      qm(i+1,j,k,QRHOEI) = rhoe_ref + (ap_left + am_left)*enth*csq + az_e_left;
 
       // add the source terms
       qm(i+1,j,k,QRHO) = amrex::max(lsmall_dens, qm(i+1,j,k,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
@@ -285,12 +285,12 @@ HydroSim::trace_plm(const Box& bx, const int idir,
       qm(i+1,j,k,QPRES) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     } else if (idir == 1 && j <= vhi[1]) {
-      qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, rho_ref + apleft + amleft + azrleft);
-      qm(i,j+1,k,QUN) = un_ref + (apleft - amleft)*cc/rho;
-      qm(i,j+1,k,QUT) = ut_ref + azut1left;
-      qm(i,j+1,k,QUTT) = utt_ref + azutt1left;
-      qm(i,j+1,k,QPRES) = max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i,j+1,k,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, rho_ref + ap_left + am_left + az_rho_left);
+      qm(i,j+1,k,QUN) = un_ref + (ap_left - am_left)*cc/rho;
+      qm(i,j+1,k,QUT) = ut_ref + az_ut_left;
+      qm(i,j+1,k,QUTT) = utt_ref + az_utt_left;
+      qm(i,j+1,k,QPRES) = max(lsmall_pres, p_ref + (ap_left + am_left)*csq);
+      qm(i,j+1,k,QRHOEI) = rhoe_ref + (ap_left + am_left)*enth*csq + az_e_left;
 
       // add the source terms
       qm(i,j+1,k,QRHO) = amrex::max(lsmall_dens, qm(i,j+1,k,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
@@ -301,12 +301,12 @@ HydroSim::trace_plm(const Box& bx, const int idir,
       qm(i,j+1,k,QPRES) += 0.5_rt*dt*srcQ(i,j,k,QPRES);
 
     } else if (idir == 2 && k <= vhi[2]) {
-      qm(i,j,k+1,QRHO) = amrex::max(lsmall_dens, rho_ref + apleft + amleft + azrleft);
-      qm(i,j,k+1,QUN) = un_ref + (apleft - amleft)*cc/rho;
-      qm(i,j,k+1,QUT) = ut_ref + azut1left;
-      qm(i,j,k+1,QUTT) = utt_ref + azutt1left;
-      qm(i,j,k+1,QPRES) = amrex::max(lsmall_pres, p_ref + (apleft + amleft)*csq);
-      qm(i,j,k+1,QRHOEI) = rhoe_ref + (apleft + amleft)*enth*csq + azeleft;
+      qm(i,j,k+1,QRHO) = amrex::max(lsmall_dens, rho_ref + ap_left + am_left + az_rho_left);
+      qm(i,j,k+1,QUN) = un_ref + (ap_left - am_left)*cc/rho;
+      qm(i,j,k+1,QUT) = ut_ref + az_ut_left;
+      qm(i,j,k+1,QUTT) = utt_ref + az_utt_left;
+      qm(i,j,k+1,QPRES) = amrex::max(lsmall_pres, p_ref + (ap_left + am_left)*csq);
+      qm(i,j,k+1,QRHOEI) = rhoe_ref + (ap_left + am_left)*enth*csq + az_e_left;
 
       // add the source terms
       qm(i,j,k+1,QRHO) = amrex::max(lsmall_dens, qm(i,j,k+1,QRHO) + 0.5_rt*dt*srcQ(i,j,k,QRHO));
@@ -327,29 +327,29 @@ HydroSim::trace_plm(const Box& bx, const int idir,
       Real courn = dtdL*(cc + std::abs(un));
       Real eta = (1.0_rt-courn)/(cc*dt*std::abs(dloga(i,j,k)));
       Real dlogatmp = amrex::min(eta, 1.0_rt)*dloga(i,j,k);
-      Real sourcr = -0.5_rt*dt*rho*dlogatmp*un;
-      Real sourcp = sourcr*csq;
-      Real source = sourcp*enth;
+      Real geo_src_rho = -0.5_rt*dt*rho*dlogatmp*un;
+      Real geo_src_p = geo_src_rho*csq;
+      Real source = geo_src_p*enth;
 
       if (idir == 0 && i <= vhi[0]) {
-        qm(i+1,j,k,QRHO) += sourcr;
+        qm(i+1,j,k,QRHO) += geo_src_rho;
         qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), lsmall_dens);
-        qm(i+1,j,k,QPRES) += sourcp;
+        qm(i+1,j,k,QPRES) += geo_src_p;
         qm(i+1,j,k,QRHOEI) += source;
       }
 
       if (idir == 1 && j <= vhi[1]) {
-        qm(i,j+1,k,QRHO) += sourcr;
+        qm(i,j+1,k,QRHO) += geo_src_rho;
         qm(i,j+1,k,QRHO) = amrex::max(qm(i,j+1,k,QRHO), lsmall_dens);
-        qm(i,j+1,k,QPRES) += sourcp;
+        qm(i,j+1,k,QPRES) += geo_src_p;
         qm(i,j+1,k,QRHOEI) += source;
       }
 
       if ((idir == 0 && i >= vlo[0]) ||
           (idir == 1 && j >= vlo[1])) {
-        qp(i,j,k,QRHO) += sourcr;
+        qp(i,j,k,QRHO) += geo_src_rho;
         qp(i,j,k,QRHO) = amrex::max(qp(i,j,k,QRHO), lsmall_dens);
-        qp(i,j,k,QPRES) += sourcp;
+        qp(i,j,k,QPRES) += geo_src_p;
         qp(i,j,k,QRHOEI) += source;
       }
 
@@ -358,8 +358,8 @@ HydroSim::trace_plm(const Box& bx, const int idir,
 #endif
 
     for (int ipassive = 0; ipassive < npassive; ipassive++) {
-      const int nc = upassmap(ipassive);
-      const int n = qpassmap(ipassive);
+      const int nc = cons_passive_index(ipassive);
+      const int n = prim_passive_index(ipassive);
 
       // get the slope
 
@@ -377,14 +377,14 @@ HydroSim::trace_plm(const Box& bx, const int idir,
 
       // Left state
       Real spzero = un >= 0.0_rt ? un*dtdL : 1.0_rt;
-      Real acmpleft = 0.5_rt*(1.0_rt - spzero )*dX;
+      Real adv_corr_left = 0.5_rt*(1.0_rt - spzero )*dX;
 
       if (idir == 0 && i <= vhi[0]) {
-        qm(i+1,j,k,n) = s[i0] + acmpleft;
+        qm(i+1,j,k,n) = s[i0] + adv_corr_left;
       } else if (idir == 1 && j <= vhi[1]) {
-        qm(i,j+1,k,n) = s[i0] + acmpleft;
+        qm(i,j+1,k,n) = s[i0] + adv_corr_left;
       } else if (idir == 2 && k <= vhi[2]) {
-        qm(i,j,k+1,n) = s[i0] + acmpleft;
+        qm(i,j,k+1,n) = s[i0] + adv_corr_left;
       }
 
     }
