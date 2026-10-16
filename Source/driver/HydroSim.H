@@ -14,9 +14,6 @@
 
 using namespace hydrosim;
 
-#ifdef AMREX_PARTICLES
-#include <particles_params.H>
-#endif
 
 #include <fundamental_constants.H>
 
@@ -27,23 +24,12 @@ using namespace hydrosim;
 #include <AMReX_FluxRegister.H>
 #include <network.H>
 #include <eos.H>
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-#include <burner.H>
-#endif
-#endif
 
 #ifdef BL_LAZY
 #include <AMReX_Lazy.H>
 #endif
 
-#ifdef AMREX_PARTICLES
-#include <AMReX_AmrParticles.H>
-#endif
 
-#ifdef RADIATION
-#include <RadSolve.H>
-#endif
 
 #include <memory>
 #include <iostream>
@@ -55,42 +41,19 @@ using std::ostream;
 
 enum StateType : std::uint8_t {
                State_Type = 0,
-#ifdef RADIATION
-               Rad_Type,
-#endif
 #ifdef GRAVITY
                Potential_Type,
                Gravity_Type,
 #endif
                Source_Type,
-#ifdef REACTIONS
-               Reactions_Type,
-#endif
-#ifdef MHD
-               Mag_Type_x,
-               Mag_Type_y,
-               Mag_Type_z,
-#endif
-#ifdef REACTIONS
-               SDC_React_Source_Type
-#endif
 };
 
 // Create storage for all source terms.
 
 enum sources : std::uint8_t {
                thermo_src = 0,
-#ifdef DIFFUSION
-               diff_src,
-#endif
-#ifdef HYBRID_MOMENTUM
-               hybrid_src,
-#endif
 #ifdef GRAVITY
                grav_src,
-#endif
-#ifdef ROTATION
-               rot_src,
 #endif
 #ifdef SPONGE
                sponge_src,
@@ -219,126 +182,6 @@ void normalize_species (amrex::MultiFab& S_new, int ng);
 ///
 void clamp_to_speed_limit (amrex::MultiFab& state, int ng);
 
-#ifdef TRUE_SDC
-// Kernels of an SDC stage, for the Gauss-Lobatto and Radau node
-// sets: the advective update from one time node to the next, the
-// source term C of the reacting update, the initial guess for the
-// reaction solve and the stored reaction state.
-
-namespace sdc_stage {
-
-void update_advection_o2_lobatto(const amrex::Box& bx,
-                                 amrex::Real dt_m, amrex::Real dt,
-                                 amrex::Array4<const amrex::Real> const& k_m,
-                                 amrex::Array4<amrex::Real> const& k_n,
-                                 amrex::Array4<const amrex::Real> const& A_m,
-                                 amrex::Array4<const amrex::Real> const& A_0_old,
-                                 amrex::Array4<const amrex::Real> const& A_1_old,
-                                 int m_start);
-
-void update_advection_o2_radau(const amrex::Box& bx,
-                               amrex::Real dt_m, amrex::Real dt,
-                               amrex::Array4<const amrex::Real> const& k_m,
-                               amrex::Array4<amrex::Real> const& k_n,
-                               amrex::Array4<const amrex::Real> const& A_m,
-                               amrex::Array4<const amrex::Real> const& A_0_old,
-                               amrex::Array4<const amrex::Real> const& A_1_old,
-                               amrex::Array4<const amrex::Real> const& A_2_old,
-                               int m_start);
-
-void update_advection_o4_lobatto(const amrex::Box& bx,
-                                 amrex::Real dt_m, amrex::Real dt,
-                                 amrex::Array4<const amrex::Real> const& k_m,
-                                 amrex::Array4<amrex::Real> const& k_n,
-                                 amrex::Array4<const amrex::Real> const& A_m,
-                                 amrex::Array4<const amrex::Real> const& A_0_old,
-                                 amrex::Array4<const amrex::Real> const& A_1_old,
-                                 amrex::Array4<const amrex::Real> const& A_2_old,
-                                 int m_start);
-
-void update_advection_o4_radau(const amrex::Box& bx,
-                               amrex::Real dt_m, amrex::Real dt,
-                               amrex::Array4<const amrex::Real> const& k_m,
-                               amrex::Array4<amrex::Real> const& k_n,
-                               amrex::Array4<const amrex::Real> const& A_m,
-                               amrex::Array4<const amrex::Real> const& A_0_old,
-                               amrex::Array4<const amrex::Real> const& A_1_old,
-                               amrex::Array4<const amrex::Real> const& A_2_old,
-                               amrex::Array4<const amrex::Real> const& A_3_old,
-                               int m_start);
-
-#ifdef REACTIONS
-void compute_C2_lobatto(const amrex::Box& bx,
-                        amrex::Real dt_m, amrex::Real dt,
-                        amrex::Array4<const amrex::Real> const& A_m,
-                        amrex::Array4<const amrex::Real> const& A_0_old,
-                        amrex::Array4<const amrex::Real> const& A_1_old,
-                        amrex::Array4<const amrex::Real> const& R_0_old,
-                        amrex::Array4<const amrex::Real> const& R_1_old,
-                        amrex::Array4<amrex::Real> const& C,
-                        int m_start);
-
-void compute_C2_radau(const amrex::Box& bx,
-                      amrex::Real dt_m, amrex::Real dt,
-                      amrex::Array4<const amrex::Real> const& A_m,
-                      amrex::Array4<const amrex::Real> const& A_0_old,
-                      amrex::Array4<const amrex::Real> const& A_1_old,
-                      amrex::Array4<const amrex::Real> const& A_2_old,
-                      amrex::Array4<const amrex::Real> const& R_0_old,
-                      amrex::Array4<const amrex::Real> const& R_1_old,
-                      amrex::Array4<const amrex::Real> const& R_2_old,
-                      amrex::Array4<amrex::Real> const& C,
-                      int m_start);
-
-void compute_C4_lobatto(const amrex::Box& bx,
-                        amrex::Real dt_m, amrex::Real dt,
-                        amrex::Array4<const amrex::Real> const& A_m,
-                        amrex::Array4<const amrex::Real> const& A_0_old,
-                        amrex::Array4<const amrex::Real> const& A_1_old,
-                        amrex::Array4<const amrex::Real> const& A_2_old,
-                        amrex::Array4<const amrex::Real> const& R_0_old,
-                        amrex::Array4<const amrex::Real> const& R_1_old,
-                        amrex::Array4<const amrex::Real> const& R_2_old,
-                        amrex::Array4<amrex::Real> const& C,
-                        int m_start);
-
-void compute_C4_radau(const amrex::Box& bx,
-                      amrex::Real dt_m, amrex::Real dt,
-                      amrex::Array4<const amrex::Real> const& A_m,
-                      amrex::Array4<const amrex::Real> const& A_0_old,
-                      amrex::Array4<const amrex::Real> const& A_1_old,
-                      amrex::Array4<const amrex::Real> const& A_2_old,
-                      amrex::Array4<const amrex::Real> const& A_3_old,
-                      amrex::Array4<const amrex::Real> const& R_0_old,
-                      amrex::Array4<const amrex::Real> const& R_1_old,
-                      amrex::Array4<const amrex::Real> const& R_2_old,
-                      amrex::Array4<const amrex::Real> const& R_3_old,
-                      amrex::Array4<amrex::Real> const& C,
-                      int m_start);
-
-void conservative_update(const amrex::Box& bx, amrex::Real const dt_m,
-                         amrex::Array4<const amrex::Real> const& U_old,
-                         amrex::Array4<amrex::Real> const& U_new,
-                         amrex::Array4<const amrex::Real> const& C,
-                         amrex::Array4<const amrex::Real> const& R_new);
-#endif
-
-void compute_initial_guess(const amrex::Box& bx,
-                           amrex::Array4<const amrex::Real> const& U_old,
-                           amrex::Array4<const amrex::Real> const& U_new,
-                           amrex::Array4<const amrex::Real> const& Adv_old,
-                           amrex::Array4<const amrex::Real> const& React_old,
-                           amrex::Array4<amrex::Real> const& U_guess,
-                           amrex::Real const dt_m, int const sdc_iter);
-
-#ifdef REACTIONS
-void store_reaction_state(const amrex::Box& bx,
-                          amrex::Array4<const amrex::Real> const& React_old,
-                          amrex::Array4<amrex::Real> const& R_store);
-#endif
-
-}
-#endif
 
 ///
 /// @class HydroSim
@@ -511,67 +354,6 @@ public:
 ///
     void initData () override;
 
-#ifdef AMREX_PARTICLES
-
-///
-/// Read particle-related inputs
-///
-    static void read_tracer_params ();
-
-///
-/// Initialize particle locations and velocities (and strengths if relevant)
-///
-    void init_particles ();
-
-///
-/// Write particles in checkpoint directories
-///
-/// @param dir  directory containing checkpoint
-///
-    void TracerCheckPoint (const std::string& dir);
-
-///
-/// Write particles in plotfile directories
-///
-/// @param dir  directory containing plotfile
-///
-    void TracerPlotFile (const std::string& dir);
-
-///
-/// How to initialize at restart
-///
-/// @param restart_file     path to restart file
-///
-    void TracerPostRestart (const std::string& restart_file);
-
-///
-/// Derived quantities associated with particles
-///
-/// @param name         name of particle variable to derive
-/// @param time         current time
-/// @param ngrow        Number of ghost cells
-///
-    std::unique_ptr<amrex::MultiFab> TracerDerive (const std::string& name,
-                                                     amrex::Real           time,
-                                                     int            ngrow);
-
-///
-/// Timestamp particles
-///
-/// @param ngrow    number of ghost cells
-///
-    void RecordTracerSamples (int ngrow);
-
-///
-/// Advance the particles by dt
-///
-/// @param iteration    where we are in the current AMR subcycle
-/// @param time         current time
-/// @param dt           timestep
-///
-    void advance_tracers (int iteration, amrex::Real time, amrex::Real dt);
-
-#endif
 
 #ifdef LOWMACH_INIT
     void LowMachSetup ();
@@ -759,17 +541,6 @@ public:
 ///
     advance_status end_level_advance (amrex::Real time, amrex::Real dt);
 
-#ifdef MHD
-///
-/// The face-centered magnetic field of a level: one MultiFab per
-/// field component, each on the faces normal to that direction.
-///
-    struct MagFaceFields {
-        amrex::MultiFab& x;
-        amrex::MultiFab& y;
-        amrex::MultiFab& z;
-    };
-#endif
 
 #include <HydroSim_sources.H>
 
@@ -779,9 +550,6 @@ public:
 #endif
 
 
-#ifdef MHD
-#include <HydroSim_mhd.H>
-#endif
 
 ///
 /// Which state an estimate is taken from: the old-time or the
@@ -894,17 +662,6 @@ public:
     void post_init (amrex::Real stop_time) override;
 
 #ifdef GRAVITY
-#ifdef ROTATION
-///
-/// Initialize a model using the self-consistent field method.
-///
-    void relax_rotating_model();
-
-///
-/// Perform the SCF method.
-///
-    void solve_rotating_equilibrium();
-#endif
 #endif
 
 ///
@@ -985,25 +742,8 @@ public:
                  int                dcomp) override;
 
 
-#ifdef REACTIONS
-#include <HydroSim_react.H>
-#endif
 
-#ifdef ROTATION
-#include <HydroSim_rotation.H>
-#endif
 
-#ifdef RADIATION
-
-///
-/// @param S_new        state at the new time
-/// @param iteration    where we are in the current AMR subcycle
-/// @param ncycle       the number of subcycles at this level
-///
-    void finish_radiation_step (amrex::MultiFab& S_new,
-                               int iteration,
-                               int ncycle);
-#endif
 
 ///
 /// Reset the internal energy
@@ -1013,9 +753,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void fix_internal_energy (
-#ifdef MHD
-                                const MagFaceFields& B,
-#endif
                                 amrex::MultiFab& State, int ng);
 
 
@@ -1029,34 +766,9 @@ public:
 /// @param u        Current state (Fab)
 ///
     static void fix_internal_energy (const amrex::Box& bx,
-#ifdef MHD
-                                amrex::Array4<amrex::Real> const& Bx,
-                                amrex::Array4<amrex::Real> const& By,
-                                amrex::Array4<amrex::Real> const& Bz,
-#endif
                                 amrex::Array4<amrex::Real> const& u);
 
 
-#ifdef MHD
-///
-/// Add magnetic contribution to energy density
-/// @param B        face-centered magnetic field
-/// @param state    the state to operate on
-///
-    static void add_magnetic_energy (
-        const MagFaceFields& B,
-        amrex::MultiFab& state);
-
-///
-/// Check if divergence of B is zero at initialization
-/// @param B        face-centered magnetic field
-/// @param state    the state to operate on
-///
-    void verify_div_b (
-                      const MagFaceFields& B,
-                      amrex::MultiFab& state);
-
-#endif
 
 
 
@@ -1069,9 +781,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void computeTemp (
-#ifdef MHD
-                      const MagFaceFields& B,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
 
@@ -1095,9 +804,6 @@ public:
 ///
     void rotate_state_time_levels (const amrex::Real dt);
 
-#ifdef DIFFUSION
-#include <HydroSim_diffusion.H>
-#endif
 
 
 ///
@@ -1206,9 +912,6 @@ public:
 #include <HydroSim_hydro.H>
 
 // SDC
-#ifdef TRUE_SDC
-#include <HydroSim_sdc.H>
-#endif
 
     static void init_external_params ();
 
@@ -1252,9 +955,6 @@ public:
 /// @param S  State
 ///
     static void make_energies_consistent (
-#ifdef MHD
-                               const MagFaceFields& B,
-#endif
                                amrex::MultiFab& S);
 
 ///
@@ -1280,9 +980,6 @@ public:
 /// @param ng       number of ghost cells
 ///
     void clean_state (
-#ifdef MHD
-                      const MagFaceFields& B,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
 ///
@@ -1367,9 +1064,6 @@ public:
 #endif
     }
 
-#ifdef AMREX_PARTICLES
-    static amrex::AmrTracerParticleContainer* theTracerPC () { return TracerPC.get(); }
-#endif
 
     static amrex::Vector<std::string> source_names;
 
@@ -1435,13 +1129,6 @@ protected:
 #endif
 
 
-#ifdef REACTIONS
-///
-/// Storage for the burn_weights
-///
-    amrex::MultiFab burn_weights;
-    static std::vector<std::string> burn_weight_names;
-#endif
 
 
 ///
@@ -1449,51 +1136,10 @@ protected:
 ///
     amrex::MultiFab Sborder;
 
-#ifdef MHD
-   amrex::MultiFab Bx_old_tmp;
-   amrex::MultiFab By_old_tmp;
-   amrex::MultiFab Bz_old_tmp;
-#endif
-
-#ifdef RADIATION
-    amrex::MultiFab Erborder;
-    amrex::MultiFab lamborder;
-
-    std::unique_ptr<RadSolve> radiation_solver;
-#endif
 
 
 
-#ifdef TRUE_SDC
-///
-/// A state array for reaction-related data used by SDC
-///
-    amrex::MultiFab Sreact;
 
-
-///
-/// The primitive variable state array.
-///
-    amrex::MultiFab q;
-
-///
-/// A second primitive-state array used by the fourth-order method
-///
-    amrex::MultiFab q_bar;
-
-///
-/// Cell-centered temperature needed for fourth-order diffusion
-//
-#ifdef DIFFUSION
-    amrex::MultiFab T_cc;
-#endif
-
-///
-/// The auxiliary primitive variable state array.
-///
-    amrex::MultiFab qaux;
-    amrex::MultiFab qaux_bar;
-#endif
 
 
 ///
@@ -1509,18 +1155,12 @@ protected:
 #if (AMREX_SPACEDIM <= 2)
     amrex::MultiFab         P_radial;
 #endif
-#ifdef RADIATION
-    MultiFabVector rad_fluxes;
-#endif
 
     MultiFabVector mass_fluxes;
 
     amrex::FluxRegister flux_reg;
 #if (AMREX_SPACEDIM <= 2)
     amrex::FluxRegister pres_reg;
-#endif
-#ifdef RADIATION
-    amrex::FluxRegister rad_flux_reg;
 #endif
 #ifdef GRAVITY
     amrex::FluxRegister phi_reg;
@@ -1552,31 +1192,6 @@ protected:
     bool keep_prev_state{};
 
 
-#ifdef TRUE_SDC
-    //
-    // Storage for the SDC time integration
-
-    // this is the new iterations solution at the time nodes
-    MultiFabVector k_new;
-
-    // this is the old value of the advective update at the
-    // nodes of the time integration
-    MultiFabVector A_old;
-
-    // this is the new value of the advective update at the
-    // nodes of the time integration
-    MultiFabVector A_new;
-
-    // this is the old value of the reaction source at the
-    // nodes of the time integration
-#ifdef REACTIONS
-    MultiFabVector R_old;
-#endif
-
-    static int SDC_NODES;
-    static amrex::Vector<amrex::Real> dt_sdc;
-    static amrex::Vector<amrex::Real> node_weights;
-#endif
 
 ///
 /// Wall time that we started the timestep
@@ -1650,20 +1265,7 @@ protected:
 ///
     static std::unique_ptr<class Diffusion> diffusion;
 
-#ifdef RADIATION
 
-
-///
-/// There can be only one Radiation object, it covers all levels:
-///
-    static std::unique_ptr<class Radiation> radiation;
-
-    friend class Radiation;
-#endif
-
-#ifdef AMREX_PARTICLES
-    static std::unique_ptr<amrex::AmrTracerParticleContainer> TracerPC;
-#endif
 
     static amrex::IntVect hydro_tile_size;
     static amrex::IntVect no_tile_size;
@@ -1691,9 +1293,6 @@ protected:
 ///
     int sdc_iteration;
 
-#ifdef TRUE_SDC
-    int current_sdc_node;
-#endif
 
 
 /* problem-specific includes */

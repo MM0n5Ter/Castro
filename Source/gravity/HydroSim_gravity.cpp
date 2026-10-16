@@ -2,10 +2,6 @@
 
 #include <Gravity.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <HydroSim_util.H>
-#include <hybrid.H>
-#endif
 
 using namespace amrex;
 
@@ -321,9 +317,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& state_in, Real time, Real d
 
     // Gravitational source term for the time-level n data.
 
-#ifdef HYBRID_MOMENTUM
-    GeometryData geomdata = geom.data();
-#endif
 
     AMREX_ALWAYS_ASSERT(hydrosim::grav_coupling_type >= 1 && hydrosim::grav_coupling_type <= 4);
 
@@ -377,22 +370,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& state_in, Real time, Real d
                 snew[UMX+n] += dt * src[UMX+n];
             }
 
-#ifdef HYBRID_MOMENTUM
-            GpuArray<Real, 3> loc;
-            position(i, j, k, geomdata, loc);
-            for (int n = 0; n < 3; ++n) {
-                loc[n] -= problem::center[n];
-            }
-
-            GpuArray<Real, 3> hybrid_src;
-
-            set_hybrid_momentum_source(loc, Sr, hybrid_src);
-
-            for (int n = 0; n < 3; ++n) {
-                 src[UMR+n] = hybrid_src[n];
-                 snew[UMR+n] += dt * src[UMR+n];
-            }
-#endif
 
             Real SrE{};
 
@@ -478,9 +455,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& state_old, MultiFab& state_
         dx[i] = 0.0_rt;
     }
 
-#ifdef HYBRID_MOMENTUM
-    GeometryData geomdata = geom.data();
-#endif
 
     AMREX_ALWAYS_ASSERT(hydrosim::grav_coupling_type >= 1 && hydrosim::grav_coupling_type <= 4);
 
@@ -573,22 +547,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& state_old, MultiFab& state_
                     snew[UMX+n] += dt * src[UMX+n];
                 }
 
-#ifdef HYBRID_MOMENTUM
-                GpuArray<Real, 3> loc;
-                position(i, j, k, geomdata, loc);
-                for (int n = 0; n < 3; ++n) {
-                    loc[n] -= problem::center[n];
-                }
-
-                GpuArray<Real, 3> hybrid_src;
-
-                set_hybrid_momentum_source(loc, Srcorr, hybrid_src);
-
-                for (int n = 0; n < 3; ++n) {
-                    src[UMR+n] = hybrid_src[n];
-                    snew[UMR+n] += dt * src[UMR+n];
-                }
-#endif
 
                 // Correct energy
 
