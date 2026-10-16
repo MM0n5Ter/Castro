@@ -312,7 +312,7 @@ HydroSim::do_hscf_solve()
         ParallelDescriptor::ReduceRealSum(phi_B);
         ParallelDescriptor::ReduceRealSum(psi_B);
 
-        // Now update the square of the rotation frequency, following Hachisu.
+        // Now update the square of the rotation frequency.
         // Deal carefully with the special case where phi_A and phi_B are equal -- we assume
         // this is the non-rotating case, and we want to handle that gracefully. Since the
         // rotation module knows to treat rotational_period = 0 as effectively disabling

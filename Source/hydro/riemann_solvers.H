@@ -314,13 +314,9 @@ riemann_state(const int i, const int j, const int k, const int idir,
   RiemannState qint{};
 
   if (riemann_solver == 0) {
-      // Colella, Glaz, & Ferguson solver
-
       TwoShock::riemann_cgf_approx(ql, qr, raux, qint);
 
   } else if (riemann_solver == 1) {
-      // Colella & Glaz solver
-
 #ifndef RADIATION
       TwoShock::riemann_colella_glaz(ql, qr, raux, qint);
 #endif

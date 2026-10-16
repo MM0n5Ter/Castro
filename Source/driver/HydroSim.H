@@ -901,7 +901,7 @@ public:
     void scf_relaxation();
 
 ///
-/// Perform the Hachisu SCF method.
+/// Perform the SCF method.
 ///
     void do_hscf_solve();
 #endif

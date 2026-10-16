@@ -334,7 +334,7 @@ namespace HLL {
         // this is an implementation of the HLLC solver.
         // it uses the simplest estimate of the wave speeds, since
         // those should work for a general EOS.  We also initially do the
-        // CGF Riemann construction to get pstar and ustar, since we'll
+        // Riemann construction to get pstar and ustar, since we'll
         // need to know the pressure and velocity on the interface for the
         // pdV term in the internal energy update.
 
@@ -403,7 +403,7 @@ namespace HLL {
 
         Real pr = std::max(qr(i,j,k,QPRES), small_pres);
 
-        // now we essentially do the CGF solver to get p and u on the
+        // now we essentially get p and u on the
         // interface, but we won't use these in any flux construction.
         Real csmall = amrex::max(small, small * qaux_arr(i,j,k,QC), small * qaux_arr(i-sx,j-sy,k-sz,QC));
         Real cavg = 0.5_rt*(qaux_arr(i,j,k,QC) + qaux_arr(i-sx,j-sy,k-sz,QC));

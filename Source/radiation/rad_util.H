@@ -249,19 +249,17 @@ Real FLDlambda (Real r)
         lambda = 1.e0_rt / 3.e0_rt;
     }
     else if (radiation::limiter < 10) {
-        // approximate LP
+        // approximate
         lambda = (2.e0_rt + r) / (6.e0_rt + r * (3.e0_rt + r));
     }
     else if (radiation::limiter < 20) {
-        // Bruenn
         lambda = 1.e0_rt / (3.e0_rt + r);
     }
     else if (radiation::limiter < 30) {
-        // Larsen's square root
+        // square root
         lambda = 1.e0_rt / std::sqrt(9.e0_rt + r * r);
     }
     else if (radiation::limiter < 40) {
-        // Minerbo
         if (r < 1.5e0_rt) {
             lambda = 2.e0_rt / (3.e0_rt + std::sqrt(9.e0_rt + 12.e0_rt * r * r));
         } else {

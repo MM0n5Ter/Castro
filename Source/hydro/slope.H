@@ -74,9 +74,7 @@ uslope(const ZoneStencil& q, const Real flatcoef,
     } else {
       // the 4th order MC limiter
 
-      // special consideration for reflecting BCs -- see
-      // Saltzman p. 162 (but note that Saltzman has a
-      // sign error)
+      // special consideration for reflecting BCs
 
       Real qm2 = q[im2];
       Real qm1 = q[im1];

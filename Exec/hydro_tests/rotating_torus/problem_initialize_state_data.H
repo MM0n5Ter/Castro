@@ -23,7 +23,6 @@ void problem_initialize_state_data (int i, int j, int k,
     Real omega[3] = {0.0_rt, 0.0_rt, 2.0_rt * M_PI};
 #endif
 
-    // Rotating torus of Papaloizou and Pringle.
     // rotating tori with constant
     // specific angular momentum are unstable to non-axisymmetric perturbations.
 

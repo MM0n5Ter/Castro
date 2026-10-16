@@ -595,15 +595,9 @@ public:
   int use_dkdT;
 
 
-///
-/// <Shestakov-Bolstad>
-///
   int use_WiensLaw;
   amrex::Real Tf_Wien;
 
-///
-/// </ Shestakov-Bolstad>
-///
 
 ///
 /// change of the group radiation energies over one inner iteration, and the

@@ -23,7 +23,7 @@ namespace TwoShock {
           const amrex::Real pstar) {
 
       // compute the lagrangian wave speeds -- this is the approximate
-      // version for the Colella & Glaz algorithm.  Returns the
+      // version.  Returns the
       // predicted game across the shock and the squared wave speed.
 
 
@@ -102,9 +102,6 @@ namespace TwoShock {
       // we want to zero
       // f(p*) = u*_l(p*) - u*_r(p*)
       // we'll do bisection
-      //
-      // this version is for the approximate Colella & Glaz
-      // version
 
 
       // lo bounds
@@ -184,7 +181,7 @@ namespace TwoShock {
 
 
     ///
-    /// The Colella-Glaz Riemann solver for pure hydrodynamics.  This is a
+    /// The Riemann solver for pure hydrodynamics.  This is a
     /// two shock approximate state Riemann solver.
     ///
     /// @param bx         the box to operate over
@@ -198,9 +195,6 @@ namespace TwoShock {
     void
     riemann_colella_glaz(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
               RiemannState& qint) {
-
-      // this implements the approximate Riemann solver of Colella & Glaz
-      //
 
       constexpr amrex::Real weakwv = 1.e-3_rt;
 
@@ -217,7 +211,7 @@ namespace TwoShock {
       amrex::Real clsql = ql.gamc * ql.p * ql.rho;
       amrex::Real clsqr = qr.gamc * qr.p * qr.rho;
 
-      // Note: in the original Colella & Glaz, they predicted
+      // Note: in the original, they predicted
       // gamma_e to the interfaces using a special (non-hyperbolic)
       // evolution equation.  In HydroSim, we instead bring (rho e)
       // to the edges, so we construct the necessary gamma_e here from
@@ -263,7 +257,7 @@ namespace TwoShock {
 
       // R-H jump conditions give ustar across each wave -- these
       // should be equal when we are done iterating.  Our notation
-      // here is a little funny, comparing to CG, ustar_l = u*_L and
+      // here is a little funny, ustar_l = u*_L and
       // ustar_r = u*_R.
       amrex::Real ustar_l = ql.vel.un - (pstar - ql.p) / wl;
       amrex::Real ustar_r = qr.vel.un + (pstar - qr.p) / wr;
@@ -298,9 +292,9 @@ namespace TwoShock {
 
           amrex::Real dpditer = std::abs(pstar_old - pstar);
 
-          // Here we are going to do the Secant iteration version in
-          // CG.  Note that what we call zp and zm here are not
-          // actually the Z_p = |dp*/du*_p| defined in CG, by rather
+          // Here we are going to do the Secant iteration version.
+          // Note that what we call zp and zm here are not
+          // actually the Z_p = |dp*/du*_p|, by rather
           // simply |du*_p| (or something that looks like dp/Z!).
           amrex::Real zp = std::abs(ustar_l - ustar_l_old);
           if (zp - weakwv * raux.cavg <= 0.0_rt) {
@@ -557,7 +551,7 @@ namespace TwoShock {
 
 
     ///
-    /// The Colella-Glaz-Ferguson Riemann solver for hydrodynamics and
+    /// The Riemann solver for hydrodynamics and
     /// radiation hydrodynamics.  This is a two shock approximate state
     /// Riemann solver.
     ///
@@ -573,8 +567,6 @@ namespace TwoShock {
     riemann_cgf_approx(const RiemannState& ql, const RiemannState& qr, const RiemannAux& raux,
               RiemannState& qint) {
 
-      // Colella, Glaz, and Ferguson solver
-      //
       // this is a 2-shock solver that uses a very simple approximation for the
       // star state, and carries an auxiliary jump condition for (rho e) to
       // deal with a real gas
