@@ -17,41 +17,32 @@ USE_ROTATION ?= TRUE
 USE_MODEL_PARSER = TRUE
 NUM_MODELS = 2
 
-# Disable burning in shocksa
 USE_SHOCK_VAR = TRUE
 
-# define the location of the HYDROSIM top directory
 HYDROSIM_HOME  ?= ../../..
 
-# Turn on hybrid momentum? but note that it only is used in 3D at present.
 
 ifeq ($(DIM), 3)
   USE_HYBRID_MOMENTUM ?= FALSE
 endif
 
-# Set the default integrator for the burner.
 
 INTEGRATOR_DIR ?= VODE
 
-# Default compiler.
 
 COMP ?= gnu
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 
 EOS_DIR ?= helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 
 NETWORK_DIR ?= aprox13
 
-# If using general_null, make sure we have a reasonable set of isotopes.
 
 ifeq ($(NETWORK_DIR), general_null)
   NETWORK_INPUTS = aprox13.net
 endif
 
-# Location where the source files are coming from.
 
 PROBLEM_DIR ?= ./
 

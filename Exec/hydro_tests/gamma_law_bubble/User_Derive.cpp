@@ -8,12 +8,11 @@ using namespace amrex;
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
               const FArrayBox& datfab, const Geometry& geomdata,
-              Real /*time*/, const int* /*bcrec*/, int /*level*/)
+              Real  , const int*  , int  )
 {
 
-  // derive the dynamic pressure
 
   const auto dx = geomdata.CellSizeArray();
   const auto problo = geomdata.ProbLoArray();
@@ -21,7 +20,6 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
   auto const dat = datfab.array();
   auto const der = derfab.array();
 
-  // first make a 1D initial model for the entire domain
   int npts_1d = (2.0_rt * problem::center[AMREX_SPACEDIM-1] + 1.e-8_rt) /
     dx[AMREX_SPACEDIM-1];
 
@@ -37,7 +35,6 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 
   gamma_law_initial_model(pressure, density, temp, eint, npts_1d, dx);
 
-  // Compute pressure from the EOS
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -76,9 +73,9 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                     const FArrayBox& datfab, const Geometry& geomdata,
-                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                    Real  , const int*  , int  )
 {
 
   const auto dx = geomdata.CellSizeArray();
@@ -87,7 +84,6 @@ void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
   auto const dat = datfab.array();
   auto const der = derfab.array();
 
-  // first make a 1D initial model for the entire domain
   int npts_1d = (2.0_rt * problem::center[AMREX_SPACEDIM-1] + 1.e-8_rt) /
     dx[AMREX_SPACEDIM-1];
 
@@ -143,9 +139,9 @@ void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                     const FArrayBox& datfab, const Geometry& geomdata,
-                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                    Real  , const int*  , int  )
 
 {
 
@@ -155,7 +151,6 @@ void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
   auto const dat = datfab.array();
   auto const der = derfab.array();
 
-  // first make a 1D initial model for the entire domain
   int npts_1d = (2.0_rt * problem::center[AMREX_SPACEDIM-1] + 1.e-8_rt) /
     dx[AMREX_SPACEDIM-1];
 
@@ -164,12 +159,9 @@ void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 
   density[0]  = problem::density_base;
 
-  // only initialize the first species
   Real xn[NumSpec];
   xn[0] = 1.0_rt;
 
-  // compute the pressure scale height (for an isothermal, ideal-gas
-  // atmosphere)
   Real H = problem::pres_base / problem::density_base / std::abs(gravity::uniform_accel);
 
   for (int j = 0; j < npts_1d; j++) {
@@ -195,9 +187,9 @@ void ca_derrhopert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                  const FArrayBox& datfab, const Geometry& geomdata,
-                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                 Real  , const int*  , int  )
 {
 
   const auto dx = geomdata.CellSizeArray();
@@ -206,7 +198,6 @@ void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
   auto const dat = datfab.array();
   auto const der = derfab.array();
 
-  // first make a 1D initial model for the entire domain
   int npts_1d = (2.0_rt * problem::center[AMREX_SPACEDIM-1] + 1.e-8_rt) /
     dx[AMREX_SPACEDIM-1];
 

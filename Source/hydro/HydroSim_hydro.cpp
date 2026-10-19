@@ -42,8 +42,6 @@ HydroSim::make_primitives(const Real time)
         Array4<Real> const flux_limiter_border_arr = rad_lambda_grown.array(mfi);
 #endif
 
-        // Convert the conservative state to the primitive variable state.
-        // This fills both q and qthermo.
 
         ctoprim(qbx,
                 time,
@@ -68,15 +66,12 @@ HydroSim::make_primitives_fourth(const Real time)
 
     BL_PROFILE("HydroSim::make_primitives_fourth()");
 
-    // convert the conservative state cell averages to primitive cell
-    // averages with 4th order accuracy
 
     auto domain_lo = geom.Domain().loVect3d();
     auto domain_hi = geom.Domain().hiVect3d();
 
     MultiFab& S_new = get_new_data(State_Type);
 
-    // we don't support radiation here
 #ifdef RADIATION
     amrex::Abort("radiation not supported to fourth order");
 #else
@@ -91,12 +86,7 @@ HydroSim::make_primitives_fourth(const Real time)
             const Box& qbx = mfi.growntilebox(NUM_GROW);
             const Box& grown_box_minus1 = mfi.growntilebox(NUM_GROW-1);
 
-            // note: these conversions are using a growntilebox, so it
-            // will include ghost cells
 
-            // convert U_avg to centered_state -- this will use a Laplacian
-            // operation and will result in centered_state defined only on
-            // NUM_GROW-1 ghost cells at the end.
 
             centered_state.resize(qbx, NUM_STATE);
             Elixir u_center_hold = centered_state.elixir();
@@ -104,14 +94,10 @@ HydroSim::make_primitives_fourth(const Real time)
 
             build_center_state(grown_box_minus1, Sborder.array(mfi), centered_state_arr, domain_lo, domain_hi);
 
-            // enforce the minimum density on the new cell-centered state
             clamp_state_density(grown_box_minus1, centered_state.array(), verbose);
 
-            // and ensure that the internal energy is positive
             repair_internal_energy(grown_box_minus1, centered_state.array());
 
-            // convert U_avg to q_second -- this will be done on all NUM_GROW
-            // ghost cells.
             auto StateBorder_arr = Sborder.array(mfi);
             auto q_mean_arr = q_second.array(mfi);
             auto qthermo_mean_arr = qthermo_second.array(mfi);
@@ -122,12 +108,7 @@ HydroSim::make_primitives_fourth(const Real time)
                     q_mean_arr,
                     qthermo_mean_arr);
 
-            // this is what we should construct the flattening coefficient
-            // from
 
-            // convert centered_state to q_cc (we'll store this temporarily in q,
-            // qthermo).  This will remain valid only on the NUM_GROW-1 ghost
-            // cells.
             auto prim_arr = q.array(mfi);
             auto qthermo_arr = qthermo.array(mfi);
 
@@ -139,16 +120,12 @@ HydroSim::make_primitives_fourth(const Real time)
         }
     }
 
-    // check for NaNs
 #ifndef AMREX_USE_GPU
     scan_for_nan(q);
     scan_for_nan(q_second);
 #endif
 
 #ifdef DIFFUSION
-    // we need the cell-center temperature for the diffusion stencil,
-    // so save it here, by copying from q (which is cell-center at the
-    // moment).
     MultiFab::Copy(Temperature_cc, q, QTEMP, 0, 1, NUM_GROW-1);
 #endif
 
@@ -159,20 +136,15 @@ HydroSim::make_primitives_fourth(const Real time)
 
       const Box& grown_box_minus1 = mfi.growntilebox(NUM_GROW-1);
 
-      // now convert q, qthermo into 4th order accurate averages
-      // this will create q, qthermo in NUM_GROW-1 ghost cells, but that's
-      // we need here
 
       build_fourth_average(grown_box_minus1, q.array(mfi), q_second.array(mfi), domain_lo, domain_hi);
 
-      // not sure if we need to convert qthermo this way, or if we can
-      // just evaluate it (we may not need qthermo at all actually)
 
       build_fourth_average(grown_box_minus1, qthermo.array(mfi), qthermo_second.array(mfi), domain_lo, domain_hi);
 
     }
 
-#endif // RADIATION
+#endif
 }
 #endif
 
@@ -194,8 +166,6 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
     if (AMREX_SPACEDIM >= 2) {
       dtdy = dt / dx[1];
       if (coord == 2) {
-          // dx[1] in Spherical2D is just rdtheta, need rdtheta for physical length
-          // Just choose to divide by the smallest r
           dtdy /= problo[0] + 0.5_rt * dx[0];
       }
     }
@@ -221,7 +191,6 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
         reduce_op.eval(bx, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
         {
-            // Compute running max of Courant number over grids
 
             Real rho = U(i,j,k,URHO);
             Real rhoInv = 1.0 / rho;
@@ -293,14 +262,12 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
                 }
 #endif
 
-                // CTU integration constraint
 
                 return {amrex::max(courant_x, courant_y, courant_z)};
 
             }
             else {
 
-                // method-of-lines constraint
                 Real courant_combined = courant_x;
                 if (AMREX_SPACEDIM >= 2) {
                     courant_combined += courant_y;
@@ -312,7 +279,6 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
 #ifndef AMREX_USE_GPU
                 if (verbose == 1) {
 
-                    // note: it might not be 1 for all RK integrators
                     if (courant_combined > 1.0_rt) {
                         std::cout << std::endl;
                         std::cout << Font::Bold << FGColor::Yellow;
@@ -345,7 +311,6 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
         cfl_breach = 1;
     }
 
-    // If we detect a CFL violation, abort.
     if (cfl_breach) {
         amrex::Abort("CFL is too high at this level; go back to a checkpoint and restart with lower CFL number");
     }

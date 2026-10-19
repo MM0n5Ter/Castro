@@ -1,7 +1,3 @@
-//
-// Print out the radiation quantities at a specified distance from
-// the origin.  This is written for the 1-d radiating sphere problem.
-//
 #include <iostream>
 #include <regex>
 #include <AMReX_DataServices.H>
@@ -29,16 +25,14 @@ int main(int argc, char* argv[])
 {
     amrex::Initialize(argc, argv, false);
 
-    // timer for profiling
     BL_PROFILE_VAR("main()", pmain);
 
     if (AMREX_SPACEDIM != 1)
         Abort("ERROR: rad_sphere diagnostic only works for DIM=1");
 
-    // Input arguments
     string pltfile, energy_group_file, variable;
     Real radius = 0.;
-    int j = 1;         // skip program name
+    int j = 1;
 
     while ( j < argc)
     {
@@ -66,7 +60,6 @@ int main(int argc, char* argv[])
             exit ( EXIT_FAILURE );
         }
 
-        // Go to the next parameter name
         ++j;
     }
 
@@ -82,25 +75,20 @@ int main(int argc, char* argv[])
     Print() << "variable = " << variable << std::endl;
     Print() << std::endl;
 
-    // Start dataservices
     DataServices::SetBatchMode();
 
-    // Define the type of file
     Amrvis::FileType fileType(Amrvis::NEWPLT);
     DataServices dataServices (pltfile, fileType);
 
     if (!dataServices.AmrDataOk())
         DataServices::Dispatch(DataServices::ExitRequest, NULL);
 
-    // get data from plot file
     AmrData& data = dataServices.AmrDataRef();
 
     int finestLevel = data.FinestLevel();
 
-    // get variable names
     const Vector<string>& varNames = data.PlotVarNames();
 
-    // get the index bounds and dx.
     Box domain = data.ProbDomain()[finestLevel];
     Vector<Real> dx = data.CellSize(finestLevel);
     const Vector<Real>& problo = data.ProbLo();
@@ -118,7 +106,6 @@ int main(int argc, char* argv[])
 
     int nbins = domain.length(0);
 
-    // find variable indices
     Vector<std::string> compVarNames = {variable + "0"};
 
     auto varComps = GetComponents(data, compVarNames);
@@ -126,30 +113,19 @@ int main(int argc, char* argv[])
 
     const int nvars = data.NComp();
 
-    // allocate storage for data
     Vector<Real> vars_bin(nbins * (nvars + 1), 0.);
 
-    // r1 is the factor between the current level grid spacing and the
-    // FINEST level
     auto r1 = 1.0;
 
     Vector<int> fill_comps(data.NComp());
     for (auto i = 0; i < data.NComp(); i++)
         fill_comps[i] = i;
 
-    // imask will be set to false if we've already output the data.
-    // Note, imask is defined in terms of the finest level.  As we loop
-    // over levels, we will compare to the finest level index space to
-    // determine if we've already output here
     int mask_size = domain.length()[0];
     Vector<int> imask(std::pow(mask_size, AMREX_SPACEDIM), 1);
 
-    // counter
     int cnt = 0;
 
-    // loop over the data, starting at the finest grid, and if we haven't
-    // already stored data in that grid location (according to imask),
-    // store it.
     for (int l = finestLevel; l >= 0; l--) {
 
         Vector<Real> level_dx = data.CellSize(l);
@@ -171,11 +147,9 @@ int main(int argc, char* argv[])
                        AMREX_ZFILL(dx), &cnt);
         }
 
-        // adjust r1 for the next lowest level
         if (l != 0) r1 *= rr[l-1];
     }
 
-    // sort the data based on the coordinates
     Vector<Real> coords(cnt);
     for (auto i = 0; i < cnt; i++)
         coords[i] = vars_bin[i];
@@ -184,7 +158,6 @@ int main(int argc, char* argv[])
 
     Print() << "coords_min = " << coords[0] << " coords_max = " << coords[cnt-1] << std::endl;
 
-    // open the group file and read in the group information
     std::ifstream group_file;
     group_file.open(energy_group_file);
 
@@ -210,12 +183,10 @@ int main(int argc, char* argv[])
 
             first_line = false;
 
-            // skip next line
             std::getline(group_file, line);
 
         } else {
 
-            // read in the group centers and weights
             Real nu, dnu;
             std::istringstream iss(line);
             iss >> nu >> dnu;
@@ -227,7 +198,6 @@ int main(int argc, char* argv[])
 
     group_file.close();
 
-    // find the index corresponding to the desired observer radius
     auto idx_obs = -1;
 
     for (auto i = 0; i < cnt; i++) {
@@ -239,7 +209,6 @@ int main(int argc, char* argv[])
 
     if (idx_obs == -1) Abort("ERROR: radius not found in domain");
 
-    // output all the radiation energies
     const auto w = 28;
 
     std::ofstream slicefile;
@@ -261,7 +230,6 @@ int main(int argc, char* argv[])
 
     slicefile.close();
 
-    // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();

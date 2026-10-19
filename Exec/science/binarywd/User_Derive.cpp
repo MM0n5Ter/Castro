@@ -12,11 +12,10 @@
 
 using namespace amrex;
 
-void ca_derinertialmomentumx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialmomentumx(const Box& bx, FArrayBox& derfab, int  , int  ,
                              const FArrayBox& datfab, const Geometry& geom,
-                             Real time, const int* /*bcrec*/, int /*level*/)
+                             Real time, const int*  , int  )
 {
-    // Derive momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -54,11 +53,10 @@ void ca_derinertialmomentumx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
     });
 }
 
-void ca_derinertialmomentumy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialmomentumy(const Box& bx, FArrayBox& derfab, int  , int  ,
                              const FArrayBox& datfab, const Geometry& geom,
-                             Real time, const int* /*bcrec*/, int /*level*/)
+                             Real time, const int*  , int  )
 {
-    // Derive momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -96,11 +94,10 @@ void ca_derinertialmomentumy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
     });
 }
 
-void ca_derinertialmomentumz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialmomentumz(const Box& bx, FArrayBox& derfab, int  , int  ,
                              const FArrayBox& datfab, const Geometry& geom,
-                             Real time, const int* /*bcrec*/, int /*level*/)
+                             Real time, const int*  , int  )
 {
-    // Derive momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -138,11 +135,10 @@ void ca_derinertialmomentumz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, in
     });
 }
 
-void ca_derinertialangmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialangmomx(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive angular momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -184,11 +180,10 @@ void ca_derinertialangmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derinertialangmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialangmomy(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive angular momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -230,11 +225,10 @@ void ca_derinertialangmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derinertialangmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialangmomz(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive angular momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -276,11 +270,10 @@ void ca_derinertialangmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derinertialradmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialradmomx(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive radial momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -320,11 +313,10 @@ void ca_derinertialradmomx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derinertialradmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialradmomy(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive radial momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -364,11 +356,10 @@ void ca_derinertialradmomy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derinertialradmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derinertialradmomz(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int* /*bcrec*/, int /*level*/)
+                           Real time, const int*  , int  )
 {
-    // Derive radial momentum, given the grid momenta.
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -408,11 +399,10 @@ void ca_derinertialradmomz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int 
     });
 }
 
-void ca_derphieff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derphieff(const Box& bx, FArrayBox& derfab, int  , int  ,
                   const FArrayBox& datfab, const Geometry& geom,
-                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                  Real  , const int*  , int  )
 {
-    // Derive the effective potential phiEff = phiGrav + phiRot
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -446,14 +436,10 @@ void ca_derphieff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
     });
 }
 
-void ca_derphieffpm_p(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derphieffpm_p(const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geom,
-                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                      Real  , const int*  , int  )
 {
-    // Derive an approximation to the effective potential of the primary only,
-    // by treating it as a point-mass at its center of mass.
-    // The u array contains the rotational potential, so we only need to calculate
-    // the gravitational potential from the point-mass.
 
     amrex::ignore_unused(datfab);
 
@@ -469,8 +455,6 @@ void ca_derphieffpm_p(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
     {
         der(i,j,k,0) = 0.0_rt;
 
-        // Don't do anything here if the star no longer exists,
-        // or if it never existed.
 
         if (problem::mass_P <= 0.0_rt) return;
 
@@ -503,11 +487,10 @@ void ca_derphieffpm_p(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
     });
 }
 
-void ca_derphieffpm_s(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derphieffpm_s(const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geom,
-                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                      Real  , const int*  , int  )
 {
-    // Same as above, but for the secondary.
 
     amrex::ignore_unused(datfab);
 
@@ -523,8 +506,6 @@ void ca_derphieffpm_s(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
     {
         der(i,j,k,0) = 0.0_rt;
 
-        // Don't do anything here if the star no longer exists,
-        // or if it never existed.
 
         if (problem::mass_S <= 0.0_rt) return;
 
@@ -557,9 +538,9 @@ void ca_derphieffpm_s(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
     });
 }
 
-void ca_derrhophiGrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derrhophiGrav(const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geom,
-                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                      Real  , const int*  , int  )
 {
 
     amrex::ignore_unused(geom);
@@ -574,9 +555,9 @@ void ca_derrhophiGrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
     });
 }
 
-void ca_derrhophiRot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derrhophiRot(const Box& bx, FArrayBox& derfab, int  , int  ,
                      const FArrayBox& datfab, const Geometry& geom,
-                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                     Real  , const int*  , int  )
 {
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -611,9 +592,9 @@ void ca_derrhophiRot(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncom
     });
 }
 
-void ca_derprimarymask(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_derprimarymask(const Box& bx, FArrayBox& derfab, int  , int  ,
                        const FArrayBox& datfab, const Geometry& geom,
-                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                       Real  , const int*  , int  )
 {
     Array4<Real const> const rho = datfab.array();
     Array4<Real> const mask = derfab.array();
@@ -628,9 +609,9 @@ void ca_derprimarymask(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
     });
 }
 
-void ca_dersecondarymask(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dersecondarymask(const Box& bx, FArrayBox& derfab, int  , int  ,
                          const FArrayBox& datfab, const Geometry& geom,
-                         Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                         Real  , const int*  , int  )
 {
     Array4<Real const> const rho = datfab.array();
     Array4<Real> const mask = derfab.array();

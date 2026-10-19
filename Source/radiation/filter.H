@@ -3,7 +3,6 @@
 
 namespace filter
 {
-    // 3-point filter: T=1, R=S=0
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff1 (int i)
     {
@@ -18,7 +17,6 @@ namespace filter
         }
     }
 
-    // For boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real edge_weight_1 (int i)
     {
@@ -33,8 +31,6 @@ namespace filter
         }
     }
 
-    // 5-point filter: T=2, R+S+1=T
-    // S = 0, 1
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff2 (int i, int j)
     {
@@ -61,7 +57,6 @@ namespace filter
         }
     }
 
-    // For first boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real edge_weight_2_0 (int i)
     {
@@ -79,7 +74,6 @@ namespace filter
         }
     }
 
-    // For second boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real edge_weight_2_1 (int i)
     {
@@ -100,8 +94,6 @@ namespace filter
         }
     }
 
-    // 7-point filter: T=3, R+S+1=T
-    // S = 0, 1, 2
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff3 (int i, int j)
     {
@@ -146,7 +138,6 @@ namespace filter
         }
     }
 
-    // For boundary cells
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real edge_weight_3_0 (int i)
     {
@@ -216,8 +207,6 @@ namespace filter
         }
     }
 
-    // 9-point filter: T=4, R+S+1=T
-    // S = 0, 1, 2, 3
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff4 (int i, int j)
     {
@@ -286,7 +275,6 @@ namespace filter
         }
     }
 
-    // For boundary cells
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real edge_weight_4_0 (int i)
     {
@@ -474,19 +462,6 @@ namespace filter
     {
         Real smoothed_limiter;
 
-        // In whatever direction we're filtering, retrieve a stencil for both
-        // lambda and the radiation energy, Er. The energy does not directly
-        // factor into the calculation, but helps us understand when we have
-        // gone over the edge of the grid. In the code below, we'll look at
-        // the stencil only for those zones where Er != -1, which constitutes
-        // our valid data. The approach we will use is to look progressively
-        // one zone further out to the left or right; if we detect that any of
-        // the zones we would normally use for our centered stencil are an
-        // invalid zone, we use a one-sided or skewed stencil with only zones
-        // that are available. Note that this relies on the assumption that if
-        // Er(-1) is -1, then all zones to the left of that are also -1, so we
-        // don't bother actually examining the contents of those zones (and
-        // the analogous assumption holds on the right edge of the grid).
 
         Array1D<Real, -width, width> Rad_energy_stencil, limiter_stencil;
 

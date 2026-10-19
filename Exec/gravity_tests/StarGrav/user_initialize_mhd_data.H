@@ -1,14 +1,10 @@
 #ifndef user_initialize_mhd_data_H
 #define user_initialize_mhd_data_H
 
-///
-/// x component of dipole vector potential
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real compute_A_x(const Real x, const Real y, const Real z)
 {
 
-    // this should be called with a node-centered y and z and a cell-centered x
 
     Real theta = std::atan2(std::sqrt(x * x + y * y), z);
     Real phi = std::atan2(y, x);
@@ -21,21 +17,16 @@ Real compute_A_x(const Real x, const Real y, const Real z)
         A_x = -problem::m_0 * dist * std::sin(theta) * std::sin(phi) / (1.0e24);
 
     } else {
-        // outside the star radius threshold
         A_x = -problem::m_0 * std::sin(theta) * std::sin(phi) / (dist*dist);
     }
 
     return A_x;
 }
 
-///
-/// y component of dipole vector potential
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real compute_A_y(const Real x, const Real y, const Real z)
 {
 
-    // this should be called with a node-centered x and z and a cell-centered y
 
     Real theta = std::atan2(std::sqrt(x * x + y * y), z);
     Real phi = std::atan2(y, x);
@@ -48,7 +39,6 @@ Real compute_A_y(const Real x, const Real y, const Real z)
         A_y = problem::m_0 * dist * std::sin(theta) * std::cos(phi) / (1.0e24);
 
     } else {
-        // outside the star radius threshold
         A_y = problem::m_0 * std::sin(theta) * std::cos(phi) / (dist*dist);
     }
 
@@ -87,29 +77,12 @@ void user_initialize_mhd_data (int i, int j, int k,
     zr = problo[2] + dx[2] * (static_cast<Real>(k) + 1.0_rt) - problem::center[2];
 #endif
 
-    // We'll compute B from the vector potential A
-    // A is of the form A = (A_x, A_y, 0)
 
-    // inside the star radius threshold (R) the vector potential
-    // will be of the form A_x = constant * x
-    //                         = constant * rsin(theta) * cos(phi)
-    // the constant is then obtained by matching B.C with
-    // the field outside at r = R
-    //
-    // with an analogous form for A_y
 
-    // centerings:
-    //   A_x, i, j-1/2, k-1/2
-    //   A_y, i-1/2, j, k-1/2
 
     if (ibdir == 0) {
 
-        // initialize Bx on x-faces
-        // B_x = -dA_y/dz
 
-        // we need A_y_{i-1/2,j,k+1/2} and A_y_{i-1/2, j, k-1/2}
-        // differencing across the x-face (i-1/2) in the z-direction
-        // then gives us B_x_{i-1/2,j,k}
 
         Real A_y_zp = compute_A_y(xl, ycen, zr);
         Real A_y_zm = compute_A_y(xl, ycen, zl);
@@ -118,8 +91,6 @@ void user_initialize_mhd_data (int i, int j, int k,
 
     } else if (ibdir == 1) {
 
-        // initialize By on y-faces
-        // B_y = dA_x/dz
 
         Real A_x_zp = compute_A_x(xcen, yl, zr);
         Real A_x_zm = compute_A_x(xcen, yl, zl);
@@ -128,8 +99,6 @@ void user_initialize_mhd_data (int i, int j, int k,
 
     } else {
 
-        // initialize Bz on z-faces
-        // B_z = dA_y/dx - dA_x/dy
 
         Real A_y_xp = compute_A_y(xr, ycen, zl);
         Real A_y_xm = compute_A_y(xl, ycen, zl);

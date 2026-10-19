@@ -12,13 +12,10 @@ USE_GRAV   = TRUE
 
 USE_MODEL_PARSER = TRUE
 
-# define the location of the HYDROSIM top directory
 HYDROSIM_HOME  ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := multigamma
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := general_null
 NETWORK_INPUTS = simple3.net
 

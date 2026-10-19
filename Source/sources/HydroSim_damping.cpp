@@ -13,7 +13,6 @@ void
 HydroSim::assemble_old_damping_source(MultiFab& source, MultiFab& state_in,
                                     Real time, Real dt)
 {
-    // We do not apply any sponge at the old time.
 
     amrex::ignore_unused(source);
     amrex::ignore_unused(state_in);
@@ -71,9 +70,6 @@ HydroSim::add_damping_term(const Box& bx,
                      Array4<Real> const& source,
                      Real dt) {
 
-  // alpha is a dimensionless measure of the timestep size; if
-  // damping_timescale < dt, then the sponge will have a larger effect,
-  // and if damping_timescale > dt, then the sponge will have a diminished effect.
   Real alpha;
   if (damping_timescale > 0.0_rt) {
     alpha = dt / damping_timescale;
@@ -110,20 +106,14 @@ HydroSim::add_damping_term(const Box& bx,
     Real rho = state_in(i,j,k,URHO);
     Real rhoInv = 1.0_rt / rho;
 
-    // compute the update factor
 
-    // Radial distance between upper and lower boundaries.
     Real delta_r = damping_upper_radius - damping_lower_radius;
 
-    // Density difference between upper and lower cutoffs.
     Real density_span = damping_lower_density - damping_upper_density;
 
-    // Pressure difference between upper and lower cutoffs.
     Real delta_p = damping_lower_pressure - damping_upper_pressure;
 
 
-    // Apply radial sponge. By default damping_lower_radius will be zero
-    // so this sponge is applied only if set by the user.
     Real damping_strength = 0.0_rt;
 
     if (damping_lower_radius >= 0.0_rt && damping_upper_radius > damping_lower_radius) {
@@ -142,10 +132,7 @@ HydroSim::add_damping_term(const Box& bx,
       }
     }
 
-    // Apply density sponge. This sponge is applied only if set by the user.
 
-    // Note that because we do this second, the density sponge gets priority
-    // over the radial sponge in cases where the two would overlap.
 
     if (damping_upper_density > 0.0_rt && damping_lower_density > 0.0_rt) {
       if (rho > damping_upper_density) {
@@ -161,10 +148,7 @@ HydroSim::add_damping_term(const Box& bx,
       }
     }
 
-    // Apply pressure sponge. This sponge is applied only if set by the user.
 
-    // Note that because we do this third, the pressure sponge gets priority
-    // over the radial and density sponges in cases where the two would overlap.
 
     if (damping_upper_pressure > 0.0_rt && damping_lower_pressure >= 0.0_rt) {
 
@@ -199,16 +183,7 @@ HydroSim::add_damping_term(const Box& bx,
       }
     }
 
-    // For an explicit update (damping_implicit /= 1), the source term is given by
-    // -(rho v) * alpha * damping_strength. We simply add this directly by using the
-    // current value of the momentum.
 
-    // For an implicit update (damping_implicit == 1), we choose the (rho v) to be
-    // the momentum after the update. This then leads to an update of the form
-    // (rho v) --> (rho v) * ONE / (ONE + alpha * damping_strength). To get an equivalent
-    // explicit form of this source term, we can then solve
-    //    (rho v) + Sr == (rho v) / (ONE + alpha * damping_strength),
-    // which yields Sr = - (rho v) * (ONE - ONE / (ONE + alpha * damping_strength)).
 
     Real fac;
     if (damping_implicit == 1) {
@@ -220,7 +195,6 @@ HydroSim::add_damping_term(const Box& bx,
     }
 
 
-    // now compute the source
     GpuArray<Real, 3> Sr;
     GpuArray<Real, 3> damping_target_velocity = {damping_target_x_velocity,
                                                 damping_target_y_velocity,
@@ -230,10 +204,6 @@ HydroSim::add_damping_term(const Box& bx,
       src[UMX+n] = Sr[n];
     }
 
-    // Kinetic energy is 1/2 rho u**2, or (rho u)**2 / (2 rho). This means
-    // that d(KE)/dt = u d(rho u)/dt - 1/2 u**2 d(rho)/dt. In this case
-    // the sponge has no contribution to rho, so the kinetic energy source
-    // term, and thus the total energy source term, is u * momentum source.
 
     Real SrE = 0.0;
     for (int n = 0; n < 3; n++) {
@@ -250,7 +220,6 @@ HydroSim::add_damping_term(const Box& bx,
     }
 #endif
 
-    // Add terms to the source array.
     for (int n = 0; n < NUM_SOURCE; n++) {
       source(i,j,k,n) += src[n];
     }

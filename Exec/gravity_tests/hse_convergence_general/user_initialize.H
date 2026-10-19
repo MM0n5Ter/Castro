@@ -17,14 +17,11 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // check to make sure that small_dens is less than low_density_cutoff
-    // if not, funny things can happen above the atmosphere
 
     if (small_dens >= 0.99_rt * problem::low_density_cutoff) {
         amrex::Error("ERROR: small_dens should be set lower than low_density_cutoff");
     }
 
-    // get the species indices
 
     bool species_defined = true;
 
@@ -85,7 +82,6 @@ void user_initialize ()
     }
 
 
-    // set the composition of the underlying star
 
     model_t model_params;
 
@@ -100,7 +96,6 @@ void user_initialize ()
         model_params.xn_star[iash3] = problem::ash3_frac;
     }
 
-    // and the composition of the accreted layer
 
     for (int n = 0; n < NumSpec; n++) {
         model_params.xn_base[n] = problem::smallx;
@@ -116,7 +111,6 @@ void user_initialize ()
         model_params.xn_base[ifuel4] = problem::fuel4_frac;
     }
 
-    // check if they sum to 1
 
     Real sumX = 0.0_rt;
     for (int n = 0; n < NumSpec; n++) {
@@ -134,7 +128,6 @@ void user_initialize ()
         amrex::Error("ERROR: fuel mass fractions don't sum to 1");
     }
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();
@@ -145,7 +138,6 @@ void user_initialize ()
 
     int ng = 4;
 
-    // now generate the initial models
 
     model_params.density_base = problem::density_base;
     model_params.T_star = problem::T_star;
@@ -162,18 +154,15 @@ void user_initialize ()
                            probhi[AMREX_SPACEDIM-1],
                            model_params);
 
-    // set center
 
     for (int n = 0; n < AMREX_SPACEDIM; ++n) {
         problem::center[n] = 0.5_rt * (problo[n] + probhi[n]);
     }
 
 #if AMREX_SPACEDIM == 2
-    // for axisymmetry, put the x-center on the x-axis
     problem::center[0] = 0.0_rt;
 #endif
 
-    // set the ambient state for the upper boundary condition
 
     ambient::ambient_reference_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_reference_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
@@ -186,7 +175,6 @@ void user_initialize ()
     ambient::ambient_reference_state[UMY] = 0.0_rt;
     ambient::ambient_reference_state[UMZ] = 0.0_rt;
 
-    // make the ambient state thermodynamically consistent
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];

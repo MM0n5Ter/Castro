@@ -1,4 +1,3 @@
-/* Implementations of functions in Problem.H go here */
 
 #include <HydroSim.H>
 #include <AMReX_TracerParticles.H>
@@ -24,7 +23,6 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
     const Real*     plo      = hydrosim.geom.ProbLo();
     const Real*     phi      = hydrosim.geom.ProbHi();
 
-    // read initial positions from Ascii file
 
     const int MyProc   = ParallelDescriptor::MyProc();
 
@@ -69,7 +67,6 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
         nparticles.push_back(p);
     }
 
-    // compute the change in position of the particles wrt to their initial positions
 
     auto& pmap = TracerPC->GetParticles(lev);
 
@@ -88,7 +85,6 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
 
             auto it = nparticles.begin();
 
-            // find the original particle and calculate change in position
             for (; !match && it != nparticles.end(); ++it) {
                 if (it->id() == p.id())
                     match = true;
@@ -96,17 +92,14 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
 
             if (!match) Print() << "haven't found a match :(" << std::endl;
 
-            // calculate change in position
             auto deltax = it->m_pos[0] - p.m_pos[0];
             auto deltay = it->m_pos[1] - p.m_pos[1];
 
             auto delta = std::sqrt(deltax*deltax + deltay*deltay);
 
-            // quick nan check here
             if (delta == delta)
                 total_err += delta;
 
-            // Print() << "delta r = " << delta << std::endl;
 
         }
     }

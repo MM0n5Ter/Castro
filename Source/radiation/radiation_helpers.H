@@ -178,7 +178,6 @@ void face_geometry_factors (int i, int j, int k, int lo, int hi,
         }
         else {
 
-            // This must be RZ since we only support spherical coordinates in 1D.
 
             GpuArray<Real, 3> loc;
             position(i, j, k, geomdata, loc);
@@ -228,23 +227,18 @@ Real LimitedDiffusionLambda (Real r)
     Real lambda;
 
     if (radiation::limiter == 0) {
-        // no limiter
         lambda = 1.e0_rt / 3.e0_rt;
     }
     else if (radiation::limiter < 10) {
-        // approximate LP
         lambda = (2.e0_rt + r) / (6.e0_rt + r * (3.e0_rt + r));
     }
     else if (radiation::limiter < 20) {
-        // Bruenn
         lambda = 1.e0_rt / (3.e0_rt + r);
     }
     else if (radiation::limiter < 30) {
-        // Larsen's square root
         lambda = 1.e0_rt / std::sqrt(9.e0_rt + r * r);
     }
     else if (radiation::limiter < 40) {
-        // Minerbo
         if (r < 1.5e0_rt) {
             lambda = 2.e0_rt / (3.e0_rt + std::sqrt(9.e0_rt + 12.e0_rt * r * r));
         } else {
@@ -274,19 +268,15 @@ amrex::Real face_opacity_average(Real a, Real b, Real d, int opt)
 
     if (opt == 0)
     {
-        // arithmetic average, geometrically correct(?) but underestimates surface flux
         k = 0.5e0_rt * (a + b + tiny);
 
     }
     else if (opt == 1)
     {
-        // harmonic average, overestimates surface flux
         k = (2.e0_rt * a * b) / (a + b + tiny) + tiny;
     }
     else
     {
-        // chooses arithmetic where optically thin, harmonic where optically thick,
-        // surface flux approximation at a thick/thin boundary
         k = amrex::min(0.5e0_rt * (a + b + tiny),
                        amrex::max((2.e0_rt * a * b) / (a + b + tiny) + tiny,
                                   4.e0_rt / (3.e0_rt * d)));

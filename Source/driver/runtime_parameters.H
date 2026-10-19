@@ -16,10 +16,6 @@
 #include <radiation_params.H>
 #endif
 
-///
-/// Initialize all of the runtime parameters defined in _cpp_parameters
-/// regardless of the namespace
-///
 AMREX_INLINE
 void
 load_compiled_params()
@@ -61,11 +57,6 @@ load_compiled_params()
 }
 
 
-///
-/// Check to ensure that any runtime parameters set in inputs or on
-/// the command line are valid -- everything should have been accessed
-/// by now.
-///
 AMREX_INLINE
 void
 check_runparams()
@@ -82,11 +73,9 @@ check_runparams()
     valid_namespaces.push_back("gravity");
 #endif
 #ifdef RADIATION
-    //valid_namespaces.push_back("radiation");  // this doesn't yet work because RadiativeBoundary isn't setup yet
     valid_namespaces.push_back("radiation_solve");
 #endif
 
-    // now Microphysics
 
     valid_namespaces.push_back("eos");
 #ifdef REACTIONS
@@ -102,7 +91,6 @@ check_runparams()
 
     for (const auto& nm: valid_namespaces)
     {
-        // "hydrosim"
         if (amrex::ParmParse::hasUnusedInputs(nm)) {
             amrex::Print() << Font::Bold << FGColor::Yellow
                            << "[WARNING] the following " + nm + ".* parameters are ignored\n";

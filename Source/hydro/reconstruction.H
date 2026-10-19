@@ -91,17 +91,8 @@ add_geometric_density_source(amrex::Array4<amrex::Real const> const& prim_arr,
 
     using namespace reconstruction;
 
-    // For idir == 0, i.e. r-direction:
-    // this takes the form: -alpha rho u / r
-    // where alpha = 1 for cylindrical and 2 for spherical
-    // note dloga(idir==0) = alpha/r
 
-    // For idir == 1,
-    // i.e. theta-direction for spherical and z-direction for cylindrical
-    // this takes the form: -rho v cot(theta) / r for spherical and 0 for cylindrical
-    // note: dloga(idir==1) = cot(theta)/r for spherical and 0 for cylindrical.
 
-    // ncomp should be QU for idir == 0 and QV for idir == 1
 
     if (ncomp == QU) {
 
@@ -132,17 +123,8 @@ add_geometric_energy_source(amrex::Array4<amrex::Real const> const& prim_arr,
 
     using namespace reconstruction;
 
-    // For idir == 0, i.e. r-direction:
-    // this takes the form: -alpha (rho e + p ) u / r
-    // where alpha = 1 for cylindrical and 2 for spherical
-    // note dloga(idir==0) = alpha/r
 
-    // For idir == 1,
-    // i.e. theta-direction for spherical and z-direction for cylindrical
-    // this takes the form: - (rho e + p) v cot(theta) / r for spherical and 0 for cylindrical
-    // note: dloga(idir==1) = cot(theta)/r for spherical and 0 for cylindrical.
 
-    // ncomp should be QU for idir == 0 and QV for idir == 1
 
     if (ncomp == QU) {
 
@@ -174,17 +156,8 @@ add_geometric_pressure_source(amrex::Array4<amrex::Real const> const& prim_arr,
 
     using namespace reconstruction;
 
-    // For idir == 0, i.e. r-direction:
-    // this takes the form: -alpha Gamma1 p u / r
-    // where alpha = 1 for cylindrical and 2 for spherical
-    // note: dloga(idir==0) = alpha/r
 
-    // For idir == 1,
-    // i.e. theta-direction for spherical and z-direction for cylindrical
-    // this takes the form: - Gamma1 p v cot(theta) / r for spherical and 0 for cylindrical
-    // note: dloga(idir==1) = cot(theta)/r for spherical and 0 for cylindrical.
 
-    // ncomp should be QU for idir == 0 and QV for idir == 1
 
 
     if (ncomp == QU) {

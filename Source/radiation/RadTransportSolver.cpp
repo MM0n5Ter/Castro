@@ -4,7 +4,7 @@
 #include <AMReX_LO_BCTYPES.H>
 
 #include <RadTransportSolver.H>
-#include <Radiation.H>  // for access to static physical constants only
+#include <Radiation.H>
 #include <radiation_helpers.H>
 #include <user_rad_source.H>
 
@@ -55,7 +55,6 @@ RadTransportSolver::read_params ()
         radiation_solve::abstol = 0.0;
     }
 
-    // Check for unsupported options.
 
     if (AMREX_SPACEDIM == 1) {
         if (radiation_solve::level_solver_kind == 1) {
@@ -109,7 +108,6 @@ void RadTransportSolver::levelBoundary(RadiativeBoundary& bd)
   }
 }
 
-// update multigroup version
 void RadTransportSolver::levelBoundary(MultiGroupBoundary& multigroup_boundary, const int comp)
 {
   BL_PROFILE("RadTransportSolver::levelBndryMG (updated)");
@@ -195,7 +193,6 @@ void RadTransportSolver::levelDiagCoeffs(int level,
 
   auto geomdata = parent->Geom(level).data();
 
-  // Allocate space for ABecLapacian acoeffs, fill with values
 
   int Ncomp  = 1;
   int Nghost = 0;
@@ -407,7 +404,7 @@ void RadTransportSolver::levelFaceCoeffs(int level,
     else if (hem) {
       hem->setFaceCoefficients(level, bcoefs, idim);
     }
-  } // -->> over dimension
+  }
 }
 
 void RadTransportSolver::levelDiffCoeffs(int level, Array<MultiFab, AMREX_SPACEDIM>& lambda,
@@ -518,14 +515,7 @@ void RadTransportSolver::levelAssembleRhs(int level, MultiFab& rhs,
 
   rhs.setVal(0.0);
   if (fine_correction) {
-    // This works trivially for a multilevel solve since the finer level is
-    // present in the rhs to overwrite the junk produced under it.
-    // In a single-level version we have to be sure that fine_correction
-    // has been cleaned up using ClearInternalBorders.
 
-    // Hack:  For the single group case rad_group_idx defaults to -1, which is
-    // significant later in this routine.  So we have to construct the
-    // correct component number here:
 
     int reflux_group = (rad_group_idx < 0) ? 0 : rad_group_idx;
 
@@ -581,7 +571,6 @@ void RadTransportSolver::levelSolveSystem(int level,
 {
   BL_PROFILE("RadTransportSolver::levelSolveSystem");
 
-  // Set coeffs, build solver, solve
   if (hd) {
     hd->setScalars(radiation_solve::alpha, radiation_solve::beta);
   }
@@ -693,12 +682,11 @@ void RadTransportSolver::levelFaceFlux(int level,
   const BoxArray& grids = parent->boxArray(level);
   const DistributionMapping& dmap = parent->DistributionMap(level);
 
-  // grow a larger MultiFab to hold Er so we can difference across faces
   MultiFab RadEnergyGrown(grids, dmap, 1, 1);
   RadEnergyGrown.setVal(0.0);
   MultiFab::Copy(RadEnergyGrown, Er, rad_group_idx, 0, 1, 0);
 
-  RadEnergyGrown.FillBoundary(parent->Geom(level).periodicity()); // zeroes left in off-level boundaries
+  RadEnergyGrown.FillBoundary(parent->Geom(level).periodicity());
 
   auto dx = parent->Geom(level).CellSizeArray();
 
@@ -759,14 +747,7 @@ void RadTransportSolver::levelFaceFlux(int level,
 
   }
 
-  // Correct fluxes at physical and coarse-fine boundaries.
 
-  // Note: It would be good to move much of this section into the
-  // linear solver drivers themselves (one layer down), to enable
-  // an implementation that does not compute fluxes everywhere in
-  // an EdgeVar.  We can't just move the nonsymmetric pieces easily
-  // by themselves, though, because the current implementation
-  // trashes the boundary fluxes before fixing them.
 
   if (hd) {
     hd->faceFluxAtBoundary(&Flux[0], Er, rad_group_idx, Nonzero_BC);
@@ -820,12 +801,11 @@ void RadTransportSolver::levelDiffusionTerm(int level, MultiFab& diffusive_face_
       diffusion_term_face[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, 1, 0);
   }
 
-  // grow a larger MultiFab to hold Er so we can difference across faces
   MultiFab RadEnergyGrown(grids, dmap, 1, 1);
   RadEnergyGrown.setVal(0.0);
   MultiFab::Copy(RadEnergyGrown, Er, rad_group_idx, 0, 1, 0);
 
-  RadEnergyGrown.FillBoundary(parent->Geom(level).periodicity()); // zeroes left in off-level boundaries
+  RadEnergyGrown.FillBoundary(parent->Geom(level).periodicity());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -859,10 +839,8 @@ void RadTransportSolver::levelDiffusionTerm(int level, MultiFab& diffusive_face_
       }
   }
 
-  // Correct D terms at physical and coarse-fine boundaries.
   hem->computeBoundaryTerm(level, &diffusion_term_face[0], Er, rad_group_idx);
 
-  // Correct for metric terms (only has an effect in non-Cartesian geometries).
   for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
 #ifdef _OPENMP
 #pragma omp parallel
@@ -923,7 +901,6 @@ void RadTransportSolver::levelDiffusionTerm(int level, MultiFab& diffusive_face_
   }
 }
 
-// <MultigroupDiffusion routines>
 void RadTransportSolver::computeFaceCoeffs(MultiFab& bcoefs, int idim,
                               MultiFab& kappa_r, int kcomp,
                               MultiFab& lambda, int limiter_comp,
@@ -999,7 +976,6 @@ void RadTransportSolver::levelDiagCoeffs(int level, MultiFab& kpp,
   const DistributionMapping& dmap = parent->DistributionMap(level);
   const auto geomdata = parent->Geom(level).data();
 
-  // allocate space for ABecLaplacian acoeffs, fill with values
 
   int Ncomp = 1;
   int Nghost = 0;
@@ -1028,7 +1004,6 @@ void RadTransportSolver::levelDiagCoeffs(int level, MultiFab& kpp,
       });
   }
 
-  // set a coefficients
   if (hd) {
     hd->setMassCoefficients(acoefs);
   }
@@ -1093,7 +1068,6 @@ void RadTransportSolver::levelAssembleRhs(int level, MultiFab& rhs, const MultiF
   }
 }
 
-// </ MultigroupDiffusion routines>
 
 void RadTransportSolver::setSolverScale(Real cScale, Real d1Scale, Real d2Scale)
 {

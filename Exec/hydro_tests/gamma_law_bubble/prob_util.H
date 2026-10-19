@@ -13,17 +13,13 @@ gamma_law_initial_model(Real* const pressure, Real* const density, Real* const t
   pressure[0] = problem::pres_base;
   density[0]  = problem::density_base;
 
-  // only initialize the first species
   Real xn[NumSpec];
   xn[0] = 1.0_rt;
 
-  // compute the pressure scale height (for an isothermal, ideal-gas
-  // atmosphere)
   Real H = problem::pres_base / problem::density_base / std::abs(gravity::uniform_accel);
 
   for (int j = 0; j < npts; j++) {
 
-    // initial guess
      temp[j] = eos_temp_guess;
 
      if (problem::do_isentropic) {

@@ -9,7 +9,6 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // get the species indices
 
     problem::ihe4 = network_spec_index("helium-4");
     problem::ic12 = network_spec_index("carbon-12");
@@ -21,37 +20,31 @@ void user_initialize ()
         amrex::Error("ERROR: species indices not found");
     }
 
-    // make sure that the carbon fraction falls between 0 and 1
 
     if (problem::cfrac > 1.0_rt || problem::cfrac < 0.0_rt) {
         amrex::Error("ERROR: cfrac must fall between 0 and 1");
     }
 
-    // make sure that the nitrogen fraction falls between 0 and 1
 
     if (problem::nfrac > 1.0_rt || problem::nfrac < 0.0_rt) {
         amrex::Error("ERROR: nfrac must fall between 0 and 1");
     }
 
-    // make sure that the oxygen fraction falls between 0 and 1
 
     if (problem::ofrac > 1.0_rt || problem::ofrac < 0.0_rt) {
         amrex::Error("ERROR: ofrac must fall between 0 and 1");
     }
 
-    // make sure that the neon fraction falls between 0 and 1
 
     if (problem::nefrac > 1.0_rt || problem::nefrac < 0.0_rt) {
         amrex::Error("ERROR: nefrac must fall between 0 and 1");
     }
 
-    // make sure that the C/N/O/Ne fraction sums to no more than 1
 
     if (problem::cfrac + problem::nfrac + problem::ofrac + problem::nefrac > 1.0_rt) {
         amrex::Error("ERROR: cfrac + nfrac + ofrac + nefrac cannot exceed 1.");
     }
 
-    // set the default mass fractions
 
     for (auto& X : problem::xn) {
         X = problem::smallx;
@@ -76,7 +69,6 @@ void user_initialize ()
                                            - (NumSpec - 4) * problem::smallx;
     }
 
-    // Set the ambient material
 
     problem::ambient_dens = problem::dens;
     for (int n = 0; n < NumSpec; n++) {
@@ -90,7 +82,6 @@ void user_initialize ()
     }
 
 #ifdef AUX_THERMO
-    // set the aux quantities -- we need to do this if we are using the NSE network
     set_aux_comp_from_X(eos_state);
 #endif
 

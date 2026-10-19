@@ -10,7 +10,6 @@ USE_OMP = FALSE
 
 USE_REACT = FALSE
 
-# programs to be compiled
 ALL: dustcollapse_$(DIM)d.ex
 
 EOS_DIR := helmholtz
@@ -19,7 +18,6 @@ NETWORK_DIR := aprox13
 
 Bpack   := ./Make.package
 Blocs   := .
-# EXTERN_SEARCH = .
 
 HYDROSIM_HOME ?= ../..
 

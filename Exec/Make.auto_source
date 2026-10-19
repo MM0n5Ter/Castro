@@ -1,24 +1,16 @@
 
-#------------------------------------------------------------------------------
-# make generated source files location
-#------------------------------------------------------------------------------
 VPATH_LOCATIONS += $(HYDROSIM_AUTO_SOURCE_DIR)
 INCLUDE_LOCATIONS += $(HYDROSIM_AUTO_SOURCE_DIR)
 
 
-#------------------------------------------------------------------------------
-# Microphysics runtime parameters
-#------------------------------------------------------------------------------
 
 CEXE_sources += extern_parameters.cpp
 CEXE_headers += extern_parameters.H
 CEXE_headers += extern_type.H
 
-# for dependency resolution
 AUTO_BUILD_SOURCES += $(HYDROSIM_AUTO_SOURCE_DIR)/extern_parameters.H
 AUTO_BUILD_SOURCES += $(HYDROSIM_AUTO_SOURCE_DIR)/extern_type.H
 
-# this is for finding runtime parameters
 EXTERN_PARAMETERS := $(foreach dir, $(INCLUDE_LOCATIONS),$(realpath $(wildcard $(dir)/_parameters)))
 
 $(HYDROSIM_AUTO_SOURCE_DIR)/extern_parameters.cpp: $(HYDROSIM_AUTO_SOURCE_DIR)/extern_parameters.H
@@ -31,41 +23,26 @@ $(HYDROSIM_AUTO_SOURCE_DIR)/extern_parameters.H: $(EXTERN_PARAMETERS)
            --pa "$(EXTERN_PARAMETERS)"
 
 
-#------------------------------------------------------------------------------
-# problem specific parameters
-#------------------------------------------------------------------------------
 
-# runtime parameter support for extern/ routines
 CEXE_sources += prob_parameters.cpp
 CEXE_headers += prob_parameters.H
 
-# search Bdirs for _case_params files
 PROB_PARAMETERS := $(foreach dir, $(Bdirs), $(wildcard $(TOP)/$(dir)/_case_params))
-# the problem's own parameters always come at the end so they override
-# any others
 PROB_PARAMETERS += $(wildcard $(PROBLEM_DIR)/_case_params)
 
 $(HYDROSIM_AUTO_SOURCE_DIR)/prob_parameters.cpp: $(HYDROSIM_AUTO_SOURCE_DIR)/prob_parameters.H
 
-# for dependency resolution
 AUTO_BUILD_SOURCES += $(HYDROSIM_AUTO_SOURCE_DIR)/prob_parameters.H
 
-# Note that $(PROB_PARAMETERS) may not exist so we use wildcard to condition
-# on that; if it doesn't exist, it's ignored as a make target. The default
-# parameters file will always exist.
 $(HYDROSIM_AUTO_SOURCE_DIR)/prob_parameters.H: $(DEFAULT_PROB_PARAMETERS) $(wildcard $(PROB_PARAMETERS))
 	@if [ ! -d $(HYDROSIM_AUTO_SOURCE_DIR) ]; then mkdir -p $(HYDROSIM_AUTO_SOURCE_DIR); fi
 	PYTHONPATH=$(MICROPHYSICS_HOME)/util/build_scripts $(TOP)/Util/scripts/write_probdata.py \
            -p "$(PROB_PARAMETERS)" \
            --cxx_prefix $(HYDROSIM_AUTO_SOURCE_DIR)/prob \
 
-#------------------------------------------------------------------------------
-# HydroSim C++ parameters
-#------------------------------------------------------------------------------
 
 CEXE_headers += hydrosim_params.H
 
-# for dependency resolution
 AUTO_BUILD_SOURCES += $(HYDROSIM_AUTO_SOURCE_DIR)/hydrosim_params.H
 
 CPP_PARAMETERS := $(TOP)/Source/driver/_cpp_parameters
@@ -82,16 +59,11 @@ $(HYDROSIM_AUTO_SOURCE_DIR)/hydrosim_params.H: $(CPP_PARAMETERS)
 	@if [ ! -d $(HYDROSIM_AUTO_SOURCE_DIR) ]; then mkdir -p $(HYDROSIM_AUTO_SOURCE_DIR); fi
 	PYTHONPATH=$(MICROPHYSICS_HOME)/util/build_scripts $(TOP)/Source/driver/parse_hydrosim_params.py $(PARSE_ARGS) -o $(HYDROSIM_AUTO_SOURCE_DIR) $(CPP_PARAMETERS)
 
-# for debugging
 test_cxx_params: $(HYDROSIM_AUTO_SOURCE_DIR)/hydrosim_params.H
 
-#------------------------------------------------------------------------------
-# state variable info
-#-------------------------------------------------------------------------------
 
 $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices_nd.F90: $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices.H
 
-# for dependency resolution
 AUTO_BUILD_SOURCES += $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices.H
 
 $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices.H:
@@ -102,15 +74,10 @@ $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices.H:
            --odir $(HYDROSIM_AUTO_SOURCE_DIR) \
            $(HYDROSIM_HOME)/Source/driver/_state_layout
 
-# for debugging
 test_variables: $(HYDROSIM_AUTO_SOURCE_DIR)/state_indices.H
 
 
-#------------------------------------------------------------------------------
-# build info
-#------------------------------------------------------------------------------
 
-# job_info support
 CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
 INCLUDE_LOCATIONS +=  $(AMREX_HOME)/Tools/C_scripts
 
@@ -128,17 +95,12 @@ ifeq ($(USE_REACT), TRUE)
    MNAMES += INTEGRATOR=$(INTEGRATOR_DIR) SCREENING=$(SCREEN_METHOD)
 endif
 
-# we make AMReX_buildInfo.cpp as we make the .o file, so we can delete
-# it immediately.  this way if the build is interrupted, we are
-# guaranteed to remake it
 
 objForExecs += $(objEXETempDir)/AMReX_buildInfo.o
 
 .FORCE:
 .PHONE: .FORCE
 
-# set BUILD_GIT_NAME and BUILD_GIT_DIR if you are building in a
-# git-controlled dir not under HydroSim/
 EXTRA_BUILD_INFO :=
 ifdef BUILD_GIT_NAME
    EXTRA_BUILD_INFO := --build_git_name "$(BUILD_GIT_NAME)" \

@@ -37,10 +37,7 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UEINT) = pres / (eos_rp::eos_gamma - 1.0_rt);
     }
 
-    // doing it similar to 2d, will be something in x-z though
 
-    // We explicitly make the perturbation symmetric here.
-    // This prevents the RT from bending.
 
     Real pertheight = 0.01_rt * 0.5_rt *
         (std::cos(2.0_rt * M_PI * r[0] / problem::L_x) +

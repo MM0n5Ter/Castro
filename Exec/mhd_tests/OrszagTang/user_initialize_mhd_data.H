@@ -9,7 +9,6 @@ void user_initialize_mhd_data (int i, int j, int k,
     const Real* dx = geomdata.CellSize();
     const Real* problo = geomdata.ProbLo();
 
-    // these are cell-center coordinates
 
     Real x = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt);
 

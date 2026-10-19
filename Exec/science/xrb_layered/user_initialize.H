@@ -15,7 +15,6 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // Read initial model
     read_model_file(problem::model_name);
 
     if (ParallelDescriptor::IOProcessor()) {
@@ -24,7 +23,6 @@ void user_initialize ()
         }
     }
 
-    // Set up HydroSim data logs for this problem
 
     if (hydrosim::sum_step_period > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 
@@ -38,7 +36,6 @@ void user_initialize ()
 
     }
 
-    // set the ambient state for the upper boundary condition
 
     ambient::ambient_reference_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_reference_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
@@ -51,7 +48,6 @@ void user_initialize ()
     ambient::ambient_reference_state[UMY] = 0.0_rt;
     ambient::ambient_reference_state[UMZ] = 0.0_rt;
 
-    // make the ambient state thermodynamically consistent
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];

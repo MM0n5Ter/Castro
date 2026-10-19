@@ -1,7 +1,4 @@
 
-    //
-    // Analytic solution and error
-    //
     derive_lst.add("Texact",IndexType::TheCellType(),1,dertexact,the_same_box);
     derive_lst.addComponent("Texact",desc_lst,State_Type,UTEMP,1);
 

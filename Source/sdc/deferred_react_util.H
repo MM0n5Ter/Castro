@@ -47,12 +47,7 @@ void
 zone_react_source(burn_t& burn_state,
                          GpuArray<Real, NUM_STATE>& R) {
 
-    // note: we want this burn_state to come out of here so we can
-    // reuse it elsewhere
 
-    // we assume that burn_state.y[] holds the current state, except
-    // for temperature guess, and we will initialize the pieces needed
-    // to call the RHS
 
     auto rhoInv = 1.0_rt / burn_state.y[SRHO];
 
@@ -71,22 +66,18 @@ zone_react_source(burn_t& burn_state,
 
     static_assert(NAUX_NET == 0, "Error: aux data not currently supported in true SDC");
 
-    // Ensure that the temperature going in is consistent with the internal energy.
     eos(eos_input_re, burn_state);
 
-    // eos_get_small_temp(&small_temp);
     burn_state.T = amrex::Clamp(burn_state.T, small_temp, integrator_rp::MAX_TEMP);
 
     Array1D<Real, 1, neqs> ydot;
 
     actual_rhs(burn_state, ydot);
 
-    // store the instantaneous R
     for (int n = 0; n < NUM_STATE; ++n) {
         R[n] = 0.0_rt;
     }
 
-    // species rates come back in terms of molar fractions
     for (int n = 0; n < NumSpec; ++n) {
         R[UFS+n] = burn_state.rho * aion[n] * ydot(1+n);
     }
@@ -125,49 +116,32 @@ zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
 #endif
 #else
 
-    // Jac has the derivatives with respect to the native
-    // network variables, X, e.  Note: the e derivative
 
     if (integrator_rp::jacobian == 2) {
-        // note the numerical Jacobian will be returned in terms of X
-        // and will already have the corrections to convert into d/de
-        // instead of d/dT
 
         jac_info_t jac_info;
         jac_info.h = dt;
 
-        // note: numerical Jacobian works directly off of
-        // burn_state.T, burn_state.e, and burn_state.xn[]
 
         numerical_jac(burn_state, jac_info, Jac);
 
     } else {
         actual_jac(burn_state, Jac);
 
-        // the above will have already multiplied the d/dT terms with 1/c_v
 
-        // The Jacobian from the nets is in terms of dYdot/dY, but we want
-        // it was dXdot/dX, so convert here.
         for (int n = 1; n <= NumSpec; n++) {
             for (int m = 1; m <= neqs; m++) {
-                // d(X_n)/dq_m
                 Jac(n,m) = Jac(n,m) * aion[n-1];
             }
         }
 
         for (int m = 1; m <= neqs; m++) {
             for (int n = 1; n <= NumSpec; n++) {
-                // d RHS_m / dX_n
                 Jac(m,n) = Jac(m,n) * aion_inv[n-1];
             }
         }
 
-        // now correct the species derivatives
-        // this constructs dy/dX_k |_e = dy/dX_k |_T - e_{X_k} |_T dy/dT / c_v
 
-        // we are assuming here that the burn_state is
-        // thermodynamically consistent.  This will be true if we
-        // called zone_react_source first.
 
         eos_xderivs_t eos_xderivs = composition_derivatives(burn_state);
 
@@ -179,8 +153,6 @@ zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
     }
 #endif
 
-    // at this point, our Jacobian should be entirely in terms of X,
-    // not Y.
 
 }
 

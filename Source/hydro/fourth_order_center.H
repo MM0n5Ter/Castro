@@ -12,9 +12,6 @@ laplacian_at(int i, int j, int k, int n,
   Real second_deriv_y = 0.0;
   Real second_deriv_z = 0.0;
 
-  // we use 2nd-order accurate one-sided stencils at the physical
-  // boundaries
-  // I like the one-sided better.
 
   if (i == domlo[0] && !lo_wrap[0]) {
     second_deriv_x = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i+1,j,k,n) + 4.0_rt*a(i+2,j,k,n) - a(i+3,j,k,n);
@@ -65,7 +62,6 @@ tangential_laplacian(int i, int j, int k, int n,
   Real second_deriv_y = 0.0;
   Real second_deriv_z = 0.0;
 
-  // we use 2nd-order accurate one-sided stencils at the physical boundaries
   if (idir != 0) {
 
     if (i == domlo[0] && !lo_wrap[0]) {

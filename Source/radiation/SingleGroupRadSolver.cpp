@@ -1,4 +1,3 @@
-// functions specific for OneGroupSolver (SolverKind 0)
 
 #include <AMReX_LO_BCTYPES.H>
 
@@ -26,7 +25,6 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
   int group = 0;
   int fine_level = parent->finestLevel();
 
-  // Allocation and initialization:
 
   HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
   const BoxArray& grids = hydrosim->boxArray();
@@ -60,7 +58,7 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
   MultiFab& flux_div_old = *flux_div[level];
   MultiFab flux_div_new(grids,dmap,1,0);
 
-  MultiFab limited_rad_energy; // will only be allocated if needed
+  MultiFab limited_rad_energy;
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -80,24 +78,22 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
   MultiFab::Copy(state_energy_density, matter_energy_density, 0, 0, 1, 0);
 
-  // Rosseland mean in grid interiors can be updated within the loop,
-  // but ghost cell values are set once and never updated.
 
-  MultiFab kappa_r(grids,dmap,1,1);    // note ghost cell, needs to be filled
+  MultiFab kappa_r(grids,dmap,1,1);
 
   MultiFab fluid_velocity_mf;
-  MultiFab diffusion_coef_mf; // 2. * (1-eta) * kappa_p/kappa_r
+  MultiFab diffusion_coef_mf;
   if (has_diffusion_coefs) {
     fluid_velocity_mf.define(grids, dmap, AMREX_SPACEDIM, 1);
     diffusion_coef_mf.define(grids, dmap, 1, 1);
     derive_rosseland_velocity_coef(kappa_r, fluid_velocity_mf, diffusion_coef_mf, delta_t, c, hydrosim);
   }
   else {
-    derive_rosseland_opacity(kappa_r, hydrosim); // fills everywhere, incl ghost cells
+    derive_rosseland_opacity(kappa_r, hydrosim);
   }
 
   MultiFab eta(grids,dmap,1,0);
-  MultiFab coupling_inverse(grids,dmap,1,0);  // this is 1-eta, to avoid loss of accuracy
+  MultiFab coupling_inverse(grids,dmap,1,0);
 
   Array<MultiFab, AMREX_SPACEDIM> lambda;
 
@@ -107,10 +103,8 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
   if (limiter_lag_iter == 0) {
     evaluateGradientRatio(level, lambda, kappa_r, 0, rad_energy_old, 0);
-    // lambda now contains scaled gradient
 
     computeFluxLimiter(level, lambda);
-    // lambda now contains flux limiter
   }
   else if (limiter_lag_iter < 0) {
     MultiFab& rad_energy_lagged = hydrosim->get_old_data(Radiation_Type);
@@ -118,7 +112,6 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
     computeFluxLimiter(level, lambda);
   }
 
-  // Implicit update loop:
 
   RadiativeBoundary bd(grids, dmap, hydrosim->Geom());
 
@@ -153,20 +146,15 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
     it++;
 
-    // get new-time temperature and opacity from state_energy_density:
     MultiFab::Copy(temp, state_energy_density, 0, 0, state_energy_density.nComp(), 0);
 
     if (it == 1 || it <= planck_lag_iter + 1) {
       derive_planck_and_temp(fkp, temp, S_new);
     }
     else {
-      // eta is just scratch space here, but still want updated temp
       derive_planck_and_temp(eta, temp, S_new);
     }
 
-    // The test (it > planck_lag_iter) in compute_coupling_factors becomes true
-    // when we have just updated fkp for the last time.  When this
-    // test is true it means we will not be updating fkp again.
 
     compute_coupling_factors(eta, coupling_inverse, S_new, temp, fkp, rad_energy_new,
                 delta_t, c, underrelax_scale, it > planck_lag_iter);
@@ -174,19 +162,15 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
     underrelax_scale *= underrelax_factor;
 
     if (it > 1 && it <= rosseland_lag_iter + 1) {
-      // only updates cells in interior of fine level:
       refresh_rosseland_from_temp(kappa_r, temp, S_new, hydrosim->Geom());
     }
 
-    // solve linear system:
 
     solver->levelDiagCoeffs(level, fkp, eta, coupling_inverse, c, delta_t, 1.0);
 
     if (limiter_lag_iter > 0 && it <= limiter_lag_iter + 1) {
       evaluateGradientRatio(level, lambda, kappa_r, 0, rad_energy_new, 0);
-      // lambda now contains scaled gradient
       computeFluxLimiter(level, lambda);
-      // lambda now contains flux limiter
     }
 
     solver->levelFaceCoeffs(level, lambda, kappa_r, 0, c);
@@ -205,15 +189,13 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
     {
       MultiFab rhs(grids,dmap,1,0);
 
-      flux_div_new.setVal(0.0); // used as work space in place of edot
+      flux_div_new.setVal(0.0);
       solver->levelAssembleRhs(level, rhs, temp,
                        fkp, eta, coupling_inverse, matter_energy_density, state_energy_density,
                        flux_div_old, rad_energy_old, flux_div_new,
                        delta_t, sigma, 0.0, 1.0,
                        NULL);
 
-      // If there is a sync source from the next finer level,
-      // reflux it in:
       apply_delayed_reflux(level, rhs, 0);
 
       solver->levelSolveSystem(level, rad_energy_new, 0, rhs, 0.01);
@@ -226,16 +208,13 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
         solver->levelDiffusionTerm(level, diffusive_face_term, rad_energy_new, 0);
       }
 
-      // new_face_flux is now the complete new-time flux
 
       solver->levelCoarseFineFlux(level, flux_from_fine, flux_to_coarse, new_face_flux, 0);
     }
 
-    // do energy update:
 
     if (use_conservative_update) {
-      // we don't need these at the same time, so we share space:
-      MultiFab& exch = temp;  // temp will be overwritten
+      MultiFab& exch = temp;
 
       evaluate_energy_transfer(exch, rad_energy_new, fkp);
 
@@ -292,9 +271,6 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
       converged = 0;
     }
 
-    // The following is a hack for problems with little fluid energy
-    // change but where the limiter is important:
-    //converged = (limiter == 0) ? converged : (it == 15);
 
   } while (!converged);
 
@@ -315,7 +291,6 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
     }
   }
 
-  // update flux registers:
   if (flux_from_fine) {
     for (OrientationIter face; face; ++face) {
       Orientation ori = face();
@@ -334,25 +309,17 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
   if (level == fine_level && iteration == 1) {
 
-    // We've now advanced the finest level, so we've just passed the
-    // last time we might want to reflux from any existing conservative_register_old
-    // on any level until the next sync.  Setting the stored delta_t
-    // to 0.0 is a hack equivalent to marking each corresponding
-    // register as "not to be used".
 
     for (int flev = level; flev > 0; flev--) {
       dt_previous[flev-1] = 0.0;
     }
 
-    // The following would only apply if a finer level has
-    // recently been deleted.
 
     for (int flev = level+1; flev <= parent->maxLevel(); flev++) {
         conservative_register_old[flev].reset();
     }
   }
 
-  // update fluid energy based on state_energy_density:
   sync_state_from_energy(S_new, state_energy_density);
 
   if (verbose > 2) {
@@ -366,7 +333,6 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
      }
   }
 
-  // update flux_div[level] (== flux_div_old)
   MultiFab::Copy(flux_div_old, flux_div_new, 0, 0, 1, 0);
 
   if (radiation::plot_flux_limiter) {

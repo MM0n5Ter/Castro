@@ -22,7 +22,7 @@ fill_cell_conductivity(const Box& bx,
     eos_state.rho  = field_arr(i,j,k,URHO);
     Real rhoinv = 1.0_rt/eos_state.rho;
 
-    eos_state.T = field_arr(i,j,k,UTEMP);   // needed as an initial guess
+    eos_state.T = field_arr(i,j,k,UTEMP);
     eos_state.e = field_arr(i,j,k,UEINT) * rhoinv;
     for (int n = 0; n < NumSpec; n++) {
       eos_state.xn[n] = field_arr(i,j,k,UFS+n) * rhoinv;
@@ -71,7 +71,7 @@ fill_conduction_coeff(const Box& bx,
     eos_state.rho  = field_arr(i,j,k,URHO);
     Real rhoinv = 1.0_rt/eos_state.rho;
 
-    eos_state.T = field_arr(i,j,k,UTEMP);   // needed as an initial guess
+    eos_state.T = field_arr(i,j,k,UTEMP);
     eos_state.e = field_arr(i,j,k,UEINT) * rhoinv;
     for (int n = 0; n < NumSpec; n++) {
       eos_state.xn[n] = field_arr(i,j,k,UFS+n) * rhoinv;

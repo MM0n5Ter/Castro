@@ -13,7 +13,6 @@ constexpr int EIGVEC_V = 2;
 constexpr int EIGVEC_W = 3;
 constexpr int EIGVEC_PRESSURE = 4;
 
-// perpendicular magnetic field components
 constexpr int EIGVEC_BPERP1 = 5;
 constexpr int EIGVEC_BPERP2 = 6;
 

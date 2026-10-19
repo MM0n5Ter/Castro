@@ -10,20 +10,16 @@ HydroSim::user_diagnostics ()
     int finest_level = parent->finestLevel();
     amrex::Real time = state[State_Type].curTime();
 
-    // for flame width
     amrex::Real T_max = -1.0e200;
     amrex::Real T_min =  1.0e200;
     amrex::Real grad_T_max = -1.0e200;
 
-    // for flame speed
     amrex::Real rho_fuel_dot = 0.0;
     amrex::Real rho_fuel_initial = 1.0;
 
-    // for peak energy generation location
     amrex::Real rho_enuc_max = -1.e200;
     amrex::Real peak_x = -1.e200;
 
-    // derived quantities
     amrex::Real flame_width = 0.0;
     amrex::Real flame_speed = 0.0;
 
@@ -35,8 +31,6 @@ HydroSim::user_diagnostics ()
 
         hs_level.flame_peak_properties(time, rho_enuc_max, peak_x);
 
-        // For now we only do the flame speed calculation on the coarse grid since
-        // it doesn't share the same timestep as the fine grids.
 
         if (lev == 0) {
             hs_level.flame_speed_properties(time, rho_fuel_dot);
@@ -55,8 +49,6 @@ HydroSim::user_diagnostics ()
 
     ParallelDescriptor::ReduceRealSum(rho_fuel_dot);
 
-    // Note that rho_fuel_dot has already been multiplied by dx, so
-    // the dimensionality here checks out.
 
     flame_speed = -rho_fuel_dot / rho_fuel_initial;
 
@@ -76,15 +68,12 @@ HydroSim::user_diagnostics ()
             datalog << std::setw(14) <<  "  flame speed " << std::endl;
         }
 
-        // Write the quantities at this time
         datalog << std::setw(14) <<  time;
         datalog << std::setw(14) <<  std::setprecision(6) << flame_width;
         datalog << std::setw(14) <<  std::setprecision(6) << flame_speed << std::endl;
 
     }
 
-    // check if the simulation is over -- have we crossed enough of
-    // the domain?
 
     const auto prob_lo = geom.ProbLoArray();
     const auto prob_hi = geom.ProbHiArray();

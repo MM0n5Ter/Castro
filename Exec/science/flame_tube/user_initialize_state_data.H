@@ -24,16 +24,13 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real z = problo[2] + dx[2] * (static_cast<Real>(k) + 0.5_rt);
 
-    // lateral distance and height
 
     Real r;
     Real height;
 
-    // we want the flame front to be parallel to the y-axis
     r = x;
     height = z;
 
-    // blending factor
 
     Real f;
 
@@ -75,13 +72,11 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEINT) = eos_state.rho * eos_state.e;
     state(i,j,k,UEDEN) = state(i,j,k,UEINT);
 
-    // Initial velocities = 0
 
     state(i,j,k,UMX) = 0.e0_rt;
     state(i,j,k,UMY) = 0.e0_rt;
     state(i,j,k,UMZ) = 0.e0_rt;
 
-    // convert to partial densities
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);

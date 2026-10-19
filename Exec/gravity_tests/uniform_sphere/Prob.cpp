@@ -16,8 +16,6 @@ void HydroSim::user_post_init()
 {
     BL_ASSERT(level == 0);
 
-    // Add up the mass on the domain and then update the density
-    // in the sphere so that it has the 'correct' amount of total mass.
 
     Real actual_mass = 0.0;
 
@@ -30,14 +28,11 @@ void HydroSim::user_post_init()
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
 
-    // The correct amount of mass is the mass of a sphere
-    // with the given diameter and density.
 
     Real target_mass = problem::density * (1.0e0 / 6.0e0) * M_PI * std::pow(problem::diameter, 3);
 
     Real update_factor = target_mass / actual_mass;
 
-    // Now update the density given this factor.
 
     amrex::Print() << "\n";
     amrex::Print() << "  Updating density by the factor " << update_factor << " to ensure total mass matches target mass.\n";
@@ -61,8 +56,6 @@ void HydroSim::user_post_init()
 
             auto u = state[mfi].array();
 
-            // Update the density field. This ensures that the sum of the
-            // mass on the domain is what we intend it to be.
 
             amrex::ParallelFor(box,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -92,7 +85,6 @@ void HydroSim::user_post_init()
 
     }
 
-    // Do a final check to ensure we got what we intended.
 
     actual_mass = 0.0;
 
@@ -143,8 +135,6 @@ void HydroSim::user_post_init()
             auto phi = (*phiGrav)[mfi].array();
             auto vol = getLevel(lev).Volume()[mfi].array();
 
-            // Compute the norm of the difference between the calculated potential
-            // and the analytical solution.
 
             reduce_op.eval(box, reduce_data,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple

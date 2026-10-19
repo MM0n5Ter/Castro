@@ -1,7 +1,3 @@
-// This sets up the Gresho vortex problem
-//
-// By choosing the reference pressure, p0, we can specify the
-// Mach number
 
 #ifndef user_initialize_state_data_H
 #define user_initialize_state_data_H
@@ -58,12 +54,8 @@ void user_initialize_state_data (int i, int j, int k,
 
     state(i,j,k,URHO) = problem::rho0;
 
-    // phi unit vector: \hat{\phi} = -sin(phi) \hat{x} + cos(phi) \hat{y}
-    // with cos(phi) = x/r; sin(phi) = y/r
 
-    //  -sin(phi) = y/r
     state(i,j,k,UMX) = -problem::rho0 * problem::q_r * u_phi * ((y - problem::center[1]) / r);
-    //  cos(phi) = x/r
     state(i,j,k,UMY) =  problem::rho0 * problem::q_r * u_phi * ((x - problem::center[0]) / r);
     state(i,j,k,UMZ) = 0.0_rt;
 

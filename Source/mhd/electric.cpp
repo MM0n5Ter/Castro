@@ -11,7 +11,6 @@ HydroSim::edge_emf_x(const Box& bx,
                         Array4<Real const> const& flxy,
                         Array4<Real const> const& flxz) {
 
-  // Compute Ex on an edge.  This will compute Ex(i, j-1/2, k-1/2)
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -19,13 +18,8 @@ HydroSim::edge_emf_x(const Box& bx,
 
     Real zone_prim[NQ];
 
-    // Compute Ex(i, j-1/2, k-1/2)
 
-    // dEx/dy, located at (i, j-3/4, k-1/2)
 
-    // first compute dEx/dy_{i,j-3/4,k-1}
-    // note that the face value Ex_{i,j-1/2,k-1} = -F_{i,j-1/2,k-1}(Bz)
-    // via Faraday's law
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k-1,n);
@@ -34,7 +28,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     Real a = 2.0_rt * (-flxy(i,j,k-1,UBZ) - EmfCenter);
 
-    // now compute dEx/dy_{i,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
@@ -42,9 +35,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     Real b = 2.0_rt *(-flxy(i,j,k,UBZ) - EmfCenter);
 
-    // Upwind in the z direction to get dEx/dy i, j-3/4, k-1/2
-    // using w_{i,j-1,k-1/2}
-    // recall flxz(QRHO) = rho*w so sign(rho*w) = sign(w)
 
     Real d1 = 0.0;
     if (flxz(i,j-1,k,URHO) > 0.0_rt) {
@@ -55,9 +45,7 @@ HydroSim::edge_emf_x(const Box& bx,
       d1 = 0.5_rt * (a + b);
     }
 
-    // dEx/dy located at (i, j-1/4, k-1/2)
 
-    // first compute dEx/dy_{i,j-1/4,k-1}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
@@ -65,7 +53,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     a = 2.0_rt * (EmfCenter + flxy(i,j,k-1,UBZ));
 
-    // now compute dEx/dy_{i,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -73,8 +60,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     b = 2.0_rt * (EmfCenter + flxy(i,j,k,UBZ));
 
-    // finally upwind in the z direction to get dEx/dy i, j-1/4, k-1/2
-    // using w_{i,j,k-1/2}
 
     Real d2 = 0.0;
     if (flxz(i,j,k,URHO) > 0.0_rt) {
@@ -85,16 +70,11 @@ HydroSim::edge_emf_x(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // Calculate the "second derivative" in the y direction for
-    // d^2Ex/dy^2 i, j-1/2, k-1/2
 
     Real dd1 = 0.125_rt * (d1 - d2);
 
 
-    // now dEx/dz located at (i, j-1/2, k-3/4)
 
-    // first compute dEx/dz_{i,j-1,k-3/4}
-    // note that the face value of Ex_{i,j-1,k-1/2} = F_{i,j-1,k-1/2}(By)
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k-1,n);
@@ -102,7 +82,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     a = 2.0_rt * (flxz(i,j-1,k,UBY) - EmfCenter);
 
-    // now compute dEx/dz_{i,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
@@ -110,8 +89,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     b = 2.0_rt * (flxz(i,j,k,UBY) - EmfCenter);
 
-    // upwind in the y direction to get dEx/dz i, j-1/2, k-3/4
-    // using v_{i,j-1/2,k-1}
 
     if (flxy(i,j,k-1,URHO) > 0.0_rt) {
       d1 = a;
@@ -121,9 +98,7 @@ HydroSim::edge_emf_x(const Box& bx,
       d1 = 0.5_rt * (a + b);
     }
 
-    // dEx/dz located at (i, j-1/2, k-1/4)
 
-    // first compute dEx/dz_{i,j-1,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
@@ -131,7 +106,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     a = 2.0_rt * (EmfCenter - flxz(i,j-1,k,UBY));
 
-    // now compute dEx/dz_{i,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -139,8 +113,6 @@ HydroSim::edge_emf_x(const Box& bx,
     electric(zone_prim, EmfCenter, 0);
     b = 2.0_rt * (EmfCenter - flxz(i,j,k,UBY));
 
-    // upwind in the y direction to get dEx/dz i, j-1/2, k-1/4
-    // using v_{i,j-1/2,k}
 
     if (flxy(i,j,k,URHO) > 0.0_rt) {
       d2 = a;
@@ -150,11 +122,9 @@ HydroSim::edge_emf_x(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // calculate second derivative
 
     Real dd2 = 0.125_rt * (d1 - d2);
 
-    // now the final Ex_{i,j-1/2,k-1/2} (shifted to j-1/2, k-1/2)
 
     E(i,j,k) = 0.25_rt * (-flxy(i,j,k,UBZ) - flxy(i,j,k-1,UBZ) +
                           flxz(i,j-1,k,UBY) + flxz(i,j,k,UBY)) + dd1 + dd2;
@@ -169,7 +139,6 @@ HydroSim::edge_emf_y(const Box& bx,
                         Array4<Real const> const& flxx,
                         Array4<Real const> const& flxz) {
 
-  // Compute Ey on an edge.  This will compute Ey(i-1/2, j, k-1/2)
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -177,11 +146,8 @@ HydroSim::edge_emf_y(const Box& bx,
 
     Real zone_prim[NQ];
 
-    // Compute Ey(i-1/2, j, k-1/2)
 
-    // dEy/dz i-1/2, j, k-3/4
 
-    // first compute dEy/dz_{i-1,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k-1,n);
@@ -190,7 +156,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     Real a = 2.0_rt * (-flxz(i-1,j,k,UBX) - EmfCenter);
 
-    // now compute dEy/dz_{i,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
@@ -198,8 +163,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     Real b = 2.0_rt * (-flxz(i,j,k,UBX) - EmfCenter);
 
-    // upwind in the x direction to get dEy/dz i-1/2, j, k-3/4
-    // using u_{i-1/2,j,k-1}
 
     Real d1 = 0.0;
     if (flxx(i,j,k-1,URHO) > 0.0_rt) {
@@ -210,9 +173,7 @@ HydroSim::edge_emf_y(const Box& bx,
       d1 = 0.5_rt * (a + b);
     }
 
-    // dEy/dz i-1/2, j, k-1/4
 
-    // first compute dEy/dz_{i-1,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
@@ -220,7 +181,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     a = 2.0_rt * (EmfCenter + flxz(i-1,j,k,UBX));
 
-    // now compute dEy/dz_{i,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -228,8 +188,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     b = 2.0_rt * (EmfCenter + flxz(i,j,k,UBX));
 
-    // upwind in the x direction to get dEy/dz i-1/2, j, k-1/4
-    // using u_{i-1/2.j,k}
 
     Real d2 = 0.0;
     if (flxx(i,j,k,URHO) > 0.0_rt) {
@@ -240,15 +198,11 @@ HydroSim::edge_emf_y(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // calculate the "second derivative" in the y direction for
-    // d^2Ey/dz^2 i-1/2, j, k-1/2
 
     Real dd1 = 0.125_rt * (d1 - d2);
 
 
-    // dEy/dx i-3/4, j, k-1/2
 
-    // first compute dEy/dz_{i-3/4,j,k-1}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k-1,n);
@@ -256,7 +210,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     a = 2.0_rt * (flxx(i,j,k-1,UBZ) - EmfCenter);
 
-    // next compute dEy/dz_{i-3/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
@@ -264,8 +217,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     b = 2.0_rt * (flxx(i,j,k,UBZ) - EmfCenter);
 
-    // upwind in the z direction to get dEy/dx i-3/4, j, k-1/2
-    // using w_{i-1,j,k-1/2}
 
     if (flxz(i-1,j,k,URHO) > 0.0_rt) {
       d1 = a;
@@ -275,9 +226,7 @@ HydroSim::edge_emf_y(const Box& bx,
       d1 = 0.5_rt * (a + b);
     }
 
-    // dEy/dx i-1/4, j, k-1/2
 
-    // first compute dEy/dx_{i-1/4,j,k-1}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
@@ -285,7 +234,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     a = 2.0_rt * (EmfCenter - flxx(i,j,k-1,UBZ));
 
-    // next compute dEy/dx_{i-1/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -293,8 +241,6 @@ HydroSim::edge_emf_y(const Box& bx,
     electric(zone_prim, EmfCenter, 1);
     b = 2.0_rt * (EmfCenter - flxx(i,j,k,UBZ));
 
-    // upwind in the z direction for i-1/4, j, k-1/2
-    // using w_{i,j,k-1/2}
 
     if (flxz(i,j,k,URHO) > 0.0_rt) {
       d2 = a;
@@ -304,11 +250,9 @@ HydroSim::edge_emf_y(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // calculate second derivative
 
     Real dd2 = 0.125_rt * (d1 - d2);
 
-    // now the final Ey_{i-1/2, j, k-1/2}
 
     E(i,j,k) = 0.25_rt * (-flxz(i,j,k,UBX) - flxz(i-1,j,k,UBX) +
                           flxx(i,j,k-1,UBZ) + flxx(i,j,k,UBZ)) + dd1 + dd2;
@@ -324,7 +268,6 @@ HydroSim::edge_emf_z(const Box& bx,
                         Array4<Real const> const& flxx,
                         Array4<Real const> const& flxy) {
 
-  // Compute Ez on an edge.  This will compute Ez(i-1/2, j-1/2, k)
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -332,11 +275,8 @@ HydroSim::edge_emf_z(const Box& bx,
 
     Real zone_prim[NQ];
 
-    // Compute Ez(i-1/2, j-1/2, k)
 
-    // dEz/dx i-3/4, j-1/2, k
 
-    // first compute dEz/dx_{i-3/4,j-1,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j-1,k,n);
@@ -345,7 +285,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     Real a = 2.0_rt * (-flxx(i,j-1,k,UBY) - EmfCenter);
 
-    //  next dEz/dx_{i-3/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
@@ -353,8 +292,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     Real b = 2.0_rt * (-flxx(i,j,k,UBY) - EmfCenter);
 
-    // upwind in the y direction to get dEz/dx i-3/4, j-1/2, k
-    // using v_{i-1,j-1/2,k}
 
     Real d1 = 0.0_rt;
     if ( flxy(i-1,j,k,URHO) > 0.0_rt) {
@@ -365,9 +302,7 @@ HydroSim::edge_emf_z(const Box& bx,
       d1 = 0.50_rt * (a + b);
     }
 
-    // dEz/dx i-1/4, j-1/2, k
 
-    // first compute dEz/dx_{i-1/4,j-1,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
@@ -375,7 +310,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     a = 2.0_rt * (EmfCenter + flxx(i,j-1,k,UBY));
 
-    // next dEz/dx_{i-1/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -383,8 +317,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     b = 2.0_rt * (EmfCenter + flxx(i,j,k,UBY));
 
-    // upwind in the y direction to get dEz/dx i-1/4, j-1/2, k
-    // using v_{i,j-1/2,k}
 
     Real d2 = 0.0_rt;
     if (flxy(i,j,k,URHO) > 0.0_rt) {
@@ -395,15 +327,11 @@ HydroSim::edge_emf_z(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // Calculate the "second derivative" in the x direction for
-    // d^2Ez/dx^2 i-1/2, j-1/2, k
 
     Real dd1 = 0.125_rt * (d1 - d2);
 
 
-    // dEz/dy i-1/2, j-3/4, k
 
-    // first compute dEz/dy_{i-1,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j-1,k,n);
@@ -411,7 +339,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     a = 2.0_rt * (flxy(i-1,j,k,UBX) - EmfCenter);
 
-    // now compute dEz/dy_{i,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
@@ -419,8 +346,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     b = 2.0_rt * (flxy(i,j,k,UBX) - EmfCenter);
 
-    // upwind in the x direction to get dEz/dy i-1/2, j-3/4, k
-    // using u_{i-1/2,j-1,k}
 
     if (flxx(i,j-1,k,URHO) > 0.0_rt) {
       d1 = a;
@@ -430,9 +355,7 @@ HydroSim::edge_emf_z(const Box& bx,
       d1 = 0.5_rt * (a + b);
     }
 
-    // dEz/dy i-1/2, j-1/4, k
 
-    // first compute dEz/dy_{i-1,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
@@ -440,7 +363,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     a = 2.0_rt * (EmfCenter - flxy(i-1,j,k,UBX));
 
-    // now compute dEz/dy_{i,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
@@ -448,8 +370,6 @@ HydroSim::edge_emf_z(const Box& bx,
     electric(zone_prim, EmfCenter, 2);
     b = 2.0_rt * (EmfCenter - flxy(i,j,k,UBX));
 
-    // Upwind in the x direction for i-1/2, j-1/4, k
-    // using u_{i-1/2,j,k}
 
     if (flxx(i,j,k,URHO) > 0.0_rt) {
       d2 = a;
@@ -459,11 +379,9 @@ HydroSim::edge_emf_z(const Box& bx,
       d2 = 0.5_rt * (a + b);
     }
 
-    // calculate second derivative
 
     Real dd2 = 0.125_rt * (d1 - d2);
 
-    // compute Ez i-1/2, j-1/2, k
 
     E(i,j,k) = 0.25_rt * (-flxx(i,j,k,UBY) - flxx(i,j-1,k,UBY) +
                           flxy(i-1,j,k,UBX) + flxy(i,j,k,UBX)) + dd1 + dd2;

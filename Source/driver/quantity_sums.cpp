@@ -50,10 +50,6 @@ HydroSim::volWeightedTotal (const MultiFab& mf, int comp, bool local, bool exclu
 
         const Box& box = mfi.tilebox();
 
-        //
-        // Note that this routine will do a volume weighted sum of
-        // whatever quantity is passed in, not strictly the "mass".
-        //
 
         reduce_op.eval(box, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -113,10 +109,6 @@ HydroSim::locWeightedSum (const MultiFab& mf, int comp, int idir, bool local)
 
         const Box& box = mfi.tilebox();
 
-        //
-        // Note that this routine will do a volume weighted sum of
-        // whatever quantity is passed in, not strictly the "mass".
-        //
 
         reduce_op.eval(box, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -141,13 +133,13 @@ HydroSim::locWeightedSum (const MultiFab& mf, int comp, int idir, bool local)
 
             Real ds;
 
-            if (idir == 0) { // sum(mass * x)
+            if (idir == 0) {
                 ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[0];
             }
-            else if (idir == 1) { // sum(mass * y)
+            else if (idir == 1) {
                 ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[1];
             }
-            else { // sum(mass * z)
+            else {
                 ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[2];
             }
 
@@ -284,16 +276,16 @@ HydroSim::locDistSquaredTotal (const std::string& name,
 
             Real ds;
 
-            if (idir == 0) { // sum(mass * x^2)
+            if (idir == 0) {
                 ds = fab(i,j,k) * zoneWeight * loc[0] * loc[0];
             }
-            else if (idir == 1) { // sum(mass * y^2)
+            else if (idir == 1) {
                 ds = fab(i,j,k) * zoneWeight * loc[1] * loc[1];
             }
-            else if (idir == 2) { // sum(mass * z^2)
+            else if (idir == 2) {
                 ds = fab(i,j,k) * zoneWeight * loc[2] * loc[2];
             }
-            else { // sum(mass * r^2)
+            else {
                 ds = fab(i,j,k) * zoneWeight * (loc[0] * loc[0] + loc[1] * loc[1] + loc[2] * loc[2]);
             }
 
@@ -325,8 +317,6 @@ HydroSim::wave_strain (Real time,
 
     BL_PROFILE("HydroSim::wave_strain()");
 
-    // We have nothing to do if the user did not request the gravitational wave
-    // strain (inferred from whether the observation distance is positive).
     if (hydrosim::wave_obs_distance <= 0.0_rt) {
         return;
     }
@@ -343,10 +333,6 @@ HydroSim::wave_strain (Real time,
     MultiFab scratch_mf;
     const MultiFab& fine_cover_mf = fine_mask_present ? getLevel(level+1).make_fine_mask() : scratch_mf;
 
-    // Qtt stores the second time derivative of the quadrupole moment.
-    // We calculate it directly rather than computing the quadrupole moment
-    // and differentiating it in time, because the latter method is less accurate
-    // and requires the state at other timesteps.
 
     ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum,
               ReduceOpSum, ReduceOpSum, ReduceOpSum,
@@ -373,11 +359,6 @@ HydroSim::wave_strain (Real time,
         auto accel_z = gravity_new[mfi].array(2);
         auto const& mask = fine_mask_present ? fine_cover_mf.array(mfi) : Array4<Real>{};
 
-        // Calculate the second time derivative of the quadrupole moment tensor,
-        // according to the formula.
-        // It involves integrating the mass distribution and then taking the symmetric
-        // trace-free part of the tensor. We can do the latter operation here since the
-        // integral is a linear operator and each part of the domain contributes independently.
 
         reduce_op.eval(box, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -398,8 +379,6 @@ HydroSim::wave_strain (Real time,
                 rhoInv = 0.0_rt;
             }
 
-            // Account for rotation, if there is any. These will leave
-            // r and vel and changed, if not.
 
             GpuArray<Real, 3> pos{r};
 #ifdef ROTATION
@@ -407,14 +386,6 @@ HydroSim::wave_strain (Real time,
             pos = rotate_to_inertial_frame(r, omega, time);
 #endif
 
-            // For constructing the velocity in the inertial frame, we need to
-            // account for the fact that we have rotated the system already, so that
-            // the r in omega x r is actually the position in the inertial frame, and
-            // not the usual position in the rotating frame. It has to be on physical
-            // grounds, because for binary orbits where the stars aren't moving, that
-            // r never changes, and so the contribution from rotation would never change.
-            // But it must, since the motion vector of the stars changes in the inertial
-            // frame depending on where we are in the orbit.
 
             GpuArray<Real, 3> vel;
             vel[0] = xmom(i,j,k) * zoneWeight * rhoInv;
@@ -431,14 +402,12 @@ HydroSim::wave_strain (Real time,
             g[1] = accel_y(i,j,k) * zoneWeight;
             g[2] = accel_z(i,j,k) * zoneWeight;
 
-            // We need to rotate the gravitational field to be consistent with the rotated position.
 
             GpuArray<Real, 3> inertial_accel{g};
 #ifdef ROTATION
             inertial_accel = rotate_to_inertial_frame(g, omega, time);
 #endif
 
-            // Absorb the factor of 2 outside the integral into the zone mass, for efficiency.
 
             Real dM = 2.0_rt * rho(i,j,k) * vol(i,j,k) * zoneWeight;
 
@@ -454,19 +423,7 @@ HydroSim::wave_strain (Real time,
 
             } else {
 
-                // For axisymmetric coordinates we need to be careful here.
-                // We want to calculate the quadrupole tensor in terms of
-                // Cartesian coordinates but our coordinates are cylindrical (R, z).
-                // What we can do is to first express the Cartesian coordinates
-                // as (x, y, z) = (R cos(phi), R sin(phi), z). Then we can integrate
-                // out the phi coordinate for each component. The off-diagonal components
-                // all then vanish automatically. The on-diagonal components xx and yy
-                // pick up a factor of cos**2(phi) which when integrated from (0, 2*pi)
-                // yields pi. Note that we're going to choose that the cylindrical z axis
-                // coincides with the Cartesian x-axis, which is our default choice.
 
-                // We also need to then divide by the volume by 2*pi since
-                // it has already been integrated out.
 
                 dM /= (2.0_rt * std::numbers::pi);
 
@@ -476,9 +433,6 @@ HydroSim::wave_strain (Real time,
 
             }
 
-            // Now take the symmetric trace-free part of the quadrupole moment.
-            // The operator is defined:
-            // STF(A^{ij}) = 1/2 A^{ij} + 1/2 A^{ji} - 1/3 delta^{ij} sum_{k} A^{kk}.
 
             Array2D<Real, 0, 2, 0, 2> dQ;
 
@@ -510,16 +464,12 @@ HydroSim::wave_strain (Real time,
     Qtt(1,2) = amrex::get<7>(hv);
     Qtt(2,2) = amrex::get<8>(hv);
 
-    // Now, do a global reduce over all processes.
 
     if (!local) {
         amrex::ParallelDescriptor::ReduceRealSum(Qtt.begin(), 9);
     }
 
-    // Now that we have the second time derivative of the quadrupole
-    // tensor, we can calculate the transverse-trace gauge strain tensor.
 
-    // Standard Kronecker delta.
 
     Real delta[3][3] = {{0.0}};
 
@@ -527,10 +477,6 @@ HydroSim::wave_strain (Real time,
         delta[i][i] = 1.0;
     }
 
-    // Unit vector for the wave is simply the distance
-    // vector to the observer normalized by the total distance.
-    // We are going to repeat this process by looking along
-    // all three coordinate axes.
 
     for (int dir = 0; dir < 3; ++dir) {
 
@@ -541,7 +487,6 @@ HydroSim::wave_strain (Real time,
 
         const Real n[3] = {dist[0] / r, dist[1] / r, dist[2] / r};
 
-        // Projection operator onto the unit vector n.
 
         Real proj[3][3][3][3] = {{0.0}};
 
@@ -556,7 +501,6 @@ HydroSim::wave_strain (Real time,
             }
         }
 
-        // Now we can calculate the strain tensor.
 
         Real h[3][3] = {{0.0}};
 
@@ -569,17 +513,15 @@ HydroSim::wave_strain (Real time,
                 }
             }
         }
-        // Finally multiply by the coefficients.
 
-        r *= C::parsec * 1.e3_rt; // Convert from kpc to cm
+        r *= C::parsec * 1.e3_rt;
 
-        for (int j = 0; j < 3; ++j) {   // NOLINT(modernize-loop-convert)
+        for (int j = 0; j < 3; ++j) {
             for (int i = 0; i < 3; ++i) {
                 h[j][i] *= 2.0_rt * C::Gconst / (light_speed_quartic * r);
             }
         }
 
-        // We are adding here so that this calculation makes sense on multiple levels.
 
         if (dir == 0) {
 

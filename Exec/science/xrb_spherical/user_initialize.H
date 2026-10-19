@@ -18,20 +18,16 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // check to make sure that small_dens is less than low_density_cutoff
-    // if not, funny things can happen above the atmosphere
 
     if (small_dens >= 0.99_rt * problem::low_density_cutoff) {
         amrex::Error("ERROR: small_dens should be set lower than low_density_cutoff");
     }
 
-    // make sure hse_bound_temp is the same as T_star, if it's specified
 
     if (hse_bound_temp > 0.0_rt && hse_bound_temp != problem::T_star) {
         amrex::Error("ERROR: hse_bound_temp should be the same as T_star");
     }
 
-    // get the species indices
 
     bool species_defined = true;
 
@@ -93,7 +89,6 @@ void user_initialize ()
 
     model_t model_params;
 
-    // set the composition of the underlying star
 
 
     for (Real &X : model_params.xn_star) {
@@ -107,7 +102,6 @@ void user_initialize ()
         model_params.xn_star[iash3] = problem::ash3_frac;
     }
 
-    // and the composition of the accreted layer
 
     for (Real &X : model_params.xn_base) {
         X = problem::smallx;
@@ -123,7 +117,6 @@ void user_initialize ()
         model_params.xn_base[ifuel4] = problem::fuel4_frac;
     }
 
-    // check if they sum to 1
 
     Real sumX = 0.0_rt;
     for (Real X : model_params.xn_star) {
@@ -141,12 +134,7 @@ void user_initialize ()
         amrex::Error("ERROR: fuel mass fractions don't sum to 1");
     }
 
-    // we are going to generate an initial model from probl(1), i.e. r_min, to
-    // probhi(1), i.e., r_max, with nx_model zones.  But to allow for a interpolated
-    // lower boundary, we'll add 4 ghostcells to this, so we need to
-    // compute dx
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();
@@ -157,7 +145,6 @@ void user_initialize ()
 
     int ng = 4;
 
-    // now generate the initial models
 
     model_params.density_base = problem::density_base;
     model_params.T_star = problem::T_star;
@@ -174,8 +161,6 @@ void user_initialize ()
                            probhi[0],
                            model_params, 0);
 
-    // now create a perturbed model -- we want the same base conditions
-    // a hotter temperature
 
     model_params.T_hi = model_params.T_hi + problem::dtemp;
 
@@ -184,14 +169,11 @@ void user_initialize ()
                            probhi[0],
                            model_params, 1);
 
-    // set center
 
     for (int d = 0; d < AMREX_SPACEDIM; d++) {
-        // problem::center[d] = 0.5_rt * (problo[d] + probhi[d]);
         problem::center[d] = 0.0_rt;
     }
 
-    // set the ambient state for the upper boundary condition
 
     ambient::ambient_reference_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_reference_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
@@ -204,7 +186,6 @@ void user_initialize ()
     ambient::ambient_reference_state[UMY] = 0.0_rt;
     ambient::ambient_reference_state[UMZ] = 0.0_rt;
 
-    // make the ambient state thermodynamically consistent
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];

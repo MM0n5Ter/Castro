@@ -4,20 +4,12 @@
 #include <ambient.H>
 #include <model_parser.H>
 
-// Given total mass of a binary system and the initial separation of
-// two point particles, obtain the velocity at this separation
-// assuming the point masses fell in from infinity. This will
-// be the velocity in the frame where the center of mass is stationary.
 
 void freefall_velocity (Real mass, Real distance, Real& vel)
 {
     vel = std::sqrt(2.0_rt * C::Gconst * mass / distance);
 }
 
-// Accepts the masses of two stars (in solar masses)
-// and the orbital period of a system,
-// and returns the semimajor axis of the orbit (in cm),
-// as well as the distances a_1 and a_2 from the center of mass.
 
 void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
                        Real& period, Real eccentricity, Real phi, Real& a,
@@ -26,13 +18,9 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
     amrex::ignore_unused(radius_1);
     amrex::ignore_unused(radius_2);
 
-    Real M  = mass_1 + mass_2;     // Total mass
-    Real mu = mass_1 * mass_2 / M; // Reduced mass
+    Real M  = mass_1 + mass_2;
+    Real mu = mass_1 * mass_2 / M;
 
-    // First, solve for the orbit in the reduced one-body problem, where
-    // an object of mass mu orbits an object with mass M located at r = 0.
-    // Note that we use the convention that phi measures angle from aphelion,
-    // which is opposite to the convention.
 
     if (period > 0.0_rt && a < 0.0_rt)
     {
@@ -48,17 +36,12 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
 
     Real r = a * (1.0_rt - eccentricity * eccentricity) / (1.0_rt - eccentricity * std::cos(phi));
 
-    // To get the radial and azimuthal velocity, we take the appropriate derivatives of the above.
-    // v_r = dr / dt = dr / d(phi) * d(phi) / dt, with d(phi) / dt being derived from
-    // the angular momentum, and the fact that L = mu * r**2 * d(phi) / dt.
 
     Real v_r   = -2.0_rt * M_PI * a * eccentricity * std::sin(phi) /
                   (period * std::sqrt(1.0_rt - eccentricity * eccentricity));
     Real v_phi =  2.0_rt * M_PI * a * (1.0_rt - eccentricity * std::cos(phi)) /
                   (period * std::sqrt(1.0_rt - eccentricity * eccentricity));
 
-    // Now convert everything back to the binary frame. This applies
-    // to the velocities as well as the positions because the factor in front of r_1 and r_2 is constant.
 
     r_1  = -(mu / mass_1) * r;
     r_2  =  (mu / mass_2) * r;
@@ -70,7 +53,6 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
     v_2p =  (mu / mass_2) * v_phi;
 }
 
-// Given a WD mass, set its core and envelope composition.
 
 void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec], Real envelope_comp[NumSpec], const std::string& star_type)
 {
@@ -87,7 +69,6 @@ void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec]
 
     envelope_mass = 0.0_rt;
 
-    // Here we follow the prescription.
 
     if (mass > 0.0_rt && mass < problem::max_he_wd_mass) {
 
@@ -188,7 +169,6 @@ void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec]
 
     }
 
-    // Normalize compositions so that they sum to one.
 
     Real core_sum = 0.0_rt;
     Real envelope_sum = 0.0_rt;
@@ -204,13 +184,9 @@ void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec]
     }
 }
 
-// This routine checks to see if the primary mass is actually larger
-// than the secondary mass, and switches them if not.
 
 void ensure_primary_mass_larger ()
 {
-    // We want the primary WD to be more massive. If what we're calling
-    // the primary is less massive, switch the stars.
 
     if (problem::mass_P < problem::mass_S) {
 
@@ -223,31 +199,24 @@ void ensure_primary_mass_larger ()
     }
 }
 
-// This routine calls all of the other subroutines at the beginning
-// of a simulation to fill in the basic problem data.
 
 void initialize_problem ()
 {
-    // We have already read in the namelist; do some parameter postprocessing.
 
     finalize_probdata();
 
-    // Establish binary parameters and create initial models.
 
     binary_setup();
 
-    // Set pressure_cutoff and eint_floor.
 
     set_small();
 }
 
 
 
-// Postprocess the parameters.
 
 void finalize_probdata ()
 {
-    // Convert masses from solar masses to grams.
 
     problem::mass_P *= C::M_solar;
     problem::mass_S *= C::M_solar;
@@ -263,12 +232,9 @@ void finalize_probdata ()
         problem::single_star = 1;
     }
 
-    // Make sure that the primary mass is really the larger mass
 
     ensure_primary_mass_larger();
 
-    // We enforce that the orbital plane is (z, phi) for two-dimensional problems,
-    // with rotation about z = 0 along the radial axis.
 
     if (AMREX_SPACEDIM == 2) {
 
@@ -282,19 +248,16 @@ void finalize_probdata ()
 
     }
 
-    // Make sure we have a sensible collision impact parameter.
 
     if (problem::collision_impact_parameter > 1.0) {
         amrex::Error("Impact parameter must be less than one in our specified units.");
     }
 
-    // Safety check: we can't run most problems in one dimension.
 
     if (AMREX_SPACEDIM == 1 && problem::problem != 0) {
         amrex::Error("Can only run a collision or freefall in 1D. Exiting.");
     }
 
-    // Don't do a collision, free-fall, or TDE in a rotating reference frame.
 
     if (problem::problem == 0 && hydrosim::do_frame_spin == 1) {
         amrex::Error("The free-fall/collision problem does not make sense in a rotating reference frame.");
@@ -304,13 +267,11 @@ void finalize_probdata ()
         amrex::Error("The TDE problem does not make sense in a rotating reference frame.");
     }
 
-    // Make sure we have a sensible eccentricity.
 
     if (problem::orbital_eccentricity >= 1.0) {
         amrex::Error("Orbital eccentricity cannot be larger than one.");
     }
 
-    // Make sure we have a sensible angle. Then convert it to radians.
 
     if (problem::orbital_angle < 0.0 || problem::orbital_angle > 360.0) {
         amrex::Error("Orbital angle must be between 0 and 360 degrees.");
@@ -318,24 +279,19 @@ void finalize_probdata ()
 
     problem::orbital_angle *= M_PI / 180.0;
 
-    // If we're doing a relaxation, we need to reset the relaxation_is_done parameter.
-    // This will be reset as appropriate from the checkpoint if we're performing a restart.
 
     if (problem::problem == 1 && problem::relaxation_damping_factor > 0.0_rt) {
         problem::relaxation_is_done = 0;
     }
 
-    // As above, but for radial damping.
 
     if (problem::problem == 1 && problem::radial_damping_velocity_factor > 0.0_rt) {
         problem::radial_damping_is_done = 0;
     }
 
-    // TDE sanity checks
 
     if (problem::problem == 2) {
 
-        // We must have a BH point mass defined.
 
         if (hydrosim::point_mass <= 0.0_rt) {
 
@@ -344,7 +300,6 @@ void finalize_probdata ()
         }
 
 
-        // This problem cannot have a secondary WD.
 
         if (problem::mass_S >= 0.0_rt) {
 
@@ -352,7 +307,6 @@ void finalize_probdata ()
 
         }
 
-        // Beta parameter must be positive.
 
         if (problem::tde_beta <= 0.0_rt) {
 
@@ -360,7 +314,6 @@ void finalize_probdata ()
 
         }
 
-        // Initial distance must be positive.
 
         if (problem::tde_separation <= 0.0_rt) {
 
@@ -374,13 +327,11 @@ void finalize_probdata ()
 
 
 
-// Calculate pressure_cutoff and eint_floor
 
 void set_small ()
 {
     eos_t eos_state;
 
-    // Given the inputs of small_dens and small_temp, figure out pressure_cutoff.
 
     eos_state.rho = hydrosim::small_dens;
     eos_state.T   = hydrosim::small_temp;
@@ -399,7 +350,6 @@ void set_small ()
 
 
 
-// Update the locations of the Roche radii
 
 void update_roche_radii ()
 {
@@ -410,11 +360,6 @@ void update_roche_radii ()
 
         find_lobe_radii(problem::mass_S / problem::mass_P, problem::roche_rad_S, problem::roche_rad_P, r);
 
-        // Beyond a certain point, it doesn't make sense to track the stars separately
-        // anymore. We'll set the secondary to a fixed constant and keep it there
-        // if its Roche radius becomes smaller than 10% of the primary's. Also, for exactly
-        // equal mass systems sometimes it is the primary that disrupts, perhaps
-        // just due to numerical noise, so do the same check for the primary.
 
         if (problem::roche_rad_S < problem::roche_rad_P / 10.0_rt) {
             for (int n = 0; n < 3; ++n) {
@@ -436,18 +381,13 @@ void update_roche_radii ()
         }
     }
 
-    // Determine when the radial damping force terminates.
 
     if (problem::problem == 1 && problem::radial_damping_velocity_factor > 0.0_rt && problem::radial_damping_is_done != 1) {
-        // It does not make sense to do damping if there's only one star remaining.
 
         if (problem::mass_S == 0.0_rt) {
             problem::radial_damping_is_done = 1;
         }
 
-        // Only do radial damping until the stars get sufficiently close. The way we will measure this
-        // is when the secondary overflows the Roche lobe. At that point we terminate the damping and
-        // let Newtonian gravity do the rest of the work.
 
         if (problem::roche_rad_S <= problem::radial_damping_roche_factor * problem::radius_S) {
             problem::radial_damping_is_done = 1;
@@ -461,12 +401,9 @@ void update_roche_radii ()
 
 
 
-// Set up a binary simulation
 
 void binary_setup ()
 {
-    // Safety check: ensure that if we have a symmetric lower boundary, that the
-    // domain center (and thus the stars) are on that boundary.
 
     const Real* problo = DefaultGeometry().ProbLo();
     const Real* probhi = DefaultGeometry().ProbHi();
@@ -483,8 +420,6 @@ void binary_setup ()
         amrex::Error("Symmetric lower z-boundary but the center is not on this boundary.");
     }
 
-    // Set some default values for these quantities;
-    // we'll update them soon.
 
     for (int n = 0; n < 3; ++n) {
         problem::center_P_initial[n] = problem::center[n];
@@ -497,14 +432,8 @@ void binary_setup ()
         problem::vel_S[n] = 0.0_rt;
     }
 
-    // Fill in the model's physical details.
-    // If we're integrating to reach a desired mass, set the composition accordingly.
-    // If instead we're fixing the central density, then first we'll assume the composition is
-    // that of a solar mass WD as a initial guess, and get the corresponding mass.
-    // Then we set the composition to match this preliminary mass, and we'll get a final mass later.
 
     if (problem::central_density_P > 0.0_rt) {
-        // Initial guess for the mass
         problem::mass_P = C::M_solar;
     }
     else if (problem::mass_P <= 0.0_rt) {
@@ -518,7 +447,6 @@ void binary_setup ()
     if (!problem::single_star) {
 
         if (problem::central_density_S > 0.0_rt) {
-            // Initial guess for the mass
             problem::mass_S = C::M_solar;
         }
         else if (problem::mass_S <= 0.0_rt) {
@@ -540,7 +468,6 @@ void binary_setup ()
 
     }
 
-    // We have completed (rho, T, xn) for the ambient state, so we can call the EOS.
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];
@@ -562,7 +489,6 @@ void binary_setup ()
     problem::roche_rad_P = 0.0_rt;
     problem::roche_rad_S = 0.0_rt;
 
-    // Generate primary and secondary WD models.
 
     establish_hse(problem::mass_P, problem::central_density_P, problem::radius_P,
                   problem::core_comp_P, problem::stellar_temp, problem::initial_model_dx,
@@ -590,11 +516,9 @@ void binary_setup ()
 
         problem::roche_rad_S = problem::radius_S;
 
-        // Compute initial Roche radii
 
         find_lobe_radii(problem::mass_S / problem::mass_P, problem::roche_rad_S, problem::roche_rad_P);
 
-        // Set up the stellar distances and velocities according to the problem choice
 
         if (problem::problem == 0) {
 
@@ -624,11 +548,6 @@ void binary_setup ()
             problem::center_P_initial[problem::axis_1-1] += problem::r_P_initial;
             problem::center_S_initial[problem::axis_1-1] += problem::r_S_initial;
 
-            // We also permit a non-zero impact parameter b in the direction perpendicular
-            // to the motion of the stars. This is measured in units of the radius of the
-            // primary, so that b > 1 doesn't make any sense as the stars won't collide.
-            // Since the secondary's radius is greater than the primary's, measuring in the
-            // units of the primary's radius will guarantee contact.
 
             Real collision_offset = problem::collision_impact_parameter * problem::radius_P;
 
@@ -640,14 +559,12 @@ void binary_setup ()
 
             if (problem::roche_radius_factor < 0.0_rt) {
 
-                // Determine the orbital distance based on the rotational period.
 
                 problem::a = -1.0_rt;
 
             }
             else {
 
-                // Set the orbital distance, then calculate the rotational period.
 
                 problem::a = problem::roche_radius_factor * (problem::radius_S / problem::roche_rad_S);
 
@@ -657,17 +574,15 @@ void binary_setup ()
 
             Real v_P_r, v_S_r, v_P_phi, v_S_phi;
 
-            kepler_third_law(problem::radius_P, problem::mass_P, problem::radius_S, problem::mass_S,  // NOLINT(readability-suspicious-call-argument)
+            kepler_third_law(problem::radius_P, problem::mass_P, problem::radius_S, problem::mass_S,
                              hydrosim::spin_period, problem::orbital_eccentricity, problem::orbital_angle,
                              problem::a, problem::r_P_initial, problem::r_S_initial, v_P_r, v_S_r, v_P_phi, v_S_phi);
 
-            // Make sure the domain is big enough to hold stars in an orbit this size.
 
             Real length;
 
             if (HydroSim::physbc().lo(problem::axis_1-1) == amrex::PhysBCType::symmetry) {
 
-                // In this case we're only modelling the secondary.
                 length = problem::r_P_initial + problem::radius_P;
 
             }
@@ -681,7 +596,6 @@ void binary_setup ()
                 amrex::Error("ERROR: The domain width is too small to include the binary orbit.");
             }
 
-            // Make sure the stars are not touching.
 
             if (problem::radius_P + problem::radius_S > problem::a) {
                 amrex::Error("ERROR: Stars are touching!");
@@ -701,7 +615,6 @@ void binary_setup ()
                            << 2.0_rt * M_PI * problem::r_S_initial / hydrosim::spin_period << " cm/s." << std::endl;
             amrex::Print() << std::endl;
 
-            // Star center positions -- we'll put them in the midplane, with the center of mass at the center of the domain.
 
             problem::center_P_initial[problem::axis_1-1] += problem::r_P_initial * std::cos(problem::orbital_angle);
             problem::center_P_initial[problem::axis_2-1] += problem::r_P_initial * std::sin(problem::orbital_angle);
@@ -709,7 +622,6 @@ void binary_setup ()
             problem::center_S_initial[problem::axis_1-1] += problem::r_S_initial * std::cos(problem::orbital_angle);
             problem::center_S_initial[problem::axis_2-1] += problem::r_S_initial * std::sin(problem::orbital_angle);
 
-            // Star velocities, from Kepler's third law. Note that these are the velocities in the inertial frame.
 
             problem::vel_P[problem::axis_1-1] = v_P_r   * std::cos(problem::orbital_angle) - v_P_phi * std::sin(problem::orbital_angle);
             problem::vel_P[problem::axis_2-1] = v_P_phi * std::cos(problem::orbital_angle) + v_P_r   * std::sin(problem::orbital_angle);
@@ -724,7 +636,6 @@ void binary_setup ()
 
         }
 
-        // Scale the Roche radii by the initial distance.
 
         problem::roche_rad_P *= problem::a;
         problem::roche_rad_S *= problem::a;
@@ -734,44 +645,25 @@ void binary_setup ()
 
         if (problem::problem == 2) {
 
-            // The tidal radius is given by (M_BH / M_WD)^(1/3) * R_WD.
 
             problem::tde_tidal_radius = std::pow(hydrosim::point_mass / problem::mass_P, 1.0_rt / 3.0_rt) *
                                         problem::radius_P;
 
-            // The usual definition for the Schwarzschild radius.
 
             problem::tde_schwarzschild_radius = 2.0_rt * C::Gconst * hydrosim::point_mass / (C::c_light * C::c_light);
 
-            // The pericenter radius is the distance of closest approach,
-            // for a point mass on a parabolic orbit.
 
             problem::tde_pericenter_radius = problem::tde_tidal_radius / problem::tde_beta;
 
-            // Given the pericenter distance, we can calculate the parameters of
-            // the parabolic orbit. A parabolic orbit has E = 0, so KE = PE,
-            // or (1/2) M_WD v**2 = G * M_WD * M_BH / r. This simplifies to
-            // v = sqrt(2 * G * M_BH / r). The initial distance is set at runtime.
 
             problem::r_P_initial = problem::tde_separation * problem::tde_tidal_radius;
 
             Real v_P = std::sqrt(2.0_rt * C::Gconst * hydrosim::point_mass / problem::r_P_initial);
 
-            // Now we need to convert this into angular and radial components. To
-            // do this, we need the orbital angle, which comes from the orbit equation,
-            // r = r_0 / (1 - eccentricity * cos(phi)), where for a parabolic orbit,
-            // r_0 is twice the pericenter distance.
 
             problem::orbital_eccentricity = 1.0_rt;
             problem::orbital_angle = std::acos(1.0_rt - (2.0_rt * problem::tde_pericenter_radius) / problem::r_P_initial);
 
-            // Now set the x and y components of the position and velocity. The position is
-            // straightforward: the orbital angle is the usual angle phi such that x = r cos(phi)
-            // and y = r sin(phi). The velocity is a little more involved and depends on the orbit
-            // equation. The Cartesian form of the parabolic orbit equation is x = y**2 / (2 * r_0) + r_0 / 2,
-            // so dx/dt = (y / r_0) * dy/dt. Given that v**2 = v_x**2 + v_y**2, we have
-            // v_x = v / sqrt( 1 + (r_0 / (r * sin(phi))) )**2 , and
-            // v_y = v / sqrt( 1 + (r * sin(phi) / r_0)**2 ).
 
             problem::center_P_initial[problem::axis_1-1] -= problem::r_P_initial * std::cos(problem::orbital_angle);
             problem::center_P_initial[problem::axis_2-1] -= problem::r_P_initial * std::sin(problem::orbital_angle);
@@ -794,7 +686,6 @@ void binary_setup ()
         problem::com_S[n] = problem::center_S_initial[n];
     }
 
-    // Safety check: make sure the stars are actually inside the computational domain.
 
     if (!(AMREX_SPACEDIM == 2 && HydroSim::physbc().lo(1) == amrex::PhysBCType::symmetry)) {
 

@@ -9,8 +9,6 @@ HydroSim::build_center_state(const Box& bx,
                          Array4<Real> const& centered_state,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Take a cell-average state U and a convert it to a cell-center
-  // state centered_state via centered_state = U - 1/24 L U
 
   [[maybe_unused]] const auto U_lower = lbound(U);
   [[maybe_unused]] const auto U_upper = ubound(U);
@@ -53,11 +51,7 @@ HydroSim::build_center_state_in_place(const Box& bx,
                                   Array4<Real> const& tmp,
                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Take a cell-average state U and make it cell-centered in place
-  // via U <- U - 1/24 L U.  Note that this operation is not tile
-  // safe.
 
-  // here, tmp is a temporary memory space we use to store one-component's Laplacian
 
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
@@ -93,8 +87,6 @@ HydroSim::laplacian_of_state(const Box& bx,
                          Array4<Real> const& lap, const int ncomp,
                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Computes the h**2/24 L U term that is used in correcting
-  // cell-center to averages (and back)
 
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
@@ -123,9 +115,6 @@ HydroSim::build_fourth_average(const Box& bx,
                             Array4<Real const> const& q_mean_arr,
                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Take the cell-center state q and another state q_second (e.g.,
-  // constructed from the cell-average U) and replace the cell-center
-  // q with a 4th-order accurate cell-average, q <- q + 1/24 L q_second
 
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();
@@ -154,9 +143,6 @@ HydroSim::build_fourth_in_place(const Box& bx,
                              Array4<Real> const& tmp,
                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Take the cell-center q and makes it a cell-average q, in place
-  // (e.g. q is overwritten by its average), q <- q + 1/24 L q.
-  // Note: this routine is not tile safe.
 
   for (int n = 0; n < prim_arr.nComp(); n++) {
     build_fourth_in_place_n(bx, prim_arr, n, tmp, domlo, domhi);
@@ -170,12 +156,6 @@ HydroSim::build_fourth_in_place_n(const Box& bx,
                                Array4<Real> const& tmp,
                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-  // Take the cell-center q and makes it a cell-average q, in place
-  // (e.g. q is overwritten by its average), q <- q + 1/24 L q.
-  // Note: this routine is not tile safe.
-  //
-  // This version operates on a single component.  Here ncomp is the
-  // component to update
 
   const int* lo_bc = phys_bc.lo();
   const int* hi_bc = phys_bc.hi();

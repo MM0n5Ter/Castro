@@ -15,13 +15,10 @@ void user_initialize_state_data (int i, int j, int k,
     const Real* problo = geomdata.ProbLo();
     const Real* probhi = geomdata.ProbHi();
 
-    // semi-major axis
     Real a = problem::a_T * (probhi[0] - problo[0]);
 
-    // semi-minor axis
     Real b = a * std::sqrt(1.0 - problem::ecc_T * problem::ecc_T);
 
-    // compute distance from the center
     Real xx = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt) - problem::center[0];
     Real yy = problo[1] + dx[1] * (static_cast<Real>(j) + 0.5_rt) - problem::center[1];
 
@@ -46,7 +43,6 @@ void user_initialize_state_data (int i, int j, int k,
     }
 
 #ifdef AUX_THERMO
-    // set the aux quantities -- we need to do this if we are using the NSE network
     set_aux_comp_from_X(eos_state);
 
     for (int n = 0; n < NumAux; n++) {

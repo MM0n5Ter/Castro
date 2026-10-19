@@ -18,16 +18,12 @@ HYDROSIM_HOME := ../../..
 USE_MODEL_PARSER = TRUE
 MAX_NPTS_MODEL = 20000
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := nova
 
-# This sets the conductivity EOS directory in $(MICROPHYSICS_HOME)/conductivity
 CONDUCTIVITY_DIR := stellar
 
-# RKC performs very well with the nova networks
 INTEGRATOR_DIR := RKC
 
 Bpack   := ./Make.package

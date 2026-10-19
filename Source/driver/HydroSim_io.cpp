@@ -38,24 +38,6 @@
 using std::string;
 using namespace amrex;
 
-// HydroSim maintains an internal checkpoint version numbering system.
-// This allows us to ensure that we don't attempt to restart from a
-// checkpoint that is incompatible with the current code. The version
-// number is stored in the CastroHeader file inside a checkpoint.
-// The following were the changes made in updating version numbers:
-// 0: all checkpoints before we began the numbering system (July 27, 2015)
-// 1: Potential_Type was added to the checkpoint
-// 2: Forcing_Type was added to the checkpoint
-// 3: A ReactHeader file was generated and the maximum de/dt was stored there
-// 4: Burning_Type added to checkpoint; ReactHeader functionality deprecated
-// 5: Simplified_SDC_Source_Type and Burn_Corr_Type added to checkpoint
-// 6: Simplified_SDC_Source_Type removed from HydroSim
-// 7: A weights field was added to Burning_Type; number of ghost zones increased to NUM_GROW
-// 8: Burning_Type modified to use rho * omegadot instead of omegadot; rho * auxdot added
-// 9: Rotation_Type was removed from HydroSim
-// 10: Burning_Type was removed from checkpoints
-// 11: PhiRot_Type was removed from HydroSim
-// 12: State_Type's additional ghost zone, used when radiation is enabled, has been removed
 
 namespace
 {
@@ -63,15 +45,12 @@ namespace
     int current_version = 12;
 }
 
-// I/O routines for HydroSim
 
 void
 HydroSim::restart (Amr&     papa,
                  istream& is,
                  bool     bReadSpecial)
 {
-    // Let's check HydroSim checkpoint version first;
-    // trying to read from checkpoint; if nonexisting, set it to 0.
     if (restart_format == -1) {
         if (ParallelDescriptor::IOProcessor()) {
             std::ifstream HydroSimHeaderFile;
@@ -80,7 +59,6 @@ HydroSim::restart (Amr&     papa,
             HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::in);
             if (HydroSimHeaderFile.good()) {
                 char foo[256];
-                // first line: Checkpoint version: ?
                 HydroSimHeaderFile.getline(foo, 256, ':');
                 HydroSimHeaderFile >> restart_format;
                 HydroSimHeaderFile.close();
@@ -91,16 +69,11 @@ HydroSim::restart (Amr&     papa,
         ParallelDescriptor::Bcast(&restart_format, 1, ParallelDescriptor::IOProcessorNumber());
     }
 
-    // Check that the version number matches.
 
     if (restart_format != current_version) {
         amrex::Error("Checkpoint format incompatible with current code");
     }
 
-    // Check if there's a file in the header indicating that the
-    // previous timestep was limited to hit a plot interval. If so,
-    // read in the value, so that the timestep after this restart is
-    // limited appropriately.
 
     if (ParallelDescriptor::IOProcessor()) {
 
@@ -119,7 +92,6 @@ HydroSim::restart (Amr&     papa,
 
     }
 
-    // Check if we have the same state variables
 
     if (ParallelDescriptor::IOProcessor()) {
 
@@ -143,7 +115,6 @@ HydroSim::restart (Amr&     papa,
     ParallelDescriptor::Bcast(&lastDtWriteLimited, 1, ParallelDescriptor::IOProcessorNumber());
     ParallelDescriptor::Bcast(&lastDtBeforeWriteLimit, 1, ParallelDescriptor::IOProcessorNumber());
 
-    // also need to mod checkPoint function to store the new version in a text file
 
     AmrLevel::restart(papa,is,bReadSpecial);
 
@@ -151,10 +122,8 @@ HydroSim::restart (Amr&     papa,
 
     allocFabs();
 
-    // get the elapsed CPU time to now;
     if (level == 0 && ParallelDescriptor::IOProcessor())
     {
-      // get elapsed CPU time
       std::ifstream CpuTimeFile;
       std::string FullPathCpuTimeFile = parent->theRestartFile();
       FullPathCpuTimeFile += "/CPUtime";
@@ -175,7 +144,6 @@ HydroSim::restart (Amr&     papa,
     if (use_central_mass && level == 0)
     {
 
-        // get the current value of the point mass
         std::ifstream PointMassFile;
         std::string FullPathPointMassFile = parent->theRestartFile();
         FullPathPointMassFile += "/point_mass";
@@ -192,7 +160,6 @@ HydroSim::restart (Amr&     papa,
 #ifdef ROTATION
     if (do_frame_spin && level == 0)
     {
-        // get current value of the rotation period
         std::ifstream SpinPeriodFile;
         std::string FullPathSpinPeriodFile = parent->theRestartFile();
         FullPathSpinPeriodFile += "/Rotation";
@@ -209,8 +176,6 @@ HydroSim::restart (Amr&     papa,
 
     if (level == 0)
     {
-        // get problem-specific stuff -- note all processors do this,
-        // eliminating the need for a broadcast
         std::string dir = parent->theRestartFile();
 
         user_restart(dir);
@@ -299,8 +264,6 @@ HydroSim::restart (Amr&     papa,
                amrex::ParallelFor(bx,
                [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                {
-                   // C++ problem initialization; has no effect if not implemented
-                   // by a problem setup (defaults to an empty routine).
                    user_initialize_state_data(i, j, k, s, geomdata);
                });
 #endif
@@ -312,7 +275,6 @@ HydroSim::restart (Amr&     papa,
       getLevel(0).avgDown();
     }
 
-    // Special Restart with theta extension for Spherical 2D specifically
 #if AMREX_SPACEDIM == 2
     if (prev_theta_cells > 0 && level == 0 && geom.Coord() == 2) {
         if (verbose && ParallelDescriptor::IOProcessor()) {
@@ -323,13 +285,9 @@ HydroSim::restart (Amr&     papa,
 
         MultiFab& S_new = get_new_data(State_Type);
 
-        // Determine the original domain.
-        // User should provide the old number of cells along theta-dir: theta_cell_old
-        // Then the new upper index along theta dir is then theta_cell_old - 1
         Box pre_grow_domain = geom.Domain();
         pre_grow_domain.setBig(1, prev_theta_cells-1);
 
-        // Initialize data based on initial condition on grid
         for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             const Box& bx = mfi.tilebox();
             if (!pre_grow_domain.contains(bx)) {
@@ -338,8 +296,6 @@ HydroSim::restart (Amr&     papa,
                 amrex::ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
-                    // The box might be partially outside of the original domain
-                    // Only fill data for those that are out.
                     if (j >= prev_theta_cells) {
                         user_initialize_state_data(i, j, k, s, geomdata);
                     }
@@ -366,8 +322,7 @@ HydroSim::restart (Amr&     papa,
 #ifdef RADIATION
     if (do_radiative_transfer) {
       if (radiation == nullptr) {
-        // radiation is a static object, only alloc if not already there
-        int rad_skip_init = 1; // disables quasi-steady initialization
+        int rad_skip_init = 1;
         radiation = std::make_unique<Radiation>(parent, this, rad_skip_init);
       }
       radiation->regrid(level, grids, dmap);
@@ -377,7 +332,6 @@ HydroSim::restart (Amr&     papa,
     }
 #endif
 
-    // If we want, we can restart the checkpoint at a new time.
 
     if (restart_time_override > -1.e199) {
 
@@ -424,7 +378,7 @@ void
 HydroSim::checkPoint(const std::string& dir,
                    std::ostream&  os,
                    VisMF::How     how,
-                   bool /*dump_old_default*/)
+                   bool  )
 {
 
   const Real io_begin_clock = ParallelDescriptor::second();
@@ -456,7 +410,6 @@ HydroSim::checkPoint(const std::string& dir,
 
             writeRunRecord(dir, write_seconds);
 
-            // output the list of state variables, so we can do a sanity check on restart
             std::ofstream VarNameListFile;
             std::string FullPathVarNameList = dir;
             FullPathVarNameList += "/state_names.txt";
@@ -468,10 +421,6 @@ HydroSim::checkPoint(const std::string& dir,
             VarNameListFile.close();
         }
 
-        // If we have limited this last timestep to hit a plot interval,
-        // store the timestep we took before limiting. After the restart,
-        // this dt will be read in and used to limit the next timestep
-        // appropriately, rather than the shortened timestep.
 
         if (lastDtWriteLimited == 1) {
 
@@ -486,7 +435,6 @@ HydroSim::checkPoint(const std::string& dir,
         }
 
         {
-            // store elapsed CPU time
             std::ofstream CpuTimeFile;
             std::string FullPathCpuTimeFile = dir;
             FullPathCpuTimeFile += "/CPUtime";
@@ -499,7 +447,6 @@ HydroSim::checkPoint(const std::string& dir,
 #ifdef GRAVITY
         if (use_central_mass) {
 
-            // store current value of the point mass
             std::ofstream PointMassFile;
             std::string FullPathPointMassFile = dir;
             FullPathPointMassFile += "/point_mass";
@@ -514,7 +461,6 @@ HydroSim::checkPoint(const std::string& dir,
 
 #ifdef ROTATION
         if (do_frame_spin) {
-            // store current value of the rotation period
             std::ofstream SpinPeriodFile;
             std::string FullPathSpinPeriodFile = dir;
             FullPathSpinPeriodFile += "/Rotation";
@@ -530,7 +476,6 @@ HydroSim::checkPoint(const std::string& dir,
 #endif
 
         {
-            // store any problem-specific stuff
             user_checkpoint(dir);
         }
     }
@@ -540,9 +485,6 @@ HydroSim::checkPoint(const std::string& dir,
 std::string
 HydroSim::thePlotFileType () const
 {
-    //
-    // Increment this whenever the writePlotFile() format changes.
-    //
     static const std::string the_plot_file_type("HyperCLaw-V1.1");
 
     return the_plot_file_type;
@@ -553,8 +495,6 @@ HydroSim::setPlotVariables ()
 {
   AmrLevel::setPlotVariables();
 
-  // Don't add the Forcing_Type data to the plotfile, we only
-  // want to store it in the checkpoints.
 
   for (int i = 0; i < desc_lst[Forcing_Type].nComp(); i++) {
     parent->deleteStatePlotVar(desc_lst[Forcing_Type].name(i));
@@ -576,7 +516,6 @@ void
 HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
 {
 
-  // job_info file with details about the run
   std::ofstream jobInfoFile;
   std::string FullPathJobInfoFile = dir;
   FullPathJobInfoFile += "/job_info";
@@ -586,7 +525,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   std::string OtherLine = std::string(78, '-') + "\n";
   std::string SkipSpace = std::string(8, ' ');
 
-  // job information
   jobInfoFile << PrettyLine;
   jobInfoFile << " HydroSim Job Information\n";
   jobInfoFile << PrettyLine;
@@ -612,7 +550,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
 
   jobInfoFile << "\n\n";
 
-  // plotfile information
   jobInfoFile << PrettyLine;
   jobInfoFile << " Plotfile Information\n";
   jobInfoFile << PrettyLine;
@@ -628,8 +565,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   jobInfoFile << "\n\n";
 
 #ifdef AMREX_USE_GPU
-  // This output assumes for simplicity that every rank uses the
-  // same type of GPU.
 
   jobInfoFile << PrettyLine;
   jobInfoFile << "GPU Information:       " << "\n";
@@ -641,7 +576,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   jobInfoFile << "\n\n";
 #endif
 
-  // build information
   jobInfoFile << PrettyLine;
   jobInfoFile << " Build Information\n";
   jobInfoFile << PrettyLine;
@@ -710,7 +644,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   jobInfoFile << "\n\n";
 
 
-  // grid information
   jobInfoFile << PrettyLine;
   jobInfoFile << " Grid Information\n";
   jobInfoFile << PrettyLine;
@@ -725,7 +658,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
       for (int n = 0; n < AMREX_SPACEDIM; n++)
         {
           jobInfoFile << parent->Geom(i).Domain().length(n) << " ";
-          //jobInfoFile << parent->Geom(i).ProbHi(n) << " ";
         }
       jobInfoFile << "\n\n";
     }
@@ -737,8 +669,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   pp.getarr("hi_bc",hi_bc_flags,0,AMREX_SPACEDIM);
 
 
-  // these names correspond to the integer flags setup in the
-  // HydroSim_setup.cpp
   constexpr std::array<std::string_view, 6> bc_labels{
       "interior", "inflow", "outflow",
       "symmetry", "slipwall", "noslipwall"};
@@ -834,7 +764,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
 
 
 
-  // species info
   int mlen = 20;
 
   jobInfoFile << PrettyLine;
@@ -884,7 +813,6 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   AMREX_ALWAYS_ASSERT(starlib::NumStarLibRates == idx-1);
 #endif
 
-  // runtime parameters
   jobInfoFile << PrettyLine;
   jobInfoFile << " Inputs File Parameters\n";
   jobInfoFile << PrettyLine;
@@ -915,7 +843,6 @@ HydroSim::writeBuildRecord ()
 {
   std::string PrettyLine = std::string(78, '=') + "\n";
 
-  // build information
   std::cout << PrettyLine;
   std::cout << " HydroSim Build Information\n";
   std::cout << PrettyLine;
@@ -1012,11 +939,6 @@ HydroSim::writeSnapshot(const std::string& dir,
   ParticleOutputFile(dir);
 #endif
 
-    //
-    // The list of indices of State to write to plotfile.
-    // first component of pair is state_type,
-    // second component of pair is component # within the state_type
-    //
     std::vector<std::pair<int,int> > plot_var_map;
     for (int typ = 0; typ < desc_lst.size(); typ++) {
       for (int comp = 0; comp < desc_lst[typ].nComp(); comp++) {
@@ -1073,9 +995,6 @@ HydroSim::writeSnapshot(const std::string& dir,
 
     if (level == 0 && ParallelDescriptor::IOProcessor())
     {
-        //
-        // The first thing we write out is the plotfile type.
-        //
         os << thePlotFileType() << '\n';
 
         if (n_data_items == 0) {
@@ -1084,9 +1003,6 @@ HydroSim::writeSnapshot(const std::string& dir,
 
         os << n_data_items << '\n';
 
-        //
-        // Names of variables -- first state, then derived
-        //
         for (const auto& [typ, comp] : plot_var_map)
         {
             os << desc_lst[typ].name(comp) << '\n';
@@ -1153,7 +1069,7 @@ HydroSim::writeSnapshot(const std::string& dir,
             os << '\n';
         }
         os << (int) geom.Coord() << '\n';
-        os << "0\n"; // Write bndry data.
+        os << "0\n";
 
 #ifdef RADIATION
         if (do_radiative_transfer && Radiation::groups_enabled) {
@@ -1168,30 +1084,18 @@ HydroSim::writeSnapshot(const std::string& dir,
         }
 #endif
     }
-    // Build the directory to hold the MultiFab at this level.
-    // The name is relative to the directory containing the Header file.
-    //
     static const std::string BaseName = "/Cell";
     std::string Level = std::format("Level_{}", level);
-    //
-    // Now for the full pathname of that directory.
-    //
     std::string FullPath = dir;
     if (!FullPath.ends_with('/')) {
       FullPath += '/';
     }
     FullPath += Level;
-    //
-    // Only the I/O processor makes the directory if it doesn't already exist.
-    //
     if (ParallelDescriptor::IOProcessor()) {
         if (!amrex::UtilCreateDirectory(FullPath, 0755)) {
             amrex::CreateDirectoryFailed(FullPath);
         }
     }
-    //
-    // Force other processors to wait till directory is built.
-    //
     ParallelDescriptor::Barrier();
 
     if (ParallelDescriptor::IOProcessor())
@@ -1206,11 +1110,6 @@ HydroSim::writeSnapshot(const std::string& dir,
               os << gridloc.lo(n) << ' ' << gridloc.hi(n) << '\n';
             }
         }
-        //
-        // The full relative pathname of the MultiFabs at this level.
-        // The name is relative to the Header file containing this name.
-        // It's the name that gets written into the Header.
-        //
         if (n_data_items > 0)
         {
             std::string PathNameInHeader = Level;
@@ -1218,26 +1117,15 @@ HydroSim::writeSnapshot(const std::string& dir,
             os << PathNameInHeader << '\n';
         }
     }
-    //
-    // We combine all of the multifabs -- state, derived, etc -- into one
-    // multifab -- plotMF.
-    // NOTE: we are assuming that each state variable has one component,
-    // but a derived variable is allowed to have multiple components.
     int       cnt   = 0;
     const int nGrow = 0;
     MultiFab  plotMF(grids,dmap,n_data_items,nGrow);
     MultiFab* this_dat = nullptr;
-    //
-    // Cull data from state variables -- use no ghost cells.
-    //
     for (const auto& [typ, comp] : plot_var_map) {
         this_dat = &state[typ].newData();
         MultiFab::Copy(plotMF, *this_dat, comp, cnt, 1, nGrow);
         cnt++;
     }
-    //
-    // Cull data from derived variables.
-    //
     if (!dlist.empty())
     {
         for (const auto & dd : dlist) {
@@ -1263,14 +1151,11 @@ HydroSim::writeSnapshot(const std::string& dir,
 #ifndef TRUE_SDC
     if (keep_burn_weights) {
         MultiFab::Copy(plotMF, getLevel(level).burn_split_data, 0, cnt, static_cast<int>(HydroSim::burn_split_names.size()), 0);
-        cnt += static_cast<int>(HydroSim::burn_split_names.size());  // NOLINT(clang-analyzer-deadcode.DeadStores)
+        cnt += static_cast<int>(HydroSim::burn_split_names.size());
     }
 #endif
 #endif
 
-    //
-    // Use the Full pathname when naming the MultiFab.
-    //
     std::string TheFullPath = FullPath;
     TheFullPath += BaseName;
 
@@ -1291,7 +1176,6 @@ HydroSim::writeSnapshot(const std::string& dir,
 #ifdef GRAVITY
     if (use_central_mass && level == 0) {
 
-        // store current value of the point mass
         std::ofstream PointMassFile;
         std::string FullPathPointMassFile = dir;
         FullPathPointMassFile += "/point_mass";

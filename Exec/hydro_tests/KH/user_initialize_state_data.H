@@ -69,8 +69,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real xx = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt);
 
-    // Assume the initial y-velocity represents the bulk flow
-    // which will be perturbed in the following step
 
     Real vely = problem::bulk_velocity;
     Real dye = 0.0_rt;
@@ -138,7 +136,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMZ)  = dens * velz;
     state(i,j,k,UFA)  = dye;
 
-    // Establish the thermodynamic quantities
     eos_t eos_state;
 
     for (int n = 0; n < NumSpec; n++) {

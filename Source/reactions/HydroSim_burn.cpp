@@ -12,7 +12,7 @@ using namespace amrex;
 #ifndef TRUE_SDC
 
 step_result
-HydroSim::apply_old_reactions (Real time, Real dt) {  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::apply_old_reactions (Real time, Real dt) {
 
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -26,7 +26,6 @@ HydroSim::apply_old_reactions (Real time, Real dt) {  // NOLINT(readability-conv
     MultiFab& react_new = get_new_data(Burning_Type);
 
     if (time_scheme != SimplifiedIterCorrection) {
-        // The result of the reactions is added directly to Sborder.
         burn_outcome = burn_over_state(Sborder, Reactions_old, time, 0.5 * dt, 0);
 
         if (burn_outcome != 1) {
@@ -69,7 +68,6 @@ HydroSim::apply_new_reactions (Real time, Real dt)
 
         if (do_react) {
 
-            // Do the ODE integration to capture the reaction source terms.
 
             burn_outcome = burn_over_state(time, dt);
 
@@ -82,14 +80,12 @@ HydroSim::apply_new_reactions (Real time, Real dt)
 
             clean_state(S_new, time + dt, S_new.nGrow());
 
-            // Check for NaN's.
 
             scan_for_nan(S_new);
 
         }
         else {
 
-            // If we're not burning, just initialize the reactions data to zero.
 
             MultiFab& SDC_burn_new = get_new_data(Burn_Corr_Type);
             SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
@@ -101,7 +97,7 @@ HydroSim::apply_new_reactions (Real time, Real dt)
 
     }
 
-#else // SIMPLIFIED_SDC
+#else
 
     if (time_scheme != SimplifiedIterCorrection) {
 
@@ -122,12 +118,11 @@ HydroSim::apply_new_reactions (Real time, Real dt)
 
     }
 
-#endif // SIMPLIFIED_SDC
+#endif
 
     return status;
 }
 
-// Strang version
 
 int
 HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const int strang_half)
@@ -137,7 +132,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 
     BL_PROFILE("HydroSim::burn_over_state()");
 
-    // Sanity check: should only be in here if we're doing CTU.
 
     if (time_scheme != CornerTrace) {
         amrex::Error("Strang reactions are only supported for the CTU advance.");
@@ -145,24 +139,20 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Start off by assuming a successful burn.
 
     int burn_outcome = 1;
 
     if (do_react != 1) {
 
-        // Ensure we always have valid data, even if we don't do the burn.
         r.setVal(0.0, r.nGrow());
 
         return burn_outcome;
 
     }
 
-    // Check if we have any zones to burn.
 
     if (!zones_are_burnable(s)) {
 
-        // Ensure we always have valid data, even if we don't do the burn.
         r.setVal(0.0, r.nGrow());
 
         return burn_outcome;
@@ -175,7 +165,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
         amrex::Print() << "... Entering burner on level " << level << " and doing half-timestep of burning." << std::endl << std::endl;
     }
 
-    // If we're not subcycling, we only need to do the burn on leaf cells.
 
     bool exclude_covered_zones = false;
 
@@ -233,20 +222,17 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
             burn_state.dx = amrex::min(AMREX_D_DECL(dx[0], dx[1], dx[2]));
 #endif
 
-            // Initialize some data for later.
 
             bool burn_allowed = true;
             burn_state.success = true;
             int burn_fault_flag = 0;
 
-            // Don't burn on zones inside shock regions, if the relevant option is set.
 
 #ifdef SHOCK_VAR
             if (U(i,j,k,UFLAG_SHOCK) > 0.0_rt && skip_burning_in_shocks == 1) {
                 burn_allowed = false;
             }
 #endif
-            // Don't burn on zones that are masked out.
 
             if (exclude_covered_zones && mask.contains(i,j,k)) {
                 if (mask(i,j,k) == 0.0_rt) {
@@ -258,12 +244,9 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 
             burn_state.rho = U(i,j,k,URHO);
 
-            // e is used as an input for some NSE solvers
 
             burn_state.e = U(i,j,k,UEINT) * rhoInv;
 
-            // this T is consistent with UEINT because we did an EOS call before
-            // calling this function
 
             burn_state.T = U(i,j,k,UTEMP);
 
@@ -304,12 +287,10 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
             }
 #endif
 
-            // Ensure we start with no RHS or Jacobian calls registered.
 
             burn_state.n_rhs = 0;
             burn_state.n_jac = 0;
 
-            // for diagnostics
 
             burn_state.i = i;
             burn_state.j = j;
@@ -323,7 +304,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 #endif
 #endif
 
-            // Don't burn if we're outside of the relevant (rho, T) range.
 
             if (burn_state.T < hydrosim::burn_temp_min || burn_state.T > hydrosim::burn_temp_max ||
                 burn_state.rho < hydrosim::burn_rho_min || burn_state.rho > hydrosim::burn_rho_max) {
@@ -333,15 +313,11 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
             if (burn_allowed) {
                 burner(burn_state, dt);
 
-                // If we were unsuccessful, update the failure count.
 
                 if (!burn_state.success) {
                     burn_fault_flag = 1;
                 }
 
-                // Add burning rates to reactions MultiFab, but be
-                // careful because the reactions and state MFs may
-                // not have the same number of ghost cells.
 
                 if (reactions.contains(i,j,k)) {
 
@@ -365,7 +341,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
                         if (integrator_rp::jacobian == 1) {
                             weights(i,j,k,strang_half) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs + 2 * burn_state.n_jac));
                         } else {
-                            // the RHS evals for the numerical differencing in the Jacobian are already accounted for in n_rhs
                             weights(i,j,k,strang_half) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                         }
                     }
@@ -379,7 +354,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 #endif
                 }
 
-                // update the state
 #ifdef NSE_NET
                 U(i,j,k,UPROTON_MU) = burn_state.mu_p;
                 U(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
@@ -396,7 +370,7 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
                 U(i,j,k,UEINT) = U(i,j,k,URHO) * burn_state.e;
                 U(i,j,k,UEDEN) += U(i,j,k,UEINT) - internal_energy_old;
 
-            } else {  // burn_allowed = false
+            } else {
 
                 if (reactions.contains(i,j,k)) {
                     for (int n = 0; n < reactions.nComp(); n++) {
@@ -416,7 +390,7 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
         });
 
 #ifdef AMREX_USE_HIP
-        Gpu::streamSynchronize(); // otherwise HIP may fail to allocate the necessary resources.
+        Gpu::streamSynchronize();
 #endif
 
 #ifdef ALLOW_GPU_PRINTF
@@ -470,7 +444,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 }
 
 #ifdef SIMPLIFIED_SDC
-// Simplified SDC version
 
 int
 HydroSim::burn_over_state(Real time, Real dt)
@@ -478,22 +451,10 @@ HydroSim::burn_over_state(Real time, Real dt)
 
     amrex::ignore_unused(time);
 
-    // The goal is to update S_old to S_new with the effects of both
-    // advection and reactions.  We come into this S_new having seen
-    // the effects of advection and sources.  We create an advective
-    // update of the form: -div{F} + 0.5 (S^n + S^{n+1} and pass this
-    // to the reaction integrator where it is applied together with
-    // the reactions to update the full state.
 
-    // Note: S_new actually is already updated with just advection, so
-    // in the event that we do not react on a zone (e.g., because it
-    // doesn't meet the thermodynamic thresholds) we don't have to do
-    // anything.  If we do react, then we overwrite what is stored in
-    // S_new with the combined effects of advection and reactions.
 
     BL_PROFILE("HydroSim::burn_over_state()");
 
-    // Sanity check: should only be in here if we're doing simplified SDC.
 
     if (time_scheme != SimplifiedIterCorrection) {
         amrex::Error("This burn_over_state interface is only supported for simplified SDC.");
@@ -521,7 +482,6 @@ HydroSim::burn_over_state(Real time, Real dt)
 
     reactions.setVal(0.0, reactions.nGrow());
 
-    // If we're not subcycling, we only need to do the burn on leaf cells.
 
     bool exclude_covered_zones = false;
 
@@ -532,7 +492,6 @@ HydroSim::burn_over_state(Real time, Real dt)
     MultiFab scratch_cover_mask;
     const MultiFab& fine_cover_mf = exclude_covered_zones ? getLevel(level+1).make_fine_mask() : scratch_cover_mask;
 
-    // Start off assuming a successful burn.
 
     int burn_outcome = 1;
 
@@ -590,14 +549,11 @@ HydroSim::burn_over_state(Real time, Real dt)
 
             burn_state.y_e = -1.0_rt;
 #endif
-            // Initialize some data for later.
 
             bool burn_allowed = true;
             burn_state.success = true;
             int burn_fault_flag = 0;
 
-            // Don't burn on zones inside shock regions, if the
-            // relevant option is set.
 
 #ifdef SHOCK_VAR
             if (cons_new(i,j,k,UFLAG_SHOCK) > 0.0_rt && skip_burning_in_shocks == 1) {
@@ -605,7 +561,6 @@ HydroSim::burn_over_state(Real time, Real dt)
             }
 #endif
 
-            // Don't burn on zones that are masked out.
 
             if (exclude_covered_zones && mask.contains(i,j,k)) {
                 if (mask(i,j,k) == 0.0_rt) {
@@ -613,8 +568,6 @@ HydroSim::burn_over_state(Real time, Real dt)
                 }
             }
 
-            // Feed in the old-time state data.
-            // this also sets burn_state.{rho,T}
 
             fill_burn_type_from_conserved(i, j, k, Conserved_old, burn_state);
 
@@ -645,28 +598,12 @@ HydroSim::burn_over_state(Real time, Real dt)
             }
 #endif
 
-            // Don't burn if we're outside of the relevant (rho, T) range.
 
             if (Conserved_old(i,j,k,UTEMP) < hydrosim::burn_temp_min || Conserved_old(i,j,k,UTEMP) > hydrosim::burn_temp_max ||
                 Conserved_old(i,j,k,URHO) < hydrosim::burn_rho_min || Conserved_old(i,j,k,URHO) > hydrosim::burn_rho_max) {
                 burn_allowed = false;
             }
 
-            // Tell the integrator about the non-reacting source terms,
-            // which are advective_source + 1/2 (old source + new source).
-            //
-            // We have the following:
-            //
-            // cons_new:      U^n - dt div{F} + dt/2 (S^n + S^{n+1})
-            // Conserved_old:      U^n
-            //
-            // So we can compute:
-            //
-            //   (1 / dt) * (cons_new - Conserved_old)
-            //
-            // To get the non-reacting sources:
-            //
-            //   -div{F} + (1/2) (S^n + S^{n+1})
 
             Real invTimestep = 1.0_rt / dt;
 
@@ -685,8 +622,6 @@ HydroSim::burn_over_state(Real time, Real dt)
             }
 #endif
 
-            // Convert the current state to primitive data.
-            // This state is U* = Conserved_old + dt A where A = -div U + S_hydro.
 
             Array1D<Real, 0, NQ-1> prim_pre_react;
             Array1D<Real, 0, NQEXTRAQ-1> qthermo_dummy;
@@ -697,8 +632,6 @@ HydroSim::burn_over_state(Real time, Real dt)
 #endif
                                              prim_pre_react, qthermo_dummy, prim_pre_react.len() == NQ);
 
-            // dual energy formalism: in doing EOS calls in the burn,
-            // switch between e and (E - K) depending on (E - K) / E.
 
             burn_state.i = i;
             burn_state.j = j;
@@ -715,13 +648,11 @@ HydroSim::burn_over_state(Real time, Real dt)
             if (burn_allowed) {
                 burner(burn_state, dt);
 
-                // If we were unsuccessful, update the failure count.
 
                 if (!burn_state.success) {
                     burn_fault_flag = 1;
                 }
 
-                // update the state data.
 #ifdef NSE_NET
                 cons_new(i,j,k,UPROTON_MU) = burn_state.mu_p;
                 cons_new(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
@@ -738,35 +669,26 @@ HydroSim::burn_over_state(Real time, Real dt)
 #endif
 
                 if (reaction_source_arr.contains(i,j,k)) {
-                    // store the reaction data for the plotfile.
-                    // Note, we want to just capture the reaction
-                    // portion here, so we subtract off the advective
-                    // part.
 
-                    // rho enuc
                     reaction_source_arr(i,j,k,0) = (cons_new(i,j,k,UEINT) - Conserved_old(i,j,k,UEINT)) * invTimestep - burn_state.ydot_a[SEINT];
 
                     if (keep_omegadot) {
-                        // rho omegadot_k
                         for (int n = 0; n < NumSpec; ++n) {
                             reaction_source_arr(i,j,k,1+n) = (cons_new(i,j,k,UFS+n) - Conserved_old(i,j,k,UFS+n)) * invTimestep - burn_state.ydot_a[SFS+n];
                         }
 #if NAUX_NET > 0
-                        // rho auxdot_k
                         for (int n = 0; n < NumAux; ++n) {
                             reaction_source_arr(i,j,k,1+n+NumSpec) = (cons_new(i,j,k,UFX+n) - Conserved_old(i,j,k,UFX+n)) * invTimestep - burn_state.ydot_a[SFX+n];
                         }
 #endif
                     }
 
-                    // burn weights
 
                     if (keep_burn_weights) {
 
                          if (integrator_rp::jacobian == 1) {
                              weights(i,j,k,sdc_pass_number) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs + 2 * burn_state.n_jac));
                          } else {
-                             // the RHS evals for the numerical differencing in the Jacobian are already accounted for in n_rhs
                              weights(i,j,k,sdc_pass_number) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                          }
                      }
@@ -782,7 +704,6 @@ HydroSim::burn_over_state(Real time, Real dt)
 
             }
 
-            // Convert the updated state (with the contribution from burning) to primitive data.
 
             Array1D<Real, 0, NQ-1> q_new;
 
@@ -792,13 +713,7 @@ HydroSim::burn_over_state(Real time, Real dt)
 #endif
                                              q_new, qthermo_dummy, q_new.len() == NQ);
 
-            // Compute the reaction source term.
 
-            // I_q = (q^{n+1} - q^n) / dt - A(q)
-            //
-            // but A(q) = (q* - q^n) / dt -- that's the effect of advection w/o burning
-            //
-            // so I_q = (q^{n+1} - q*) / dt
 
             if (hydrosim::include_react_in_sdc_advect) {
                 for (int n = 0; n < NQ; ++n) {
@@ -821,7 +736,7 @@ HydroSim::burn_over_state(Real time, Real dt)
         });
 
 #ifdef AMREX_USE_HIP
-        Gpu::streamSynchronize(); // otherwise HIP may fail to allocate the necessary resources.
+        Gpu::streamSynchronize();
 #endif
 
 #ifdef ALLOW_GPU_PRINTF
@@ -885,12 +800,10 @@ bool
 HydroSim::zones_are_burnable(const MultiFab& State)
 {
 
-    // The default values of the limiters are 0 and 1.e200, respectively.
 
     Real small = 1.e-10;
     Real large = 1.e199;
 
-    // Check whether we are limiting on either rho or T.
 
     bool limit_dens_lower = burn_rho_min >= small;
     bool limit_dens_upper = burn_rho_max <= large;
@@ -908,7 +821,6 @@ HydroSim::zones_are_burnable(const MultiFab& State)
       return true;
     }
 
-    // if we're limiting on rho, collect the minimum and/or maximum
 
     amrex::Vector<Real> lower_limit_values;
     amrex::Vector<Real> upper_limit_values;
@@ -928,7 +840,6 @@ HydroSim::zones_are_burnable(const MultiFab& State)
       upper_limit_values.push_back(dens_upper);
     }
 
-    // if we're limiting on T, collect the minimum and/or maximum
 
     Real temp_lower = small;
     Real temp_upper = large;
@@ -943,11 +854,6 @@ HydroSim::zones_are_burnable(const MultiFab& State)
       upper_limit_values.push_back(temp_upper);
     }
 
-    // Now do the reductions. We're being careful here
-    // to limit the amount of work and communication,
-    // because regularly doing this check only makes sense
-    // if it is negligible compared to the amount of work
-    // needed to just do the burn as normal.
 
     int small_size = static_cast<int>(lower_limit_values.size());
 
@@ -979,10 +885,6 @@ HydroSim::zones_are_burnable(const MultiFab& State)
         }
     }
 
-    // Finally check on whether min <= rho <= max
-    // and min <= T <= max. The defaults are small
-    // and large respectively, so if the limiters
-    // are not on, these checks will not be triggered.
 
     if (dens_upper >= burn_rho_min &&
         dens_lower <= burn_rho_max &&
@@ -991,8 +893,6 @@ HydroSim::zones_are_burnable(const MultiFab& State)
         return true;
     }
 
-    // If we got to this point, we did not survive the limiters,
-    // so there are no zones to burn.
 
     if (verbose > 1) {
         amrex::Print() << "  No valid zones to burn, skipping burn_over_state()." << std::endl;

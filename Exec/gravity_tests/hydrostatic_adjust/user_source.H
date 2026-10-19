@@ -35,7 +35,6 @@ void user_source (int i, int j, int k,
         }
 #endif
 
-        // For heating at the center
         auto x = prob_lo[0] + (Real(i) + 0.5_rt)*dx[0] - center[0];
 #if AMREX_SPACEDIM == 1
         auto y = 0.0_rt;
@@ -63,7 +62,6 @@ void user_source (int i, int j, int k,
         }
 #endif
 
-        // sub-chandra heating -- modulate by He
 
         auto x = prob_lo[0] + (Real(i) + 0.5_rt)*dx[0] - center[0];
 #if AMREX_SPACEDIM == 1

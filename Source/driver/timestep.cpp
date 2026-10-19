@@ -33,7 +33,6 @@ using namespace amrex;
 Real
 timestep::dtlimit_rad (const MultiFab& activeState, const MultiFab& radiationField, const GeometryData& geomdata)
 {
-    // Compute radiation + hydro limited timestep.
 
     ReduceOps<ReduceOpMin> reduce_op;
     ReduceData<Real> reduce_data(reduce_op);
@@ -54,9 +53,6 @@ timestep::dtlimit_rad (const MultiFab& activeState, const MultiFab& radiationFie
         auto u = activeState[mfi].array();
         auto rad_gamma_pressure_arr = gPr.array();
 
-        // Note that we synchronize in the call to estimate_rad_gamma_pressure. Ideally
-        // we would merge these into one loop later (probably by making that
-        // call occur on a zone-by-zone basis) so that we can simplify.
 
         reduce_op.eval(tbox, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple

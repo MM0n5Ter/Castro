@@ -7,7 +7,6 @@ ambient_density_fill(const Box& bx, Array4<Real> const& state,
                 Geometry const& geom, const Vector<BCRec>& bcr)
 {
 
-    // Make a copy of the BC that can be passed by value to the ParallelFor.
 
     if (! hydrosim::apply_ambient_bc) {
         return;
@@ -65,8 +64,6 @@ ambient_region_fill(const Box& bx, Array4<Real> const& state,
              Geometry const& geom, const Vector<BCRec>& bcr)
 {
 
-    // Make a copy of the BC that can be passed by value to the ParallelFor.
-    // even though this fills all components, we only check the density BCs
 
     if (! hydrosim::apply_ambient_bc) {
         return;
@@ -119,7 +116,6 @@ ambient_region_fill(const Box& bx, Array4<Real> const& state,
 
             if (hydrosim::ambient_outflow_mode == 1) {
 
-                // extrapolate the normal velocity only if it is outgoing
                 if (i < domlo[0]) {
                     state(i,j,k,UMX) = amrex::min(0.0_rt, state(domlo[0],j,k,UMX));
                     state(i,j,k,UMY) = 0.0_rt;
@@ -146,7 +142,6 @@ ambient_region_fill(const Box& bx, Array4<Real> const& state,
                     state(i,j,k,UMZ) = amrex::max(0.0_rt, state(i,j,domhi[2],UMZ));
                 }
 
-                // now make the energy consistent
                 state(i,j,k,UEDEN) = state(i,j,k,UEINT) +
                   0.5_rt * (state(i,j,k,UMX) * state(i,j,k,UMX) +
                             state(i,j,k,UMY) * state(i,j,k,UMY) +

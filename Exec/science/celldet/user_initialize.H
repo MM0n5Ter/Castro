@@ -9,7 +9,6 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // get the species indices
 
     problem::ihe4 = network_spec_index("helium-4");
     problem::ic12 = network_spec_index("carbon-12");
@@ -19,25 +18,21 @@ void user_initialize ()
         amrex::Error("ERROR: species indices not found");
     }
 
-    // make sure that the carbon fraction falls between 0 and 1
 
     if (problem::cfrac > 1.0_rt || problem::cfrac < 0.0_rt) {
         amrex::Error("ERROR: cfrac must fall between 0 and 1");
     }
 
-    // make sure that the oxygen fraction falls between 0 and 1
 
     if (problem::ofrac > 1.0_rt || problem::ofrac < 0.0_rt) {
         amrex::Error("ERROR: ofrac must fall between 0 and 1");
     }
 
-    // make sure that the C/O fraction sums to no more than 1
 
     if (problem::cfrac + problem::ofrac > 1.0_rt) {
         amrex::Error("ERROR: cfrac + ofrac cannot exceed 1.");
     }
 
-    // set the default mass fractions
 
     for (int n = 0; n < NumSpec; n++) {
         problem::xn[n] = problem::smallx;
@@ -46,7 +41,6 @@ void user_initialize ()
     problem::xn[problem::io16] = amrex::max(problem::ofrac, problem::smallx);
     problem::xn[problem::ihe4] = 1.0_rt - problem::cfrac - problem::ofrac - (NumSpec - 2) * problem::smallx;
 
-    // Set the ambient material
 
     problem::ambient_dens = problem::dens_l;
     for (int n = 0; n < NumSpec; n++) {

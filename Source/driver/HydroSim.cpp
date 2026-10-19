@@ -97,18 +97,15 @@ Vector<Real> HydroSim::node_quad_weights;
 #endif
 
 #ifdef GRAVITY
-// the gravity object
 std::unique_ptr<Gravity> HydroSim::gravity;
 #endif
 
 #ifdef DIFFUSION
-// the diffusion object
 std::unique_ptr<Diffusion> HydroSim::diffusion;
 #endif
 
 #ifdef RADIATION
 
-// the radiation object
 std::unique_ptr<Radiation> HydroSim::radiation;
 #endif
 
@@ -136,11 +133,9 @@ IntVect      HydroSim::hydro_tile_size(1048576,1048576,1048576);
 IntVect      HydroSim::untiled_size(1024,1024,1024);
 #endif
 
-// this records whether we have done tuning on the hydro tile size
 int          HydroSim::sweep_tile_tuned = 0;
 Long         HydroSim::largest_tuned_box_pts = 0;
 
-// this will be reset upon restart
 Real         HydroSim::priorCpuSeconds = 0.0;
 
 Real         HydroSim::startCpuSeconds = 0.0;
@@ -151,8 +146,6 @@ int          HydroSim::num_field_types = 0;
 int          HydroSim::user_init_pending = 0;
 
 
-// HydroSim::variableSetUp is in HydroSim_setup.cpp
-// variableCleanUp is called once at the end of a simulation
 void
 HydroSim::variableCleanUp ()
 {
@@ -193,7 +186,6 @@ HydroSim::variableCleanUp ()
 
     desc_lst.clear();
 
-    // C++ cleaning
     eos_finalize();
 
 }
@@ -209,8 +201,6 @@ HydroSim::read_params ()
 
     done = true;
 
-    // this gets all of the parameters defined in _cpp_params, regardless of
-    // namespace
     load_compiled_params();
 
     ParmParse pp("hydrosim");
@@ -219,7 +209,6 @@ HydroSim::read_params ()
     using namespace hydrosim;
 
 
-    // Get boundary conditions
     Vector<int> lo_bc(AMREX_SPACEDIM), hi_bc(AMREX_SPACEDIM);
     pp.getarr("lo_bc",lo_bc,0,AMREX_SPACEDIM);
     pp.getarr("hi_bc",hi_bc,0,AMREX_SPACEDIM);
@@ -231,15 +220,8 @@ HydroSim::read_params ()
 
     const Geometry& default_geom = DefaultGeometry();
 
-    //
-    // Check phys_bc against possible periodic geometry
-    // if periodic, must have internal BC marked.
-    //
     if (default_geom.isAnyPeriodic())
     {
-        //
-        // Do idiot check.  Periodic means interior in those directions.
-        //
         for (int dir = 0; dir<AMREX_SPACEDIM; dir++)
         {
             if (default_geom.isPeriodic(dir))
@@ -263,9 +245,6 @@ HydroSim::read_params ()
     }
     else
     {
-        //
-        // Do idiot check.  If not periodic, should be no interior.
-        //
         for (int dir=0; dir<AMREX_SPACEDIM; dir++)
         {
             if (lo_bc[dir] == amrex::PhysBCType::interior)
@@ -339,14 +318,12 @@ HydroSim::read_params ()
 #endif
 
 #ifdef HYBRID_MOMENTUM
-    // We do not support hybrid advection when using the CONTACT_FLUX solver.
 
     if (riemann_method == 2) {
         amrex::Abort("CONTACT_FLUX Riemann solver unsupported when using hybrid momentum.");
     }
 #endif
 
-    // sanity checks
 
     if (restart_grow_factor < 1) {
       amrex::Error("restart_grow_factor must be integer >= 1");
@@ -356,7 +333,6 @@ HydroSim::read_params ()
       amrex::Error("Invalid CFL factor; must be between zero and one.");
     }
 
-    // SDC does not support GPUs yet
 #ifdef AMREX_USE_GPU
     if (time_scheme == IterativeCorrection) {
         amrex::Error("SDC is currently not enabled on GPUs.");
@@ -364,10 +340,6 @@ HydroSim::read_params ()
 #endif
 
 
-    // Simplified SDC currently requires USE_SIMPLIFIED_SDC to be defined.
-    // Also, if we have USE_SIMPLIFIED_SDC defined, we can't use the other
-    // time integration_methods, because only the SDC burner
-    // interface is available in Microphysics in this case.
 #ifndef SIMPLIFIED_SDC
     if (time_scheme == SimplifiedIterCorrection) {
         amrex::Error("Simplified SDC currently requires USE_SIMPLIFIED_SDC=TRUE when compiling.");
@@ -443,7 +415,6 @@ HydroSim::read_params ()
         amrex::Error();
       }
 
-    // Make sure not to call refluxing if we're not actually doing any hydro.
     if (!do_hydro) {
       do_reflux = false;
     }
@@ -460,7 +431,6 @@ HydroSim::read_params ()
         amrex::Error();
     }
 
-    // This interpolation is not currently implemented for some geometries
     if (linear_interp_limiter == 2) {
         if (default_geom.IsSPHERICAL()) {
             amrex::Error("linear_interp_limiter == 2 is not currently implemented for spherical geometries");
@@ -470,7 +440,6 @@ HydroSim::read_params ()
         }
     }
 
-    // Post-timestep regrids only make sense if we're subcycling.
     std::string subcycling_mode;
     ppa.query("subcycling_mode", subcycling_mode);
     if (regrid_each_step == 1 && subcycling_mode == "None") {
@@ -482,15 +451,11 @@ HydroSim::read_params ()
 #endif
 
 #ifdef RADIATION
-    // Some radiation parameters are initialized here because they
-    // may be used in variableSetUp, well before the call to the
-    // Radiation constructor,
 
     if (do_radiative_transfer == 1) {
       Radiation::load_static_settings();
     }
 
-    // radiation is only supported with CTU
     if (do_radiative_transfer && time_scheme != CornerTrace) {
         amrex::Error("Radiation is currently only supported for CTU time advancement.");
     }
@@ -534,8 +499,6 @@ HydroSim::read_params ()
     }
 #endif
 
-   // SCF initial model construction can only be done if both
-   // rotation and gravity have been compiled in.
 
 #if !defined(GRAVITY) || !defined(ROTATION)
    if (do_equilibrium_start) {
@@ -545,12 +508,6 @@ HydroSim::read_params ()
 
    StateDescriptor::setBndryFuncThreadSafety(boundary_callback_threadsafe);
 
-   // Open up HydroSim data logs
-   // Note that this functionality also exists in the Amr class
-   // but we implement it on our own to have a little more control.
-   // Some of these will only be filled for certain ifdefs, but
-   // we should use consistent indexing regardless of ifdefs (so some
-   // logs may be unused in a given run).
 
    if (sum_step_period > 0 && ParallelDescriptor::IOProcessor()) {
 
@@ -592,13 +549,9 @@ HydroSim::read_params ()
         }
     }
 
-    // Override Amr defaults. Note: this function is called after Amr::Initialize()
-    // in Amr::InitAmr(), right before the ParmParse checks, so if the user opts to
-    // override our overriding, they can do so.
 
     Amr::setComputeNewDtOnRegrid(true);
 
-    // Read in custom refinement scheme.
 
     Vector<std::string> refine_criteria;
     ppa.queryarr("refine_criteria", refine_criteria, 0, ppa.countval("refine_criteria"));
@@ -626,8 +579,6 @@ HydroSim::read_params ()
             BL_ASSERT(max_level < LEVEL_LIMIT);
             info.SetMaxLevel(max_level);
         } else {
-            // the default max_level of AMRErrorTagInfo is 1000, but make sure
-            // that it is reasonable for HydroSim
             info.SetMaxLevel(LEVEL_LIMIT);
         }
         if (ppr.countval("volume_weighting") > 0) {
@@ -700,7 +651,6 @@ HydroSim::HydroSim (Amr&            papa,
 
     allocFabs();
 
-    // Coterminous AMR boundaries are not supported in HydroSim if we're doing refluxing.
 
     if (do_hydro == 1 && do_reflux == 1) {
         for (int ilev = 0; ilev <= parent->maxLevel(); ++ilev) {
@@ -710,7 +660,6 @@ HydroSim::HydroSim (Amr&            papa,
         }
     }
 
-    // initialize all the new time level data to zero
     for (int k = 0; k < num_field_types; k++) {
       MultiFab& data = get_new_data(k);
       data.setVal(0.0, data.nGrow());
@@ -719,18 +668,14 @@ HydroSim::HydroSim (Amr&            papa,
 #ifdef GRAVITY
 
     if (do_gravity_flag == 1) {
-      // gravity is a static object, only alloc if not already there
       if (gravity == nullptr) {
         gravity = std::make_unique<Gravity>(parent, parent->finestLevel(), &phys_bc, URHO);
       }
 
-      // Passing grid_points_1d at level 0
       if (!level_geom.isAllPeriodic() && gravity != nullptr)
       {
          int grid_points_1d = count_points_1d();
 
-         // For 1D, we need to add ghost cells to the numpts
-         // given to us by HydroSim.
 
 #if (AMREX_SPACEDIM == 1)
          grid_points_1d += 2 * NUM_GROW;
@@ -750,7 +695,6 @@ HydroSim::HydroSim (Amr&            papa,
 
 
 #ifdef DIFFUSION
-      // diffusion is a static object, only alloc if not already there
       if (diffusion == nullptr) {
         diffusion = std::make_unique<Diffusion>(parent, &phys_bc);
       }
@@ -761,7 +705,6 @@ HydroSim::HydroSim (Amr&            papa,
 #ifdef RADIATION
     if (do_radiative_transfer) {
       if (radiation == nullptr) {
-        // radiation is a static object, only alloc if not already there
         radiation = std::make_unique<Radiation>(parent, this);
         global::radiation_instance = radiation.get();
       }
@@ -771,18 +714,15 @@ HydroSim::HydroSim (Amr&            papa,
     }
 #endif
 
-    // now check the runtime parameters to warn / abort if the user set
-    // anything that isn't known to HydroSim
 
     check_runparams();
 
 }
 
-HydroSim::~HydroSim ()  // NOLINT(modernize-use-equals-default)
+HydroSim::~HydroSim ()
 {
 #ifdef RADIATION
     if (radiation != nullptr) {
-      //radiation->cleanup(level);
       radiation->close(level);
     }
 #endif
@@ -865,7 +805,6 @@ HydroSim::buildMetrics ()
     wall_clock_start = 0.0;
 }
 
-// Initialize the MultiFabs and flux registers that live as class members.
 
 void
 HydroSim::allocFabs()
@@ -939,11 +878,9 @@ HydroSim::allocFabs()
 #ifdef REACTIONS
     if (keep_burn_weights) {
         if (hydrosim::time_scheme == CornerTrace) {
-            // we have 2 components: first half and second half
             burn_split_data.define(grids, dmap, 2, 0);
         }
         else if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-            // we have a component for each sdc iteration + 1 extra for retries
             burn_split_data.define(grids, dmap, deferred_iters+1, 0);
         }
 
@@ -951,27 +888,13 @@ HydroSim::allocFabs()
     }
 #endif
 
-    // Set the flux register scalings.
 
     if (do_reflux) {
 
         flux_coarse_scale = -1.0;
         flux_refined_scale = 1.0;
 
-        // The fine pressure scaling depends on dimensionality,
-        // as the dimensionality determines the number of
-        // adjacent zones. In 1D the face is a point so
-        // there's only one fine neighbor for a given coarse
-        // face; in 2D there's crse_ratio[1] faces adjacent
-        // to a face perpendicular to the radial dimension;
-        // and in 3D there would be crse_ratio**2, though
-        // we do not separate the pressure out in 3D. Note
-        // that the scaling by dt has already been handled
-        // in the construction of the Pressure_radial array.
 
-        // The coarse pressure scaling is the same as for the
-        // fluxes, we want the total refluxing contribution
-        // over the full set of fine timesteps to equal Pressure_radial.
 
 #if (AMREX_SPACEDIM == 1)
         pressure_coarse_scale = -1.0;
@@ -989,13 +912,9 @@ HydroSim::allocFabs()
 
     if (user_init_pending == 0) {
 
-      // sync up some C++ values of the runtime parameters
 
       user_init_pending = 1;
 
-      // If we're doing C++ problem initialization, do it here. We have to make
-      // sure it's done after the above call to init_prob_parameters() in case
-      // any changes are made to the problem parameters.
 
       user_initialize();
 
@@ -1017,9 +936,6 @@ HydroSim::initData ()
 {
     BL_PROFILE("HydroSim::initData()");
 
-    //
-    // Loop over grids, call initialization functions
-    //
 #if AMREX_SPACEDIM > 1
     const Real* dx  = geom.CellSize();
 #endif
@@ -1030,7 +946,6 @@ HydroSim::initData ()
 
     if (! allow_anisotropic_cells) {
 
-        // make sure dx = dy = dz -- that's all we guarantee to support
 #if (AMREX_SPACEDIM == 2)
         const Real SMALL = 1.e-13;
         if (std::abs(dx[0] - dx[1]) > SMALL*dx[0])
@@ -1063,13 +978,10 @@ HydroSim::initData ()
 
 #endif
 
-    // Don't profile for this code, since there will be a lot of host
-    // activity and GPU page faults that we're uninterested in.
 
     Gpu::Device::profilerStop();
 
 #ifdef RADIATION
-    // rad quantities are in the state even if (do_radiative_transfer == 0)
     MultiFab &radiation_new = get_new_data(Radiation_Type);
     radiation_new.setVal(0.);
 #endif
@@ -1112,9 +1024,6 @@ HydroSim::initData ()
           amrex::ParallelFor(face_box_x,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-              // C++ MHD problem initialization; has no effect if not
-              // implemented by a problem setup (defaults to an empty
-              // routine).
               user_initialize_mhd_data(i, j, k, magfield_x_arr, 0, geomdata);
           });
 
@@ -1123,9 +1032,6 @@ HydroSim::initData ()
           amrex::ParallelFor(face_box_y,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-              // C++ MHD problem initialization; has no effect if not
-              // implemented by a problem setup (defaults to an empty
-              // routine).
               user_initialize_mhd_data(i, j, k, magfield_y_arr, 1, geomdata);
           });
 
@@ -1134,15 +1040,12 @@ HydroSim::initData ()
           amrex::ParallelFor(face_box_z,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-              // C++ MHD problem initialization; has no effect if not
-              // implemented by a problem setup (defaults to an empty
-              // routine).
               user_initialize_mhd_data(i, j, k, magfield_z_arr, 2, geomdata);
           });
 
        }
 
-#endif //MHD
+#endif
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
@@ -1158,14 +1061,12 @@ HydroSim::initData ()
           amrex::ParallelForRNG(box,
           [=] AMREX_GPU_DEVICE (int i, int j, int k, amrex::RandomEngine const& engine) noexcept
           {
-              // problem initialization
               user_initialize_state_data(i, j, k, s, geomdata, engine);
           });
 #else
           amrex::ParallelFor(box,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-              // problem initialization
               user_initialize_state_data(i, j, k, s, geomdata);
           });
 #endif
@@ -1173,17 +1074,12 @@ HydroSim::initData ()
 
 
 #ifdef MHD
-      //correct energy density with the magnetic field contribution
       add_bfield_energy(magfield_x_new, magfield_y_new, magfield_z_new, S_new);
 
-      //check magDivergence
       check_div_bfield(magfield_x_new, magfield_y_new, magfield_z_new, S_new);
 
 #endif
 
-       // it is not a requirement that the problem setup defines the
-       // temperature, so we do that here _and_ ensure that we are
-       // within any small limits
        computeTemp(
 #ifdef MHD
                    magfield_x_new, magfield_y_new, magfield_z_new,
@@ -1209,10 +1105,6 @@ HydroSim::initData ()
            reduce_op.eval(bx, reduce_data,
            [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
            {
-               // if the problem tried to initialize a thermodynamic
-               // state that is at or below small_temp, then we abort.
-               // This is dangerous and we should recommend a smaller
-               // small_temp
                int temp_failed = 0;
                if (cons_state_arr(i,j,k,UTEMP) < ltemp_floor * 1.001) {
                    temp_failed = 1;
@@ -1241,12 +1133,10 @@ HydroSim::initData ()
        }
 
 #ifdef HYBRID_MOMENTUM
-       // Generate the initial hybrid momenta based on this user data.
 
        linear_to_split_momentum(S_new, 0);
 #endif
 
-       // Verify that the sum of (rho X)_i = rho at every cell
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
@@ -1276,24 +1166,19 @@ HydroSim::initData ()
 
 #ifdef TRUE_SDC
        if (init_cell_averaged == 0) {
-         // we are assuming that the initialization was done to cell-centers
 
-         // Enforce that the total and internal energies are consistent.
          reconcile_energy(
 #ifdef MHD
                             magfield_x_new, magfield_y_new,magfield_z_new,
 #endif
                             S_new);
 
-         // For fourth-order, we need to convert to cell-averages now.
-         // (to second-order, these are cell-averages, so we're done in that case).
 
 #ifndef AMREX_USE_GPU
          if (sdc_accuracy_order == 4) {
            Sborder.define(grids, dmap, NUM_STATE, NUM_GROW);
            AmrLevel::FillPatch(*this, Sborder, NUM_GROW, cur_time, State_Type, 0, NUM_STATE);
 
-           // note: this cannot be tiled
            auto domain_lo = geom.Domain().loVect3d();
            auto domain_hi = geom.Domain().hiVect3d();
 
@@ -1309,7 +1194,6 @@ HydroSim::initData ()
                build_fourth_in_place(box, Sborder.array(mfi), tmp_arr, domain_lo, domain_hi);
              }
 
-           // now copy back the averages
            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
            Sborder.clear();
          }
@@ -1319,7 +1203,6 @@ HydroSim::initData ()
          Sborder.define(grids, dmap, NUM_STATE, NUM_GROW);
          AmrLevel::FillPatch(*this, Sborder, NUM_GROW, cur_time, State_Type, 0, NUM_STATE);
 
-         // convert to centers -- not tile safe
          auto domain_lo = geom.Domain().loVect3d();
          auto domain_hi = geom.Domain().hiVect3d();
 
@@ -1335,7 +1218,6 @@ HydroSim::initData ()
              build_center_state_in_place(box, Sborder.array(mfi), tmp_arr, domain_lo, domain_hi);
            }
 
-         // reset the energy -- do this in one ghost cell so we can average in place below
          for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
            {
              const Box& box = mfi.growntilebox(1);
@@ -1372,7 +1254,6 @@ HydroSim::initData ()
              });
            }
 
-         // convert back to averages -- not tile safe
          for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
            {
              const Box& box = mfi.validbox();
@@ -1383,14 +1264,12 @@ HydroSim::initData ()
              build_fourth_in_place(box, Sborder.array(mfi), tmp_arr, domain_lo, domain_hi);
            }
 
-         // now copy back the averages for UEINT and UTEMP only
          MultiFab::Copy(S_new, Sborder, UEINT, UEINT, 1, 0);
          MultiFab::Copy(S_new, Sborder, UTEMP, UTEMP, 1, 0);
          Sborder.clear();
 
        }
 #else
-       // Enforce that the total and internal energies are consistent.
        reconcile_energy(
 #ifdef MHD
                             magfield_x_new, magfield_y_new,magfield_z_new,
@@ -1398,7 +1277,6 @@ HydroSim::initData ()
                             S_new);
 #endif
 
-       // Do a FillPatch so that we can get the ghost zones filled.
 
        int ng = S_new.nGrow();
 
@@ -1441,16 +1319,14 @@ HydroSim::initData ()
           amrex::ParallelFor(box,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
-              // C++ problem initialization; has no effect if not implemented
-              // by a problem setup (defaults to an empty routine).
 
               user_initialize_rad_data(i, j, k, r, nu_edge_pass, nu_center_pass, nu_width_pass, geomdata);
           });
       }
     }
-#endif // RADIATION
+#endif
 
-#endif // LOWMACH_INIT
+#endif
 
 
 #ifdef GRAVITY
@@ -1484,9 +1360,6 @@ HydroSim::init (AmrLevel &old)
 
     auto* oldlev = dynamic_cast<HydroSim*>(&old);
 
-    //
-    // Create new grid data by fillpatching from old.
-    //
     Real dt_new    = parent->dtLevel(level);
     Real cur_time  = oldlev->state[State_Type].curTime();
     Real prev_time = oldlev->state[State_Type].prevTime();
@@ -1505,11 +1378,6 @@ HydroSim::init (AmrLevel &old)
         }
     }
 
-    // Copy some other data we need from the old class.
-    // One reason this is necessary is if we are doing
-    // a post-timestep regrid -- then we're going to need
-    // to save information about whether there was a retry
-    // during the timestep.
 
     iteration = oldlev->iteration;
     sub_pass = oldlev->sub_pass;
@@ -1524,10 +1392,6 @@ HydroSim::init (AmrLevel &old)
 
 }
 
-//
-// This version inits the data on a new level that did not
-// exist before regridding.
-//
 void
 HydroSim::init ()
 {
@@ -1541,8 +1405,6 @@ HydroSim::init ()
 
     Real time = cur_time;
 
-    // If we just triggered a regrid, we need to account for the fact that
-    // the data on the coarse level has already been advanced.
 
     if (getLevel(level-1).post_step_regrid) {
       time = prev_time;
@@ -1595,7 +1457,6 @@ HydroSim::estTimeStep (int use_new_state)
 #endif
     const auto geomdata = geom.data();
 
-    // If we're not subcycling, we only need to do timestep estimation on leaf cells.
 
     bool exclude_covered_zones = false;
 
@@ -1608,10 +1469,6 @@ HydroSim::estTimeStep (int use_new_state)
 
     std::string limiter = "hydrosim.max_dt";
 
-    // Start the hydro with the max_dt value, but divide by CFL
-    // to account for the fact that we multiply by it at the end.
-    // This ensures that if max_dt is more restrictive than the hydro
-    // criterion, we will get exactly max_dt for a timestep.
 
     Real dtlimit_hydro = max_dt / cfl;
 
@@ -1659,7 +1516,6 @@ HydroSim::estTimeStep (int use_new_state)
 #endif
 
 
-        // Determine if this is more restrictive than the maximum timestep limiting
 
         if (dtlimit_hydro < estdt) {
             limiter = "hydro";
@@ -1669,9 +1525,6 @@ HydroSim::estTimeStep (int use_new_state)
     }
 
 #ifdef DIFFUSION
-    // Diffusion-limited timestep
-    // Note that the diffusion uses the same CFL safety factor
-    // as the main hydrodynamics timestep limiter.
 
     Real dtlimit_diffusion = max_dt / cfl;
 
@@ -1697,21 +1550,18 @@ HydroSim::estTimeStep (int use_new_state)
         }
     }
 
-    // Determine if this is more restrictive than the hydro limiting
 
     if (dtlimit_diffusion < estdt) {
         limiter = "diffusion";
         estdt = dtlimit_diffusion;
     }
-#endif  // diffusion
+#endif
 
 #ifdef REACTIONS
-    // Dummy value to start with
     Real dtlimit_burn = max_dt;
 
     if (do_react && (hydrosim::burn_dt_energy < 1.e199_rt || hydrosim::burn_dt_massfrac < 1.e199_rt)) {
 
-        // Compute burning-limited timestep.
 
         auto burn_timestep = timestep::estdt<timestep::burning>(geomdata, coverMask, activeState);
 
@@ -1732,7 +1582,6 @@ HydroSim::estTimeStep (int use_new_state)
             amrex::Print() << "...burning-limited timestep constrained at " << index_label << " = " << burn_timestep.index << std::endl;
         }
 
-        // Determine if this is more restrictive than the hydro limiting
 
         if (dtlimit_burn < estdt) {
             limiter = "burning";
@@ -1750,9 +1599,9 @@ HydroSim::estTimeStep (int use_new_state)
 
 void
 HydroSim::computeNewDt (int                    finest_level,
-                      int                    /*sub_cycle*/,
+                      int                     ,
                       Vector<int>&           n_cycle,
-                      const Vector<IntVect>& /*ref_ratio*/,
+                      const Vector<IntVect>&  ,
                       Vector<Real>&          dt_min,
                       Vector<Real>&          dt_level,
                       Real                   stop_time,
@@ -1760,10 +1609,6 @@ HydroSim::computeNewDt (int                    finest_level,
 {
     BL_PROFILE("HydroSim::computeNewDt()");
 
-    //
-    // We are at the start of a coarse grid timecycle.
-    // Compute the timesteps for the next iteration.
-    //
     if (level > 0) {
         return;
     }
@@ -1780,9 +1625,6 @@ HydroSim::computeNewDt (int                    finest_level,
     {
        if (post_regrid_flag == 1)
        {
-          //
-          // Limit dt's by pre-regrid dt
-          //
           for (int i = 0; i <= finest_level; i++)
           {
               dt_min[i] = std::min(dt_min[i],dt_level[i]);
@@ -1790,11 +1632,6 @@ HydroSim::computeNewDt (int                    finest_level,
        }
        else
        {
-          //
-          // Limit dt's by change_max * old dt,
-          // if we didn't limit the last timestep
-          // to hit a plotfile interval.
-          //
           if (lastDtWriteLimited) {
 
               dt_min[0] = std::min(dt_min[0], lastDtBeforeWriteLimit);
@@ -1826,19 +1663,12 @@ HydroSim::computeNewDt (int                    finest_level,
        }
     }
 
-    //
-    // Find the minimum over all levels
-    //
     for (int i = 0; i <= finest_level; i++)
     {
         n_factor *= n_cycle[i];
         dt_0 = std::min(dt_0,n_factor*dt_min[i]);
     }
 
-    //
-    // Optionally, limit dt's by the value of
-    // plot_per or small_plot_per.
-    //
     if (plot_interval_exact) {
 
         const Real plot_per = parent->plotPer();
@@ -1847,15 +1677,11 @@ HydroSim::computeNewDt (int                    finest_level,
 
             const Real cur_time = state[State_Type].curTime();
 
-            // Calculate the new dt by comparing to the dt needed to get
-            // to the next multiple of plot_per.
 
             const Real phaseOffset = std::fmod(cur_time, plot_per);
 
             Real nextPlotDt;
 
-            // Note that if we are just about exactly on a multiple of plot_per,
-            // then we need to be careful to avoid floating point issues.
 
             if (std::abs(phaseOffset - plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
                 nextPlotDt = plot_per + (plot_per - phaseOffset);
@@ -1869,8 +1695,6 @@ HydroSim::computeNewDt (int                    finest_level,
                 lastDtBeforeWriteLimit = dt_0;
                 dt_0 = nextPlotDt;
 
-                // Avoid taking timesteps that are so small that
-                // they may cause problems in the hydrodynamics.
 
                 const Real dtFloor = 1.e-4 * lastDtBeforeWriteLimit;
                 dt_0 = std::max(dt_0, dtFloor);
@@ -1892,7 +1716,6 @@ HydroSim::computeNewDt (int                    finest_level,
 
             const Real cur_time = state[State_Type].curTime();
 
-            // Same logic as for plot_interval_exact.
 
             const Real phaseOffset = std::fmod(cur_time, small_plot_per);
 
@@ -1922,9 +1745,6 @@ HydroSim::computeNewDt (int                    finest_level,
 
     }
 
-    //
-    // Limit dt's by the value of stop_time.
-    //
     const Real eps = std::numeric_limits<Real>::epsilon();
     Real cur_time = state[State_Type].curTime();
     if (stop_time >= 0.0) {
@@ -1946,17 +1766,14 @@ HydroSim::computeNewDt (int                    finest_level,
 
 void
 HydroSim::computeInitialDt (int                   finest_level,
-                          int                   /*subcycle*/,
+                          int                    ,
                           Vector<int>&           n_cycle,
-                          const Vector<IntVect>& /*ref_ratio*/,
+                          const Vector<IntVect>&  ,
                           Vector<Real>&          dt_level,
                           Real                  stop_time)
 {
     BL_PROFILE("HydroSim::computeInitialDt()");
 
-    //
-    // Grids have been constructed, compute dt for all levels.
-    //
     if (level > 0) {
       return;
     }
@@ -1965,7 +1782,6 @@ HydroSim::computeInitialDt (int                   finest_level,
 
     Real dt_0 = 1.0e+100;
     int n_factor = 1;
-    // TODO/DEBUG: This will need to change for optimal subcycling.
     for (i = 0; i <= finest_level; i++)
     {
         dt_level[i] = getLevel(i).initialTimeStep();
@@ -1973,9 +1789,6 @@ HydroSim::computeInitialDt (int                   finest_level,
         dt_0 = std::min(dt_0,n_factor*dt_level[i]);
     }
 
-    //
-    // Limit dt's by the value of stop_time.
-    //
     const Real eps = 0.001*dt_0;
     Real cur_time  = state[State_Type].curTime();
     if (stop_time >= 0.0) {
@@ -2000,28 +1813,18 @@ HydroSim::post_timestep (int cycle_index)
 
     BL_PROFILE("HydroSim::post_timestep()");
 
-    //
-    // Integration cycle on fine level grids is complete
-    // do post_timestep stuff here.
-    //
     int finest_level = parent->finestLevel();
 
 #ifdef RADIATION
     if (do_radiative_transfer && (level < finest_level)) {
-        // computeTemp is not needed before or after this call because
-        // setup for deferred sync does not touch state, only flux registers.
         radiation->prepare_delayed_reflux(level);
 
         if (do_reflux) {
             radiation->reflux(level);
-            // Since radiation->reflux does not touch the fluid state,
-            // we do need to recompute Temp here.
         }
     }
 #endif
 
-    // Now do the refluxing. If we're using gravity it
-    // will also do the sync solve associated with the reflux.
 
     if (do_reflux && level < parent->finestLevel()) {
         if (parent->subcyclingMode() != "None") {
@@ -2029,7 +1832,6 @@ HydroSim::post_timestep (int cycle_index)
         }
     }
 
-    // Ensure consistency with finer grids.
 
     if (level < finest_level) {
         avgDown();
@@ -2041,8 +1843,6 @@ HydroSim::post_timestep (int cycle_index)
     MultiFab& magfield_z_new = get_new_data(Bfield_Type_z);
 #endif
 
-    // Clean up any aberrant state data generated by the reflux and average-down,
-    // and then update quantities like temperature to be consistent.
     MultiFab& S_new = get_new_data(State_Type);
     clean_state(
 #ifdef MHD
@@ -2053,10 +1853,6 @@ HydroSim::post_timestep (int cycle_index)
 
 #ifdef DO_USER_POST_TIMESTEP
 
-    // Provide a hook for the user to do things after all of
-    // the normal updates have been applied. The user is
-    // responsible for any actions after this point, like
-    // doing a computeTemp call if they change the state data.
 
     user_post_timestep();
 
@@ -2103,7 +1899,6 @@ HydroSim::post_timestep (int cycle_index)
     }
 
 #ifdef RADIATION
-    // diagnostic stuff
 
     if (level == 0) {
       print_energy_budget();
@@ -2114,9 +1909,6 @@ HydroSim::post_timestep (int cycle_index)
     if (TracerPC)
     {
         const int ncycle = parent->nCycle(level);
-        //
-        // Don't redistribute/timestamp on the final subiteration except on the coarsest grid.
-        //
         if (cycle_index < ncycle || level == 0)
         {
             int ngrow = (level == 0) ? 0 : cycle_index;
@@ -2128,7 +1920,6 @@ HydroSim::post_timestep (int cycle_index)
     }
 #endif
 
-    // Check to see if the user-supplied stopping criterion has been met.
 
     if (!hydrosim::stop_field_name.empty() && level == 0) {
         Real peak_field_value = std::numeric_limits<Real>::min();
@@ -2150,7 +1941,6 @@ HydroSim::post_timestep (int cycle_index)
 
             stopRequested = true;
 
-            // Write out a checkpoint.
 
             if (amrex::ParallelDescriptor::IOProcessor()) {
                 std::ofstream stop_flag_file;
@@ -2158,7 +1948,6 @@ HydroSim::post_timestep (int cycle_index)
                 stop_flag_file.close();
             }
 
-            // Write out a file that indicates the job has completed.
 
             if (amrex::ParallelDescriptor::IOProcessor()) {
                 std::ofstream runDoneFile;
@@ -2187,7 +1976,6 @@ HydroSim::post_restart ()
 
         if (level == 0)
         {
-            // Passing grid_points_1d at level 0
             int grid_points_1d = count_points_1d ();
 
 #if (AMREX_SPACEDIM == 1)
@@ -2214,7 +2002,6 @@ HydroSim::post_restart ()
 
             if ( gravity->get_solver_kind() == "PoissonGrav")
             {
-                // Update the maximum density, used in setting the solver tolerance.
 
                 gravity->update_max_density();
 
@@ -2232,7 +2019,6 @@ HydroSim::post_restart ()
 #endif
 
 #ifdef DIFFUSION
-      // diffusion is a static object, only alloc if not already there
       if (diffusion == nullptr) {
           diffusion = std::make_unique<Diffusion>(parent, &phys_bc);
       }
@@ -2256,7 +2042,6 @@ HydroSim::post_restart ()
 void
 HydroSim::postCoarseTimeStep (Real cumtime)
 {
-    // postCoarseTimeStep() is only called by level 0.
     BL_ASSERT(level == 0);
     AmrLevel::postCoarseTimeStep(cumtime);
 #ifdef GRAVITY
@@ -2293,17 +2078,10 @@ HydroSim::post_regrid (int lbase,
 
            if (level > lbase) {
 
-               // In the case where we're coming here during a regrid that occurs
-               // after a timestep, we only want to interpolate the gravitational
-               // field from the old time. The state data will already have been
-               // filled, so all we need to do is interpolate the phi_gradient data.
 
-               // Instantiate a bare physical BC function for phi_gradient. It doesn't do anything
-               // since the fine levels for Poisson gravity do not touch the physical boundary.
 
                PotentialGradBCFunct gradient_phys_bc;
 
-               // We need to use a interpolater that works with data on faces.
 
                Interpolater* gradient_interp = &face_linear_interp;
 
@@ -2312,8 +2090,6 @@ HydroSim::post_regrid (int lbase,
 
                Real time = getLevel(lbase).get_state_data(Accel_Type).prevTime();
 
-               // For the BCs, we will use the Accel_Type BCs for convenience, but these will
-               // not do anything because we do not fill on physical boundaries.
 
                const Vector<BCRec>& gradient_bcs = getLevel(level).get_desc_lst()[Accel_Type].getBCs();
 
@@ -2333,7 +2109,6 @@ HydroSim::post_regrid (int lbase,
             if ( (level == lbase) && cur_time > 0.)
             {
                 if (gravity->get_solver_kind() == "PoissonGrav") {
-                    // Update the maximum density, used in setting the solver tolerance.
 
                     if (level == 0) {
                       gravity->update_max_density();
@@ -2350,10 +2125,6 @@ HydroSim::post_regrid (int lbase,
     }
 #endif
 
-    // Ensure regridded data is valid. This addresses the fact that data
-    // on this level that was interpolated from a coarser level may not
-    // respect the consistency between certain state variables
-    // (e.g. UEINT and UEDEN) that we demand in every zone.
 
     if (state[State_Type].hasOldData()) {
 
@@ -2385,7 +2156,7 @@ HydroSim::post_regrid (int lbase,
 }
 
 void
-HydroSim::post_init (Real /*stop_time*/)
+HydroSim::post_init (Real  )
 {
     BL_PROFILE("HydroSim::post_init()");
 
@@ -2393,10 +2164,6 @@ HydroSim::post_init (Real /*stop_time*/)
         return;
     }
 
-    //
-    // Average data down from finer levels
-    // so that conserved data is consistent between levels.
-    //
     int finest_level = parent->finestLevel();
     for (int k = finest_level-1; k>= 0; k--) {
       getLevel(k).avgDown();
@@ -2410,11 +2177,9 @@ HydroSim::post_init (Real /*stop_time*/)
 
        if (gravity->get_solver_kind() == "PoissonGrav") {
 
-          // Update the maximum density, used in setting the solver tolerance.
 
           gravity->update_max_density();
 
-          // Calculate offset before first multilevel solve.
           gravity->set_mass_shift(cur_time);
 
           gravity->multilevel_potential_solve(level,finest_level);
@@ -2423,7 +2188,6 @@ HydroSim::post_init (Real /*stop_time*/)
           }
        }
 
-       // Make this call just to fill the initial state data.
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
           BoxArray ba = getLevel(k).boxArray();
@@ -2436,8 +2200,6 @@ HydroSim::post_init (Real /*stop_time*/)
 
 #ifdef RADIATION
     if (do_radiative_transfer) {
-      // The option of whether to do a multilevel initialization is
-      // controlled within the radiation class.
 
       radiation->post_init(level);
 
@@ -2447,14 +2209,9 @@ HydroSim::post_init (Real /*stop_time*/)
 
       print_energy_budget();
 
-      // re-estimate the initial timestep using the initialized
-      // fine-level data and radiation field.
-      //if (level == 0)
-      //post_init_estDT();
     }
 #endif
 
-// Allow the user to define their own post_init functions.
 
 #ifdef DO_USER_POST_INIT
 
@@ -2462,7 +2219,6 @@ HydroSim::post_init (Real /*stop_time*/)
 
 #endif
 
-    // If we're doing SCF initialization, do it here.
 
 #ifdef GRAVITY
 #ifdef ROTATION
@@ -2529,11 +2285,9 @@ HydroSim::after_grow_restart ()
 
         if (gravity->get_solver_kind() == "PoissonGrav") {
 
-          // Update the maximum density, used in setting the solver tolerance.
 
           gravity->update_max_density();
 
-          // Calculate offset before first multilevel solve.
           gravity->set_mass_shift(cur_time);
 
           gravity->multilevel_potential_solve(level,finest_level);
@@ -2542,7 +2296,6 @@ HydroSim::after_grow_restart ()
           }
        }
 
-       // Make this call just to fill the initial state data.
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
           MultiFab& gravity_new = getLevel(k).get_new_data(Accel_Type);
@@ -2553,8 +2306,6 @@ HydroSim::after_grow_restart ()
 
 #ifdef RADIATION
     if (do_radiative_transfer) {
-      // The option of whether to do a multilevel initialization is
-      // controlled within the radiation class.
 
       radiation->post_init(level);
 
@@ -2566,10 +2317,6 @@ HydroSim::after_grow_restart ()
 
       print_energy_budget();
 
-      // re-estimate the initial timestep using the initialized
-      // fine-level data and radiation field.
-      //if (level == 0)
-      //post_init_estDT();
     }
 #endif
 }
@@ -2659,28 +2406,6 @@ HydroSim::FluxRegFineAccum() {
 
 }
 
-// reflux() synchronizes fluxes between levels and has two modes of operation.
-//
-// When from_post_step = true, we are performing the reflux in AmrLevel's
-// post_timestep() routine. This takes place after this level has completed
-// its advance as well as all fine levels above this level have completed
-// their advance. The main activities are:
-//
-// (1) Limit the flux correction so that it won't cause unphysical densities.
-// (2) Update any copies of the full flux arrays with the flux correction.
-// (3) Perform the flux correction on StateData using FluxRegister's Reflux().
-// (4) Do a sync solve for Poisson gravity now that the density has changed.
-// (5) Recompute the new-time sources now that StateData has changed.
-//
-// When from_post_step = false, we are performing the reflux immediately
-// after the hydro step has taken place on all levels between crse_level and
-// fine_level. This happens when amr.subcycling_mode = None, or in general when
-// the fine level does not subcycle relative to the coarse level. In this mode
-// we can skip steps (4) and (5), as those steps are only necessary to fix the
-// updates on these levels that took place without full information about the
-// hydro solve being synchronized. The advance on crse_level and fine_level will
-// then be followed by a normal computation of the new-time gravity and new-time
-// sources, which will not need to be corrected later.
 
 void
 HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
@@ -2729,34 +2454,16 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
         MultiFab& crse_state = crse_lev.get_new_data(State_Type);
 
-        // Get a version of this state with one ghost zone.
 
         MultiFab ghosted_coarse_state(crse_state.boxArray(), crse_state.DistributionMap(), crse_state.nComp(), 1);
 
         crse_lev.fill_ghost_field(ghosted_coarse_state, crse_lev.state[State_Type].curTime(), 1);
 
-        // Clear out the data that's not on coarse-fine boundaries so that this register only
-        // modifies the fluxes on coarse-fine interfaces.
 
         reg->ClearInternalBorders(crse_lev.geom);
 
-        // The reflux operation can cause a small or negative density (for the same reason this
-        // can happen during the level advance). We want to avoid this scenario because our
-        // only recourse will be a density reset, which is disruptive. So before we apply the reflux,
-        // we need to clean up the flux register to limit any fluxes that would do this.
-        // This is nonconservative, since we do not go back and retroactively apply any
-        // correction on the fine grid. (Of course, a density reset would also be nonconservative.)
-        // We assume that the amount of fluid material lost this way is small since refluxes
-        // causing a small density should only happen around ambient material.
 
-        // The simplest way to do this is make a copy of the flux register to a MultiFab,
-        // then loop through the data and calculate what the reflux operation would be,
-        // limiting the flux if it would result in a negative density. Then we overwrite
-        // the flux register with the updated data. This is more straightforward than operating
-        // on the flux register data directly, and we will anyway need this copy of the flux
-        // data in MultiFab form later.
 
-        // We also apply a similar check to ensure that 0 < X < 1 after the reflux.
 
         MultiFab scratch_fluxes[AMREX_SPACEDIM];
 
@@ -2768,7 +2475,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             scratch_fluxes[idir].setVal(0.0);
 
-            // Start with a MultiFab version of the flux register.
 
             for (OrientationIter fi; fi.isValid(); ++fi) {
                 const FabSet& fs = (*reg)[fi()];
@@ -2779,7 +2485,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
         }
 
-        // Now zero out any problematic flux corrections.
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
@@ -2790,11 +2495,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
             auto U = ghosted_coarse_state[mfi].array();
             auto V = crse_lev.volume[mfi].array();
 
-            // Limit fluxes that would cause a small/negative density.
-            // Also check to see whether the flux would cause invalid X. We use a
-            // safety factor of AMREX_SPACEDIM since multiple fluxes touching the
-            // same zone could be conspiring in the same direction. If we do detect
-            // a case where X would be invalid, we set that flux to zero.
 
             for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
                 const Box& nbx = amrex::surroundingNodes(bx, idir);
@@ -2838,7 +2538,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
         for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
-            // Update the flux register now that we may have modified some of the flux corrections.
 
             for (OrientationIter fi; fi.isValid(); ++fi) {
                 if (fi().coordDir() == idir) {
@@ -2847,25 +2546,20 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
                 }
             }
 
-            // Update the coarse fluxes MultiFabs using the reflux data. This should only make
-            // a difference if we re-evaluate the source terms later.
 
             if (refresh_sources_after_reflux || !from_post_step) {
 
                 MultiFab::Add(*crse_lev.fluxes[idir], scratch_fluxes[idir], 0, 0, crse_lev.fluxes[idir]->nComp(), 0);
 
-                // The gravity and rotation source terms depend on the mass fluxes.
 
                 MultiFab::Add(*crse_lev.mass_face_flux[idir], scratch_fluxes[idir], URHO, 0, 1, 0);
             }
 
         }
 
-        // Trigger the actual reflux on the coarse level now.
 
         reg->Reflux(crse_state, crse_lev.volume, 1.0, 0, 0, NUM_STATE, crse_lev.geom);
 
-        // Store the density change, for the gravity sync.
 
 #ifdef GRAVITY
         int ilev = lev - crse_level - 1;
@@ -2877,7 +2571,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 #endif
 
 
-        // We no longer need the flux register data, so clear it out.
 
         reg->setVal(0.0);
 
@@ -2920,7 +2613,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
 #ifdef RADIATION
 
-        // This follows the same logic as the pure hydro fluxes; see above for details.
 
         if (Radiation::rad_hydro_coupled) {
 
@@ -2964,11 +2656,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             reg = &getLevel(lev).pot_flux_reg;
 
-            // Note that the scaling by the area here is corrected for by dividing by the
-            // cell volume in the reflux. In this way we get a discrete divergence that
-            // is analogous to the divergence of the flux in the hydrodynamics.
-            // The dimensions of dphi are therefore actually
-            // phi / cm**2, which makes it correct for the RHS of the Poisson equation.
 
             for (int i = 0; i < AMREX_SPACEDIM; ++i) {
                 reg->CrseInit(*(gravity->get_potential_gradient_curr(lev-1)[i]), crse_lev.area[i], i, 0, 0, 1, -1.0);
@@ -2986,7 +2673,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
     }
 
-    // Do the sync solve across all levels.
 
 #ifdef GRAVITY
     if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step) {
@@ -2994,16 +2680,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
     }
 #endif
 
-    // Now subtract the new-time updates to the state data,
-    // recompute it, and add it back. This corrects for the fact
-    // that the new-time data was calculated the first time around
-    // using a state that hadn't yet been refluxed. Note that this
-    // needs to come after the gravity sync solve because the gravity
-    // source depends on an up-to-date value of phi. We'll do this
-    // on the fine level in addition to the coarser levels, because
-    // global sources like gravity or source terms that rely on
-    // ghost zone fills like diffusion depend on the data in the
-    // coarser levels.
 
     if (refresh_sources_after_reflux && from_post_step &&
         (time_scheme == CornerTrace ||
@@ -3021,8 +2697,8 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 #endif
             MultiFab& source = getLevel(lev).get_new_data(Forcing_Type);
             Real time = getLevel(lev).state[State_Type].curTime();
-            Real dt_level_advance = getLevel(lev).dt_level_step; // Note that this may be shorter than the full timestep due to subcycling.
-            Real dt_expected = parent->dtLevel(lev); // The full timestep expected by the Amr class.
+            Real dt_level_advance = getLevel(lev).dt_level_step;
+            Real dt_expected = parent->dtLevel(lev);
 
             if (getLevel(lev).apply_source_terms()) {
 
@@ -3035,8 +2711,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             }
 
-            // Temporarily restore the last iteration's old data for the purposes of recalculating the corrector.
-            // This is only necessary if we've done subcycles on that level.
 
             if (allow_step_retry && dt_level_advance < dt_expected && getLevel(lev).retain_prev_field) {
 
@@ -3044,10 +2718,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
                     if (getLevel(lev).prev_state[k]->hasOldData()) {
 
-                        // Use the new-time data as a temporary buffer. Ideally this would be done
-                        // as a pointer swap, but we cannot assume that the distribution mapping
-                        // is the same between the current state and the original state, due to
-                        // possible regrids that have occurred in between.
 
                         MultiFab& old = getLevel(lev).get_old_data(k);
                         MultiFab::Copy(getLevel(lev).prev_state[k]->newData(), old, 0, 0, old.nComp(), old.nGrow());
@@ -3077,7 +2747,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
                     if (getLevel(lev).prev_state[k]->hasOldData()) {
 
-                        // Now retrieve the original old time data.
 
                         MultiFab& old = getLevel(lev).get_old_data(k);
                         MultiFab::Copy(old, getLevel(lev).prev_state[k]->newData(), 0, 0, old.nComp(), old.nGrow());
@@ -3089,7 +2758,6 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
                 }
 
-                // Now deallocate the old data, it is no longer needed.
 
                 if (lev == 0 || lev > level) {
                     amrex::FillNull(getLevel(lev).prev_state);
@@ -3157,8 +2825,6 @@ HydroSim::renorm_species (MultiFab& S_new, int ng)
 
         auto u = S_new.array(mfi);
 
-        // Ensure the species mass fractions are between small_x and 1,
-        // then normalize them so that they sum to 1.
 
         reduce_op.eval(bx, reduce_data,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept -> ReduceTuple
@@ -3172,10 +2838,8 @@ HydroSim::renorm_species (MultiFab& S_new, int ng)
             int failed{};
 
             for (int n = 0; n < NumSpec; ++n) {
-                // Abort if X is unphysically large.
                 Real X = cons_cell[UFS+n] * rhoInv;
 
-                // Only do the abort check if the density is greater than a user-defined cutoff.
                 if (rho >= hydrosim::massfrac_check_min_density) {
                     if (X < -hydrosim::massfrac_check_tolerance ||
                         X > 1.0_rt + hydrosim::massfrac_check_tolerance) {
@@ -3271,16 +2935,12 @@ HydroSim::clamp_min_density (MultiFab& state_in, int ng)
 
     BL_PROFILE("HydroSim::clamp_min_density()");
 
-    // This routine sets the density in state_in to be larger than the
-    // density floor.  Note that it will operate everywhere on state_in,
-    // including ghost zones.
 
     MultiFab reset_delta;
 
     if (log_source_changes)
     {
 
-        // Before we do anything, make a copy of the state.
 
         reset_delta.define(state_in.boxArray(), state_in.DistributionMap(), state_in.nComp(), 0);
 
@@ -3299,7 +2959,6 @@ HydroSim::clamp_min_density (MultiFab& state_in, int ng)
 
     if (log_source_changes)
     {
-        // Evaluate what the effective reset source was.
 
         MultiFab::Subtract(reset_delta, state_in, 0, 0, state_in.nComp(), 0);
 
@@ -3338,10 +2997,6 @@ HydroSim::scan_for_negative_mass_density ()
             const Real rho = new_state_view(i,j,k,URHO);
             const Real rhoInv = 1.0_rt / rho;
 
-            // Optionally, the user can ignore this if the starting
-            // density is lower than a certain threshold. This is useful
-            // if the minimum density occurs in material that is not
-            // dynamically important; in that case, a density reset suffices.
 
             if (state_old_arr(i,j,k,URHO) >= retry_density_cutoff && rho < small_dens) {
 #ifndef AMREX_USE_GPU
@@ -3407,8 +3062,6 @@ HydroSim::clamp_speed_limit (MultiFab& state_in, int ng)
 {
     BL_PROFILE("HydroSim::clamp_speed_limit()");
 
-    // This routine sets the velocity in state_in to be no larger than the
-    // speed limit, if one has been applied.
 
     if (hydrosim::velocity_cap <= 0.0_rt) {
         return;
@@ -3491,25 +3144,21 @@ HydroSim::removeOldData()
 
 void
 HydroSim::errorEst (TagBoxArray& tags,
-                  int          /*clearval*/,
-                  int          /*tagval*/,
+                  int           ,
+                  int           ,
                   Real         time,
-                  int          /*n_error_buf*/,
-                  int          /*ngrow*/)
+                  int           ,
+                  int           )
 {
     BL_PROFILE("HydroSim::errorEst()");
 
     Real tag_time = time;
 
-    // If we are forcing a post-timestep regrid,
-    // note that we need to use the new time here,
-    // not the old time.
 
     if (post_step_regrid) {
       tag_time = get_state_data(State_Type).curTime();
     }
 
-    // Apply each of the tagging criteria defined in the inputs.
 
     for (const auto & etag : tag_criteria) {
         std::unique_ptr<MultiFab> mf;
@@ -3519,11 +3168,9 @@ HydroSim::errorEst (TagBoxArray& tags,
         etag(tags, mf.get(), TagBox::CLEAR, TagBox::SET, tag_time, level, geom);
     }
 
-    // Now we'll tag any user-specified zones using the full state array.
 
     apply_user_tags(tags, tag_time);
 
-    // Finally we'll apply any tagging restrictions which must be obeyed by any setup.
 
     apply_tag_limits(tags, tag_time);
 
@@ -3574,17 +3221,6 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
 {
     BL_PROFILE("HydroSim::apply_tag_limits()");
 
-    // If we are using Poisson gravity, we must ensure that the outermost zones are untagged
-    // due to the Poisson equation boundary conditions (we currently do not know how to fill
-    // the boundary conditions for fine levels that touch the physical boundary.)
-    // To do this properly we need to be aware of AMReX's strategy for tagging, which is not
-    // cell-based, but rather chunk-based. The size of the chunk on the coarse grid is given
-    // by blocking_factor / ref_ratio -- the idea here being that blocking_factor is the
-    // smallest possible group of cells on a given level, so the smallest chunk of cells
-    // possible on the coarse grid is given by that number divided by the refinement ratio.
-    // So we cannot tag anything within that distance from the boundary. Additionally we
-    // need to stay a further amount n_error_buf away, since n_error_buf zones are always
-    // added as padding around tagged zones.
 
 #ifdef GRAVITY
     if (gravity::gravity_model_name == "PoissonGrav") {
@@ -3653,7 +3289,6 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
 
     auto geomdata = geom.data();
 
-    // Allow the user to limit tagging outside of some distance from the problem center.
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -3728,13 +3363,11 @@ HydroSim::derive (const std::string& name,
 void
 HydroSim::microphys_init ()
 {
-  // initialize the external runtime parameters
 
   if (ParallelDescriptor::IOProcessor()) {
     std::cout << "reading extern runtime parameters ..." << std::endl;
   }
 
-  // read any runtime parameters directly from inputs (via ParmParse)
   init_extern_parameters();
 
 }
@@ -3792,13 +3425,10 @@ HydroSim::repair_internal_energy(const Box& bx,
         const Real magnetic_energy = 0.0_rt;
 #endif
 
-        // Ensure the internal energy is at least as large as this minimum
-        // from the EOS; the same holds true for the total energy.
 
         cons_cell[UEINT] = amrex::max(cons_cell[UEINT], cons_cell[URHO] * min_eint);
         cons_cell[UEDEN] = amrex::max(cons_cell[UEDEN], cons_cell[URHO] * (min_eint + ke) + magnetic_energy);
 
-        // Apply the dual energy criterion: get e from E if (E - K) > eta * E.
 
         const Real internal_energy_density = cons_cell[UEDEN] - cons_cell[URHO] * ke - magnetic_energy;
 
@@ -3823,7 +3453,6 @@ HydroSim::repair_internal_energy(
 
     MultiFab old_state;
 
-    // Make a copy of the state so we can evaluate how much changed.
 
     if (log_source_changes)
     {
@@ -3831,7 +3460,6 @@ HydroSim::repair_internal_energy(
         MultiFab::Copy(old_state, State, 0, 0, State.nComp(), 0);
     }
 
-    // Ensure (rho e) isn't too small or negative
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -3848,7 +3476,6 @@ HydroSim::repair_internal_energy(
 
     if (log_source_changes)
     {
-        // Evaluate what the effective reset source was.
 
         MultiFab reset_delta(State.boxArray(), State.DistributionMap(), State.nComp(), 0);
 
@@ -3982,32 +3609,17 @@ HydroSim::computeTemp(
 
   MultiFab StateCopy;
 
-  // for 4th order, the only variables that may change here are Temp
-  // and Eint.  To ensure that we don't modify values unless there is
-  // a reset for Eint, we want to store the Laplacian that we use for
-  // the cell-average -> cell-center conversion so we can use the same
-  // Laplacian to convert back, resulting only in roundoff changes if
-  // Eint is not modified.  We have to store it here, since we
-  // overwrite the grown state as we work.
   MultiFab energy_laplacian;
 
 #ifdef TRUE_SDC
   if (sdc_accuracy_order == 4) {
 
-    // we need to make the data live at cell-centers first
 
-    // fill StateCopy with S_new.
-    // we only need 2 ghost cells here, then the build_center_state
-    // makes 1 ghost cell a valid center, we compute its temp, and
-    // then the final average results only in interior temps valid
     StateCopy.define(State.boxArray(), State.DistributionMap(), NUM_STATE, 2);
     fill_ghost_field(StateCopy, time, StateCopy.nGrow());
 
-    // store the Laplacian term for the internal energy
     energy_laplacian.define(State.boxArray(), State.DistributionMap(), 1, 0);
 
-    // convert to cell centers -- this will result in StateCopy being
-    // cell centered only on 1 ghost cells
     auto domain_lo = geom.Domain().loVect3d();
     auto domain_hi = geom.Domain().hiVect3d();
 
@@ -4032,9 +3644,6 @@ HydroSim::computeTemp(
 
 #ifdef TRUE_SDC
   if (sdc_accuracy_order == 4) {
-    // we need to enforce minimum density here, since the conversion
-    // from cell-average to centers could have made rho < 0 near steep
-    // gradients
     clamp_min_density(StateCopy, StateCopy.nGrow());
     repair_internal_energy(StateCopy, StateCopy.nGrow());
   } else {
@@ -4056,7 +3665,6 @@ HydroSim::computeTemp(
       int num_ghost = ng;
 #ifdef TRUE_SDC
       if (sdc_accuracy_order == 4) {
-          // only one ghost cell is at cell-centers
           num_ghost = 1;
       }
 #endif
@@ -4080,7 +3688,7 @@ HydroSim::computeTemp(
           eos_re_t eos_state;
 
           eos_state.rho = u(i,j,k,URHO);
-          eos_state.T   = u(i,j,k,UTEMP); // Initial guess for the EOS
+          eos_state.T   = u(i,j,k,UTEMP);
           eos_state.e   = u(i,j,k,UEINT) * rhoInv;
           for (int n = 0; n < NumSpec; ++n) {
             eos_state.xn[n] = u(i,j,k,UFS+n) * rhoInv;
@@ -4117,15 +3725,6 @@ HydroSim::computeTemp(
 #ifdef TRUE_SDC
   if (sdc_accuracy_order == 4) {
 
-    // we need to copy back from StateCopy into S_new, making it
-    // cell-average in the process.  For temperature, we will
-    // construct the Laplacian from the new state and use for the
-    // correction, since the temperature was just updated.  For the
-    // internal energy, most zones will not have been reset, so we
-    // don't want to modify them from what they were before, therefore
-    // we use the stored Laplacian computed above to convert back to
-    // cell-averages -- this is 4th-order and will be a no-op for
-    // those zones where e wasn't changed.
 
     auto domain_lo = geom.Domain().loVect3d();
     auto domain_hi = geom.Domain().hiVect3d();
@@ -4139,20 +3738,14 @@ HydroSim::computeTemp(
       tmp.resize(bx, 1, The_Async_Arena());
       auto tmp_arr = tmp.array();
 
-      // only temperature
       build_fourth_in_place_n(bx, StateCopy.array(mfi), UTEMP, tmp_arr, domain_lo, domain_hi);
     }
 
-    // correct UEINT
     MultiFab::Add(StateCopy, energy_laplacian, 0, UEINT, 1, 0);
 
-    // copy back UTEMP and UEINT -- those are the only things that
-    // should have changed.
     MultiFab::Copy(State, StateCopy, UTEMP, UTEMP, 1, 0);
     MultiFab::Copy(State, StateCopy, UEINT, UEINT, 1, 0);
 
-    // now that we redid these, redo the ghost fill -- technically,
-    // only need this for UTEMP and UEINT, and only if ng > 0
     if (ng > 0) {
       AmrLevel::FillPatch(*this, State, State.nGrow(), time, State_Type, 0, NUM_STATE);
     }
@@ -4173,30 +3766,8 @@ HydroSim::create_forcing_corrector()
 
     if (time_scheme == CornerTrace && source_half_step == 1) {
 
-        // Optionally predict the source terms to t + dt/2,
-        // which is the time-level n+1/2 value, To do this we use a
-        // lagged predictor estimate: dS/dt_n = (S_n - S_{n-1}) / dt, so
-        // S_{n+1/2} = S_n + (dt / 2) * dS/dt_n. We'll add the S_n
-        // terms later; now we add the second term. We defer the
-        // multiplication by dt / 2 until the actual advance, since
-        // we may be subcycling and thus not know yet what the
-        // advance timestep is.
 
-        // Note that since for dS/dt we want (S^{n+1} - S^{n}) / dt,
-        // we only need to take twice the new-time source term from the
-        // last timestep, since in the predictor-corrector approach,
-        // the new-time source term is 1/2 * S^{n+1} - 1/2 * S^{n}.
-        // This is untrue in general for the non-momentum sources,
-        // so for safety we'll only apply it to the momentum sources.
 
-        // Even though we're calculating this predictor from the last
-        // timestep, we've already done the swap, so the "new" data
-        // from the last timestep is currently residing in the "old"
-        // StateData. (As a corollary, this operation must be done
-        // prior to updating any of the source StateData.) Since the
-        // dt comes from the last timestep, which is no longer equal
-        // to the difference between prevTime and curTime, we rely
-        // on our recording of the last dt from the previous advance.
 
         const Real time = get_state_data(Forcing_Type).prevTime();
 
@@ -4207,16 +3778,6 @@ HydroSim::create_forcing_corrector()
     }
     else if (time_scheme == SimplifiedIterCorrection && source_half_step == 1) {
 
-        // If we're doing simplified SDC, our approach depends on
-        // iteration.  For the first iteration, we use the corrector
-        // from the previous timestep, which when combined with the
-        // old source, will give us a prediction of the time-centered
-        // source term.  For later iterations, we use the previous
-        // iteration's corrector.  Note that we swap time-levels
-        // before the start of the step, so for iteration 0 we access
-        // the previous step's corrector as the old data.  But there
-        // is no swap between iterations, so for later iterations, we
-        // use the new timelevel.
 
         if (correction_iter == 0) {
             const Real time = get_state_data(Forcing_Type).prevTime();
@@ -4246,12 +3807,6 @@ HydroSim::swap_field_time_levels(const Real dt)
 
     for (int k = 0; k < num_field_types; k++) {
 
-        // The following is a hack to make sure that we only
-        // ever have new data for certain state types that only
-        // ever need new time data; by doing a swap now, we'll
-        // guarantee that allocOldData() does nothing. We do
-        // this because we never need the old data, so we
-        // don't want to allocate memory for it.
 
 #ifdef REACTIONS
         if (time_scheme == SimplifiedIterCorrection) {
@@ -4323,7 +3878,6 @@ HydroSim::define_tracked_center(const MultiFab& S, Real time)
     DistributionMapping dm { Vector<int>(1,owner) };
     MultiFab mf(ba, dm, 1, 0, MFInfo().SetArena(The_Managed_Arena()));
 
-    // Define a cube 3-on-a-side around the point with the maximum density
     FillPatch(*this,mf,0,time,State_Type,URHO,1);
 
 #if AMREX_SPACEDIM >= 2
@@ -4333,17 +3887,12 @@ HydroSim::define_tracked_center(const MultiFab& S, Real time)
     }
 #endif
 
-    // Find the position of the "center" by interpolating from data at
-    // cell centers We only define a single 3x3 (or 3x3x3) box around
-    // max_index above, so this MultiFab should have a single local
-    // FAB.
     AMREX_ALWAYS_ASSERT(mf.local_size() == 1);
 
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
 
 #if AMREX_SPACEDIM >= 2
-        // it only makes sense for the center to move in 2- or 3-d
 
         const Box& box = mfi.validbox();
         auto data = mf.array(mfi);
@@ -4355,31 +3904,23 @@ HydroSim::define_tracked_center(const MultiFab& S, Real time)
             data(i,j,k) -= cen;
         });
 
-        // This puts the "center" at the cell center
         Real snapped_center[3];
         for (int d = 0; d < AMREX_SPACEDIM; d++) {
             snapped_center[d] = geom.ProbLo(d) +  (static_cast<Real>(mi[d]) + 0.5_rt) * dx[d];
         }
 
-        // Fit parabola y = a x^2  + b x + c through three points
-        // a = 1/2 ( y_1 + y_-1)
-        // b = 1/2 ( y_1 - y_-1)
-        // x_vertex = -b / 2a
 
-        // ... in x-direction
         Real a = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) + data(mi[0]-1, mi[1], mi[2]));
         Real b = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) - data(mi[0]-1, mi[1], mi[2]));
         Real x = -b / (2.0_rt * a);
         problem::center[0] = snapped_center[0] + x * dx[0];
 
-        // ... in y-direction
         a = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) + data(mi[0], mi[1]-1, mi[2]));
         b = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) - data(mi[0], mi[1]-1, mi[2]));
         Real y = -b / (2.0_rt * a);
         problem::center[1] = snapped_center[1] + y * dx[1];
 
 #if AMREX_SPACEDIM == 3
-        // ... in z-direction
         a = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) + data(mi[0], mi[1], mi[2]-1));
         b = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) - data(mi[0], mi[1], mi[2]-1));
         Real z = -b / (2.0_rt * a);
@@ -4389,10 +3930,8 @@ HydroSim::define_tracked_center(const MultiFab& S, Real time)
 #endif
 
     }
-    // Now broadcast to everyone else.
     ParallelDescriptor::Bcast(&problem::center[0], AMREX_SPACEDIM, owner);
 
-    // Make sure if R-Z and SPHERICAL that center stays exactly on axis
     if ( Geom().IsRZ() ) {
       problem::center[0] = 0;
     } else if ( Geom().IsSPHERICAL() ) {
@@ -4455,14 +3994,14 @@ HydroSim::make_fine_mask()
 {
     BL_PROFILE("HydroSim::make_fine_mask()");
 
-    BL_ASSERT(level > 0); // because we are building a mask for the coarser level
+    BL_ASSERT(level > 0);
 
     if (fine_mask.empty()) {
         fine_mask = makeFineMask(parent->boxArray(level-1),
                                  parent->DistributionMap(level-1),
                                  parent->boxArray(level), crse_ratio,
-                                 1.0,  // coarse
-                                 0.0); // fine
+                                 1.0,
+                                 0.0);
     }
 
     return fine_mask;
@@ -4480,13 +4019,12 @@ HydroSim::make_boundary_mask (int ng)
         }
     }
 
-    //  If we got here, we need to build a new one
     interior_masks.push_back(std::make_unique<iMultiFab>(grids, dmap, 1, ng));
 
     iMultiFab& imf = *interior_masks.back();
 
     int ghost_cover_flag = 0;
-    int uncovered_flag = 1; // uncovered ghost, valid, and outside domain cells are set to 1
+    int uncovered_flag = 1;
 
     imf.BuildMask(geom.Domain(), geom.periodicity(),
                   ghost_cover_flag, uncovered_flag, uncovered_flag, uncovered_flag);
@@ -4494,7 +4032,6 @@ HydroSim::make_boundary_mask (int ng)
     return imf;
 }
 
-// Fill a version of the state with ng ghost zones from the state data.
 
 void
 HydroSim::fill_ghost_field(MultiFab& S, Real time, int ng)
@@ -4532,8 +4069,6 @@ HydroSim::scan_for_nan(const MultiFab& state_in, int include_ghosts)
   }
 }
 
-// Given State_Type state data, perform a number of cleaning steps to make
-// sure the data is sensible.
 
 void
 HydroSim::clean_state(
@@ -4546,19 +4081,15 @@ HydroSim::clean_state(
 
     BL_PROFILE("HydroSim::clean_state()");
 
-    // Enforce a minimum density.
 
     clamp_min_density(state_in, ng);
 
-    // Enforce the speed limit.
 
     clamp_speed_limit(state_in, ng);
 
-    // Ensure all species are normalized.
 
     renorm_species(state_in, ng);
 
-    // Sync the linear and hybrid momenta.
 
 #ifdef HYBRID_MOMENTUM
     if (split_momentum_hydro) {
@@ -4566,8 +4097,6 @@ HydroSim::clean_state(
     }
 #endif
 
-    // Compute the temperature (note that this will also reset
-    // the internal energy for consistency with the total energy).
 
     computeTemp(
 #ifdef MHD
@@ -4584,14 +4113,6 @@ HydroSim::snapshot_for_rerun ()
 
     for (int k = 0; k < num_field_types; k++) {
 
-        // We want to store the previous state in pinned memory
-        // if we're running on a GPU. This helps us alleviate
-        // pressure on the GPU memory, at the slight cost of
-        // lower bandwidth when we are saving/restoring the state.
-        // Since we're using operator= to copy the StateData,
-        // we'll use a trick where we temporarily change the
-        // the arena used by the main state and then immediately
-        // restore it.
 
         if (!prev_state[k]->hasOldData()) {
 

@@ -59,13 +59,10 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
                                       (yy - problem::center[1]) * (yy - problem::center[1]) +
                                       (zz - problem::center[2]) * (zz - problem::center[2]));
 
-                // use a tanh profile to smooth the transition between rho_0
-                // and rho_ambient
                 Real rho_n = problem::rho_0 - 0.5_rt * (problem::rho_0 - problem::rho_ambient) *
                                               (1.0_rt + std::tanh((dist - problem::r_0) /
                                                                   problem::smooth_delta));
 
-                // allow for the center to be empty
                 if (problem::r_offset > 0.0_rt) {
                     rho_n -= 0.5_rt * (rho_n - problem::rho_ambient) *
                              (1.0_rt + std::tanh((problem::r_offset - dist) /
@@ -83,7 +80,7 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
 
     eos_state.rho = state(i,j,k,URHO);
     eos_state.p   = problem::p_0;
-    eos_state.T   = hydrosim::small_temp; // Initial guess for the EOS
+    eos_state.T   = hydrosim::small_temp;
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = problem::X_0[n];
     }

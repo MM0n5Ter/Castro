@@ -43,8 +43,6 @@ struct model_t {
 };
 
 
-// construct the model give a central density (rho_c) and density to
-// transition to He (rho_he)
 
 AMREX_INLINE
 std::tuple<amrex::Real, amrex::Real, amrex::Real>
@@ -64,8 +62,6 @@ build_star(const model_t& model_params, const Real dx,
 
     amrex::Array1D<amrex::Real, 0, NPTS_MODEL-1> M_enclosed;
 
-    // we start at the center of the WD and integrate outward.
-    // Initialize the central conditions.
 
     eos_t eos_state;
     eos_state.T = model_params.T_core;
@@ -74,11 +70,9 @@ build_star(const model_t& model_params, const Real dx,
         eos_state.xn[n] = model_params.xn_core[n];
     }
 
-    // (t, rho) -> (p, s)
 
     eos(eos_input_rt, eos_state);
 
-    // make the initial guess be completely uniform
 
     for (int i = 0; i < model::npts; ++i) {
         model::profile(0).state(i, model::idens) = eos_state.rho;
@@ -91,26 +85,20 @@ build_star(const model_t& model_params, const Real dx,
     }
 
 
-    // keep track of the mass enclosed below the current zone
 
     M_enclosed(0) = (4.0_rt / 3.0_rt) * M_PI *
         (amrex::Math::powi<3>(rr(0)) - amrex::Math::powi<3>(rl(0))) *
         model::profile(0).state(0, model::idens);
 
-    // this is the zone where we switch composition to He
 
     int ihe_layer{-1};
 
-    // this will be the zone at the base of the He layer that
-    // sets the entropy we will constrain to
 
     int ihe_entropy{-1};
 
-    // this is the zone where the low density (fluff) begins
 
     int icutoff{-1};
 
-    // HSE + entropy solve
 
     bool isentropic;
 
@@ -124,8 +112,6 @@ build_star(const model_t& model_params, const Real dx,
 
     for (int i = 1; i < model::npts; ++i) {
 
-        // as the initial guess for the density, use the previous
-        // zone
 
         dens_zone = model::profile(0).state(i-1, model::idens);
 
@@ -144,14 +130,6 @@ build_star(const model_t& model_params, const Real dx,
             }
 
 
-            // determine whether we are starting the ramp up.  We
-            // will use a tanh profile, centered at
-            // (xzn_hse(ihe_layer) + FOUR*delta).  The "+
-            // FOUR*delta" enables us to capture the leading edge
-            // of the profile.  Since rho_he is computed by
-            // considering the integral of He on the grid,
-            // shifting the profile by FOUR*delta doesn't affect
-            // the overall mass.
 
             Real test = 0.5_rt * (1.0_rt + std::tanh((model::profile(0).r(i) -
                                                       model::profile(0).r(ihe_layer) -
@@ -160,7 +138,6 @@ build_star(const model_t& model_params, const Real dx,
 
             if (test < 0.999_rt) {
 
-                // small tanh ramp up regime
 
                 for (int n = 0; n < NumSpec; ++n) {
                     xn[n] = model_params.xn_core[n] + test * (model_params.xn_he[n] - model_params.xn_core[n]);
@@ -173,11 +150,9 @@ build_star(const model_t& model_params, const Real dx,
             } else {
 
                 if (model_params.isothermal_layer) {
-                    // isothermal He layer no matter what
                     temp_zone = model_params.T_base;
                     isentropic = false;
                 } else {
-                    // fully isentropic
 
                     if (ihe_entropy == -1) {
                         ihe_entropy = i;
@@ -200,9 +175,7 @@ build_star(const model_t& model_params, const Real dx,
         amrex::Real g_zone = -C::Gconst * M_enclosed(i-1) / (rl(i) * rl(i));
 
 
-        // thermodynamic state iteration loop
 
-        // start off the Newton loop by saying that the zone has not converged
         bool hydrostatic_converged = false;
 
         if (! fluff) {
@@ -218,12 +191,6 @@ build_star(const model_t& model_params, const Real dx,
                     p_want = model::profile(0).state(i-1, model::ipres) +
                         dx * 0.5_rt * (dens_zone + model::profile(0).state(i-1, model::idens)) * g_zone;
 
-                    // now we have two functions to zero:
-                    //   A = p_want - p(rho,T)
-                    //   B = entropy_base - s(rho,T)
-                    // We use a two dimensional Taylor expansion
-                    // and find the deltas for both density and
-                    // temperature
 
                     eos_state.T = temp_zone;
                     eos_state.rho = dens_zone;
@@ -231,7 +198,6 @@ build_star(const model_t& model_params, const Real dx,
                         eos_state.xn[n] = xn[n];
                     }
 
-                    // (t, rho) -> (p, s)
                     eos(eos_input_rt, eos_state);
 
                     entropy = eos_state.s;
@@ -261,8 +227,6 @@ build_star(const model_t& model_params, const Real dx,
                     temp_zone = amrex::Clamp(temp_zone + dtemp,
                                              0.9_rt * temp_zone, 1.1_rt * temp_zone);
 
-                    // check if the density falls below our minimum
-                    // cut-off -- if so, floor it
 
                     if (dens_zone < model_params.low_density_cutoff) {
                         dens_zone = model_params.low_density_cutoff;
@@ -280,13 +244,7 @@ build_star(const model_t& model_params, const Real dx,
 
                 } else {
 
-                    // the core is isothermal, so we just need to
-                    // constrain the density and pressure to agree
-                    // with the EOS and HSE
 
-                    // We difference HSE about the interface
-                    // between the current zone and the one just
-                    // inside.
 
                     p_want = model::profile(0).state(i-1, model::ipres) +
                         dx * 0.5_rt * (dens_zone + model::profile(0).state(i-1, model::idens)) * g_zone;
@@ -297,7 +255,6 @@ build_star(const model_t& model_params, const Real dx,
                         eos_state.xn[n] = xn[n];
                     }
 
-                    // (t, rho) -> (p, s)
 
                     eos(eos_input_rt, eos_state);
 
@@ -332,7 +289,7 @@ build_star(const model_t& model_params, const Real dx,
                     isentropic = false;
                 }
 
-            }  // thermo iteration loop
+            }
 
 
             if (! hydrostatic_converged) {
@@ -345,13 +302,10 @@ build_star(const model_t& model_params, const Real dx,
             }
 
         } else {
-            // fluff region
             dens_zone = model_params.low_density_cutoff;
             temp_zone = model_params.T_fluff;
         }
 
-        // call the EOS one more time for this zone and then go on
-        // to the next
 
         eos_state.T = temp_zone;
         eos_state.rho = dens_zone;
@@ -359,20 +313,16 @@ build_star(const model_t& model_params, const Real dx,
             eos_state.xn[n] = xn[n];
         }
 
-        // (t, rho) -> (p, s)
 
         eos(eos_input_rt, eos_state);
 
         pressure_zone = eos_state.p;
 
-        // determine the entropy that we want to constrain to, if
-        // this is the first zone of the He layer
 
         if (i == ihe_entropy) {
             entropy_base = entropy;
         }
 
-        // update the thermodynamics in this zone
 
         model::profile(0).state(i, model::idens) = dens_zone;
         model::profile(0).state(i, model::itemp) = temp_zone;
@@ -386,15 +336,11 @@ build_star(const model_t& model_params, const Real dx,
             (4.0_rt / 3.0_rt) * M_PI * (rr(i) - rl(i)) *
             (amrex::Math::powi<2>(rr(i)) + rl(i) * rr(i) + amrex::Math::powi<2>(rl(i))) * model::profile(0).state(i, model::idens);
 
-    } // end loop over zones
+    }
 
     amrex::Real mass_wd{};
     amrex::Real mass_he{};
 
-    // it might be that we never reach the cutoff density in our
-    // domain.  This is especially the case if we do an isothermal
-    // model.  Make sure we integrate over everything in that
-    // case.
     int max_index = icutoff == -1 ? model::npts : icutoff;
 
     for (int i = 0; i < max_index; ++i) {
@@ -407,10 +353,7 @@ build_star(const model_t& model_params, const Real dx,
                 (rr(i) - rl(i)) * (rr(i) * rr(i) + rl(i) * rr(i) + rl(i) * rl(i));
         }
 
-        // compute the total mass of the He layer and C/O WD
 
-        // note: some He layers can optionally be enriched with C/O, so
-        // only count that C and O if we are in the He layer
 
         amrex::Real layer_X = model::profile(0).state(i, model::ispec+model_params.ihe4);
         if (model_params.X_N14 > 0.0) {
@@ -438,7 +381,6 @@ build_star(const model_t& model_params, const Real dx,
         mass_wd += vol * model::profile(0).state(i, model::idens) * core_X;
     }
 
-    // compute the maximum HSE error
 
     amrex::Real max_hse_error = -1.e30_rt;
 
@@ -460,8 +402,6 @@ build_star(const model_t& model_params, const Real dx,
 
 }
 
-// generate an initial model for an arbitrary-mass, isothermal C WD
-// with an isentropic He envelope on the surface.
 
 AMREX_INLINE
 void
@@ -469,9 +409,6 @@ generate_initial_model(const int npts_model, const Real xmax,
                        const model_t& model_params)
 {
 
-    // Create a 1-d uniform grid that is identical to the mesh that we
-    // are mapping onto, and then we want to force it into HSE on that
-    // mesh.
 
     model::npts = npts_model;
     model::initialized = true;
@@ -486,26 +423,17 @@ generate_initial_model(const int npts_model, const Real xmax,
     amrex::Print() << "generating initial model with " << npts_model << " points and dx = " << dx << " cm" << std::endl;
     amrex::Print() << ResetDisplay;
 
-    // compute the coordinates of the new gridded function
 
     for (int i = 0; i < npts_model; i++) {
         model::profile(0).r(i) = (static_cast<Real>(i) + 0.5_rt) * dx;
     }
 
 
-    // We don't know what WD central density will give the desired
-    // total mass, so we need to iterate over central density
 
-    // we will do a Newton-Raphson iteration, using a
-    // finite-difference approximation to the derivative.
 
-    // rho_c is the current guess for the central density,
 
-    // 1.e8 is a reasonable starting WD central density for a 1 M_sun WD
     amrex::Real rho_c = 1.e8_rt;
 
-    // rho_he is the current guess for the density to transition to He,
-    // where we will be isentropic
 
     amrex::Real rho_he = 0.1_rt * rho_c;
 
@@ -524,7 +452,6 @@ generate_initial_model(const int npts_model, const Real xmax,
 
         std::tie(mass_wd, mass_he, max_hse_error) = build_star(model_params, dx, rho_c, rho_he);
 
-        // have we converged?
 
         wd_err = std::abs(mass_wd - model_params.M_WD) / model_params.M_WD;
         he_err = std::abs(mass_he - model_params.M_He) / model_params.M_He;
@@ -538,16 +465,12 @@ generate_initial_model(const int npts_model, const Real xmax,
             break;
         }
 
-        // perturb rho_c and see how things change
 
         const amrex::Real rho_c_pert = (1.0 + 1.e-3) * rho_c;
         amrex::Real mass_wd_rc;
         amrex::Real mass_he_rc;
         std::tie(mass_wd_rc, mass_he_rc, tmp) = build_star(model_params, dx, rho_c_pert, rho_he);
 
-        // perturb rho_he and see how things change -- we can't make
-        // the perturbation too small, since the He density doesn't
-        // affect things as strongly as the central density.
 
         const amrex::Real rho_he_pert = (1.0 + 5.e-2) * rho_he;
         amrex::Real mass_wd_rhe;
@@ -555,11 +478,6 @@ generate_initial_model(const int npts_model, const Real xmax,
         std::tie(mass_wd_rhe, mass_he_rhe, tmp) = build_star(model_params, dx, rho_c, rho_he_pert);
 
 
-        // we'll define 2 expressions:
-        //   F = M_wd(rho_c, rho_he) - M_wd_want
-        //   G = M_he(rho_c, rho_he) - M_he_want
-        //
-        // and then do a 2 variable Newton solve
 
         Real F0 = mass_wd - model_params.M_WD;
         Real G0 = mass_he - model_params.M_He;
@@ -570,9 +488,6 @@ generate_initial_model(const int npts_model, const Real xmax,
         Real dG_drhoc = (mass_he - mass_he_rc) / (rho_c - rho_c_pert);
         Real dG_drhohe = (mass_he - mass_he_rhe) / (rho_he - rho_he_pert);
 
-        //std::cout << "dF_drhoc = " << dF_drhoc << " dF_drhohe = " << dF_drhohe << std::endl;
-        //std::cout << "dG_drhoc = " << dG_drhoc << " dG_drhohe = " << dG_drhohe << std::endl;
-        //std::cout << mass_he << " " << mass_he_rhe << " " << rho_he << " " << rho_he_pert << std::endl;
 
         Real drho_he = -(G0 - dG_drhoc / dF_drhoc * F0) / (dG_drhohe - dG_drhoc * dF_drhohe / dF_drhoc);
         Real drho_c = -(F0 + dF_drhohe * drho_he) / dF_drhoc;
@@ -583,7 +498,7 @@ generate_initial_model(const int npts_model, const Real xmax,
         rho_he = amrex::Clamp(rho_he + drho_he,
                               0.9_rt * rho_he, 1.1_rt * rho_he);
 
-    } // end mass constraint loop
+    }
 
     if (! mass_converged) {
         amrex::Print() << Font::Bold << FGColor::Red;

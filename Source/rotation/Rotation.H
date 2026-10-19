@@ -8,16 +8,11 @@
 #include <HydroSim_helpers.H>
 #include <hydrosim_params.H>
 
-///
-/// Return the magnitude of omega along the rotating axis.
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real get_angular_speed()
 {
     Real omega = 0.0_rt;
 
-    // If spin_period is less than zero, that means rotation is disabled, and so we should effectively
-    // shut off the source term by setting omega = 0.
 
     if (hydrosim::spin_period > 0.0_rt) {
         omega = 2.0_rt * std::numbers::pi / hydrosim::spin_period;
@@ -26,9 +21,6 @@ Real get_angular_speed()
     return omega;
 }
 
-///
-/// Return the omega vector corresponding to the current rotational period
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 GpuArray<Real, 3> get_angular_velocity(const GeometryData& geomdata,
                                 const int j)
@@ -41,8 +33,6 @@ GpuArray<Real, 3> get_angular_velocity(const GeometryData& geomdata,
 
     auto omega = get_angular_speed();
 
-    // If coord == 2, i.e. Spherical2D, then it is assumed that rotational axis is in z-axis
-    // then we convert back to r and theta direction.
     if (coord == 2) {
         Real theta;
         if (hydrosim::fixed_latitude_angle >= 0.0_rt) {
@@ -59,41 +49,17 @@ GpuArray<Real, 3> get_angular_velocity(const GeometryData& geomdata,
     return angular_velocity_vec;
 }
 
-///
-/// Compute the rotational acceleration for a single zone
-/// (Coriolis and centrifugal)
-///
-/// @param r         distance from origin of rotation vector
-/// @param v         velocity
-/// @param omega     angular velocity vector array
-/// @param coord     coordinate system
-/// @param with_coriolis  do we include the Coriolis force
-/// @param Sr        rotational acceleration
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
                         const GpuArray<Real, 3>& omega, const int coord,
                         const bool with_coriolis, Real* Sr) {
 
-  // Given a position and velocity, calculate
-  // the rotational acceleration. This is the sum of:
-  // the Coriolis force (-2 omega x v),
-  // the centrifugal force (- omega x ( omega x r)),
-  // and a changing rotation rate (-d(omega)/dt x r).
 
   Sr[0] = 0.0;
   Sr[1] = 0.0;
   Sr[2] = 0.0;
 
-  // Allow the various terms to be turned off.  This is often used
-  // for diagnostic purposes, but there are genuine science cases
-  // for disabling certain terms in some cases (in particular, when
-  // obtaining a system in rotational equilibrium through a
-  // relaxation process involving damping or sponging, one may want
-  // to turn off the Coriolis force during the relaxation process,
-  // on the basis that the true equilibrium state will have zero
-  // velocity anyway).
 
   bool c1 = (hydrosim::rotation_centrifugal_on == 1) ? true : false;
 
@@ -102,8 +68,6 @@ fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
   auto r_vec = r;
 
   if (c1) {
-      // For Spherical coordinate, the physical position vector is just r rhat,
-      // but the input r will be in the format of (r,theta,0). So change it to (r,0,0)
 
       if (coord == 2) {
           r_vec[1] = 0.0_rt;
@@ -135,8 +99,6 @@ Real
 centrifugal_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega,
                      const int coord) {
 
-  // Construct rotational potential, phi_R = -1/2 | omega x r |**2
-  //
 
   Real phi = 0.0_rt;
   auto r_vec = r;
@@ -169,10 +131,7 @@ inertial_to_frame_velocity (const int i, const int j, const int k,
 
   amrex::ignore_unused(time);
 
-  // Given a velocity vector in the inertial frame, transform it to a
-  // velocity vector in the rotating frame.
 
-  // Note: this version assumes all cell-centers
 
   GpuArray<Real, 3> loc;
 
@@ -189,7 +148,6 @@ inertial_to_frame_velocity (const int i, const int j, const int k,
 
   auto omega = get_angular_velocity(geomdata, j);
 
-  // do the cross product Omega x loc
   v[0] += -(omega[1]*loc[2] - omega[2]*loc[1]);
   v[1] += -(omega[2]*loc[0] - omega[0]*loc[2]);
   v[2] += -(omega[0]*loc[1] - omega[1]*loc[0]);
@@ -204,10 +162,7 @@ frame_to_inertial_velocity (const int i, const int j, const int k,
 
   amrex::ignore_unused(time);
 
-  // Given a velocity vector in the rotating frame, transform it to a
-  // velocity vector in the inertial frame.
 
-  // Note: this version assumes all cell-centers
 
   GpuArray<Real, 3> loc;
 
@@ -224,16 +179,12 @@ frame_to_inertial_velocity (const int i, const int j, const int k,
 
   auto omega = get_angular_velocity(geomdata, j);
 
-  // do the cross product Omega x loc
   v[0] += (omega[1]*loc[2] - omega[2]*loc[1]);
   v[1] += (omega[2]*loc[0] - omega[0]*loc[2]);
   v[2] += (omega[0]*loc[1] - omega[1]*loc[0]);
 
 }
 
-// If we are in a rotating reference frame, then rotate a vector
-// by an amount corresponding to the time that has passed
-// since the beginning of the simulation.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
@@ -250,13 +201,6 @@ GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
         }
     }
 
-    // This is the 3D rotation matrix for converting between reference frames.
-    // It is the composition of rotations along the x, y, and z axes. Therefore
-    // it allows for the case where we are rotating about multiple axes. Normally
-    // we use the right-hand convention for constructing the usual rotation matrix,
-    // but this is the transpose of that rotation matrix to account for the fact
-    // that we are rotating *back* to the inertial frame, rather than from the
-    // inertial frame to the rotating frame.
 
     frame_rotation_matrix(0,0) =  cos(theta(1)) * cos(theta(2));
     frame_rotation_matrix(0,1) = -cos(theta(1)) * sin(theta(2));
@@ -282,11 +226,9 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void fill_omega_times_dt_matrix(const Real dt, const GpuArray<Real, 3>& omega,
                           Array2D<Real, 0, 2, 0, 2>& omega_times_dt_matrix)
 {
-    // Fill in omega_times_dt_matrix. This is used in function apply_rotation_correction
 
     Real omega_times_dt[3];
 
-    // Don't do anything here if we've got the Coriolis force disabled.
 
     if (hydrosim::rotation_coriolis_on == 1) {
 

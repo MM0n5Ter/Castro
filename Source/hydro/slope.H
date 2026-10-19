@@ -18,14 +18,6 @@
 using namespace amrex;
 using namespace reconstruction;
 
-///
-/// Construct the piecewise linear slopes for an input state q
-///
-/// @param q               Real[nslp] giving q_{i-2} through q_{i+2}, used in the reconstruction
-/// @param flatten_factor           flattening coefficient
-/// @param reflect_lo_edge  true if a symmetry boundary is just to the left of this zone
-/// @param reflect_hi_edge  true if a symmetry boundary is just to the right of this zone
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
 limited_slope(const Real* q, const Real flatten_factor,
@@ -35,14 +27,11 @@ limited_slope(const Real* q, const Real flatten_factor,
 
   if (plm_iorder == 1) {
 
-    // first order -- piecewise constant slopes
     dq = 0.0;
 
   } else {
 
-    // second-order -- piecewise linear slopes
     if (plm_slope_limiter == 1) {
-      // the 2nd order MC limiter
 
       Real dlft = 2.0_rt*(q[i0] - q[im1]);
       Real drgt = 2.0_rt*(q[ip1] - q[i0]);
@@ -54,11 +43,7 @@ limited_slope(const Real* q, const Real flatten_factor,
       dq = flatten_factor * dsgn * amrex::min(dlim, std::abs(dcen));
 
     } else {
-      // the 4th order MC limiter
 
-      // special consideration for reflecting BCs -- see
-      // Saltzman p. 162 (but note that Saltzman has a
-      // sign error)
 
       Real qm2 = q[im2];
       Real qm1 = q[im1];
@@ -76,9 +61,7 @@ limited_slope(const Real* q, const Real flatten_factor,
         qp1 = -3.0_rt*q0 + qm1 - 0.125_rt*(qm2 + qm1);
       }
 
-      // First compute Fromm slopes
 
-      // df at i+1
       Real left_diff_p1 = 2.0_rt*(qp1 - q0);
       Real right_diff_p1 = 2.0_rt*(qp2 - qp1);
       Real dcen = 0.25_rt * (left_diff_p1 + right_diff_p1);
@@ -87,7 +70,6 @@ limited_slope(const Real* q, const Real flatten_factor,
       Real dlim = left_diff_p1*right_diff_p1 >= 0.0_rt ? slop : 0.0_rt;
       Real limited_slope_p1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
-      // df at i-1
       Real left_diff_m1 = 2.0_rt*(qm1 - qm2);
       Real right_diff_m1 = 2.0_rt*(q0 - qm1);
       dcen = 0.25_rt * (left_diff_m1 + right_diff_m1);
@@ -96,7 +78,6 @@ limited_slope(const Real* q, const Real flatten_factor,
       dlim = left_diff_m1*right_diff_m1 >= 0.0_rt ? slop : 0.0_rt;
       Real limited_slope_m1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
-      // Now compute limited fourth order slopes at i
       Real dlft = right_diff_m1;
       Real drgt = left_diff_p1;
       dcen = 0.25_rt * (dlft + drgt);
@@ -112,26 +93,12 @@ limited_slope(const Real* q, const Real flatten_factor,
   return dq;
 }
 
-///
-/// Compute the pressure slope using a well-balanced procedure where we subtract
-/// HSE off of the pressure before limiting
-///
-/// @param rho          Real[nslp] giving the density in zones i-2, i-1, i, i+1, i+2
-/// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
-/// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
-///                    i-2, i-1, i, i+1, i+2
-/// @param flatten_factor       flattening coefficient
-/// @param at_lo_symmetry  true if a physical boundary is just to the left of this zone
-/// @param at_hi_symmetry  true if a physical boundary is just to the right of this zone
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatten_factor,
        bool at_lo_symmetry, bool at_hi_symmetry,
        const Real dx, Real& dp) {
 
-  // dp should come in as the current estimate of the pressure slope
-  // and we overwrite it if needed
 
   if (plm_iorder == 1) {
 
@@ -171,7 +138,7 @@ pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatt
     pm2 = p[im2] - pm2_hydrostatic;
 
     if (at_lo_symmetry) {
-      pm1 = 0.0_rt;  // HSE is perfectly satisfied
+      pm1 = 0.0_rt;
       pm2 = 0.0_rt;
     }
 
@@ -181,17 +148,8 @@ pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatt
     }
 
 
-    // First compute Fromm slopes
 
-    // Dp at i+1
 
-    // we need dp_{i+1} = p_{i+1} - p_i
-    // and     dp_{i+2} = p_{i+2} - p_{i-1}
-    //
-    // then we compute
-    //   Dp_{i+1} = min{ 2 |dp_{i+1}|, 2 |dp_{i+2}|, 1/2 |dp_{i+1} + dp_{i+2}|}
-    //
-    // we use the value above with HSE removed
 
     Real left_diff_p1 = pp1 - p0;
     Real right_diff_p1 = pp2 - pp1;
@@ -201,15 +159,7 @@ pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatt
     Real dlim = left_diff_p1*right_diff_p1 >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(left_diff_p1), std::abs(right_diff_p1)) : 0.0_rt;
     Real limited_slope_p1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
-    // Dp at i-1
 
-    // we need dp_{i-1} = p_{i-1} - p_{i-2}
-    // and     dp_i = p_i - p_{i-1}
-    //
-    // then we compute
-    //   Dp_{i-1} = min{ 2 |dp_{ii1}|, 2 |dp_i|, 1/2 |dp_{i-1} + dp_i|}
-    //
-    // again use the values with HSE removed
 
     Real left_diff_m1 = pm1 - pm2;
     Real right_diff_m1 = p0 - pm1;
@@ -220,15 +170,10 @@ pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatt
 
     Real limited_slope_m1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
-    // Now limited fourth order slopes at i
 
-    // this uses Dp_{i+1} and Dp_{i-1} computed above as well as
-    // dp_{i+1} and dp_i
 
-    // dp_i
     Real dlft = right_diff_m1;
 
-    // dp_{i+1}
     Real drgt = left_diff_p1;
 
     dcen = 0.5_rt*(dlft + drgt);

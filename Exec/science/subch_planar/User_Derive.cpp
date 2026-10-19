@@ -7,13 +7,11 @@ using namespace amrex;
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geomdata,
-                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                      Real  , const int*  , int  )
 {
 
-    // Compute grad p . U / (p |U|) -- this is what we do in the shock
-    // detection algorithm
 
     const auto dx = geomdata.CellSizeArray();
     const int coord_type = geomdata.Coord();
@@ -24,7 +22,7 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
 #if AMREX_SPACEDIM == 3
     amrex::Error("3D not supported");
 #elif AMREX_SPACEDIM == 1
-    return; // Skip for 1D
+    return;
 #endif
 
     Real dxinv = 1.0_rt / dx[0];
@@ -36,7 +34,6 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
 
         Real div_vel = 0.0_rt;
 
-        // get the pressure
         eos_t eos_state;
 
         Real rhoInv = 1.0 / dat(i,j,k,URHO);
@@ -68,16 +65,13 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
         Real vm = dat(i,j-1,k,UMY) / dat(i,j-1,k,URHO);
         Real v0 = dat(i,j,k,UMY) / dat(i,j,k,URHO);
 
-        // construct div{U}
         if (coord_type == 0) {
 
-            // Cartesian
             div_vel += 0.5_rt * (up - um) * dxinv;
             div_vel += 0.5_rt * (vp - vm) * dyinv;
 
         } else if (coord_type == 1) {
 
-            // r-z
             Real rc = (i + 0.5_rt) * dx[0];
             Real rm = (i - 1 + 0.5_rt) * dx[0];
             Real rp = (i + 1 + 0.5_rt) * dx[0];
@@ -92,7 +86,6 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
         }
 
 
-        // we need to compute p in the full stencil
 
         Real p_ip1{};
         {
@@ -194,7 +187,6 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
 
         Real pressure_diff_y = 0.5_rt * (p_jp1 - p_jm1);
 
-        //Real relative_pressure_grad = std::sqrt(pressure_diff_x * pressure_diff_x + pressure_diff_y * pressure_diff_y + pressure_diff_z * pressure_diff_z) / dat(i,j,k,QPRES);
         Real vel = std::sqrt(u0 * u0 + v0 * v0);
 
         Real relative_pressure_grad{0.0_rt};
@@ -210,12 +202,11 @@ void ca_dergradpoverp(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nco
 }
 
 
-void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int  , int  ,
                        const FArrayBox& datfab, const Geometry& geomdata,
-                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                       Real  , const int*  , int  )
 {
 
-    // compute grad p projected onto div{U} as an alternative to the shock detection
 
     const auto dx = geomdata.CellSizeArray();
     const int coord_type = geomdata.Coord();
@@ -226,7 +217,7 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 #if AMREX_SPACEDIM == 3
     amrex::Error("3D not supported");
 #elif AMREX_SPACEDIM == 1
-    return; // Skip for 1D
+    return;
 #endif
 
     Real dxinv = 1.0_rt / dx[0];
@@ -239,7 +230,6 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 
         Real div_vel = 0.0_rt;
 
-        // get the pressure
         eos_t eos_state;
 
         Real rhoInv = 1.0 / dat(i,j,k,URHO);
@@ -274,16 +264,13 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
         Real du_x{};
         Real dv_y{};
 
-        // construct div{U}
         if (coord_type == 0) {
 
-            // Cartesian
             du_x = 0.5_rt * (up - um) * dxinv;
             dv_y = 0.5_rt * (vp - vm) * dyinv;
 
         } else if (coord_type == 1) {
 
-            // r-z
             Real rc = (i + 0.5_rt) * dx[0];
             Real rm = (i - 1 + 0.5_rt) * dx[0];
             Real rp = (i + 1 + 0.5_rt) * dx[0];
@@ -299,7 +286,6 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 
         div_vel = du_x + dv_y;
 
-        // we need to compute p in the full stencil
 
         Real p_ip1{};
         {
@@ -401,7 +387,6 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 
         Real pressure_diff_y = 0.5_rt * (p_jp1 - p_jm1);
 
-        //Real relative_pressure_grad = std::sqrt(pressure_diff_x * pressure_diff_x + pressure_diff_y * pressure_diff_y + pressure_diff_z * pressure_diff_z) / dat(i,j,k,QPRES);
         Real cdu_x = std::min(du_x, 0.0);
         Real cdv_y = std::min(dv_y, 0.0);
 
@@ -417,14 +402,13 @@ void ca_dergradpoverp1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*nc
 }
 
 
-void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dergradpx(const Box& bx, FArrayBox& derfab, int  , int  ,
                   const FArrayBox& datfab, const Geometry& geomdata,
-                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                  Real  , const int*  , int  )
 {
 
     amrex::ignore_unused(geomdata);
 
-    // Compute grad p / p . xhat
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -432,14 +416,13 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 #if AMREX_SPACEDIM == 3
     amrex::Error("3D not supported");
 #elif AMREX_SPACEDIM == 1
-    return; // Skip for 1D
+    return;
 #endif
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
 
-        // get the pressure
         eos_t eos_state;
 
         Real rhoInv = 1.0 / dat(i,j,k,URHO);
@@ -464,7 +447,6 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
         Real p_zone = eos_state.p;
 
 
-        // we need to compute p in the full stencil
 
         Real p_ip1{};
         {
@@ -523,14 +505,13 @@ void ca_dergradpx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 }
 
 
-void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dergradpy(const Box& bx, FArrayBox& derfab, int  , int  ,
                   const FArrayBox& datfab, const Geometry& geomdata,
-                  Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                  Real  , const int*  , int  )
 {
 
     amrex::ignore_unused(geomdata);
 
-    // compute grad p / p . yhat
 
     auto const dat = datfab.array();
     auto const der = derfab.array();
@@ -538,14 +519,13 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 #if AMREX_SPACEDIM == 3
     amrex::Error("3D not supported");
 #elif AMREX_SPACEDIM == 1
-    return; // Skip for 1D
+    return;
 #endif
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
 
-        // get the pressure
         eos_t eos_state;
 
         Real rhoInv = 1.0 / dat(i,j,k,URHO);
@@ -571,7 +551,6 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 
 
 
-        // we need to compute p in the full stencil
 
         Real p_jp1{};
         {
@@ -630,12 +609,11 @@ void ca_dergradpy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/
 }
 
 
-void ca_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+void ca_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int  , int  ,
                           const FArrayBox& datfab, const Geometry& geomdata,
-                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                          Real  , const int*  , int  )
 {
 
-    // compute grad rho / rho
 
     const auto dx = geomdata.CellSizeArray();
     const int coord_type = geomdata.Coord();
@@ -646,7 +624,7 @@ void ca_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /
 #if AMREX_SPACEDIM == 3
     amrex::Error("3D not supported");
 #elif AMREX_SPACEDIM == 1
-    return; // Skip for 1D
+    return;
 #endif
 
     Real dxinv = 1.0_rt / dx[0];
@@ -666,16 +644,13 @@ void ca_dergradrhooverrho(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /
         Real vm = dat(i,j-1,k,UMY) / dat(i,j-1,k,URHO);
         Real v0 = dat(i,j,k,UMY) / dat(i,j,k,URHO);
 
-        // construct div{U}
         if (coord_type == 0) {
 
-            // Cartesian
             div_vel += 0.5_rt * (up - um) * dxinv;
             div_vel += 0.5_rt * (vp - vm) * dyinv;
 
         } else if (coord_type == 1) {
 
-            // r-z
             Real rc = (i + 0.5_rt) * dx[0];
             Real rm = (i - 1 + 0.5_rt) * dx[0];
             Real rp = (i + 1 + 0.5_rt) * dx[0];

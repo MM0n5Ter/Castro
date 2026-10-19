@@ -29,9 +29,6 @@ amrex::Real cot(amrex::Real x) {
     [[maybe_unused]] constexpr amrex::Real eps = 1.e-14_rt;
     AMREX_ASSERT(std::abs(std::sin(x)) > eps);
 
-    // we want to reflect outside of x in [0, pi]
-    // i.e. if x = -0.1 -> x = 0.1
-    // and  if x = 5π/4 -> x = 3π/4
 
     if (x < 0.0_rt || x > std::numbers::pi) {
         x = std::numbers::pi - x;

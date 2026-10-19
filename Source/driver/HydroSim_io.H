@@ -6,7 +6,6 @@
 
 extern std::string inputs_name;
 
-// Redirect std::cout to a temporary buffer.
 
 class StdoutCapture {
 
@@ -19,7 +18,6 @@ public:
         std::cout.rdbuf(prior_stream_buf);
     }
 
-    // Remove copy/move constructors/assignment operators.
     StdoutCapture (const StdoutCapture&) = delete;
     StdoutCapture (StdoutCapture&&) = delete;
     StdoutCapture& operator= (const StdoutCapture&) = delete;

@@ -49,8 +49,6 @@ void HydroSim::user_post_init()
             auto phi = (*phiGrav)[mfi].array();
             auto vol = getLevel(lev).Volume()[mfi].array();
 
-            // Compute the norm of the difference between the calculated potential
-            // and the analytical solution.
 
             reduce_op.eval(box, reduce_data,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -93,12 +91,6 @@ void HydroSim::user_post_init()
 
                             Real r = std::sqrt(x[ii] * x[ii] + y[jj] * y[jj] + z[kk] * z[kk]);
 
-                            // There is a special case
-                            // where, e.g., x[ii] = y[jj] = 0, in which case z[kk] = r and the
-                            // atanh will evaluate to infinity, making the product ill-defined.
-                            // Handle this case by only doing the atanh evaluation away from those
-                            // points, since the product should be zero anyway. We also want to
-                            // avoid a divide by zero, so we'll skip all the cases where r = 0.
 
                             if (r / radius > 1.e-6_rt) {
 
@@ -114,7 +106,6 @@ void HydroSim::user_post_init()
                                     phiExact -= C::Gconst * problem::density * (z[kk] * x[ii] * std::atanh(y[jj] / r));
                                 }
 
-                                // Also, avoid a divide-by-zero for the atan terms.
 
                                 if (std::abs(x[ii]) / radius > 1.e-6_rt) {
                                     phiExact += C::Gconst * problem::density * (x[ii] * x[ii] / 2.0_rt * std::atan(y[jj] * z[kk] / (x[ii] * r)));

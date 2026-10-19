@@ -1,6 +1,3 @@
-//
-// Analysis routine for RHD_shocktube
-//
 #include <iostream>
 #include <regex>
 #include <AMReX_DataServices.H>
@@ -16,15 +13,13 @@ int main(int argc, char* argv[])
 
     amrex::Initialize(argc, argv, false);
 
-    // timer for profiling
     BL_PROFILE_VAR("main()", pmain);
 
     if (AMREX_SPACEDIM != 1)
         Abort("ERROR: rhd_shocktube diagnostic only works for DIM=1");
 
-    // Input arguments
     string pltfile, energy_group_file, slcfile;
-    int j = 1;         // skip program name
+    int j = 1;
 
     while ( j < argc)
     {
@@ -48,7 +43,6 @@ int main(int argc, char* argv[])
             exit ( EXIT_FAILURE );
         }
 
-        // Go to the next parameter name
         ++j;
     }
 
@@ -63,7 +57,6 @@ int main(int argc, char* argv[])
     Print() <<   "slicefile = \"" << slcfile << "\"" << std::endl;
     Print() << std::endl;
 
-    // open the group file and read in the number of groups
     std::ifstream group_file;
     group_file.open(energy_group_file);
 
@@ -79,26 +72,21 @@ int main(int argc, char* argv[])
 
     group_file.close();
 
-    // Start dataservices
     DataServices::SetBatchMode();
 
-    // Define the type of file
     Amrvis::FileType fileType(Amrvis::NEWPLT);
     DataServices dataServices (pltfile, fileType);
 
     if (!dataServices.AmrDataOk())
         DataServices::Dispatch(DataServices::ExitRequest, NULL);
 
-    // get data from plot file
     AmrData& data = dataServices.AmrDataRef();
 
     if (data.FinestLevel() != 0)
         Abort("ERROR: rhd_shocktube only works for single level");
 
-    // get variable names
     const Vector<string>& varNames = data.PlotVarNames();
 
-    // get the index bounds and dx.
     Box domain = data.ProbDomain()[0];
     Vector<Real> dx = data.CellSize(0);
     const Vector<Real>& problo = data.ProbLo();
@@ -108,13 +96,11 @@ int main(int argc, char* argv[])
 
     int nbins = domain.length()[0];
 
-    // x-coord
     Vector<Real> x(nbins);
 
     for (auto i = 0; i < nbins; i++)
         x[i] = (i + 0.5) * dx_coarse;
 
-    // find variable indices
     Vector<std::string> compVarNames = {"density", "x_velocity", "pressure", "rad0"};
     auto varComps = GetComponents(data, compVarNames);
 
@@ -123,7 +109,6 @@ int main(int argc, char* argv[])
     auto pressure_index = varComps[2];
     auto rad0_comp = varComps[3];
 
-    // allocate storage for data
     Vector<Real> dens_bin(nbins, 0.);
     Vector<Real> vel_bin(nbins, 0.);
     Vector<Real> pres_bin(nbins, 0.);
@@ -133,7 +118,6 @@ int main(int argc, char* argv[])
     for (auto i = 0; i < data.NComp(); i++)
         fill_comps[i] = i;
 
-    // extract the 1d data
     auto l = 0;
 
     Vector<Real> level_dx = data.DxLevel()[l];
@@ -158,12 +142,10 @@ int main(int argc, char* argv[])
                       ngroups);
     }
 
-    // write slicefile
     Vector<Vector<Real> > vars = {dens_bin, vel_bin, pres_bin, rad_bin};
     Vector<std::string> slcvarNames = {"density", "velocity", "pressure", "rad"};
     WriteSlicefile(nbins, x, slcvarNames, vars, slcfile);
 
-    // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();

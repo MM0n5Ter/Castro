@@ -13,14 +13,7 @@ void hs_statefill(Box const& bx, FArrayBox& data,
                   const Vector<BCRec>& bcr, const int bcomp,
                   const int scomp)
 {
-    // Here dcomp is the component in the destination array that we
-    // are filling and bcr is a vector of length ncomp which are the
-    // BC values corresponding to components dcomp to dcomp + ncomp -
-    // 1
 
-    // First, fill all the BC data using the default routines.
-    // We replace inflow with outflow in the generic fill to ensure that
-    // valid data is always present.
 
     Vector<BCRec> bcr_inflow_as_outflow{bcr};
     for (auto & bc : bcr_inflow_as_outflow) {
@@ -37,29 +30,14 @@ void hs_statefill(Box const& bx, FArrayBox& data,
     GpuBndryFuncFab<HydroSimGenericFill> gpu_bndry_func(HydroSimGenericFill{});
     gpu_bndry_func(bx, data, dcomp, numcomp, geom, time, bcr_inflow_as_outflow, bcomp, scomp);
 
-    // At this point, if we filling anything other than the full state (numcomp == NUM_STATE),
-    // we assume that we are doing a derive or some other routine which is not actually setting
-    // boundary conditions on the state data. So we immediately return. This means that the derive
-    // data may not be exactly what the user wants at the physical boundary, but the impact of that
-    // is usually negligible.
 
     if (numcomp != NUM_STATE) {
         return;
     }
 
-    // Fill ambient BCs.
 
     ambient_region_fill(bx, data.array(dcomp), geom, bcr);
 
-    // Now we consider external BCs (HSE).  Note, if we are at a
-    // corner where two (or three) faces want to do HSE, we may run
-    // into a situation that the data is not valid in the corner where
-    // we start the integration.  We'll abort, for now, if we run into
-    // this case.
-    //
-    // The future fix is to first call ext_fill on the ghost cells
-    // that are not corners and then call it a second time on just the
-    // corners.
 
 #if AMREX_SPACEDIM == 2
     if ((bcr[URHO].lo(0) == amrex::BCType::ext_dir && bcr[URHO].lo(1) == amrex::BCType::ext_dir) ||
@@ -71,28 +49,28 @@ void hs_statefill(Box const& bx, FArrayBox& data,
 #endif
 
 #if AMREX_SPACEDIM == 3
-    if ((bcr[URHO].lo(0) == amrex::BCType::ext_dir &&           // xl, yl, zl corner
+    if ((bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&           // xl, yr, zl corner
+        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&           // xl, yl, zr corner
+        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&           // xl, yr, zr corner
+        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&           // xr, yl, zl corner
+        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&           // xr, yr, zl corner
+        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&           // xr, yl, zr corner
+        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&           // xr, yr, zr corner
+        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
          (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
         (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir)) {
         amrex::Error("Error: external boundaries meeting at a corner not supported");
@@ -103,11 +81,9 @@ void hs_statefill(Box const& bx, FArrayBox& data,
     hydrostatic_fill(bx, data.array(), geom, bcr, time);
 #endif
 
-    // Finally, override with problem-specific boundary conditions.
 
     const auto state = data.array();
 
-    // Copy BCs to an Array1D so they can be passed by value to the ParallelFor.
 
     Array1D<BCRec, 0, NUM_STATE - 1> bcs;
     for (int n = 0; n < numcomp; ++n) {

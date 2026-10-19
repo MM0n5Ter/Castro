@@ -41,11 +41,9 @@ HydroSim::print_energy_budget()
           }
       }
       if (lev < finest_level) {
-          // If using deferred sync, also include flux register energy
           FluxRegister* fine_correction_register = radiation->conservativeRegister(lev + 1);
           if (fine_correction_register) {
               for (int k = 0; k < Radiation::nGroups; k++) {
-                  // Minus sign in following relates to FluxRegister defn:
                   Real tmp = -fine_correction_register->SumReg(k) * parent->dtLevel(lev);
                   rr  += tmp;
               }
@@ -53,24 +51,14 @@ HydroSim::print_energy_budget()
       }
     }
 
-    // Geometric corrections:
 
 #if (AMREX_SPACEDIM == 1)
     if (Geom().IsSPHERICAL()) {
-      // Internal to the radiation class, fluxes in flux registers have
-      // been weighted by r^2 in spherical coords.  We multiply by an
-      // additional 4*pi here because we want to weight them as covering
-      // the full surface of a spherical shell.  This is compatible
-      // with what volWeightedTotal does for volumes.
       rr  *= (4.0 * std::numbers::pi);
       rry *= (4.0 * std::numbers::pi);
     }
 #elif (AMREX_SPACEDIM == 2)
     if (Geom().IsRZ()) {
-      // Internal to the radiation class, fluxes in flux registers have
-      // been weighted by r in RZ coordinates.  We multiply by an
-      // additional 2*pi here to be compatible with what volWeightedTotal
-      // does for volumes.
       rr  *= (2.0 * std::numbers::pi);
       rry *= (2.0 * std::numbers::pi);
     }

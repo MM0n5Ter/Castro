@@ -65,12 +65,8 @@ void user_initialize_state_data (int i, int j, int k,
 
                 Real rr2 = xx * xx + yy * yy + zz * zz;
 
-                // Note: we assume spherical in 1D and Cartesian in 2D.
 
 #if AMREX_SPACEDIM == 1
-                // the volume of a subzone is (4/3) pi (xr^3 - xl^3).
-                // we can factor this as: (4/3) pi dr (xr^2 + xl*xr + xl^2)
-                // The (4/3) pi dr factor is common, so we can neglect it.
                 if (rr2 <= r2init) {
                     vol_pert += (xr * xr + xl * xr + xl * xl);
                 }
@@ -79,14 +75,14 @@ void user_initialize_state_data (int i, int j, int k,
                 }
 #elif AMREX_SPACEDIM == 2
                 if (rr2 <= r2init) {
-                    vol_pert += xx; // common factor in volume ignored
+                    vol_pert += xx;
                 }
                 else {
                     vol_ambient += xx;
                 }
 #else
                 if (rr2 <= r2init) {
-                    vol_pert = vol_pert + 1.0_rt; // common factor in volume ignored
+                    vol_pert = vol_pert + 1.0_rt;
                 }
                 else {
                     vol_ambient = vol_ambient + 1.0_rt;
@@ -107,7 +103,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,URHO) = rho_zone;
     state(i,j,k,UTEMP) = T_zone;
 
-    // set the composition to be all in the first species
     for (int n = 0; n < NumSpec; ++n) {
         state(i,j,k,UFS+n) = 0.0_rt;
     }
@@ -116,7 +111,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // set the internal energy via the EOS
     eos_t eos_state;
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T   = state(i,j,k,UTEMP);

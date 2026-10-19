@@ -29,8 +29,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
                   const Box& vbx,
                   const Real dt) {
 
-  // here, bx is the box we loop over -- this can include ghost cells
-  // vbx is the valid box (no ghost cells)
 
   const auto dx = geom.CellSizeArray();
   const auto problo = geom.ProbLoArray();
@@ -94,7 +92,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
   char_var_map[EIGVEC_PRESSURE] = QPRES;
   char_var_map[EIGVEC_ENERGY] = QEINTDENS;
 
-  // Compute left and right traced states
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -103,7 +100,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     Real dt_over_dx = dt / dx[idir];
     Real dL = dx[idir];
 
-    // Want dt/(rdtheta) instead of dt/theta_cell_width for 2d Spherical
     if (coord == 2 && idir == 1) {
         Real r = problo[0] + static_cast<Real>(i + 0.5_rt) * dx[0];
         dL = r * dx[1];
@@ -173,7 +169,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       dq[n] = limited_slope(s, flat, at_lo_symmetry && is_normal_velocity, at_hi_symmetry && is_normal_velocity);
     }
 
-    // are we doing well-balanced?
     if (use_pressure_slope == 1) {
 
       Real rho_stencil[nslp];
@@ -201,7 +196,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     e[1] = un;
     e[2] = un + cc;
 
-    // construct the right state on the i interface
 
     Real ref_fac = 0.5_rt*(1.0_rt + dt_over_dx*amrex::min(e[0], 0.0_rt));
     Real ref_density = rho - ref_fac*dq[EIGVEC_RHO];
@@ -211,8 +205,7 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     Real ref_pressure = p - ref_fac*dq[EIGVEC_PRESSURE];
     Real ref_energy_density = rhoe - ref_fac*dq[EIGVEC_ENERGY];
 
-    // this is -(1/2) ( 1 + dt/dx lambda) (l . dq) r
-    Real trace_coef_minus = 0.0_rt; //  FOURTH*dtdx*(e(1) - e(1))*(1.0_rt - sign(1.0_rt, e(1)))
+    Real trace_coef_minus = 0.0_rt;
     Real trace_coef_entropy = 0.25_rt*dt_over_dx*(e[0] - e[1])*(1.0_rt - std::copysign(1.0_rt, e[1]));
     Real trace_coef_plus = 0.25_rt*dt_over_dx*(e[0] - e[2])*(1.0_rt - std::copysign(1.0_rt, e[2]));
 
@@ -235,7 +228,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       qp(i,j,k,QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_right + acoustic_minus_right)*csq);
       qp(i,j,k,QEINTDENS) = ref_energy_density + (acoustic_plus_right + acoustic_minus_right)*enth*csq + entropy_energy_right;
 
-      // add the source terms
       qp(i,j,k,QRHO  ) += 0.5_rt*dt*prim_source(i,j,k,QRHO);
       qp(i,j,k,QRHO  ) = amrex::max(ldensity_floor, qp(i,j,k,QRHO));
       qp(i,j,k,QUN   ) += 0.5_rt*dt*prim_source(i,j,k,QUN);
@@ -246,7 +238,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
 
     }
 
-    // now construct the left state on the i+1 interface
 
     ref_fac = 0.5_rt*(1.0_rt - dt_over_dx*amrex::max(e[2], 0.0_rt));
     ref_density = rho + ref_fac*dq[EIGVEC_RHO];
@@ -258,7 +249,7 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
 
     trace_coef_minus = 0.25_rt*dt_over_dx*(e[2] - e[0])*(1.0_rt + std::copysign(1.0_rt, e[0]));
     trace_coef_entropy = 0.25_rt*dt_over_dx*(e[2] - e[1])*(1.0_rt + std::copysign(1.0_rt, e[1]));
-    trace_coef_plus = 0.0_rt; //  FOURTH*dtdx*(e(3) - e(3))*(1.0_rt + sign(1.0_rt, e(3)))
+    trace_coef_plus = 0.0_rt;
 
     Real acoustic_plus_left = trace_coef_plus*acoustic_amp_plus;
     Real acoustic_minus_left = trace_coef_minus*acoustic_amp_minus;
@@ -276,7 +267,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       qm(i+1,j,k,QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
       qm(i+1,j,k,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
 
-      // add the source terms
       qm(i+1,j,k,QRHO) = amrex::max(ldensity_floor, qm(i+1,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
       qm(i+1,j,k,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
       qm(i+1,j,k,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
@@ -292,7 +282,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       qm(i,j+1,k,QPRES) = max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
       qm(i,j+1,k,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
 
-      // add the source terms
       qm(i,j+1,k,QRHO) = amrex::max(ldensity_floor, qm(i,j+1,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
       qm(i,j+1,k,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
       qm(i,j+1,k,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
@@ -308,7 +297,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       qm(i,j,k+1,QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
       qm(i,j,k+1,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
 
-      // add the source terms
       qm(i,j,k+1,QRHO) = amrex::max(ldensity_floor, qm(i,j,k+1,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
       qm(i,j,k+1,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
       qm(i,j,k+1,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
@@ -319,9 +307,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     }
 
 #if (AMREX_SPACEDIM < 3)
-    // geometry source terms
-    // these only apply to the x-states for cylindrical and spherical
-    // or y-states for spherical
 
     if (dloga(i,j,k) != 0.0_rt) {
       Real courant_local = dt_over_dx*(cc + std::abs(un));
@@ -361,12 +346,10 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       const int nc = passive_cons_index(passive_index);
       const int n = passive_prim_index(passive_index);
 
-      // get the slope
 
       fill_passive_stencil(field_arr, inv_density_arr, idir, i, j, k, nc, s);
       Real dX = limited_slope(s, flat, false, false);
 
-      // Right state
       if ((idir == 0 && i >= vlo[0]) ||
           (idir == 1 && j >= vlo[1]) ||
           (idir == 2 && k >= vlo[2])) {
@@ -375,7 +358,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
         qp(i,j,k,n) = s[i0] + 0.5_rt*(-1.0_rt - zero_speed_factor)*dX;
       }
 
-      // Left state
       Real zero_speed_factor = un >= 0.0_rt ? un*dt_over_dx : 1.0_rt;
       Real advect_correction_left = 0.5_rt*(1.0_rt - zero_speed_factor )*dX;
 

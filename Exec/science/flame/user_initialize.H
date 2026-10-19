@@ -25,7 +25,6 @@ void user_initialize ()
         amrex::Error("no valid ash state defined");
     }
 
-    // fuel state
 
     for (int n = 0; n < NumSpec; n++) {
         problem::xn_fuel[n] = problem::smallx_init;
@@ -64,7 +63,6 @@ void user_initialize ()
         problem::xn_ash[iash4] = problem::X_ash4;
     }
 
-    // normalize
 
     Real sum_Xf = 0.0_rt;
     Real sum_Xa = 0.0_rt;
@@ -100,11 +98,9 @@ void user_initialize ()
     problem::e_fuel = eos_state.e;
     problem::p_fuel = eos_state.p;
 
-    // compute the ash state -- this should be hot but in pressure
-    // equilibrium
 
-    eos_state.rho = problem::rho_fuel;  // initial guess
-    eos_state.p = problem::p_fuel;      // pressure equilibrium
+    eos_state.rho = problem::rho_fuel;
+    eos_state.p = problem::p_fuel;
     eos_state.T = problem::T_ash;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = problem::xn_ash[n];
@@ -115,11 +111,9 @@ void user_initialize ()
     problem::rho_ash = eos_state.rho;
     problem::e_ash = eos_state.e;
 
-    // mass flux will be constant across the flame
 
     problem::mass_flux = problem::rho_fuel * problem::v_inflow;
 
-    // Set up HydroSim data logs for this problem
 
     if (hydrosim::sum_step_period > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 

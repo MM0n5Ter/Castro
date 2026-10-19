@@ -12,7 +12,6 @@ void user_initialize ()
     problem::ifuel = network_spec_index("fuel");
     problem::iash = network_spec_index("ash");
 
-    // output flame speed and width estimates
 
     eos_t eos_state;
     eos_state.rho = rho_burn_ref;
@@ -33,7 +32,6 @@ void user_initialize ()
     std::cout << "flame width = " << lambda_f << std::endl;
     std::cout << "flame speed = " << v_f << std::endl;
 
-    // Set up HydroSim data logs for this problem
 
     if (hydrosim::sum_step_period > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 

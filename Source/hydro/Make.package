@@ -1,4 +1,3 @@
-# sources used with hydro
 
 ifneq ($(USE_MHD),TRUE)
   CEXE_sources += HydroSim_hydro.cpp

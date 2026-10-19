@@ -29,7 +29,6 @@ void user_bc_fill(int i, int j, int k,
 
     Real r = std::sqrt(x * x + y * y + z * z);
 
-    // XLO
     if (bcs(0).lo(0) == amrex::BCType::foextrap && i < domlo[0]) {
 
         int ic = domlo[0];
@@ -42,14 +41,12 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(ic,j,k,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(ic,j,k,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(ic,j,k,UMZ)) * mom * (z / r);
 
     }
 
-    // XHI
     if (bcs(0).hi(0) == amrex::BCType::foextrap && i > domhi[0]) {
 
         int ic = domhi[0];
@@ -62,7 +59,6 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(ic,j,k,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(ic,j,k,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(ic,j,k,UMZ)) * mom * (z / r);
@@ -70,7 +66,6 @@ void user_bc_fill(int i, int j, int k,
     }
 
 #if AMREX_SPACEDIM >= 2
-    // YLO
     if (bcs(0).lo(1) == amrex::BCType::foextrap && j < domlo[1]) {
 
         int jc = domlo[1];
@@ -83,14 +78,12 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(i,jc,k,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(i,jc,k,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(i,jc,k,UMZ)) * mom * (z / r);
 
     }
 
-    // YHI
     if (bcs(0).hi(1) == amrex::BCType::foextrap && j > domhi[1]) {
 
         int jc = domhi[1];
@@ -103,7 +96,6 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(i,jc,k,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(i,jc,k,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(i,jc,k,UMZ)) * mom * (z / r);
@@ -111,7 +103,6 @@ void user_bc_fill(int i, int j, int k,
 #endif
 
 #if AMREX_SPACEDIM == 3
-    // ZLO
     if (bcs(0).lo(2) == amrex::BCType::foextrap && k < domlo[2]) {
 
         int kc = domlo[2];
@@ -124,14 +115,12 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(i,j,kc,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(i,j,kc,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(i,j,kc,UMZ)) * mom * (z / r);
 
     }
 
-    // ZHI
     if (bcs(0).hi(2) == amrex::BCType::foextrap && k > domhi[2]) {
 
         int kc = domhi[2];
@@ -144,7 +133,6 @@ void user_bc_fill(int i, int j, int k,
 
         Real mom  = momc * (rc / r) * (rc / r);
 
-        // Project along the normal
         state(i,j,k,UMX) = std::copysign(1.e0_rt, state(i,j,kc,UMX)) * mom * (x / r);
         state(i,j,k,UMY) = std::copysign(1.e0_rt, state(i,j,kc,UMY)) * mom * (y / r);
         state(i,j,k,UMZ) = std::copysign(1.e0_rt, state(i,j,kc,UMZ)) * mom * (z / r);

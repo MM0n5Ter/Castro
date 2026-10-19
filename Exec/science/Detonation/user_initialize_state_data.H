@@ -24,8 +24,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real sigma_arg = -(c_T - xcen) / width;
     Real sigma;
-    // need to avoid FP overflow for sigma_arg >= 709
-    // 1/(1 + exp(100)) ~= 3e-44, which is much smaller than machine epsilon
     if (sigma_arg < 100) {
         sigma = 1.0_rt / (1.0_rt + std::exp(sigma_arg));
     } else {
@@ -46,7 +44,6 @@ void user_initialize_state_data (int i, int j, int k,
     }
 
 #ifdef AUX_THERMO
-    // set the aux quantities -- we need to do this if we are using the NSE network
     set_aux_comp_from_X(eos_state);
 
     for (int n = 0; n < NumAux; n++) {
@@ -57,7 +54,6 @@ void user_initialize_state_data (int i, int j, int k,
     eos(eos_input_rt, eos_state);
 
 #ifdef NSE_NET
-    // set initial conditions for NSE_NET
     state(i,j,k,UPROTON_MU) = problem::mu_p;
     state(i,j,k,UNEUTRON_MU) = problem::mu_n;
 
@@ -68,7 +64,6 @@ void user_initialize_state_data (int i, int j, int k,
     for (int n = 0; n < NumSpec; ++n) {
       burn_state.xn[n] = problem::xn[n];
     }
-    // initialize y_e.
     burn_state.y_e = 0.5_rt;
     burn_state.mu_p = problem::mu_p;
     burn_state.mu_n = problem::mu_n;
@@ -77,9 +72,6 @@ void user_initialize_state_data (int i, int j, int k,
         auto nse_state = get_actual_nse_state(nse_input_rty,
                                               burn_state, 1.0e-10_rt, true);
 
-      // for (int n = 0; n < NumSpec; ++n) {
-      //   state(i,j,k,UFS+n) = state(i,j,k,URHO) * nse_state.xn[n];
-      // }
 
       state(i,j,k,UPROTON_MU) = nse_state.mu_p;
       state(i,j,k,UNEUTRON_MU) = nse_state.mu_n;

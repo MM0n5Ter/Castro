@@ -7,12 +7,11 @@
 using namespace amrex;
 
 
-void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_dertpert(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                  const FArrayBox& datfab, const Geometry& geomdata,
-                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                 Real  , const int*  , int  )
 {
 
-    // derive the temperature perturbation
 
     const auto dx = geomdata.CellSizeArray();
     const auto problo = geomdata.ProbLoArray();

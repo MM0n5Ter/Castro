@@ -15,7 +15,6 @@ void user_initialize ()
 
     eos_t eos_state;
 
-    // Given the inputs of small_dens and small_temp, figure out pressure_cutoff.
 
     if (small_dens > 0.0_rt && small_temp > 0.0_rt) {
         eos_state.rho = small_dens;

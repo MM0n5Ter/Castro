@@ -12,7 +12,6 @@ using namespace amrex;
 namespace model
 {
 
-    // integer keys for indexing the model_state array
 
     constexpr int nvars = 4 + NumSpec + NumAux;
     constexpr int idens = 0;
@@ -34,14 +33,9 @@ namespace model
         amrex::Array1D<amrex::Real, 0, NPTS_MODEL-1> r;
     };
 
-    // Tolerance used for getting the total star mass equal to the desired mass.
-    // It can be reasonably small, since there will always be a central density
-    // value that can give the desired mass on the grid.
 
     const amrex::Real mass_tol = 1.0e-6_rt;
 
-    // Tolerance used when iterating over a zone to force it into HSE by adjusting
-    // the current density (and possibly temperature). Should be very small (~1.e-10).
 
     const amrex::Real hse_tol = 1.0e-10_rt;
 

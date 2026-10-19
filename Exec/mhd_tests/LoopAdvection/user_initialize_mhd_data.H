@@ -9,16 +9,12 @@ Real A_z (int i, int j, int k,
 
     amrex::ignore_unused(k);
 
-    // Compute A_z.  This lives on edges, e.g., {A_z}_{i-1/2,j-1/2,k}
-    // so it is centered only in the z-direction.
 
     const Real* dx = geomdata.CellSize();
     const Real* problo = geomdata.ProbLo();
 
-    // x_{i-1/2}
     Real x = problo[0] + dx[0] * (static_cast<Real>(i));
 
-    // y_{j-1/2}
     Real y = problo[1] + dx[1] * (static_cast<Real>(j));
 
     Real r = std::sqrt(x * x + y * y);

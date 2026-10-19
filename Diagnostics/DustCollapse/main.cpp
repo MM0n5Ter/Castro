@@ -1,16 +1,3 @@
-//
-// Process a group of n-d plotfiles from the dustcollapse problem
-// and output the position of the interface as a function of time.
-//
-// For 2d:
-//      The initial dense sphere is assumed to be centered a r = 0 (x = 0).
-//      We take as default that it is centered vertically at y = 0, but
-//      this can be overridden with --yctr.
-//
-// For 3d:
-//      The initial dense sphere is assumed to be centered a x = y = z = 0,
-//      but this can be overridden with --{x,y,z}ctr.
-//
 #include <iostream>
 #include <regex>
 #include <AMReX_DataServices.H>
@@ -32,10 +19,8 @@ int main(int argc, char* argv[])
 
     amrex::Initialize(argc, argv, false);
 
-    // timer for profiling
     BL_PROFILE_VAR("main()", pmain);
 
-    // Input arguments
     if (argc < 2)
         Abort("ERROR: Missing plotfiles");
 
@@ -52,13 +37,11 @@ int main(int argc, char* argv[])
             profile = true;;
             farg++;
         }
-        // Go to the next parameter name
         ++j;
     }
 
 #endif
 
-    // loop over plotfiles
     for (auto f = farg; f < argc; f++) {
 
         string pltfile = argv[f];
@@ -68,25 +51,20 @@ int main(int argc, char* argv[])
         Real yctr = center[1];
         Real zctr = center[2];
 
-        // Start dataservices
         DataServices::SetBatchMode();
 
-        // Define the type of file
         Amrvis::FileType fileType(Amrvis::NEWPLT);
         DataServices dataServices (pltfile, fileType);
 
         if (!dataServices.AmrDataOk())
             DataServices::Dispatch(DataServices::ExitRequest, NULL);
 
-        // get data from plot file
         AmrData& data = dataServices.AmrDataRef();
 
         int finestLevel = data.FinestLevel();
 
-        // get variable names
         const Vector<string>& varNames = data.PlotVarNames();
 
-        // get the index bounds and dx.
         Box domain = data.ProbDomain()[finestLevel];
         auto dx = data.CellSize(finestLevel);
         const Vector<Real>& problo = data.ProbLo();
@@ -98,7 +76,6 @@ int main(int argc, char* argv[])
 
         const auto dx_fine = *(std::min_element(dx.begin(), dx.end()));
 
-        // compute the maximum number of zones, as if we were completely refined
 #if (AMREX_SPACEDIM == 1)
         int nbins = domain.length(0);
 #elif (AMREX_SPACEDIM == 2)
@@ -119,42 +96,29 @@ int main(int argc, char* argv[])
         int nbins = int(max_dist / dx_fine);
 #endif
 
-        // radial coordinate
         Vector<Real> r(nbins);
         for (auto i = 0; i < nbins; i++)
             r[i] = (i + 0.5) * dx_fine + rmin;
 
-        // find variable indices
         auto dens_comp = data.StateNumber("density");
 
         if (dens_comp < 0 )
             Abort("ERROR: density variable not found");
 
-        // allocate storage for data
         Vector<Real> dens(nbins, 0.);
         Vector<Real> volcount(nbins, 0);
 
-        // r1 is the factor between the current level grid spacing and the
-        // FINEST level
         auto r1 = 1.0;
 
         Vector<int> fill_comps(data.NComp());
         for (auto i = 0; i < data.NComp(); i++)
             fill_comps[i] = i;
 
-        // imask will be set to false if we've already output the data.
-        // Note, imask is defined in terms of the finest level.  As we loop
-        // over levels, we will compare to the finest level index space to
-        // determine if we've already output here
         int mask_size = domain.length().max();
         Vector<int> imask(std::pow(mask_size, AMREX_SPACEDIM), 1);
 
-        // counter
         int cnt = 0;
 
-        // loop over the data, starting at the finest grid, and if we haven't
-        // already stored data in that grid location (according to imask),
-        // store it.
         for (int l = finestLevel; l >= 0; l--) {
 
             Vector<Real> level_dx = data.DxLevel()[l];
@@ -192,22 +156,17 @@ int main(int argc, char* argv[])
 #endif
             }
 
-            // adjust r1 for the next lowest level
             if (l != 0) r1 *= rr[l-1];
         }
 
 #if (AMREX_SPACEDIM == 1)
-        // sort the data based on the coordinates
         auto isv = sort_indexes(r);
 #else
-        // normalize
         for (int i = 0; i < nbins; i++)
             if (volcount[i] != 0.)
                 dens[i] /= volcount[i];
 #endif
 
-        // These are calculated analytically given initial density 1.e9 and the
-        // analytic expression for the radius as a function of time t = 0.00
         Real max_dens = 1.e9;
 
         if (std::abs(data.Time()) <= 1.e-8)
@@ -231,8 +190,6 @@ int main(int argc, char* argv[])
             Abort();
         }
 
-        // loop over the solution, from r = 0 outward, and find the first
-        // place where the density drops below the threshold density
         auto index = -1;
 #if (AMREX_SPACEDIM == 1)
         for (auto i = 0; i < cnt; i++) {
@@ -264,11 +221,9 @@ int main(int argc, char* argv[])
             r_interface = x * r[index-1] + (1.0-x) * r[index];
         }
 
-        // output
         Print() << "\ntime = " << data.Time() << ", r_interface = "
                 << std::setprecision(16) << r_interface << std::endl << std::endl;
 
-        // dump out profile file
         if (profile) {
             string outfile_name = pltfile;
 
@@ -283,7 +238,6 @@ int main(int argc, char* argv[])
             outfile.precision(12);
             const auto w = 24;
 
-            // write the header
             outfile << std::setw(w) << "r" << std::setw(w) << "density" << std::endl;
 
             for (auto i = 0; i < nbins; i++)
@@ -294,7 +248,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();
@@ -303,11 +256,9 @@ int main(int argc, char* argv[])
 template <typename T>
 Vector<size_t> sort_indexes(const Vector<T> &v) {
 
-    // initialize original index locations
     Vector<size_t> idx(v.size());
     iota(idx.begin(), idx.end(), 0);
 
-    // sort indexes based on comparing values in v
     sort(idx.begin(), idx.end(),
          [&v](size_t i1, size_t i2) {
         return v[i1] < v[i2];
@@ -316,10 +267,6 @@ Vector<size_t> sort_indexes(const Vector<T> &v) {
     return idx;
 }
 
-///
-/// Gets the variable ``varname`` from the ``job_info`` file and returns as a
-/// string
-///
 string GetVarFromJobInfo (const string pltfile, const string varname) {
     string filename = pltfile + "/job_info";
     std::regex re("(?:[ \\t]*)" + varname + "\\s*:\\s*(.*)\\s*\\n");
@@ -344,11 +291,9 @@ string GetVarFromJobInfo (const string pltfile, const string varname) {
     return "";
 }
 
-// Get the center from the job info file and return as a Real Vector
 Vector<Real> GetCenter (const string pltfile) {
     auto center_str = GetVarFromJobInfo(pltfile, "center");
 
-    // split string
     std::istringstream iss {center_str};
     Vector<Real> center;
 

@@ -24,7 +24,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     zz = problo[2] + dx[2] * (static_cast<Real>(k) + 0.5_rt);
 #endif
 
-    // Establish the initial guess: a uniform density sphere
 
     if (std::sqrt(xx * xx + yy * yy + zz * zz) < hydrosim::scf_equator_radius) {
         state(i,j,k,URHO) = hydrosim::scf_peak_density;

@@ -57,7 +57,6 @@ HydroSim::user_diagnostics ()
             datalog << std::endl;
         }
 
-        // Write the quantities at this time
         datalog << std::setw(14) <<  time;
         datalog << std::setw(14) <<  std::setprecision(6) << Tmax;
         datalog << std::setw(14) <<  std::setprecision(6) << MachMax;

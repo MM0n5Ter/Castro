@@ -20,7 +20,7 @@ HydroSim::assemble_old_external_source(MultiFab& source, const MultiFab& state_i
 
     Real term_weight = 1.0;
 
-    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);
 
     if (verbose > 1)
     {
@@ -50,14 +50,6 @@ HydroSim::assemble_new_external_source(MultiFab& source, const MultiFab& field_o
         return;
     }
 
-    // In this routine, we have two options: we can either do an
-    // explicit predictor-corrector solve, or an implicit solve.
-    // If we are doing predictor-corrector, the goal is to have
-    // 0.5 * source_old + 0.5 * source_terms_new. If we are doing an
-    // implicit solve, the goal is just to have 1.0 * source_terms_new.
-    // This choice informs how we select term_weight below.
-    // It is up to the implementer of the external source term
-    // to get it right if they choose to do an implicit solve.
 
     Real term_weight;
 
@@ -65,7 +57,6 @@ HydroSim::assemble_new_external_source(MultiFab& source, const MultiFab& field_o
 
     external_source.setVal(0.0);
 
-    // Subtract off the old-time value first.
 
     Real old_time = time - dt;
 
@@ -77,9 +68,8 @@ HydroSim::assemble_new_external_source(MultiFab& source, const MultiFab& field_o
 
     fill_external_source(old_time, dt, field_old, field_old, external_source);
 
-    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);
 
-    // Time center with the new data.
 
     external_source.setVal(0.0);
 
@@ -91,7 +81,7 @@ HydroSim::assemble_new_external_source(MultiFab& source, const MultiFab& field_o
 
     fill_external_source(time, dt, field_old, field_new, external_source);
 
-    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+    MultiFab::Saxpy(source, term_weight, external_source, 0, 0, source.nComp(), 0);
 
     if (verbose > 1)
     {

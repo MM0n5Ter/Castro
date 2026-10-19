@@ -13,7 +13,6 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // set center, domain extrema
 
     if (coord_type == 0) {
         problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);

@@ -3,4 +3,4 @@
 
 enum RadComponentIds  { Rad  = 0 };
 
-#endif /* _RadTypes_H_ */
+#endif

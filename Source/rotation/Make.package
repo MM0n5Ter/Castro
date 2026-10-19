@@ -1,5 +1,3 @@
-# sources used with rotation
-# this is included if USE_ROTATION = TRUE
 
 CEXE_headers += HydroSim_rotation.H
 CEXE_headers += Rotation.H

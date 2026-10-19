@@ -13,16 +13,13 @@ USE_OMP    = FALSE
 USE_ALL_HYDROSIM = FALSE
 USE_AMR_CORE = FALSE
 
-# define the location of the HYDROSIM top directory
 HYDROSIM_HOME  ?= ../../..
 
 USE_MODEL_PARSER = TRUE
 NUM_MODELS := 2
 
-# This sets the EOS directory in HydroSim/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in HydroSim/Networks
 NETWORK_DIR := he-burn/he-burn-19am
 
 EXTERN_SEARCH += .

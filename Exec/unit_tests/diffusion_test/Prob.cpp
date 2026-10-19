@@ -1,4 +1,3 @@
-/* Implementations of functions in Problem.H go here */
 
 #include <HydroSim.H>
 
@@ -7,7 +6,6 @@ using namespace amrex;
 #ifdef DO_PROBLEM_POST_SIMULATION
 void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
 
-  // compute the norm of the solution vs. the analytic solution
 
   int nlevels = static_cast<int>(amr_level.size());
 
@@ -16,19 +14,15 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
 
   for (int n = 0; n < nlevels; ++n) {
 
-    // the HydroSim object for this level
     auto& hydrosim = dynamic_cast<HydroSim&>(*amr_level[n]);
     Real time = hydrosim.get_state_data(State_Type).curTime();
 
-    // the state data
     MultiFab& S = hydrosim.get_new_data(State_Type);
 
-    // derive the analytic solution
     const int ngrow = 1;
     auto analytic = hydrosim.derive("analytic", time, ngrow);
 
 #ifdef TRUE_SDC
-    // if we are fourth-order, we need to convert to averages
     if (sdc_accuracy_order == 4) {
         auto domain_lo = hydrosim.geom.Domain().loVect3d();
         auto domain_hi = hydrosim.geom.Domain().hiVect3d();
@@ -50,7 +44,6 @@ void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_leve
     }
 #endif
 
-    // compute the norm of the error
     MultiFab::Subtract(*analytic, S, UTEMP, 0, 1, 0);
 
     L0 = std::max(L0, analytic->norm0());

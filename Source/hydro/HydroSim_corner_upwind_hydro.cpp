@@ -14,7 +14,7 @@
 using namespace amrex;
 
 step_result
-HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 {
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
@@ -31,8 +31,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
   const Real strt_time = ParallelDescriptor::second();
 
-  // this constructs the hydrodynamic source (essentially the flux
-  // divergence) using the CTU framework for unsplit hydrodynamics
 
   if (verbose) {
       amrex::Print() << "... Entering assemble_ctu_hydro_source() on level " << level << std::endl << std::endl;
@@ -58,7 +56,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                                get_new_data(Burn_Corr_Type) : scratch_deferred_mf;
 #endif
 
-  // we will treat the hydro source as any other source term
 
 #ifdef RADIATION
   MultiFab& rad_energy_new = get_new_data(Radiation_Type);
@@ -80,7 +77,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
   }
 #endif
 
-  // Record a running total of the number of bytes allocated as temporary Fab data.
 
   size_t fab_bytes = 0;
 #ifdef AMREX_USE_GPU
@@ -88,9 +84,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
   IntVect largest_tile_size{0};
 
-  // Our strategy for launching work on GPUs in the hydro is incompatible with OpenMP,
-  // throw an error if the user is trying this. If this were to ever change, it would
-  // require at minimum doing a safe atomic update on the running fab_bytes total.
 
 #if defined(AMREX_USE_OMP) && defined(AMREX_USE_GPU)
   amrex::Error("USE_OMP=TRUE and USE_GPU=TRUE are not concurrently supported in HydroSim");
@@ -98,8 +91,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
 #ifdef AMREX_USE_GPU
    if (hydrosim::hydro_tile_mem_ratio > 0.0) {
-       // If we haven't done any tuning yet, set the tile size to an arbitrary
-       // small value to start with.
 
        if (sweep_tile_tuned == 0) {
            hydro_tile_size[0] = 16;
@@ -111,15 +102,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
        }
 
-       // Run through boxes on this level and see if any of them are
-       // bigger than the biggest box from our previous tuning. If so,
-       // we need to re-compute the tile size.
        for (MFIter mfi(S_new, false); mfi.isValid(); ++mfi) {
            if (mfi.validbox().numPts() > largest_tuned_box_pts) {
                sweep_tile_tuned = 0;
            }
 
-           // Also, sum up the number of bytes in the state data.
            state_bytes += S_new[mfi].nBytes();
        }
    }
@@ -138,11 +125,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
     int local_rad_step_count = -1;
 #endif
 
-    // Declare local storage now. This should be done outside the
-    // MFIter loop, and then we will resize the Fabs in each MFIter
-    // loop iteration. We use the async arenato ensure that their
-    // memory is saved until it is no longer needed (only relevant for
-    // the asynchronous case, usually on GPUs).
 
     FArrayBox shk(The_Async_Arena());
     FArrayBox q(The_Async_Arena()), qthermo(The_Async_Arena());
@@ -192,13 +174,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
     for (MFIter mfi(S_new, hydro_tile_size); mfi.isValid(); ++mfi) {
 
-      // the valid region box
       const Box& bx = mfi.tilebox();
 
       const Box& obx = amrex::grow(bx, 1);
 
-      // Compute the primitive variables (both q and qthermo) from
-      // the conserved variables.
 
       const Box& qbx = amrex::grow(bx, NUM_GROW);
       const Box& ghost3_box = amrex::grow(bx, 3);
@@ -206,8 +185,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #ifdef RADIATION
       q.resize(qbx, NQ);
 #else
-      // note: we won't store the passives in q, so we'll compute their
-      // primitive versions on demand as needed
       q.resize(qbx, NQPRIMBASE);
 #endif
       fab_bytes += q.nBytes();
@@ -262,15 +239,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       shk.resize(obx, 1);
       fab_bytes += shk.nBytes();
 
-      // Multidimensional shock detection
 
-      // this is a local shock variable used only for the Riemann
-      // solver -- this will never be used to update the value in the
-      // conserved state.
 
       Array4<Real> const shock_flag_arr = shk.array();
 
-      // get the primitive variable hydro sources
 
       prim_source_fab.resize(ghost3_box, NQSOURCE);
       fab_bytes += prim_source_fab.nBytes();
@@ -296,7 +268,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
         });
       }
 
-      // work on the interface states
 
       qxm.resize(obx, NQ);
       fab_bytes += qxm.nBytes();
@@ -400,7 +371,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       fab_bytes += div.nBytes();
       auto divergence_arr = div.array();
 
-      // compute divu -- we'll use this later when doing the artificial viscosity
       divu(obx, prim_arr, divergence_arr);
 
       flux[0].resize(grown_x_box, NUM_STATE);
@@ -470,7 +440,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       }
 #endif
 
-      // compute the fluxes through the x-interface
 
       compute_godunov_flux(xbx,
                           x_minus_arr, x_plus_arr,
@@ -483,7 +452,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           shock_flag_arr,
                           0, false);
 
-#endif // 1-d
+#endif
 
 
 
@@ -533,13 +502,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       const amrex::Real hdtdx = 0.5*dt/dx[0];
       const amrex::Real hdtdy = 0.5*dt/dx[1];
 
-      // compute F^x
-      // [lo(1), lo(2)-1, 0], [hi(1)+1, hi(2)+1, 0]
       const Box& flux_box_x = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      // flux_temp1 = fx
-      // radiation_temp1 = rfx
-      // godunov_temp1 = qgdnxv
       compute_godunov_flux(flux_box_x,
                           x_minus_arr, x_plus_arr,
                           flux_temp1_arr,
@@ -550,12 +514,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           0, false);
 
-      // compute F^y
-      // [lo(1)-1, lo(2), 0], [hi(1)+1, hi(2)+1, 0]
       const Box& flux_box_y = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      // flux_temp2 = fy
-      // radiation_temp2 = rfy
       compute_godunov_flux(flux_box_y,
                           y_minus_arr, y_plus_arr,
                           flux_temp2_arr,
@@ -566,11 +526,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           1, false);
 
-      // add the transverse flux difference in y to the x states
-      // [lo(1), lo(2), 0], [hi(1)+1, hi(2), 0]
 
-      // flux_temp2 = fy
-      // radiation_temp2 = rfy
       tangential_pass(xbx, 1, 0,
                    x_minus_arr, prim_left_arr,
                    x_plus_arr, prim_right_arr,
@@ -587,7 +543,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(xbx, prim_right_arr);
 
-      // solve the final Riemann problem axross the x-interfaces
 
 #ifdef REACTIONS
       if (hydrosim::time_scheme == SimplifiedIterCorrection) {
@@ -606,12 +561,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           0, false);
 
-      // add the transverse flux difference in x to the y states
-      // [lo(1), lo(2), 0], [hi(1), hi(2)+1, 0]
 
-      // flux_temp1 = fx
-      // radiation_temp1 = rfx
-      // godunov_temp1 = qgdnvx
 
       tangential_pass(ybx, 0, 1,
                    y_minus_arr, prim_left_arr,
@@ -630,7 +580,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       reset_edge_thermo(ybx, prim_right_arr);
 
 
-      // solve the final Riemann problem axross the y-interfaces
 
 #ifdef REACTIONS
       if (hydrosim::time_scheme == SimplifiedIterCorrection) {
@@ -648,7 +597,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           1, false);
-#endif // 2-d
+#endif
 
 
 
@@ -664,13 +613,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       const amrex::Real third_dt_dy = dt/dx[1]/3.0;
       const amrex::Real third_dt_dz = dt/dx[2]/3.0;
 
-      // compute F^x
-      // [lo(1), lo(2)-1, lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
       const Box& flux_box_x = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,1)));
 
-      // flux_temp1 = fx
-      // radiation_temp1 = rfx
-      // godunov_temp1 = qgdnxv
       compute_godunov_flux(flux_box_x,
                           x_minus_arr, x_plus_arr,
                           flux_temp1_arr,
@@ -682,7 +626,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           0, false);
 
 
-      // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+1, hi(3)+1]
       const Box& trans_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
       edge_minus_yx.resize(trans_box_yx, NQ);
@@ -693,9 +636,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       auto edge_plus_yx_arr = edge_plus_yx.array();
       fab_bytes += edge_plus_yx.nBytes();
 
-      // flux_temp1 = fx
-      // radiation_temp1 = rfx
-      // godunov_temp1 = qgdnvx
       tangential_pass(trans_box_yx, 0, 1,
                    y_minus_arr, edge_minus_yx_arr,
                    y_plus_arr, edge_plus_yx_arr,
@@ -710,7 +650,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_yx, edge_plus_yx.array());
 
-      // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
       const Box& trans_box_zx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       edge_minus_zx.resize(trans_box_zx, NQ);
@@ -735,13 +674,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_zx, edge_plus_zx.array());
 
-      // compute F^y
-      // [lo(1)-1, lo(2), lo(3)-1], [hi(1)+1, hi(2)+1, hi(3)+1]
       const Box& flux_box_y = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,1)));
 
-      // flux_temp1 = fy
-      // radiation_temp1 = rfy
-      // godunov_temp1 = qgdnvy
       compute_godunov_flux(flux_box_y,
                           y_minus_arr, y_plus_arr,
                           flux_temp1_arr,
@@ -751,7 +685,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           1, false);
-      // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), lo(3)+1]
       const Box& trans_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
       edge_minus_xy.resize(trans_box_xy, NQ);
@@ -762,9 +695,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       auto edge_plus_xy_arr = edge_plus_xy.array();
       fab_bytes += edge_plus_xy.nBytes();
 
-      // flux_temp1 = fy
-      // radiation_temp1 = rfy
-      // godunov_temp1 = qgdnvy
       tangential_pass(trans_box_xy, 1, 0,
                    x_minus_arr, edge_minus_xy_arr,
                    x_plus_arr, edge_plus_xy_arr,
@@ -779,7 +709,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_xy, edge_plus_xy.array());
 
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), lo(3)+1]
       const Box& trans_box_zy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
       edge_minus_zy.resize(trans_box_zy, NQ);
@@ -790,9 +719,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       auto edge_plus_zy_arr = edge_plus_zy.array();
       fab_bytes += edge_plus_zy.nBytes();
 
-      // flux_temp1 = fy
-      // radiation_temp1 = rfy
-      // godunov_temp1 = qgdnvy
       tangential_pass(trans_box_zy, 1, 2,
                    z_minus_arr, edge_minus_zy_arr,
                    z_plus_arr, edge_plus_zy_arr,
@@ -807,13 +733,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_zy, edge_plus_zy.array());
 
-      // compute F^z
-      // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)+1]
       const Box& flux_box_z = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,1,0)));
 
-      // flux_temp1 = fz
-      // radiation_temp1 = rfz
-      // godunov_temp1 = qgdnvz
       compute_godunov_flux(flux_box_z,
                           z_minus_arr, z_plus_arr,
                           flux_temp1_arr,
@@ -823,7 +744,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           2, false);
-      // [lo(1)-1, lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
       const Box& trans_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       edge_minus_xz.resize(trans_box_xz, NQ);
@@ -834,9 +754,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       auto edge_plus_xz_arr = edge_plus_xz.array();
       fab_bytes += edge_plus_xz.nBytes();
 
-      // flux_temp1 = fz
-      // radiation_temp1 = rfz
-      // godunov_temp1 = qgdnvz
       tangential_pass(trans_box_xz, 2, 0,
                    x_minus_arr, edge_minus_xz_arr,
                    x_plus_arr, edge_plus_xz_arr,
@@ -851,7 +768,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_xz, edge_plus_xz.array());
 
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, lo(3)]
       const Box& trans_box_yz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
       edge_minus_yz.resize(trans_box_yz, NQ);
@@ -862,9 +778,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       auto edge_plus_yz_arr = edge_plus_yz.array();
       fab_bytes += edge_plus_yz.nBytes();
 
-      // flux_temp1 = fz
-      // radiation_temp1 = rfz
-      // godunov_temp1 = qgdnvz
       tangential_pass(trans_box_yz, 2, 1,
                    y_minus_arr, edge_minus_yz_arr,
                    y_plus_arr, edge_plus_yz_arr,
@@ -879,19 +792,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
       reset_edge_thermo(trans_box_yz, edge_plus_yz.array());
 
-      // we now have q?zx, q?yx, q?zy, q?xy, q?yz, q?xz
 
-      //
-      // Use qx?, q?yz, q?zy to compute final x-flux
-      //
 
-      // compute F^{y|z}
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
       const Box& flux_box_yz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      // flux_temp1 = fyz
-      // radiation_temp1 = rfyz
-      // godunov_temp1 = qgdnvyz
       compute_godunov_flux(flux_box_yz,
                           edge_minus_yz_arr, edge_plus_yz_arr,
                           flux_temp1_arr,
@@ -902,13 +806,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           1, false);
 
-      // compute F^{z|y}
-      // [lo(1)-1, lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)+1]
       const Box& flux_box_zy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      // flux_temp2 = fzy
-      // radiation_temp2 = rfzy
-      // godunov_temp2 = qgdnvzy
       compute_godunov_flux(flux_box_zy,
                           edge_minus_zy_arr, edge_plus_zy_arr,
                           flux_temp2_arr,
@@ -919,8 +818,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           2, false);
 
-      // compute the corrected x interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1)+1, hi(2), hi(3)]
 
       tangential_correction(xbx, 0, 1, 2,
                   x_minus_arr, prim_left_arr,
@@ -960,17 +857,9 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           0, false);
 
-      //
-      // Use qy?, q?zx, q?xz to compute final y-flux
-      //
 
-      // compute F^{z|x}
-      // [lo(1), lo(2)-1, lo(3)], [hi(1), hi(2)+1, hi(3)+1]
       const Box& flux_box_zx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      // flux_temp1 = fzx
-      // radiation_temp1 = rfzx
-      // godunov_temp1 = qgdnvzx
       compute_godunov_flux(flux_box_zx,
                           edge_minus_zx_arr, edge_plus_zx_arr,
                           flux_temp1_arr,
@@ -981,13 +870,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           2, false);
 
-      // compute F^{x|z}
-      // [lo(1), lo(2)-1, lo(3)], [hi(1)+1, hi(2)+1, hi(3)]
       const Box& flux_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      // flux_temp2 = fxz
-      // radiation_temp2 = rfxz
-      // godunov_temp2 = qgdnvxz
       compute_godunov_flux(flux_box_xz,
                           edge_minus_xz_arr, edge_plus_xz_arr,
                           flux_temp2_arr,
@@ -998,8 +882,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           0, false);
 
-      // Compute the corrected y interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
 
       tangential_correction(ybx, 1, 0, 2,
                   y_minus_arr, prim_left_arr,
@@ -1029,8 +911,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
 
 
-      // Compute the final F^y
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2)+1, hi(3)]
       compute_godunov_flux(ybx,
                           prim_left_arr, prim_right_arr,
                           y_flux_arr,
@@ -1041,17 +921,9 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           1, false);
 
-      //
-      // Use qz?, q?xy, q?yx to compute final z-flux
-      //
 
-      // compute F^{x|y}
-      // [lo(1), lo(2), lo(3)-1], [hi(1)+1, hi(2), hi(3)+1]
       const Box& flux_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      // flux_temp1 = fxy
-      // radiation_temp1 = rfxy
-      // godunov_temp1 = qgdnvxy
       compute_godunov_flux(flux_box_xy,
                           edge_minus_xy_arr, edge_plus_xy_arr,
                           flux_temp1_arr,
@@ -1062,13 +934,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           0, false);
 
-      // compute F^{y|x}
-      // [lo(1), lo(2), lo(3)-1], [hi(1), hi(2)+dg(2), hi(3)+1]
       const Box& flux_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      // flux_temp2 = fyx
-      // radiation_temp2 = rfyx
-      // godunov_temp2 = qgdnvyx
       compute_godunov_flux(flux_box_yx,
                           edge_minus_yx_arr, edge_plus_yx_arr,
                           flux_temp2_arr,
@@ -1079,8 +946,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           1, false);
 
-      // compute the corrected z interface states and fluxes
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
 
       tangential_correction(zbx, 2, 0, 1,
                   z_minus_arr, prim_left_arr,
@@ -1109,8 +974,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       }
 #endif
 
-      // compute the final z fluxes F^z
-      // [lo(1), lo(2), lo(3)], [hi(1), hi(2), hi(3)+1]
 
       compute_godunov_flux(zbx,
                           prim_left_arr, prim_right_arr,
@@ -1122,11 +985,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
                           qthermo_arr, shock_flag_arr,
                           2, false);
 
-#endif // 3-d
+#endif
 
 
 
-      // clean the fluxes
 
       for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -1134,7 +996,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
           Array4<Real> const dir_flux_arr = (flux[idir]).array();
 
-          // Zero out shock and temp fluxes -- these are physically meaningless here
           amrex::ParallelFor(nbx,
           [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
           {
@@ -1173,7 +1034,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
 
 
-      // conservative update
       Array4<Real> const updated_state_arr = S_new.array(mfi);
 
       Array4<Real> const x_flux_view = (flux[0]).array();
@@ -1267,7 +1127,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
 
 #if AMREX_SPACEDIM <= 2
-        // get the scaled radial pressure -- we need to treat this specially
 
         if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
             Array4<Real> scaled_pressure_fab = scaled_pressure.array();
@@ -1279,8 +1138,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
             });
         }
 #endif
-        // Store the fluxes from this advance. For simplified SDC integration we
-        // only need to do this on the last iteration.
 
         bool store_fluxes = true;
 
@@ -1325,7 +1182,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
 #endif
 
-        } // store_fluxes
+        }
 
         Array4<Real> const dir_flux_fab = (flux[idir]).array();
         Array4<Real> density_flux_fab = (*mass_face_flux[idir]).array(mfi);
@@ -1333,33 +1190,22 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
         amrex::ParallelFor(mfi.nodaltilebox(idir),
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            // This is a copy, not an add, since we need mass_face_flux to be
-            // only this subcycle's data when we evaluate the gravitational
-            // forces.
 
             density_flux_fab(i,j,k,0) = dir_flux_fab(i,j,k,URHO);
         });
 
-      } // idir loop
+      }
 
 #ifdef AMREX_USE_GPU
       if (hydrosim::hydro_tile_mem_ratio > 0.0) {
 
           if (sweep_tile_tuned == 0) {
 
-              // Keep a running record of the largest box we've encountered.
 
               largest_tuned_box_pts = amrex::max(largest_tuned_box_pts,
                                                                    mfi.validbox().numPts());
 
-              // If we're tuning the hydro tile size during this timestep, we will record
-              // the total amount of additional memory allocated, relative to the size of S_new.
-              // Then we will reset the tile size so that it is no larger than the requested
-              // memory footprint.
 
-              // This could be generalized in the future to operate with more granularity
-              // than the MFIter loop boundary. We could have potential synchronization
-              // points prior to each of the above kernel launches.
 
               largest_tile_size[0] = amrex::max(largest_tile_size[0], bx.bigEnd(0) - mfi.validbox().smallEnd(0) + 1);
 #if AMREX_SPACEDIM >= 2
@@ -1370,15 +1216,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
 
               if (fab_bytes >= hydrosim::hydro_tile_mem_ratio * state_bytes) {
-                  // If we reached the memory limit, set the tile size to the current
-                  // maximum tile size.
                   Gpu::synchronize();
                   hydro_tile_size = largest_tile_size;
                   sweep_tile_tuned = 1;
               }
               else if (mfi.tileIndex() == mfi.length() - 1) {
-                  // If we reached the last tile and we haven't gone over the
-                  // memory limit, effectively disable tiling.
                   hydro_tile_size[0] = 1024;
 #if AMREX_SPACEDIM >= 2
                   hydro_tile_size[1] = 1024;
@@ -1391,22 +1233,19 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 
           }
           else {
-              // If we have already tuned the parameter, then synchronize each time the
-              // outstanding number of active bytes is larger than our ratio.
 
               if (fab_bytes >= hydrosim::hydro_tile_mem_ratio * state_bytes) {
                   Gpu::synchronize();
 
-                  // Reset the counter for the next sequence of tiles.
                   fab_bytes = 0;
               }
           }
       }
 #endif
 
-    } // MFIter loop
+    }
 
-  } // OMP loop
+  }
 
 #ifdef RADIATION
   if (radiation->verbose>=1) {
@@ -1431,7 +1270,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
   }
 #endif
 
-  // Check for small/negative densities and X > 1 or X < 0.
 
   status = scan_for_negative_mass_density();
 
@@ -1439,7 +1277,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
       return status;
   }
 
-  // Sync up state after hydro source.
 
   clean_state(
 #ifdef MHD
@@ -1447,19 +1284,16 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)  // NOLINT(readability-c
 #endif
                S_new, time + dt, 0);
 
-  // Check for NaN's.
 
   scan_for_nan(S_new);
 
 #ifdef GRAVITY
-  // Must define new value of "center" after advecting on the grid
 
   if (track_center == 1) {
       define_tracked_center(S_new, time);
   }
 #endif
 
-  // Perform reflux (for non-subcycling advances).
 
   if (parent->subcyclingMode() == "None") {
       if (do_reflux == 1) {

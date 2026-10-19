@@ -68,7 +68,6 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
 
     const amrex::Real small = 1.e-8_rt;
 
-    // fill the states directly from inputs
 
     ql.rho = amrex::max(left_prim_arr(i,j,k,QRHO), small_dens);
     qr.rho = amrex::max(right_prim_arr(i,j,k,QRHO), small_dens);
@@ -178,7 +177,6 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
     qr.energy_density_gas = right_prim_arr(i,j,k,QEINTDENS);
 #endif
 
-    // cleaning
 
 #ifdef TRUE_SDC
     if (use_recon_gamma1 == 1) {
@@ -187,9 +185,6 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
     }
 #endif
 
-    // sometime we come in here with negative energy or pressure
-    // note: reset both in either case, to remain thermo
-    // consistent
     if (ql.rhoe <= 0.0_rt || ql.p < pressure_cutoff) {
 #ifndef AMREX_USE_GPU
         std::cout <<  "WARNING: (rho e)_l < 0 or pl < pressure_cutoff in Riemann: " << ql.rhoe << " " << ql.p << " " << pressure_cutoff << std::endl;

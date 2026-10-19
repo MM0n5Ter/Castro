@@ -11,7 +11,6 @@ void user_bc_fill(int i, int j, int k,
                      const Array1D<BCRec, 0, NUM_STATE-1>& bcs,
                      const GeometryData& geomdata)
 {
-    // Set the velocity to zero at the top physical boundary.
 
     amrex::ignore_unused(time);
 

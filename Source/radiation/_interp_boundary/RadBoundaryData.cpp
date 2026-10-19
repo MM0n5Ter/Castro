@@ -26,11 +26,6 @@ RadBoundaryData::RadBoundaryData(const BoxArray& _grids, const DistributionMappi
     define(_grids,_dmap,_ncomp,_geom);
 }
 
-// // copy constructor
-// RadBoundaryData::RadBoundaryData(const RadBoundaryData& src)
-// {
-//     (*this) = src;
-// }
 
 std::ostream& operator << (std::ostream& os, const RadBoundaryData &mgb)
 {
@@ -69,13 +64,10 @@ RadBoundaryData::define(const BoxArray& _grids, const DistributionMapping& _dmap
 
         BndryRegister::define(face,IndexType::TheCellType(),0,1,0,_ncomp,_dmap);
 
-        // alloc mask and set to quad_interp value
-        //for (int k = 0; k < len; k++) {
         for (FabSetIter bi(bndry[face]); bi.isValid(); ++bi) {
             int k = bi.index();
             Box face_box = amrex::adjCell(grids[k],face,1);
 
-            // extend box in directions orthogonal to face normal
             for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
                 if (dir == face_axis) continue;
                 face_box.grow(dir,1);
@@ -86,7 +78,6 @@ RadBoundaryData::define(const BoxArray& _grids, const DistributionMapping& _dmap
             Box dbox(geom.Domain());
             dbox &= face_box;
             m->setVal<RunOn::Host>(not_covered,dbox,0);
-            // now have to set as not_covered the periodic translates as well
             if( geom.isAnyPeriodic() ){
               Box dombox(geom.Domain());
               Vector<IntVect> pshifts(27);
@@ -100,13 +91,11 @@ RadBoundaryData::define(const BoxArray& _grids, const DistributionMapping& _dmap
                 m->shift(-iv);
               }
             }
-              // turn mask off on intersection with grids at this level
             for (int g = 0; g < len; g++) {
                 Box ovlp(grids[g]);
                 ovlp &= face_box;
                 if (ovlp.ok()) m->setVal<RunOn::Host>(covered,ovlp,0);
             }
-            // handle special cases if is periodic
             if( geom.isAnyPeriodic() &&
                 !geom.Domain().contains(face_box) ){
               Vector<IntVect> pshifts(27);

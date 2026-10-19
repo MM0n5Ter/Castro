@@ -13,7 +13,6 @@ HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Rea
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Fill the rotation data.
 
     if (!do_frame_spin) {
         return;
@@ -62,14 +61,12 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& field_old, Mu
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Fill the rotation data.
 
     if (!do_frame_spin) {
         return;
 
     }
 
-    // Now do corrector part of rotation source term update
 
 #ifdef _OPENMP
 #pragma omp parallel

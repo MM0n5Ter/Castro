@@ -31,25 +31,15 @@ void set_small ();
 
 void update_roche_radii ();
 
-// Define a mask for all zones considered to be within either the
-// primary or secondary star. It uses the effective potential of
-// the star (phiRot + phiGrav) and the stellar density threshold
-// input parameter to determine what parts of the domain should
-// be considered stellar material. The convention will be that
-// the mask is positive (1) for zones inside the star and negative
-// (-1) for zones outside the star.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real stellar_mask (int i, int j, int k,
                    const amrex::GeometryData& geomdata,
                    Real rho, bool is_primary = true)
 {
-    // By default, assume we're not inside the star.
 
     Real mask = -1.0_rt;
 
-    // Don't do anything here if the star no longer exists,
-    // or if it never existed.
 
     if (is_primary) {
         if (problem::mass_P <= 0.0_rt) return mask;
@@ -73,7 +63,6 @@ Real stellar_mask (int i, int j, int k,
     loc[2] = 0.0_rt;
 #endif
 
-    // Ignore zones whose density is too low.
 
     if (rho < problem::stellar_density_threshold) return mask;
 

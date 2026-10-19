@@ -16,7 +16,6 @@ void user_initialize_state_data (int i, int j, int k,
     Real y = problo[1] + dx[1] * (static_cast<Real>(j) + 0.5_rt);
     Real x = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt);
 
-    // initialize
 
     state(i,j,k,URHO) = problem::rho_0;
     state(i,j,k,UMX) = problem::u_x * problem::rho_0;

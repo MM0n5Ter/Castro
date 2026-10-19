@@ -16,17 +16,9 @@ Real factorial (int n)
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& assocLegendreValue1, Real& assocLegendreValue2, Real x)
 {
-    // Calculate the associated Legendre polynomials. There are a number of
-    // recurrence relations, but many are unstable. We'll use one that is known
-    // to be stable for the reasonably low values of l we care about in a simulation:
-    // (l-m)P_l^m(x) = x(2l-1)P_{l-1}^m(x) - (l+m-1)P_{l-2}^m(x).
-    // This uses the following two expressions as initial conditions:
-    // P_m^m(x) = (-1)^m (2m-1)! (1-x^2)^(m/2)
-    // P_{m+1}^m(x) = x (2m+1) P_m^m (x)
 
     if (l == m) {
 
-        // P_m^m
 
         assocLegendreValue = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
 
@@ -39,7 +31,6 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
     }
     else if (l == m + 1) {
 
-        // P_{m+1}^m
 
         assocLegendreValue1 = assocLegendreValue;
         assocLegendreValue  = x * (2*m + 1) * assocLegendreValue1;
@@ -57,11 +48,6 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void evaluateLegendreByDegree (int l, Real& legendreValue, Real& legendreValue1, Real& legendreValue2, Real x)
 {
-    // Calculate the Legendre polynomials. We use a stable recurrence relation:
-    // (l+1) P_{l+1}(x) = (2l+1) x P_l(x) - l P_{l-1}(x).
-    // This uses initial conditions:
-    // P_0(x) = 1
-    // P_1(x) = x
 
     if (l == 0) {
 
@@ -135,10 +121,6 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
         }
 
-        // For the associated Legendre polynomial loop, we loop over m and then l.
-        // It means that we have to recompute density_rpow_pos or density_rpow_neg again, but the
-        // recursion relation we use for the polynomials depends on l being the
-        // innermost loop index.
 
         for (int m = 1; m <= gravity::lnum; ++m) {
             for (int l = 1; l <= gravity::lnum; ++l) {
@@ -307,7 +289,6 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
                               Real rho, Real dV,
                               const GpuArray<bool, 3>& doFoldedAddLo, const GpuArray<bool, 3>& doFoldedAddHi)
 {
-    // Add contributions from any symmetric boundaries.
 
     Real boundaryTerm = 0.0_rt;
 

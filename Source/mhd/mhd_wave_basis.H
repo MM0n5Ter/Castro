@@ -10,16 +10,14 @@ evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
       Array1D<Real, 0, NQ-1>& Q,
       const int dir) {
 
-  // The characteristic speeds of the system
 
-  // Alfven
 
   Real ca  = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
 
   int QUN;
-  Real cad; // Alfven
-  Real cs;  // slow
-  Real cf;  // fast
+  Real cad;
+  Real cs;
+  Real cf;
 
   Real as = sound_speed * sound_speed;
 
@@ -43,7 +41,6 @@ evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
 
   }
 
-  // eigenvalues
   lam(0) = Q(QUN) - std::sqrt(cf);
   lam(1) = Q(QUN) - std::sqrt(cad);
   lam(2) = Q(QUN) - std::sqrt(cs);
@@ -62,31 +59,24 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
       const Real sound_speed,
       Array1D<Real, 0, NQ-1>& Q) {
 
-  // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Ax
 
-  // The characteristic speeds of the system
 
   Real as = sound_speed * sound_speed;
 
-  // Alfven
 
   Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
   Real cax = (Q(QBFIELDX)*Q(QBFIELDX)) / Q(QRHO);
 
-  // Slow
 
   Real csx = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cax));
 
-  // Fast
 
   Real cfx = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cax));
 
-  // useful constants
 
   Real alf;
   Real als;
 
-  // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
 
   if (std::abs(cfx - csx) <= 1e-14){
     alf = 1.0_rt;
@@ -133,7 +123,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   Real AAs = std::sqrt(as) * als * std::sqrt(Q(QRHO));
 
 
-  // u - cf wave
   left_basis(0, EIGVEC_RHO) = 0.0;
   left_basis(0, EIGVEC_U) = -N*cff;
   left_basis(0, EIGVEC_V) = N*Qs*dir_cos_y;
@@ -142,7 +131,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(0, EIGVEC_BPERP1) = N*AAs*dir_cos_y/Q(QRHO);
   left_basis(0, EIGVEC_BPERP2) = N*AAs*dir_cos_z/Q(QRHO);
 
-  // u - cax
   left_basis(1, EIGVEC_RHO) = 0.0;
   left_basis(1, EIGVEC_U) = 0.0;
   left_basis(1, EIGVEC_V) = -0.5_rt*dir_cos_z;
@@ -151,7 +139,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(1, EIGVEC_BPERP1) = -0.5_rt*dir_cos_z*S/std::sqrt(Q(QRHO));
   left_basis(1, EIGVEC_BPERP2) = 0.5_rt*dir_cos_y*S/std::sqrt(Q(QRHO));
 
-  // u - cs
   left_basis(2, EIGVEC_RHO) = 0.0;
   left_basis(2, EIGVEC_U) = -N*css;
   left_basis(2, EIGVEC_V) = -N*Qf*dir_cos_y;
@@ -160,7 +147,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(2, EIGVEC_BPERP1) = -N*AAf*dir_cos_y/Q(QRHO);
   left_basis(2, EIGVEC_BPERP2) = -N*AAf*dir_cos_z/Q(QRHO);
 
-  // u
   left_basis(3, EIGVEC_RHO) = 1.0;
   left_basis(3, EIGVEC_U) = 0.0;
   left_basis(3, EIGVEC_V) = 0.0;
@@ -169,7 +155,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(3, EIGVEC_BPERP1) = 0.0;
   left_basis(3, EIGVEC_BPERP2) = 0.0;
 
-  // u + cs
   left_basis(4, EIGVEC_RHO) = 0.0;
   left_basis(4, EIGVEC_U) = N*css;
   left_basis(4, EIGVEC_V) = N*Qf*dir_cos_y;
@@ -178,7 +163,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(4, EIGVEC_BPERP1) = -N*AAf*dir_cos_y/Q(QRHO);
   left_basis(4, EIGVEC_BPERP2) = -N*AAf*dir_cos_z/Q(QRHO);
 
-  // u + cax
   left_basis(5, EIGVEC_RHO) = 0.0;
   left_basis(5, EIGVEC_U) = 0.0;
   left_basis(5, EIGVEC_V) = 0.5_rt*dir_cos_z;
@@ -187,7 +171,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(5, EIGVEC_BPERP1) = -0.5_rt*dir_cos_z*S/std::sqrt(Q(QRHO));
   left_basis(5, EIGVEC_BPERP2) = 0.5_rt*dir_cos_y*S/std::sqrt(Q(QRHO));
 
-  // u + cf
   left_basis(6, EIGVEC_RHO) = 0.0;
   left_basis(6, EIGVEC_U) = N*cff;
   left_basis(6, EIGVEC_V) = -N*Qs*dir_cos_y;
@@ -196,7 +179,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(6, EIGVEC_BPERP1) = N*AAs*dir_cos_y/Q(QRHO);
   left_basis(6, EIGVEC_BPERP2) = N*AAs*dir_cos_z/Q(QRHO);
 
-  // u - cf ; u - Cax ; u - cs ; u ; u + cs ; u + Cax ; u + cf
 
   right_basis(EIGVEC_RHO, 0) = Q(QRHO)*alf;
   right_basis(EIGVEC_RHO, 1) = 0.0;
@@ -265,31 +247,24 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
       Array1D<Real, 0, NQ-1>& Q) {
 
 
-  // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Ay
 
-  // The characteristic speeds of the system
 
   Real as = sound_speed * sound_speed;
 
-  // Alfven
 
   Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
   Real cay = (Q(QBFIELDY)*Q(QBFIELDY)) / Q(QRHO);
 
-  // Slow
 
   Real csy = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cay));
 
-  // Fast
 
   Real cfy = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cay));
 
-  // useful constants
 
   Real alf;
   Real als;
 
-  // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
 
   if (std::abs(cfy - csy) <= 1e-14){
     alf = 1.0_rt;
@@ -334,7 +309,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   Real AAs = std::sqrt(as) * als * std::sqrt(Q(QRHO));
 
 
-  // v - cf
   left_basis(0, EIGVEC_RHO) = 0.0;
   left_basis(0, EIGVEC_U) = N*Qs*dir_cos_x;
   left_basis(0, EIGVEC_V) = -N*cff;
@@ -343,7 +317,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(0, EIGVEC_BPERP1) = N*AAs*dir_cos_x/Q(QRHO);
   left_basis(0, EIGVEC_BPERP2) = N*AAs*dir_cos_z/Q(QRHO);
 
-  // v - cay
   left_basis(1, EIGVEC_RHO) = 0.0;
   left_basis(1, EIGVEC_U) = -0.5_rt*dir_cos_z;
   left_basis(1, EIGVEC_V) = 0.0;
@@ -352,7 +325,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(1, EIGVEC_BPERP1) = -0.5_rt*dir_cos_z*S/std::sqrt(Q(QRHO));
   left_basis(1, EIGVEC_BPERP2) = 0.5_rt*dir_cos_x*S/std::sqrt(Q(QRHO));
 
-  // v - cs
   left_basis(2, EIGVEC_RHO) = 0.0;
   left_basis(2, EIGVEC_U) = -N*Qf*dir_cos_x;
   left_basis(2, EIGVEC_V) = -N*css;
@@ -361,7 +333,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(2, EIGVEC_BPERP1) = -N*AAf*dir_cos_x/Q(QRHO);
   left_basis(2, EIGVEC_BPERP2) = -N*AAf*dir_cos_z/Q(QRHO);
 
-  // v
   left_basis(3, EIGVEC_RHO) = 1.0_rt;
   left_basis(3, EIGVEC_U) = 0.0;
   left_basis(3, EIGVEC_V) = 0.0;
@@ -370,7 +341,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(3, EIGVEC_BPERP1) = 0.0;
   left_basis(3, EIGVEC_BPERP2) = 0.0;
 
-  // v + cs
   left_basis(4, EIGVEC_RHO) = 0.0;
   left_basis(4, EIGVEC_U) = N*Qf*dir_cos_x;
   left_basis(4, EIGVEC_V) = N*css;
@@ -379,7 +349,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(4, EIGVEC_BPERP1) = -N*AAf*dir_cos_x/Q(QRHO);
   left_basis(4, EIGVEC_BPERP2) = -N*AAf*dir_cos_z/Q(QRHO);
 
-  // v + cay
   left_basis(5, EIGVEC_RHO) = 0.0;
   left_basis(5, EIGVEC_U) = 0.5_rt*dir_cos_z;
   left_basis(5, EIGVEC_V) = 0.0;
@@ -388,7 +357,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(5, EIGVEC_BPERP1) = -0.5_rt*dir_cos_z*S/std::sqrt(Q(QRHO));
   left_basis(5, EIGVEC_BPERP2) = 0.5_rt*dir_cos_x*S/std::sqrt(Q(QRHO));
 
-  // v + cf
   left_basis(6, EIGVEC_RHO) = 0.0;
   left_basis(6, EIGVEC_U) = -N*Qs*dir_cos_x;
   left_basis(6, EIGVEC_V) = N*cff;
@@ -397,7 +365,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(6, EIGVEC_BPERP1) = N*AAs*dir_cos_x/Q(QRHO);
   left_basis(6, EIGVEC_BPERP2) = N*AAs*dir_cos_z/Q(QRHO);
 
-  // v - cf ; v - Cay ; v - cs ; v ; v + cs ; v + Cay ; v + cf
 
   right_basis(EIGVEC_RHO, 0) = Q(QRHO)*alf;
   right_basis(EIGVEC_RHO, 1) = 0.0;
@@ -465,31 +432,24 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
       const Real sound_speed,
       Array1D<Real, 0, NQ-1>& Q) {
 
-  // returns Leig, where the rows are the left eigenvectors of the characteristic matrix Az
 
-  // The characteristic speeds of the system
 
   Real as = sound_speed * sound_speed;
 
-  // Alfven
 
   Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
   Real caz = (Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
 
-  // Slow
 
   Real csz = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*caz));
 
-  // Fast
 
   Real cfz = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*caz));
 
-  // useful constants
 
   Real alf;
   Real als;
 
-  // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
 
   if (std::abs(cfz-csz) <= 1e-14){
     alf = 1.0_rt;
@@ -534,7 +494,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   Real AAs = std::sqrt(as) * als * std::sqrt(Q(QRHO));
 
 
-  // w - cf
   left_basis(0, EIGVEC_RHO) = 0.0;
   left_basis(0, EIGVEC_U) = N*Qs*dir_cos_x;
   left_basis(0, EIGVEC_V) = N*Qs*dir_cos_y;
@@ -543,7 +502,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(0, EIGVEC_BPERP1) = N*AAs*dir_cos_x/Q(QRHO);
   left_basis(0, EIGVEC_BPERP2) = N*AAs*dir_cos_y/Q(QRHO);
 
-  // w - caz
   left_basis(1, EIGVEC_RHO) = 0.0;
   left_basis(1, EIGVEC_U) = -0.5_rt*dir_cos_y;
   left_basis(1, EIGVEC_V) = 0.5_rt*dir_cos_x;
@@ -552,7 +510,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(1, EIGVEC_BPERP1) = -0.5_rt*dir_cos_y*S/std::sqrt(Q(QRHO));
   left_basis(1, EIGVEC_BPERP2) = 0.5_rt*dir_cos_x*S/std::sqrt(Q(QRHO));
 
-  // w - cs
   left_basis(2, EIGVEC_RHO) = 0.0;
   left_basis(2, EIGVEC_U) = -N*Qf*dir_cos_x;
   left_basis(2, EIGVEC_V) = -N*Qf*dir_cos_y;
@@ -561,7 +518,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(2, EIGVEC_BPERP1) = -N*AAf*dir_cos_x/Q(QRHO);
   left_basis(2, EIGVEC_BPERP2) = -N*AAf*dir_cos_y/Q(QRHO);
 
-  // w
   left_basis(3, EIGVEC_RHO) = 1.0_rt;
   left_basis(3, EIGVEC_U) = 0.0;
   left_basis(3, EIGVEC_V) = 0.0;
@@ -570,7 +526,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(3, EIGVEC_BPERP1) = 0.0;
   left_basis(3, EIGVEC_BPERP2) = 0.0;
 
-  // w + cs
   left_basis(4, EIGVEC_RHO) = 0.0;
   left_basis(4, EIGVEC_U) = N*Qf*dir_cos_x;
   left_basis(4, EIGVEC_V) = N*Qf*dir_cos_y;
@@ -579,7 +534,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(4, EIGVEC_BPERP1) = -N*AAf*dir_cos_x/Q(QRHO);
   left_basis(4, EIGVEC_BPERP2) = -N*AAf*dir_cos_y/Q(QRHO);
 
-  // w + caz
   left_basis(5, EIGVEC_RHO) = 0.0;
   left_basis(5, EIGVEC_U) = 0.5_rt*dir_cos_y;
   left_basis(5, EIGVEC_V) = -0.5_rt*dir_cos_x;
@@ -588,7 +542,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(5, EIGVEC_BPERP1) = -0.5_rt*dir_cos_y*S/std::sqrt(Q(QRHO));
   left_basis(5, EIGVEC_BPERP2) = 0.5_rt*dir_cos_x*S/std::sqrt(Q(QRHO));
 
-  // w + cf
   left_basis(6, EIGVEC_RHO) = 0.0;
   left_basis(6, EIGVEC_U) = -N*Qs*dir_cos_x;
   left_basis(6, EIGVEC_V) = -N*Qs*dir_cos_y;
@@ -597,7 +550,6 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   left_basis(6, EIGVEC_BPERP1) = N*AAs*dir_cos_x/Q(QRHO);
   left_basis(6, EIGVEC_BPERP2) = N*AAs*dir_cos_y/Q(QRHO);
 
-  //  w - cf ; w - Caz ; w - cs ; w ; w + cs ; w + Caz ; w + cf
 
   right_basis(EIGVEC_RHO, 0) = Q(QRHO)*alf;
   right_basis(EIGVEC_RHO, 1) = 0.0;
@@ -662,12 +614,10 @@ void
 verify_eigenbasis(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
             Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis) {
 
-  // this checks if the eigenvectors are properly orthornomal
 
   for (int n = 0; n < NUM_EIGVEC; n++) {
     for (int m = 0; m < NUM_EIGVEC; m++) {
 
-      // dot product of l_m . r_n
       Real dot = 0.0;
       for (int p = 0; p < NUM_EIGVEC; p++)
       {

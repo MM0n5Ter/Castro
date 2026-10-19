@@ -10,7 +10,6 @@ void user_initialize ()
 
     eos_t eos_state;
 
-    // set some defaults we will need later in the BCs
 
     eos_state.rho = problem::rho0;
     eos_state.T = problem::T0;

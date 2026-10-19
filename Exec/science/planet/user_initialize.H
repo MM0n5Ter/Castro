@@ -19,11 +19,9 @@ void user_initialize ()
         amrex::Error("num_vortices too large, please increase max_num_vortices and the size of xloc_vortices");
     }
 
-    // Read initial model
 
     read_model_file(problem::model_name);
 
-    // HSE check
 
     Real max_hse_err = -1.e30_rt;
     Real dr_model = model::profile(0).r(1) - model::profile(0).r(0);
@@ -35,7 +33,6 @@ void user_initialize ()
                               model::profile(0).state(i-1, model::idens)) * gravity::uniform_accel;
         Real hse_err = std::abs(dpdr - rhog);
 
-        // only count the error if we have a non-zero gradient in the next cell
 
         if (model::profile(0).state(i+1, model::ipres) /=
             model::profile(0).state(i, model::ipres)) {
@@ -45,13 +42,11 @@ void user_initialize ()
 
     std::cout << "maximum hse error = " << max_hse_err << std::endl;
 
-    // set local variable defaults
 
     for (int d = 0; d < AMREX_SPACEDIM; d++) {
         problem::center[d] = 0.5_rt * (problo[d] + probhi[d]);
     }
 
-    // velocity perturbation stuff
 
     Real offset = (probhi[0] - problo[0]) / problem::num_vortices;
 

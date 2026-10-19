@@ -12,8 +12,6 @@ USE_RAD = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# has the f90 routine ca_initgroups and group structure in probdata_module
-#HAS_INITGROUPS = TRUE
 
 EOS_DIR     := rad_power_law
 
@@ -22,7 +20,6 @@ NETWORK_INPUTS := gammalaw.net
 
 OPACITY_DIR := rad_power_law
 
-# use radiation interpbndry
 RAD_INTERP = TRUE
 
 PROBLEM_DIR ?= ./

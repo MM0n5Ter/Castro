@@ -19,7 +19,6 @@ using namespace amrex;
 Radiation::Solver_Kind Radiation::SolverKind = Radiation::UnsetSolver;
 
 Real Radiation::radiativeToEnergy = 0.;
-//Real Radiation::radtoJ = 0.;
 Real Radiation::EnergyToRadFactor = 0.;
 Real Radiation::fluxFromRad = 0.;
 
@@ -43,7 +42,6 @@ int Radiation::filter_primitive_interval = 0;
 int Radiation::filter_prim_temperature = 4;
 int Radiation::filter_primitive_S = 0;
 
-// These physical constants get their values in the Radiation constructor:
 Real Radiation::mev_to_erg = 0.0;
 Real Radiation::clight          = 0.0;
 Real Radiation::planckConst         = 0.0;
@@ -59,7 +57,6 @@ std::string Radiation::group_label = "Radiation";
 
 int Radiation::hydro_only = 0;
 
-// static initialization, must be called before HydroSim::variableSetUp
 
 void Radiation::load_static_settings()
 {
@@ -78,7 +75,6 @@ void Radiation::load_static_settings()
     groups_enabled = 0;
   }
 
-  // check that we're not using a single group solver if NGROUPS > 1
   if (!groups_enabled && Radiation::nGroups > 1) {
       amrex::Error("Radiation::nGroups > 1 but using single group solver");
   }
@@ -141,9 +137,6 @@ void Radiation::load_static_settings()
 
     Radiation::nGroups = NGROUPS;
 
-    // sanity check -- in the old style, we allowed the number of groups to be
-    // set at compile time, so ensure that, if the user set this, it matches what
-    // we expect
     int configured_group_count = -1;
     pp.query("nGroups", configured_group_count);
 
@@ -158,7 +151,6 @@ void Radiation::load_static_settings()
   }
 
 
-  // set up the extra plot variables
   {
       if (radiation::plot_flux_limiter) {
           comp_limiter = plot_var_names.size();
@@ -265,9 +257,6 @@ void Radiation::load_static_settings()
 Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
   : parent(Parent)
 {
-  // hydrosim is passed in, rather than obtained from parent, because this
-  // routine will be called in some cases before any AmrLevels have
-  // been installed into the parent's array of levels.
 
   ParmParse pp("radiation");
 
@@ -287,16 +276,10 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
     sigma    = C::sigma_SB;
 
     if (!groups_enabled) {
-        // In single group and abstract test problems we can play with
-        // c and sigma independent of physical reality, but messing with
-        // them in a multigroup problem is likely to be bad.
         pp.query("c", c);
         pp.query("sigma", sigma);
     }
 
-    // Set Hypre flux factors here. Since this only occurs once,
-    // every instance of Hypre must use the same factor (or
-    // be responsible for changing it internally).
 
     AlphaBetaSolver::fluxScale() = c;
     MultiLevelEllipticSolver::fluxScale() = c;
@@ -304,7 +287,6 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
   }
 
   radiativeToEnergy = 1.0;
-  //    radtoJ = c/(4 pi);
   EnergyToRadFactor = 1.0;
   fluxFromRad = 1.0;
 
@@ -349,7 +331,6 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
 
   dT  = 1.0;                 pp.query("delta_temp", dT);
 
-  // for inner iterations of neutrino J equation
   relInnerTol = 1.e-4;          pp.query("relInnerTol", relInnerTol);
   if (SolverKind == SingleGroupFLDSolver || SolverKind == MultiGroupFLDSolver) {
     absInnerTolerance = 0.0;
@@ -457,14 +438,10 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
     build_groups(verbose);
   }
   else {
-    // xnu is a dummy for single group
     xnu.resize(2, 1.0);
     freq_center.resize(1, 1.0);
   }
 
-  // current implementation of the Radiation boundary condition reads
-  // incoming flux information in the RadiativeBoundary constructor.  we just
-  // set the boundary condition type here:
 
   Vector<int> lo_bc(AMREX_SPACEDIM), hi_bc(AMREX_SPACEDIM);
   pp.getarr("lo_bc",lo_bc,0,AMREX_SPACEDIM);
@@ -478,9 +455,8 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
     }
   }
 
-  // size flux register arrays and persistent MultiFabs:
 
-  int levels = parent->maxLevel() + 1; // maximum allowable number of levels
+  int levels = parent->maxLevel() + 1;
 
   flux_accum_reg.resize(levels);
   conservative_register_old.resize(levels);
@@ -512,8 +488,6 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
     flux_accum_reg[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
     flux_accum_reg[level]->setVal(0.0);
 
-    // For deferred sync, conservative_register_old does not need to be defined here.
-    // It will be set in the prepare_delayed_reflux routine.
 
     flux_candidate_regs[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
     flux_candidate_regs[level]->setVal(0.0);
@@ -527,9 +501,6 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
       plot_fields[level]->setVal(0.0);
   }
 
-  // This array will not be used on the finest level.  I create it here,
-  // though, in case a finer level is created before this level is next
-  // regridded:
 
   if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
     std::cout << "                                         done" << std::endl;
@@ -538,7 +509,6 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
 
 void Radiation::close(int level)
 {
-  // Only appropriate when a level disappears, otherwise see regrid:
   if (level > parent->finestLevel()) {
     if (verbose > 0 && ParallelDescriptor::IOProcessor()) {
       std::cout << "Clearing radiation object at level " << level
@@ -547,8 +517,6 @@ void Radiation::close(int level)
     flux_accum_reg[level].reset();
     flux_candidate_regs[level].reset();
 
-    // conservative_register_old is not deleted here because if it exists it still
-    // has energy in it.  It will be deleted once it is finally used.
 
     flux_div[level].reset();
 
@@ -558,16 +526,10 @@ void Radiation::close(int level)
       std::cout << "                                       done" << std::endl;
     }
 
-    // When a level is closed, then we have to make sure there is
-    // consistent flux information in level-1 to start the next
-    // time step.  We need to do this if we are in the middle of
-    // a level-2 timestep, or if there is no level-2.  In either
-    // case the operations in reset_flux_records are appropriate.
 
     BL_ASSERT(level > 0);
     int clev = level - 1;
 
-    // Check in case more than one level was removed:
     if (clev == parent->finestLevel()) {
       int ncycle    = parent->nCycle(clev);
       int iteration = parent->levelSteps(clev);
@@ -583,9 +545,6 @@ void Radiation::restart(int level, const BoxArray& grids,
                         const DistributionMapping& dmap,
                         const std::string& dir, std::istream& is)
 {
-  //
-  // With the deferred sync option, we have to restart the rad flux register
-  //
 
   std::string Path, stream_token;
 
@@ -602,28 +561,16 @@ void Radiation::restart(int level, const BoxArray& grids,
     }
   } while (Path.empty());
 
-  //
-  // Read flux register only if present in the chkfile.
-  //
   std::string Flag;
   is >> Flag;
 
   if (Flag == "Present") {
     BL_ASSERT(level > 0);
-    //
-    // Read delta_t associated with this flux information.
-    //
     is >> dt_previous[level-1];
-    //
-    // Prepend the name of the chkfile directory.
-    //
     std::string FullPathName = dir;
     if (!dir.empty() && dir[dir.length()-1] != '/')
         FullPathName += '/';
     FullPathName += Path;
-    //
-    // Input conservation flux register.
-    //
     const IntVect& crse_ratio = parent->refRatio(level-1);
     conservative_register_old[level].reset(new FluxRegister(grids, dmap, crse_ratio, level, nGroups));
     conservative_register_old[level]->read(FullPathName, is);
@@ -635,15 +582,9 @@ void Radiation::checkPoint(int level,
                            std::ostream&  os,
                            VisMF::How     how)
 {
-  //
-  // With the deferred sync option, we have to restart the rad flux register
-  //
 
   char buf[64];
 
-  //
-  // Write deltas to header for timestep control.
-  //
   if (ParallelDescriptor::IOProcessor()) {
     int oldprec = os.precision(20);
     auto line_label = std::format("delta_e_rat_level[{}]= ", level);
@@ -653,13 +594,9 @@ void Radiation::checkPoint(int level,
     os.precision(oldprec);
   }
 
-  // Path name construction stolen from AmrLevel::checkPoint
 
   std::string Level = std::format("Level_{}", level);
 
-  //
-  // Write name of conservation flux register to header.
-  //
 
   std::string PathNameInHeader = Level;
   PathNameInHeader += "/RadFlux";
@@ -668,18 +605,12 @@ void Radiation::checkPoint(int level,
   }
 
   if (conservative_register_old[level]) {
-    //
-    // Conservation flux register exists.
-    //
     if (ParallelDescriptor::IOProcessor()) {
       BL_ASSERT(level > 0);
       int oldprec = os.precision(20);
       os << " Present  " << dt_previous[level-1] << '\n';
       os.precision(oldprec);
     }
-    //
-    // This is the full pathname for the written FluxRegister.
-    //
     std::string FullPathName = dir;
     if (!FullPathName.empty() &&
         FullPathName[FullPathName.length()-1] != '/') {
@@ -687,15 +618,9 @@ void Radiation::checkPoint(int level,
     }
     FullPathName += Level;
     FullPathName += "/RadFlux";
-    //
-    // Output conservation flux register.
-    //
-    conservative_register_old[level]->write(FullPathName, os /* , how */ );
+    conservative_register_old[level]->write(FullPathName, os   );
   }
   else {
-    //
-    // Conservation flux register does not exist.
-    //
     if (ParallelDescriptor::IOProcessor()) {
       os << " Absent\n";
     }
@@ -715,8 +640,6 @@ void Radiation::begin_timestep(int level)
 
   static int done = 0;
   if (level < fine_level) {
-      // For deferred sync, we may have moved flux_accum_reg into conservative_register_old
-      // and not rebuilt flux_accum_reg, so check for that here.
 
       int fine_lvl = level + 1;
       if (!flux_accum_reg[fine_lvl]) {
@@ -728,11 +651,6 @@ void Radiation::begin_timestep(int level)
       }
   }
 
-  // If we aren't doing a multilevel solve, we still need to initialize
-  // flux_div and load the flux registers at each level.  For a single-level
-  // calculation this only needs to be done once per run, whether
-  // at initialization or at restart.  We can't trust iteration to
-  // tell us, since at restart iteration is not 0.
   int iteration = parent->levelSteps(level);
   iteration = (level > 0) ? iteration % ncycle : done;
   if (level < fine_level || iteration == 0) {
@@ -762,9 +680,7 @@ void Radiation::reset_flux_records(int level, int ncycle)
   }
 }
 
-// Overwrites temperature with exchange term, exch = temp on input:
 
-// This version used by single group, multigroup
 
 void Radiation::evaluate_energy_transfer(MultiFab& exch,
                                  MultiFab& Er,
@@ -821,8 +737,6 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
             }
             else {
 
-                // This is the only case where we need a direct call for
-                // Planck mean as a function of temperature.
 
                 auto coupling_arr = eta[mfi].array();
                 auto state_arr = state[mfi].array();
@@ -878,7 +792,6 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
 
                 if (freeze_planck != 0)
                 {
-                    // assume eta and fkp are the same
                     d = fac1 * scaled_planck_arr(i,j,k) * std::pow(temp_field_arr(i,j,k), 3);
                 }
                 else
@@ -886,21 +799,12 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
                     d = fac0 * (coupling_arr(i,j,k) * std::pow(temp_field_arr(i,j,k) + local_temp_step, 4) -
                                 scaled_planck_arr(i,j,k) * std::pow(temp_field_arr(i,j,k), 4)) -
                         fac2 * (coupling_arr(i,j,k) - scaled_planck_arr(i,j,k)) * rad_eden_arr(i,j,k);
-                    // alternate form, sometimes worse, sometimes better:
-                    //   d = fac1 * scaled_planck_arr(i,j,k) * std::pow(temp_field_arr(i,j,k), 3) +
-                    //       fac0 * (coupling_arr(i,j,k) - scaled_planck_arr(i,j,k)) * std::pow(temp(i,j,k), 4) -
-                    //       fac2 * (coupling_arr(i,j,k) - scaled_planck_arr(i,j,k)) * rad_eden_arr(i,j,k);
-                    // another alternate form (much worse):
-                    //   d = fac1 * scaled_planck_arr(i,j,k) * std::pow(temp_field_arr(i,j,k) + dtTloc, 3) +
-                    //       fac0 * (coupling_arr(i,j,k) - scaled_planck_arr(i,j,k)) * std::pow(temp(i,j,k) + local_temp_step, 4) -
-                    //       fac2 * (coupling_arr(i,j,k) - scaled_planck_arr(i,j,k)) * rad_eden_arr(i,j,k);
                 }
 
                 Real frc = fluid_density_arr(i,j,k) * heat_capacity_arr(i,j,k) + 1.0e-50_rt;
                 coupling_arr(i,j,k) = d / (d + frc);
                 coupling_inverse_arr(i,j,k) = underrelax_scale * frc / (d + frc);
                 coupling_arr(i,j,k) = 1.e0_rt - coupling_inverse_arr(i,j,k);
-                // coupling_arr(i,j,k) = 1.e0_rt - underrelax_scale * (1.e0_rt - coupling_arr(i,j,k));
             });
         }
     }
@@ -1130,7 +1034,7 @@ void Radiation::apply_nonconservative_correction(Real& relative, Real& absolute,
 
       }
 
-  } // OpenMP
+  }
 
   ReduceTuple hv = reduce_data.value();
 
@@ -1159,7 +1063,6 @@ void Radiation::sync_state_from_energy(MultiFab& state, MultiFab& state_energy_d
             state_arr(i,j,k,UEINT) = density_state_energy_arr(i,j,k);
             state_arr(i,j,k,UEDEN) = density_state_energy_arr(i,j,k) + kin;
 
-            // state_energy_density will be overwritten with temperature here
 
             if (state_arr(i,j,k,UEINT) <= 0.e0_rt)
             {
@@ -1203,7 +1106,6 @@ void Radiation::extendBorderValues(MultiFab& f, int indx)
 #pragma omp parallel
 #endif
     for (MFIter mfi(f); mfi.isValid(); ++mfi) {
-        // Note no tiling in the current implementation.
         const Box& bx = mfi.validbox();
         const Box& grown_valid_box = amrex::grow(bx, 1);
 
@@ -1211,8 +1113,6 @@ void Radiation::extendBorderValues(MultiFab& f, int indx)
 
         amrex::LoopOnCpu(grown_valid_box, [=] (int i, int j, int k) noexcept
         {
-            // Note that the results on the corners will be the same
-            // regardless of which order we do the loop in.
 
             if (i == bx.smallEnd(0)) {
                 face_flux_arr(i-1,j,k) = 2.0_rt * face_flux_arr(i,j,k) - face_flux_arr(i+1,j,k);
@@ -1255,7 +1155,7 @@ void Radiation::fetchBndryData(RadiativeBoundary& bd, MultiFab& Er,
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
   if (level == 0) {
-    bd.setBndryValues(Er, Rad, 0, 1, rad_boundary); // Rad=0
+    bd.setBndryValues(Er, Rad, 0, 1, rad_boundary);
   }
   else {
     BoxArray coarse_boxes(grids);
@@ -1268,8 +1168,6 @@ void Radiation::fetchBndryData(RadiativeBoundary& bd, MultiFab& Er,
     bd.setBndryValues(crse_br, 0, Er, Rad, 0, 1, crse_ratio, rad_boundary);
   }
 
-  // We do this last, in case Er has ghost cells which get written into
-  // the boundary values:
 
   bd.setTime(time);
 
@@ -1330,7 +1228,6 @@ void Radiation::fetchMultigridBndryZeroRad(MultiGroupBoundary& multigroup_bounda
 void Radiation::fillBndryRegister(BndryRegister& bdry, int level, Real time)
 {
   BL_PROFILE("Radiation::fillBndryRegister");
-  // in this routine "level" is the coarse level
 
   HydroSim      *hydrosim = (HydroSim*)&parent->getLevel(level);
   const BoxArray& grids = hydrosim->boxArray();
@@ -1344,33 +1241,26 @@ void Radiation::fillBndryRegister(BndryRegister& bdry, int level, Real time)
   BL_ASSERT( (time > old_time-eps) && (time < new_time + eps));
 
   MultiFab& S_new = hydrosim->get_new_data(Radiation_Type);
-  // the next line is OK even if S_old is not defined yet
   MultiFab& S_old = hydrosim->get_old_data(Radiation_Type);
 
   if (!geom.isAnyPeriodic()) {
     int n_ghost = 0;
 
     if (time > new_time - eps) {
-      //bdry.copyFrom(S_new, n_ghost, 0, 0, 1);
       bdry.copyFrom(S_new, n_ghost, 0, 0, Radiation::nGroups);
     }
     else if (time < old_time + eps) {
-      //bdry.copyFrom(S_old, n_ghost, 0, 0, 1);
       bdry.copyFrom(S_old, n_ghost, 0, 0, Radiation::nGroups);
     }
     else {
       Real a = (new_time - time) / (new_time - old_time);
       Real b = (time - old_time) / (new_time - old_time);
-      //bdry.linComb(a, S_old, 0, b, S_new, 0, 0, 1, n_ghost);
       bdry.linComb(a, S_old, 0, b, S_new, 0, 0, Radiation::nGroups, n_ghost);
     }
   }
   else {
 
-    // older version, ghost cell seems unnecessary (perhaps a holdover from
-    // when we put boundary conditions in ghost cells):
 
-    // (later) resurrected because ghost cell needed for periodic case:
 
     int need_old_state = (time <= new_time - eps);
     int need_new_state = (time >= old_time + eps);
@@ -1382,14 +1272,14 @@ void Radiation::fillBndryRegister(BndryRegister& bdry, int level, Real time)
 
     if (need_old_state) {
       old_state_buffer.define(grids, dmap, 1, n_grow);
-      old_state_buffer.setVal(0.0); // need legal numbers for linComb below
+      old_state_buffer.setVal(0.0);
       MultiFab::Copy(old_state_buffer, S_old, Rad, 0, 1, 0);
       old_state_buffer.FillBoundary(geom.periodicity());
     }
 
     if (need_new_state) {
       new_state_buffer.define(grids, dmap, 1, n_grow);
-      new_state_buffer.setVal(0.0); // need legal numbers for linComb below
+      new_state_buffer.setVal(0.0);
       MultiFab::Copy(new_state_buffer, S_new, Rad, 0, 1, 0);
       new_state_buffer.FillBoundary(geom.periodicity());
     }
@@ -1463,7 +1353,6 @@ void Radiation::get_density_energy(MultiFab& fluid_rho_eint,
     }
 }
 
-// temp contains fluid_rho_eint on input:
 
 void Radiation::derive_planck_and_temp(MultiFab& fkp,
                                     MultiFab& temp,
@@ -1483,7 +1372,6 @@ void Radiation::derive_planck_and_temp(MultiFab& fkp,
         auto temp_field_arr = temp[mfi].array();
         auto state_arr = state[mfi].array();
 
-        // Get T from rhoe; overwrite temp with T
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -1553,9 +1441,6 @@ void Radiation::derive_planck_and_temp(MultiFab& fkp,
     }
 }
 
-// Uses filPatch to fill state data in a ghost cell around each grid
-// so that kappa_r can be constructed everywhere.  Values across
-// physical boundaries will not be used, however.
 
 void Radiation::derive_rosseland_opacity(MultiFab& kappa_r,
                               AmrLevel* hydrosim,
@@ -1597,7 +1482,6 @@ void Radiation::derive_rosseland_opacity(MultiFab& kappa_r,
           amrex::ParallelFor(bx,
           [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
           {
-              // fluid_rho_eint will be overwritten with temperature here
 
               if (state_arr(i,j,k,UEINT) <= 0.e0_rt)
               {
@@ -1648,8 +1532,6 @@ void Radiation::derive_rosseland_opacity(MultiFab& kappa_r,
   }
 }
 
-// Only updates interior cells of current level, leaves kappa_r unchanged
-// in ghost cells bordering coarse grids or physical boundaries.
 
 void Radiation::refresh_rosseland_from_temp(MultiFab& kappa_r,
                                            MultiFab& temp,
@@ -1783,7 +1665,6 @@ void Radiation::prepare_delayed_reflux(int crse_level)
     std::cout << "Radiation deferred sync setup for coarse level " << crse_level << "..." << std::endl;
   }
 
-  // sync is only called if this is not the finest level
 
   int level = crse_level + 1;
 
@@ -1796,12 +1677,10 @@ void Radiation::prepare_delayed_reflux(int crse_level)
                   (*flux_accum_reg[level])[ori].DistributionMap()));
 
   if (do_swap) {
-      // conservative_register_old exists and is based on same grids as flux_accum_reg
       std::swap(conservative_register_old[level], flux_accum_reg[level]);
   }
   else {
       conservative_register_old[level] = std::move(flux_accum_reg[level]);
-      // leave flux_accum_reg undefined because we may be about to regrid anyway
   }
 
   dt_previous[crse_level] = parent->dtLevel(crse_level);
@@ -1832,7 +1711,6 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
     FluxRegister& fine_correction_register = *conservative_register_old[level+1];
 
     if (indx == 0) {
-      // clean up fine-fine interfaces (does all groups at once)
         fine_correction_register.ClearInternalBorders(hydrosim->Geom());
     }
 
@@ -1841,10 +1719,6 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
 
     fine_correction_register.Reflux(rhs, scale, indx, 0, 1, hydrosim->Geom());
 
-    // If there is a sync source from a still finer level,
-    // test for an intersection that will not be caught by
-    // an intermediate level and print a message to standard
-    // output if one is found.
 
     if (level+1 < parent->maxLevel() &&
         conservative_register_old[level+2]) {
@@ -1853,32 +1727,22 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
 
       if (level+1 <= fine_level) {
 
-        // We know here that level+1 still exists.
-        // (If it does not exist, fgrids remains empty. The operations
-        // used below are well-defined for an empty BoxArray.)
 
         fgrids = parent->getLevel(level+1).boxArray();
       }
 
       const IntVect& rat = fine_correction_register.refRatio();
       BoxArray prior_cover_boxes = fine_correction_register.coarsenedBoxes();
-      prior_cover_boxes.refine(rat); // now refined to level+1
+      prior_cover_boxes.refine(rat);
 
-      // If level+1 grids have not changed, any higher level
-      // flux registers must be properly nested within them
-      // and can be ignored.
 
       if (fgrids != prior_cover_boxes) {
 
-        // level+1 grids have changed.  Check whether level+1
-        // still contains the region any higher registers
-        // will reflux into:
 
         IntVect level_refine_ratio = IntVect::TheUnitVector();
 
         for (int flev = level+1; flev < parent->maxLevel(); flev++) {
 
-          // level_refine_ratio is the ratio between flev and level
 
           level_refine_ratio *= parent->refRatio(flev-1);
 
@@ -1886,106 +1750,49 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
 
             if (flev > level+1) {
               fgrids.refine(parent->refRatio(flev-1));
-              // fgrids is now at refinement level flev
             }
 
             FluxRegister& fine_fine_register = *conservative_register_old[flev+1];
             BoxArray fine_fine_boxes = fine_fine_register.coarsenedBoxes();
-            fine_fine_boxes.grow(1); // these are the cells to reflux into
+            fine_fine_boxes.grow(1);
 
-            // we don't reflux into cells outside the domain
             const Box& domain = parent->Geom(flev).Domain();
 
-            // this may be inefficient, so do it box by box instead
-            //fine_fine_boxes = amrex::intersect(fine_fine_boxes, domain);
             for (int i = 0; i < fine_fine_boxes.size(); i++) {
               fine_fine_boxes.set(i, (fine_fine_boxes[i] & domain));
             }
 
-            // For large parallel jobs, the following
-            // BoxArray::contains() function may be
-            // prohibitively expensive.
-            // We could optimize by only doing it once and
-            // reusing the result for all the groups.
 
             if (fgrids.contains(fine_fine_boxes)) {
-              // The higher level flux register is still contained
-              // within level+1, so we can ignore it and any
-              // finer levels here.
 
               break;
             }
             else {
-              // Either level+1 does not exist, or it does not
-              // contain the flux register from level flev+1.
 
-              // I don't think we can use FluxRegister to reflux
-              // from flev+1 to level, not even if we constructed
-              // an intermediate FluxRegister at some other resolution
-              // and initialized it from fine_fine_register (as we do below in
-              // the coarse-to-fine direction).  The problem is that
-              // for an extreme difference in levels, the faces in
-              // fine_fine_register may not lie on cell faces in level, and the
-              // FluxRegister mechanism assumes that they do (and
-              // can't be fooled into doing the right thing anyway).
 
-              // Fortunately this is a rare case---it apparently can
-              // only happen when there is a change in the refinement
-              // criteria.  What I'm going to do is construct a
-              // MultiFab at level flev, reflux fine_fine_register into it, and
-              // then average the result down to level.  This is much
-              // simpler than it would be to
-              // re-implement reflux from the FluxRegister class for
-              // this special circumstance.
 
-              // ClearInternalBorders may not have been done yet.
-              // We'll do it again when we advance finer levels up to
-              // flev, so there is some duplication of effort, but
-              // this is an unusual situation.
 
               if (indx == 0) {
-                  // clean up fine-fine interfaces (does all groups at once)
                   fine_fine_register.ClearInternalBorders(parent->Geom(flev));
               }
 
               BoxArray coarse_cover_boxes(fine_fine_boxes);
 
-              // coarse_cover_boxes is now at flev resolution, and
-              // large enough to contain all of the cells that
-              // fine_fine_register would coarsen into.  (It's tempting to just
-              // use a refined copy of grids at level, but that
-              // could be too large to refine.)
 
               coarse_cover_boxes.coarsen(level_refine_ratio);
 
-              // The way the coarsen method is defined, if the fine
-              // BoxArray does not coarsen evenly by the specified ratio,
-              // the coarsened result will be just a little bit larger
-              // so that it still fully contains the fine region.
 
               BoxArray restored_fine_boxes(coarse_cover_boxes);
               restored_fine_boxes.refine(level_refine_ratio);
 
-              // restored_fine_boxes is now back to flev resolution, but is
-              // enlarged so that it evenly covers whole cells at the
-              // resolution of level.
 
               const DistributionMapping& fine_fine_dmap = fine_fine_register.DistributionMap();
 
               MultiFab fine_level_data(restored_fine_boxes, fine_fine_dmap, 1, 0);
               fine_level_data.setVal(0.0);
 
-              // Reflux into this expanded (flev resolution) MultiFab.
 
-              // The units of the data in fine_fine_register are
-              // <conserved quantity> per (flev) timestep.
-              // The averaging process will preserve the volume
-              // integral of <conserved quantity>.
 
-              // So the remaining scale factor is determined only
-              // by the ratio of the (flev) timestep for which
-              // this flux data was originally prepared, to the
-              // current timestep.
 
               Real scale = dt_previous[flev] / delta_t;
               if (!apply_sync) scale = 0.0;
@@ -1993,36 +1800,27 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
               fine_fine_register.Reflux(fine_level_data, scale, indx, 0, 1,
                              parent->Geom(flev));
 
-              // Coarsen to level resolution.
 
               MultiFab rhs_tmp(grids, dmap, 1, 0);
-              rhs_tmp.setVal(0.0);     // clear garbage
+              rhs_tmp.setVal(0.0);
 
-              // The data we are coarsening already has the metric factor built in.
               amrex::average_down(fine_level_data, rhs_tmp, 0, 1, level_refine_ratio);
 
-              // Add coarsened result into rhs.
               rhs.plus(rhs_tmp, 0, 1, 0);
             }
           }
-        } // end loop over finer levels
+        }
       }
 
-    } // end refluxing from levels higher than level+1
+    }
 
-  } // end refluxing from all finer levels
+  }
 
-  // If there is a sync source from this level or a coarser
-  // level that now intersects this level, reflux it too:
 
   IntVect level_refine_ratio = IntVect::TheUnitVector();
 
   for (int flev = level; flev > 0; flev--) {
 
-    // dt_previous is used here as a hack indicating that the
-    // data in this flux register is "fresh".  See the end of
-    // the update routine where dt_previous is zeroed out after
-    // the data becomes stale.
 
     if (conservative_register_old[flev] &&
         dt_previous[flev-1] > 0.0) {
@@ -2031,53 +1829,35 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
 
       const IntVect& rat = coarse_correction_register.refRatio();
       BoxArray prior_cover_boxes = coarse_correction_register.coarsenedBoxes();
-      prior_cover_boxes.refine(rat); // now refined to level flev
+      prior_cover_boxes.refine(rat);
 
       const BoxArray& fgrids = parent->getLevel(flev).boxArray();
       if (fgrids == prior_cover_boxes) {
 
-        // If the grids at level flev have not changed, then the
-        // current level must still be properly nested within it
-        // and we don't need to go any further.
 
         break;
       }
       else {
 
-        // level_refine_ratio is the ratio between level and flev
 
-        prior_cover_boxes.refine(level_refine_ratio); // now refined to current level
+        prior_cover_boxes.refine(level_refine_ratio);
 
-        // flev grids have changed, so check if the current level
-        // is still properly nested within them.  If so, no
-        // refluxing is necessary from this or coarser levels.
 
-        // For large parallel jobs, the following
-        // BoxArray::contains() function may be
-        // prohibitively expensive.
-        // We could optimize by only doing it once and
-        // reusing the result for all the groups.
 
         if (prior_cover_boxes.contains(grids)) {
           break;
         }
 
-        // We now know we have to reflux from coarse_correction_register
 
         const DistributionMapping& coarse_correction_dmap = coarse_correction_register.DistributionMap();
 
         FluxRegister refined_correction_register(prior_cover_boxes, coarse_correction_dmap,
                                    IntVect::TheUnitVector(),
-                                   level+1, // this is not used
+                                   level+1,
                                    1);
         level_refine_ratio *= rat;
 
-        // level_refine_ratio is now the ratio between level and flev-1
 
-        // Fill in each Fab in refined_correction_register from
-        // the corresponding Fab in coarse_correction_register, refined
-        // with piecewise-constant (area-adjusted)
-        // interpolation with ratio given by level_refine_ratio.
 
         for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
           const Orientation lo_face(dir,Orientation::low);
@@ -2100,32 +1880,20 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
           }
         }
 
-        // ClearInternalBorders has already been done---it
-        // was done when refluxing this data to level flev-1.
 
-        // The units of the data in coarse_correction_register are
-        // <conserved quantity> per (coarse) timestep.  The
-        // RFFACE routine divides each value by the number of
-        // times it is being duplicated, leaving the same
-        // total sum as before.
 
-        // So the remaining scale factor is determined only
-        // by the ratio of the (coarse) timestep for which
-        // this flux data was originally prepared, to the
-        // current timestep.
 
         Real scale = dt_previous[flev-1] / delta_t;
         if (!apply_sync) scale = 0.0;
 
         refined_correction_register.Reflux(rhs, scale, 0, 0, 1, hydrosim->Geom());
 
-      } // end if "this register may overlap current level"
+      }
 
-    } // end if "this register exists and has data"
+    }
 
-  } // end loop over coarser flux register levels
+  }
 
-  // All refluxing into the rhs is now done.
 }
 
 void Radiation::reflux(int level)
@@ -2133,7 +1901,6 @@ void Radiation::reflux(int level)
   return;
 }
 
-// Computes the scaled gradient for use in flux limiters
 
 void Radiation::evaluateGradientRatio(int level,
                                Array<MultiFab, AMREX_SPACEDIM>& R,
@@ -2145,7 +1912,7 @@ void Radiation::evaluateGradientRatio(int level,
   BL_ASSERT(kappa_r.nGrow() == 1);
 
   MultiFab er_periodic_buffer;
-  if (nGrow_rad_energy == 0) { // default value
+  if (nGrow_rad_energy == 0) {
     if (radiation::limiter > 0) {
       const BoxArray& grids = parent->boxArray(level);
       const DistributionMapping& dmap = parent->DistributionMap(level);
@@ -2153,11 +1920,6 @@ void Radiation::evaluateGradientRatio(int level,
       er_periodic_buffer.setVal(-1.0);
       MultiFab::Copy(er_periodic_buffer, Er, rad_group_idx, 0, 1, 0);
 
-      // Values in ghost cells are set to -1, indicating that one-sided
-      // differences should be used in computing the gradient term for
-      // the flux limiter.  In order to make the solution independent
-      // of the grid layout, we now go back and overwrite values in
-      // those cells bordering grids at the same level:
 
       er_periodic_buffer.FillBoundary(parent->Geom(level).periodicity());
     }
@@ -2174,7 +1936,7 @@ void Radiation::evaluateGradientRatio(int level,
 
       for (MFIter mfi(R[idim], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
 
-          const Box& nbx = mfi.tilebox();  // note that R is edge based
+          const Box& nbx = mfi.tilebox();
 
           auto scaled_grad_arr = R[idim][mfi].array(GradComp);
 
@@ -2468,8 +2230,6 @@ void Radiation::evaluateGradientRatio(int level,
   }
 }
 
-// On input, lambda should contain scaled gradient.
-// On output this will be overwritten with the flux limiter.
 
 void Radiation::computeFluxLimiter(int level,
                             Array<MultiFab, AMREX_SPACEDIM>& lambda,
@@ -2550,7 +2310,6 @@ void Radiation::derive_rosseland_velocity_coef(MultiFab& kappa_r, MultiFab& v, M
             amrex::ParallelFor(reg,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                // Get T from rhoe
 
                 if (cons_state_arr(i,j,k,UEINT) <= 0.e0_rt)
                 {

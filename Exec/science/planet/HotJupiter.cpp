@@ -1,4 +1,3 @@
-//Aug 25
 
 #include<iostream>
 #include<cmath>
@@ -6,15 +5,15 @@
 #include<iomanip>
 
 using namespace std;
-long double difference(long double dz,long double delta_z);    //declare the function for the given equation
-long double difference(long double dz,long double delta_z)    //define the function here, ie give the equation
+long double difference(long double dz,long double delta_z);
+long double difference(long double dz,long double delta_z)
 {
   long double difference=dz-delta_z;
   return difference;
 }
 
-long double Temp(long double P1,long double Pc,long double P_char,long double T_char,long double Td,  long double Lin, long double Lad, long double exp1, long double exp2);    //declare the function for the given equation
-long double Temp(long double P1,long double Pc,long double P_char,long double T_char,long double Td,  long double Lin, long double Lad, long double exp1, long double exp2)    //define the function here, ie give the equation
+long double Temp(long double P1,long double Pc,long double P_char,long double T_char,long double Td,  long double Lin, long double Lad, long double exp1, long double exp2);
+long double Temp(long double P1,long double Pc,long double P_char,long double T_char,long double Td,  long double Lin, long double Lad, long double exp1, long double exp2)
 {
   long double Temp;
 
@@ -27,8 +26,8 @@ long double Temp(long double P1,long double Pc,long double P_char,long double T_
   return Temp;
 }
 
-long double density(long double P1,long double T1,long double R);    //declare the function for the given equation
-long double density(long double P1,long double T1,long double R)    //define the function here, ie give the equation
+long double density(long double P1,long double T1,long double R);
+long double density(long double P1,long double T1,long double R)
 {
   long double density=P1/(R*T1);
   return density;
@@ -49,26 +48,23 @@ int main(){
   bool continuous_P, continuous_rho;
   long double P[10000],T[10000],den[10000],y[10000];
 
-  //Declaration Block
-  Td = 1500.0;                              //T_deep : the temperature at the top of the atmosphere[K]
+  Td = 1500.0;
   P_char = 1.0e6;
   T_char = 250.0;
-  dP = 1.0e+3;                              //dP default value
-  Lad = (2.0/7.0);                          //the adiabatic index of an ideal diatomic gas
+  dP = 1.0e+3;
+  Lad = (2.0/7.0);
   Lin = (1.0/2.0);
-  gravity_view = -1.0e3;                            //constant gravity [cm/s^2]
-  R = (1.3806488e-16)/2.34*6.02214129e23;   //ideal gas constant (defined with mean molecular mass)
+  gravity_view = -1.0e3;
+  R = (1.3806488e-16)/2.34*6.02214129e23;
 
   exp1=1.0 + alpha;
   exp2=(1.0/(4.0-beta));
 
 
-  //Defining the computation box
-  z_top=4.0e9;                               // the size of the computation box
-  number_cell=1024.0;                        // the number of cells
+  z_top=4.0e9;
+  number_cell=1024.0;
 
 
-  //Initializing
   kappa0 = 6.35e-3 ;
   dP_factor=1.e5;
   optical_depth_atm=0.0;
@@ -84,7 +80,6 @@ int main(){
   z_at_1opticaldepth=0.0;
   data_output.open ("newmodelcpp.hse",ios::out);
 
-  //Choosing either continuous pressure or density at the boundary between the buffer and the atmosphere
   continuous_P = true;
   continuous_rho = false;
 
@@ -92,18 +87,15 @@ int main(){
     cout<<"P and rho can not be continuous at the same time." <<'\n';
   }
 
-  //Defining the properties of the planet atmosphere
-                            // the density limit at the top of the atmosphere
-  P_top=den_top*R*Td ;                       // the pressure limit at the density limit
-  Tc = Td * std::pow(Lin/(Lin-Lad),exp2);                 //the temperature at the radiative-convective boundary (RCB)
-  Pc = P_char * std::pow(Tc/T_char,1.0/Lad);              //the pressure at the RCB
-  Pd = std::pow((Lin-Lad)/(2.0*Lin-Lad),1.0/exp1)*Pc;     //the characteristic pressure defining the radiative zone
+  P_top=den_top*R*Td ;
+  Tc = Td * std::pow(Lin/(Lin-Lad),exp2);
+  Pc = P_char * std::pow(Tc/T_char,1.0/Lad);
+  Pd = std::pow((Lin-Lad)/(2.0*Lin-Lad),1.0/exp1)*Pc;
 
 
 
-  //Defining the properties of the buffer
-  den_buffer=1.3e-15;                          // the density in the buffer above the atmosphere
-  T_buffer=1.0e-2;                             // the temperature in the buffer above the atmosphere (not continuous at RCB). -> needs sponge
+  den_buffer=1.3e-15;
+  T_buffer=1.0e-2;
   P_buffer=den_buffer*R*T_buffer;
   if(continuous_rho==true){
     den_top=den_buffer;
@@ -111,8 +103,8 @@ int main(){
     else if(continuous_P==true){
   }
 
-  buffer_height=z_top*2.25/4.0;               // the height at which the buffer and the top of the atmosphere meet (not continuous at RCB).-> needs sponge
-  optical_depth_buffer=6.35e-3*T_buffer*std::pow(den_buffer,2.0)*(z_top-buffer_height);// the optical depth in the buffer region [dimensionless]
+  buffer_height=z_top*2.25/4.0;
+  optical_depth_buffer=6.35e-3*T_buffer*std::pow(den_buffer,2.0)*(z_top-buffer_height);
 
 
 
@@ -225,7 +217,6 @@ int main(){
 
 
 
-  //output data
   cout<<"count= " << count-1<<'\n';
   cout<<"At bottom, "<< ' ' <<"density[g/cm^3]= " << ' ' << den[count-1] << ' ' << "   T[K]= "<< ' ' << T[count-1] << ' ' << "   P[bar]= " << ' ' << P[count-1]/1.e6  << '\n';
   cout<<"At optical depta=1, "<< ' ' <<"z[km]=" << ' ' << z_at_1opticaldepth/1e5 << ' ' <<"density[g/cm^3]= " << ' ' << den_at_1opticaldepth << ' ' << "   T[K]= "<< ' ' << T_at_1opticaldepth << ' ' << "   P[bar]= " << ' ' << P_at_1opticaldepth/1.e6  << '\n';
@@ -247,7 +238,6 @@ int main(){
   }while(count>0);
 
 
-  //summary
   cout<<"Pc                      [dyne/cm^{2}] = "<< ' ' << Pc << '\n';
   cout<<"Tc                                [K] = "<< ' ' << Tc << '\n';
   cout<<"density_c                    [g/cm^3] =" <<' ' << Pc/R/Tc << '\n';

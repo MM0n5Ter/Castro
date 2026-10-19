@@ -67,7 +67,7 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
     std::cout << "habec.verbose                   = " << verbose << std::endl;
     std::cout << "habec.log_threshold         = " << log_threshold << std::endl;
   }
-  bho = 0; // higher order boundaries don't work with symmetric matrices
+  bho = 0;
 
   for (int i = 0; i < AMREX_SPACEDIM; i++) {
     dx[i] = geom.CellSize(i);
@@ -75,10 +75,6 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
 
 #if (AMREX_SPACEDIM == 1)
 
-  // Hypre doesn't support 1D directly, so we use 2D Hypre with
-  // the second dimension collapsed.
-  // (SMG reduces to cyclic reduction in this case, so it's an exact solve.)
-  // (PFMG will not work.)
 
   HYPRE_StructGridCreate(MPI_COMM_WORLD, 2, &hgrid);
 
@@ -113,7 +109,6 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
 #endif
 
   if (ParallelDescriptor::NProcs() != 1) {
-    // parallel section:
     for (int i = 0; i < grids.size(); i++) {
       if (dmap[i] == ParallelDescriptor::MyProc()) {
         HYPRE_StructGridSetExtents(hgrid, loV(grids[i]), hiV(grids[i]));
@@ -129,12 +124,6 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
   HYPRE_StructGridAssemble(hgrid);
 
 #if (AMREX_SPACEDIM == 1)
-  // if we were really 1D:
-/*
-  int offsets[2][1] = {{-1},
-                       { 0}};
-*/
-  // fake 1D as a 2D problem:
   int offsets[2][2] = {{-1,  0},
                        { 0,  0}};
 #elif (AMREX_SPACEDIM == 2)
@@ -151,7 +140,6 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
 #if   (AMREX_SPACEDIM == 1)
   int matrix_ghost_widths[6] = { 1, 1, 0, 0, 0, 0 };
 #elif (AMREX_SPACEDIM == 2)
-  //int matrix_ghost_widths[4] = { 1, 1, 1, 1 };
   int matrix_ghost_widths[6] = { 1, 1, 1, 1, 0, 0 };
 #elif (AMREX_SPACEDIM == 3)
   int matrix_ghost_widths[6] = { 1, 1, 1, 1, 1, 1 };
@@ -179,12 +167,10 @@ AlphaBetaSolver::AlphaBetaSolver(const BoxArray& grids,
   HYPRE_StructMatrixSetNumGhost(A0, matrix_ghost_widths);
   HYPRE_StructMatrixInitialize(A0);
 
-  //HYPRE_StructVectorCreate(MPI_COMM_WORLD, hgrid, stencil, &b);
-  //HYPRE_StructVectorCreate(MPI_COMM_WORLD, hgrid, stencil, &x);
   HYPRE_StructVectorCreate(MPI_COMM_WORLD, hgrid, &b);
   HYPRE_StructVectorCreate(MPI_COMM_WORLD, hgrid, &x);
 
-  HYPRE_StructStencilDestroy(stencil); // no longer needed
+  HYPRE_StructStencilDestroy(stencil);
 
   HYPRE_StructVectorInitialize(b);
   HYPRE_StructVectorInitialize(x);
@@ -279,10 +265,6 @@ void AlphaBetaSolver::faceFluxAtBoundary(MultiFab* Flux, MultiFab& sol_field, in
                         bc_type_arr = tf.array();
                         bctype = -1;
                     }
-                    // In normal code operation only the fluxes at internal
-                    // Dirichlet boundaries are used.  Some diagnostics use the
-                    // fluxes computed at domain boundaries but these do not
-                    // influence the evolution of the interior solution.
                     Array4<Real const> bc_alpha_arr;
                     if (SPa != 0) {
                         bc_alpha_arr = (*SPa)[si].array();
@@ -324,7 +306,7 @@ void AlphaBetaSolver::faceGeometryFactors(Vector<Real>& r,
     if (geom.IsCartesian()) {
       r.resize(1, 1.0);
     }
-    else { // RZ or Spherical
+    else {
       r.resize(1);
       if (ori.isLow()) {
         r[0] = geom.LoEdge(reg.smallEnd(0), 0);
@@ -341,8 +323,7 @@ void AlphaBetaSolver::faceGeometryFactors(Vector<Real>& r,
     if (geom.IsCartesian()) {
       r.resize(reg.length(0), 1.0);
     }
-    else { // RZ
-      // We only support spherical coordinates in 1D
+    else {
       BL_ASSERT(geom.IsRZ());
       geom.GetCellLoc(r, reg, 0);
     }
@@ -667,8 +648,6 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
 
     const Real fac = beta / (h * h);
 
-    // The -fac * b(i,j,k) term applied to the matrix diagonal is the contribution
-    // from the interior stencil which must be removed at the boundary.
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -925,7 +904,7 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     stencil_indices[i] = i;
   }
 
-  BaseFab<GpuArray<Real, size>> matfab; // AoS indexing
+  BaseFab<GpuArray<Real, size>> matfab;
   for (MFIter ai(*acoefs); ai.isValid(); ++ai) {
     i = ai.index();
     const Box &reg = grids[i];
@@ -934,7 +913,6 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     Elixir matfab_hold = matfab.elixir();
     Real* mat = (Real*) matfab.dataPtr();
 
-    // build matrix interior
 
     fillMassMat(reg, matfab.array(), (*acoefs)[ai].array(), alpha);
 
@@ -942,8 +920,6 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
         fillFaceMat(reg, matfab.array(), (*bcoefs[idim])[ai].array(), beta, dx, idim);
     }
 
-    // add b.c.'s to matrix diagonal, and
-    // zero out offdiag values at low domain boundaries (high done by symmetry)
 
     const BaseBoundary& bd = getBoundaryData();
     const Box& domain = bd.getDomain();
@@ -981,7 +957,6 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
       }
     }
 
-    // initialize matrix
 
     HYPRE_StructMatrixSetBoxValues(A, loV(reg), hiV(reg),
                                    size, stencil_indices, mat);
@@ -990,11 +965,11 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
 
   HYPRE_StructMatrixAssemble(A);
 
-  HYPRE_StructVectorAssemble(b); // currently a no-op
-  HYPRE_StructVectorAssemble(x); // currently a no-op
+  HYPRE_StructVectorAssemble(b);
+  HYPRE_StructVectorAssemble(x);
 
   reltol = _rel_tolerance;
-  abstol = _abs_tolerance; // may be used to change tolerance for solve
+  abstol = _abs_tolerance;
 
   if (solver_choice == 0) {
     HYPRE_StructSMGCreate(MPI_COMM_WORLD, &solver);
@@ -1009,13 +984,10 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
   }
   else if (solver_choice == 1) {
     HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &solver);
-    //HYPRE_StructPFMGSetMemoryUse(solver, 0);
     HYPRE_StructPFMGSetSkipRelax(solver, 0);
     HYPRE_StructPFMGSetMaxIter(solver, maxiter);
     HYPRE_StructPFMGSetRelChange(solver, 0);
     HYPRE_StructPFMGSetTol(solver, reltol);
-// in following line, use 1 as relax type, not 2
-// weighted Jacobi = 1; red-black GS = 2
     HYPRE_StructPFMGSetRelaxType(solver, pfmg_smoother_type);
     HYPRE_StructPFMGSetNumPreRelax(solver, 1);
     HYPRE_StructPFMGSetNumPostRelax(solver, 1);
@@ -1024,14 +996,7 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
   }
   else if (solver_choice == 2) {
     HYPRE_StructJacobiCreate(MPI_COMM_WORLD, &solver);
-    //HYPRE_StructPFMGSetMemoryUse(solver, 0);
-    //HYPRE_StructPFMGSetSkipRelax(solver, 0);
     HYPRE_StructJacobiSetMaxIter(solver, maxiter);
-    //HYPRE_StructPFMGSetRelChange(solver, 0);
-    //HYPRE_StructPFMGSetTol(solver, reltol);
-    //HYPRE_StructPFMGSetNumPreRelax(solver, 1);
-    //HYPRE_StructPFMGSetNumPostRelax(solver, 1);
-    //HYPRE_StructPFMGSetLogging(solver, 1);
     HYPRE_StructJacobiSetup(solver, A, b, x);
   }
   else if (solver_choice == 3 || solver_choice == 4) {
@@ -1041,12 +1006,10 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     HYPRE_StructPCGSetTol(solver, reltol);
 
     if (solver_choice == 3) {
-// pfmg pre-conditioned cg
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &precond);
       HYPRE_StructPFMGSetMaxIter(precond, 1);
       HYPRE_StructPFMGSetTol(precond, 0.0);
       HYPRE_StructPFMGSetZeroGuess(precond);
-// weighted Jacobi = 1; red-black GS = 2
       HYPRE_StructPFMGSetRelaxType(precond, pfmg_smoother_type);
       HYPRE_StructPFMGSetNumPreRelax(precond, 1);
       HYPRE_StructPFMGSetNumPostRelax(precond, 1);
@@ -1084,15 +1047,13 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     HYPRE_StructHybridSetConvergenceTol(solver, 0.90);
     HYPRE_StructHybridSetRelChange(solver, 0);
     HYPRE_StructHybridSetLogging(solver, 1);
-    HYPRE_StructHybridSetSolverType(solver, 1); /* pcg */
+    HYPRE_StructHybridSetSolverType(solver, 1);
 
-    /* pfmg preconditioning */
     if (solver_choice == 5) {
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &precond);
       HYPRE_StructPFMGSetMaxIter(precond, 1);
       HYPRE_StructPFMGSetTol(precond, 0.0);
       HYPRE_StructPFMGSetZeroGuess(precond);
-// weighted Jacobi = 1; red-black GS = 2
       HYPRE_StructPFMGSetRelaxType(precond, pfmg_smoother_type);
       HYPRE_StructPFMGSetNumPreRelax(precond, 1);
       HYPRE_StructPFMGSetNumPostRelax(precond, 1);
@@ -1684,7 +1645,6 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
     i = di.index();
     const Box &reg = grids[i];
 
-    // initialize dest, since we will reuse the space to set up rhs below:
 
     FArrayBox *f;
     int fcomp;
@@ -1692,7 +1652,7 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
     Array4<Real> const d_arr = dest.array(di);
     Array4<Real> const rhs_view_arr = rhs.array(di);
 
-    if (dest.nGrow() == 0) { // need a temporary if dest is the wrong size
+    if (dest.nGrow() == 0) {
       f = &dest[di];
       fcomp = icomp;
     }
@@ -1709,7 +1669,7 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
     }
     Elixir f_hold = scratch_fab.elixir();
 
-    vec = f->dataPtr(fcomp); // sharing space, dest will be overwritten below
+    vec = f->dataPtr(fcomp);
 
     HYPRE_StructVectorSetBoxValues(x, loV(reg), hiV(reg), vec);
 
@@ -1720,7 +1680,6 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
     AMREX_PARALLEL_FOR_3D(reg, i, j, k, { face_flux_arr(i,j,k,fcomp) = rhs_view_arr(i,j,k,0); });
     Gpu::streamSynchronize();
 
-    // add b.c.'s to rhs
 
     if (bc_variant) {
       const BaseBoundary& bd = getBoundaryData();
@@ -1765,13 +1724,12 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
 
     Gpu::streamSynchronize();
 
-    // initialize rhs
 
     HYPRE_StructVectorSetBoxValues(b, loV(reg), hiV(reg), vec);
   }
 
-  HYPRE_StructVectorAssemble(b); // currently a no-op
-  HYPRE_StructVectorAssemble(x); // currently a no-op
+  HYPRE_StructVectorAssemble(b);
+  HYPRE_StructVectorAssemble(x);
   Gpu::synchronize();
 
   if (abstol > 0.0) {
@@ -1798,7 +1756,6 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
         HYPRE_StructPFMGSetTol(solver, reltol_new);
       }
       else if(solver_choice == 2) {
-        // nothing for this option
       }
       else if(solver_choice == 3 || solver_choice == 4) {
         HYPRE_StructPCGSetTol(solver, reltol_new);
@@ -1808,9 +1765,6 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
 
   if (solver_choice == 0) {
     HYPRE_StructSMGSolve(solver, A, b, x);
-    //HYPRE_StructVectorPrint("Xsmg", x, 0);
-    //HYPRE_StructVectorPrint("Bsmg", b, 0);
-    //cin.get();
   }
   else if (solver_choice == 1) {
     HYPRE_StructPFMGSolve(solver, A, b, x);
@@ -1833,7 +1787,7 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) { // need a temporary if dest is the wrong size
+    if (dest.nGrow() == 0) {
       f = &dest[di];
       fcomp = icomp;
     }

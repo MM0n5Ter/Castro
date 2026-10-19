@@ -19,8 +19,6 @@ NETWORK_INPUTS := gammalaw.net
 
 OPACITY_DIR := rad_power_law
 
-# number of radiation groups -  this needs to correspond to radiation.nGroups in
-# the inputs file
 NGROUPS := 64
 
 PROBLEM_DIR ?= ./

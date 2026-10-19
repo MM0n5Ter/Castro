@@ -1,4 +1,3 @@
-/* Implementations of functions in Problem.H go here */
 
 #include <HydroSim.H>
 
@@ -10,11 +9,6 @@ Real
 HydroSim::compute_moment_of_inertia()
 {
 
-    // Compute the moment of inertia for the mass
-    // distribution (mass * r**2). This gives us a
-    // quality measure of how well the torus holds
-    // together, by comparing the moment of inertia
-    // at t == 0 to the current moment of inertia.
 
     int finest_level = parent->finestLevel();
     Real time = state[State_Type].curTime();
@@ -26,16 +20,13 @@ HydroSim::compute_moment_of_inertia()
 
     for (int lev = 0; lev <= finest_level; ++lev) {
 
-        // Get the HydroSim level
         HydroSim& hs_level = getLevel(lev);
 
-        // Add up the moment of inertia on this level
-        int idir = -1; // So we do r**2, rather than any particular direction
+        int idir = -1;
         moment += hs_level.locDistSquaredTotal("density", time, idir, local_only);
 
     }
 
-    // Reduce over all ranks.
     ParallelDescriptor::ReduceRealSum(moment);
 
     return moment;

@@ -40,7 +40,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = interpolate(dist, model::ispec+n);
     }
 
-    // Compute energy from rho,T and X
 
     eos_t eos_state;
     eos_state.rho = state(i,j,k,URHO);
@@ -51,7 +50,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     eos(eos_input_rt, eos_state);
 
-    // we'll add the density weighting shortly
 
     state(i,j,k,UEINT) = eos_state.e;
 

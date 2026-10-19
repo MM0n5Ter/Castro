@@ -35,25 +35,21 @@ Real A_x (int i, int j, int k,
 
     if (problem::mass_P > 0.0_rt && (dist_P < problem::radius_P)) {
 
-        // Vector potential inside the primary star
 
         A = -problem::m_0 * dist_P * std::sin(theta_P) * std::sin(phi_P) / std::pow(problem::radius_P, 3);
 
     }
     else if (problem::mass_S > 0.0_rt && (dist_S < problem::radius_S)) {
 
-        // Vector potential inside the secondary star
 
         A = -problem::m_0 * dist_S * std::sin(theta_S) * std::sin(phi_S) / std::pow(problem::radius_S, 3);
 
     }
     else  {
 
-        // Dipole outside the primary star
 
         A = -problem::m_0 * std::sin(theta_P) * std::sin(phi_P) / (dist_P * dist_P);
 
-        // Add contribution of dipole outside the secondary star
 
         A += -problem::m_0 * std::sin(theta_S) * std::sin(phi_S) / (dist_S * dist_S);
 
@@ -94,25 +90,21 @@ Real A_y (int i, int j, int k,
 
     if (problem::mass_P > 0.0_rt && (dist_P < problem::radius_P)) {
 
-        // Vector potential inside the primary star
 
         A = -problem::m_0 * dist_P * std::sin(theta_P) * std::cos(phi_P) / std::pow(problem::radius_P, 3);
 
     }
     else if (problem::mass_S > 0.0_rt && (dist_S < problem::radius_S)) {
 
-        // Vector potential inside the secondary star
 
         A = -problem::m_0 * dist_S * std::sin(theta_S) * std::cos(phi_S) / std::pow(problem::radius_S, 3);
 
     }
     else  {
 
-        // Dipole outside the primary star
 
         A = -problem::m_0 * std::sin(theta_P) * std::cos(phi_P) / (dist_P * dist_P);
 
-        // Add contribution of dipole outside the secondary star
 
         A += -problem::m_0 * std::sin(theta_P) * std::cos(phi_P) / (dist_S * dist_S);
 
@@ -126,10 +118,6 @@ void user_initialize_mhd_data (int i, int j, int k,
                                   Array4<Real> const& B, const int idir,
                                   const GeometryData& geomdata)
 {
-    // A is of the form A = (A_x, A_y, 0)
-    // B_x = -dA_x/dz
-    // B_y = dA_y/dz
-    // B_z = dA_y/dx - dA_x/dy
 
     const Real* dx = geomdata.CellSize();
 

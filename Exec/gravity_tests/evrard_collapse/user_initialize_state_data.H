@@ -12,8 +12,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     const Real* dx = geomdata.CellSize();
     const Real* problo = geomdata.ProbLo();
 
-    // Loop through the zones and set the zone state depending on whether we are
-    // inside the sphere or if we are in an ambient zone.
 
     Real loc[3] = {0.0_rt};
 

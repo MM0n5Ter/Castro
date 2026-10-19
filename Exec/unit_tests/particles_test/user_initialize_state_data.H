@@ -13,7 +13,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     const Real* problo = geomdata.ProbLo();
     const Real* probhi = geomdata.ProbHi();
 
-    // set the composition
 
     Real xn[NumSpec] = {0.0_rt};
     xn[0] = 1.0_rt;
@@ -39,7 +38,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     state(i,j,k,UMY) =  problem::vel_amp * (x - xc);
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // compute the internal energy and temperature
     eos_t eos_state;
 
     eos_state.p = 1.0_rt;

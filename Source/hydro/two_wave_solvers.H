@@ -43,7 +43,7 @@ namespace HLL {
                               (S_c - u_k)*(S_c + prim_vals[QPRES]/(prim_vals[QRHO]*(S_k - u_k))));
       U[UEINT] = contact_factor*prim_vals[QEINTDENS]/prim_vals[QRHO];
 
-      U[UTEMP] = 0.0; // we don't evolve T
+      U[UTEMP] = 0.0;
 
     #ifdef SHOCK_VAR
       U[UFLAG_SHOCK] = 0.0;
@@ -62,9 +62,6 @@ namespace HLL {
     }
 
 
-    ///
-    /// given a conserved state, compute the flux in direction idir
-    ///
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     compute_flux(const int idir, const Real boundary_factor, const int coord,
@@ -86,8 +83,6 @@ namespace HLL {
       auto has_pressure_flux = momentum_flux_has_pressure(idir, idir, coord);
 
       if (has_pressure_flux) {
-        // we do not include the pressure term in any non-Cartesian
-        // coordinate directions
         F[UMX+idir] = F[UMX+idir] + p;
       }
 
@@ -111,17 +106,12 @@ namespace HLL {
       }
     }
 
-    ///
-    /// convert the primitive variable state to the conserved state
-    ///
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     conserved_state(const Real* prim_vals, Real* U) {
 
       U[URHO] = prim_vals[QRHO];
 
-      // since we advect all 3 velocity components regardless of dimension, this
-      // will be general
       U[UMX]  = prim_vals[QRHO]*prim_vals[QU];
       U[UMY]  = prim_vals[QRHO]*prim_vals[QV];
       U[UMZ]  = prim_vals[QRHO]*prim_vals[QW];
@@ -129,8 +119,6 @@ namespace HLL {
       U[UEDEN] = prim_vals[QEINTDENS] + 0.5_rt*prim_vals[QRHO]*(prim_vals[QU]*prim_vals[QU] + prim_vals[QV]*prim_vals[QV] + prim_vals[QW]*prim_vals[QW]);
       U[UEINT] = prim_vals[QEINTDENS];
 
-      // we don't care about T here, but initialize it to make NaN
-      // checking happy
       U[UTEMP] = 0.0;
 
     #ifdef SHOCK_VAR
@@ -150,18 +138,6 @@ namespace HLL {
     }
 
 
-    ///
-    /// A simple HLL Riemann solver for pure hydrodynamics.  This takes just a
-    /// single interface's data and returns the HLL flux
-    ///
-    /// @param ql     the left interface state
-    /// @param qr     the right interface state
-    /// @param cl     sound speed on the left interface
-    /// @param cr     sound speed on the right interface
-    /// @param idir   coordinate direction for the solve (0 = x, 1 = y, 2 = z)
-    /// @param coord  geometry type (0 = Cartesian, 1 = axisymmetric, 2 = spherical)
-    /// @param f      the HLL fluxes
-    ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
     HLL(const Real* ql, const Real* qr,
@@ -169,9 +145,6 @@ namespace HLL {
         const int idir, const int coord,
         Real* two_wave_flux) {
 
-      // This is the HLLE solver.  We should apply it to zone averages
-      // (not reconstructed states) at an interface in the presence of
-      // shocks to avoid the odd-even decoupling / carbuncle phenomenon.
 
 
       constexpr Real small_speed_gap = 1.e-10_rt;
@@ -213,21 +186,16 @@ namespace HLL {
       Real inv_sqrt_rho_sum = 1.0_rt/(left_sqrt_rho + right_sqrt_rho);
 
 
-      // compute the average sound speed. This uses an approximation
-      // that assumes gamma falls between 1
-      // and 5/3
       Real mean_sound_speed = std::sqrt( (left_sqrt_rho*cl*cl + right_sqrt_rho*cr*cr)*inv_sqrt_rho_sum +
                              0.5_rt*left_sqrt_rho*right_sqrt_rho*inv_sqrt_rho_sum*inv_sqrt_rho_sum*std::pow(qr[normal_vel_index] - ql[normal_vel_index], 2));
 
 
-      // Roe eigenvalues
       Real roe_velocity = (left_sqrt_rho*ql[normal_vel_index] + right_sqrt_rho*qr[normal_vel_index])*inv_sqrt_rho_sum;
 
       Real a1 = roe_velocity - mean_sound_speed;
       Real a4 = roe_velocity + mean_sound_speed;
 
 
-      // signal speeds
       Real bl = std::min(a1, ql[normal_vel_index] - cl);
       Real br = std::max(a4, qr[normal_vel_index] + cr);
 
@@ -240,23 +208,15 @@ namespace HLL {
           return;
       }
 
-      // we'll overwrite the passed in flux with the HLL flux
 
       bd = 1.0_rt/bd;
 
-      // compute the fluxes -- note that the
-      // min/max above picks the correct flux if we are not in the star
-      // region
 
-      // density flux
       Real left_flux_tmp = ql[QRHO]*ql[normal_vel_index];
       Real right_flux_tmp = qr[QRHO]*qr[normal_vel_index];
 
       two_wave_flux[URHO] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO] - ql[QRHO]);
 
-      // normal momentum flux.  Note for 1-d and 2-d non cartesian
-      // r-coordinate, we leave off the pressure term and handle that
-      // separately in the update, to accommodate different geometries
       left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[normal_vel_index];
       right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[normal_vel_index];
       if (momentum_flux_has_pressure(idir, idir, coord)) {
@@ -266,7 +226,6 @@ namespace HLL {
 
       two_wave_flux[momentum_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[normal_vel_index] - ql[QRHO]*ql[normal_vel_index]);
 
-      // transverse momentum flux
       left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan_vel_index];
       right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan_vel_index];
 
@@ -278,7 +237,6 @@ namespace HLL {
 
       two_wave_flux[momentum_tan2_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan2_vel_index] - ql[QRHO]*ql[tan2_vel_index]);
 
-      // total energy flux
       Real leftTotalEnergy = ql[QEINTDENS] + 0.5_rt*ql[QRHO]*(ql[normal_vel_index]*ql[normal_vel_index] + ql[tan_vel_index]*ql[tan_vel_index] + ql[tan2_vel_index]*ql[tan2_vel_index]);
       left_flux_tmp = ql[normal_vel_index]*(leftTotalEnergy + ql[QPRES]);
 
@@ -288,14 +246,12 @@ namespace HLL {
       two_wave_flux[UEDEN] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(rightTotalEnergy - leftTotalEnergy);
 
 
-      // eint flux
       left_flux_tmp = ql[QEINTDENS]*ql[normal_vel_index];
       right_flux_tmp = qr[QEINTDENS]*qr[normal_vel_index];
 
       two_wave_flux[UEINT] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QEINTDENS] - ql[QEINTDENS]);
 
 
-      // passively-advected scalar fluxes
       for (int passive_index = 0; passive_index < npassive; passive_index++) {
           const int n  = passive_cons_index(passive_index);
           const int nqs = passive_prim_index(passive_index);
@@ -308,16 +264,6 @@ namespace HLL {
     }
 
 
-    ///
-    /// A CONTACT_FLUX Riemann solver for pure hydrodynamics
-    ///
-    /// @param ql          the left interface state
-    /// @param qr          the right interface state
-    /// @param qthermo_arr    the auxiliary state
-    /// @param solver_flux_arr        the flux through the interface
-    /// @param interface_state        an approximate Godunov state on the interface
-    /// @param idir        coordinate direction for the solve (0 = x, 1 = y, 2 = z)
-    ///
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
     CONTACT_FLUX(const int i, const int j, const int k, const int idir,
@@ -330,12 +276,6 @@ namespace HLL {
          const bool lo_no_flux_wall, const bool hi_no_flux_wall,
          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
 
-        // this is an implementation of the CONTACT_FLUX solver.
-        // it uses the simplest estimate of the wave speeds, since
-        // those should work for a general EOS.  We also initially do the
-        // CGF Riemann construction to get pstar and ustar, since we'll
-        // need to know the pressure and velocity on the interface for the
-        // pdV term in the internal energy update.
 
         const Real small = 1.e-8_rt;
 
@@ -365,7 +305,6 @@ namespace HLL {
 
         int coord = geom.Coord();
 
-        // deal with hard walls
         Real boundary_factor = 1.0_rt;
 
         if (idir == 0) {
@@ -390,20 +329,16 @@ namespace HLL {
 
         Real rl = std::max(ql(i,j,k,QRHO), small_dens);
 
-        // pick left velocities based on direction
         Real ul  = ql(i,j,k,iu);
 
         Real pl = std::max(ql(i,j,k,QPRES), pressure_cutoff);
 
         Real rr = std::max(qr(i,j,k,QRHO), small_dens);
 
-        // pick right velocities based on direction
         Real ur  = qr(i,j,k,iu);
 
         Real pr = std::max(qr(i,j,k,QPRES), pressure_cutoff);
 
-        // now we essentially do the CGF solver to get p and u on the
-        // interface, but we won't use these in any flux construction.
         Real sound_floor = amrex::max(small, small * qthermo_arr(i,j,k,QC), small * qthermo_arr(i-sx,j-sy,k-sz,QC));
         Real mean_sound_speed = 0.5_rt*(qthermo_arr(i,j,k,QC) + qthermo_arr(i-sx,j-sy,k-sz,QC));
 
@@ -426,8 +361,6 @@ namespace HLL {
         Real ustar = ((wl*ul + wr*ur) + (pl - pr))*inv_impedance_sum;
 
         pstar = std::max(pstar, pressure_cutoff);
-        // for symmetry preservation, if ustar is really small, then we
-        // set it to zero
         if (std::abs(ustar) < solver_constants::small_velocity_ratio*0.5_rt*(std::abs(ul) + std::abs(ur))){
             ustar = 0.0_rt;
         }
@@ -494,13 +427,10 @@ namespace HLL {
         interface_state[QPRES] = frac*pstar + (1.0_rt - frac)*po;
 
 
-        // now we do the CONTACT_FLUX construction
 
-        // use the simplest estimates of the wave speeds
         Real S_l = std::min(ul - std::sqrt(gamma1_left*pl/rl), ur - std::sqrt(gamma1_right*pr/rr));
         Real S_r = std::max(ul + std::sqrt(gamma1_left*pl/rl), ur + std::sqrt(gamma1_right*pr/rr));
 
-        // estimate of the contact speed
         Real S_c = (pr - pl + rl*ul*(S_l - ul) - rr*ur*(S_r - ur))/
             (rl*(S_l - ul) - rr*(S_r - ur));
 
@@ -510,7 +440,6 @@ namespace HLL {
         Real state_flux[NUM_STATE];
 
         if (S_r <= 0.0_rt) {
-            // R region
             for (int n = 0; n < NQ; n++) {
                 zone_prim[n] = qr(i,j,k,n);
             }
@@ -519,7 +448,6 @@ namespace HLL {
                          cell_cons, pr, state_flux);
 
         } else if (S_r > 0.0_rt && S_c <= 0.0_rt) {
-            // R* region
             for (int n = 0; n < NQ; n++) {
                 zone_prim[n] = qr(i,j,k,n);
             }
@@ -528,13 +456,11 @@ namespace HLL {
                          cell_cons, pr, state_flux);
             CONTACT_state(idir, S_r, S_c, zone_prim, U_contact_state);
 
-            // correct the flux
             for (int n = 0; n < NUM_STATE; n++) {
                 state_flux[n] = state_flux[n] + S_r*(U_contact_state[n] - cell_cons[n]);
             }
 
         } else if (S_c > 0.0_rt && S_l < 0.0_rt) {
-            // L* region
             for (int n = 0; n < NQ; n++) {
                 zone_prim[n] = ql(i,j,k,n);
             }
@@ -543,13 +469,11 @@ namespace HLL {
                          cell_cons, pl, state_flux);
             CONTACT_state(idir, S_l, S_c, zone_prim, U_contact_state);
 
-            // correct the flux
             for (int n = 0; n < NUM_STATE; n++) {
                 state_flux[n] = state_flux[n] + S_l*(U_contact_state[n] - cell_cons[n]);
             }
 
         } else {
-            // L region
             for (int n = 0; n < NQ; n++) {
                 zone_prim[n] = ql(i,j,k,n);
             }
@@ -563,7 +487,6 @@ namespace HLL {
         }
 
 
-        // now store the state
 
         if (keep_full_state) {
 

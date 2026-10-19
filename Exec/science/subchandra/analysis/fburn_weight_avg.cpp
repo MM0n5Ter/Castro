@@ -8,8 +8,6 @@
 #include <fstream>
 #include <cmath>
 
-// compute the integral of f dV, where f is one of the fields in the plotfile
-// this understands axisymmetric geometry.
 
 using namespace amrex;
 
@@ -20,7 +18,6 @@ void main_main()
     std::string pltfile;
     std::string varname_arg;
 
-    // the executable name is the first arg
 
     int farg{1};
 
@@ -44,7 +41,6 @@ void main_main()
 
         const Vector<std::string>& var_names_pf = pf.varNames();
 
-        // find all of the variables that begin with burn_split_data
 
         Vector<std::string> var_names;
 
@@ -96,7 +92,6 @@ void main_main()
 
         if (ParallelDescriptor::IOProcessor()) {
 
-            // average
 
             for (int ivar = 0; ivar < var_names.size(); ++ivar) {
                 if (nzones > 0) {
@@ -109,7 +104,6 @@ void main_main()
             }
 
             if (f == 0) {
-                // output the header
                 std::cout << "# " << std::setw(23) << std::left << "time";
                 for (int ivar = 0; ivar < var_names.size(); ++ivar) {
                     std::cout << std::setw(25) << std::left << var_names[ivar] + "-avg" << " ";

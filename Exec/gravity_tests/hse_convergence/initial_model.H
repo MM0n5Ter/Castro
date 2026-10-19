@@ -1,8 +1,3 @@
-// create a simple hydrostatic initial model that is 4th order accurate
-// at cell-centers by using RK4 to integrate:
-//
-//   dp/dr = rho(p, s) g
-//   ds/dr = 0
 
 
 #ifndef INITIAL_MODEL_H
@@ -24,8 +19,8 @@ f(const Real p, const Real s, const Real g, const Real rho, const Real T, const 
 
     eos_t eos_state;
 
-    eos_state.T = T; // initial guess
-    eos_state.rho = rho; // initial guess
+    eos_state.T = T;
+    eos_state.rho = rho;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = xn[n];
     }
@@ -38,11 +33,6 @@ f(const Real p, const Real s, const Real g, const Real rho, const Real T, const 
 }
 
 
-///
-/// construct an initial model in HSE.  Note: this does not return
-/// anything, but rather updates the model_parser globals with the
-/// model information.
-///
 AMREX_INLINE
 void
 generate_initial_model(const int nx, const Real xmin, const Real xmax,
@@ -59,7 +49,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
     int ibase = nbuf;
     int itop = ibase + nx - 1;
 
-    // get the base conditions
 
     eos_t eos_state;
     eos_state.rho = model_params.density_base;
@@ -72,7 +61,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
     Real entropy_fixed = eos_state.s;
 
-    // create the grid -- cell centers
 
     Real dx = (xmax - xmin) / nx;
 
@@ -80,22 +68,15 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
         model::profile(0).r(i) = xmin + (static_cast<Real>(i - nbuf) + 0.5_rt) * dx;
     }
 
-    // note, those conditions are the lower boundary.  This means we
-    // need to integrate dx/2 in the first step to get to the first
-    // zone's cell-center.  After that, we integrate from
-    // center-to-center.
 
     Real p = eos_state.p;
 
     if (time_scheme == 2 && sdc_accuracy_order == 4) {
 
-        // a fourth order accurate method
 
-        // do RK 4 integration up from the lower boundary
 
         for (int i = ibase; i <= itop + nbuf; i++) {
 
-            // rho and T here are guesses for the EOS call
 
             Real rho;
             Real T;
@@ -113,7 +94,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 xn[n] = model_params.xn[n];
             }
 
-            // step size
 
             Real h;
             if (i == ibase) {
@@ -122,7 +102,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 h = dx;
             }
 
-            // entropy never changes in this model
 
             Real s = entropy_fixed;
 
@@ -133,11 +112,10 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real pnew = p + (1.0_rt/6.0_rt) * h * (k1 + 2.0_rt * k2 + 2.0_rt * k3 + k4);
 
-            // call the EOS to get the remainder of the thermodynamics
 
             eos_t eos_state;
-            eos_state.T = T; // initial guess
-            eos_state.rho = rho; // initial guess
+            eos_state.T = T;
+            eos_state.rho = rho;
             for (int n = 0; n < NumSpec; n++) {
                 eos_state.xn[n] = model_params.xn[n];
             }
@@ -146,7 +124,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             eos(eos_input_ps, eos_state);
 
-            // update the thermodynamics in this zone
 
             model::profile(0).state(i, model::idens) = eos_state.rho;
             model::profile(0).state(i, model::itemp) = eos_state.T;
@@ -155,13 +132,11 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 model::profile(0).state(i, model::ispec+n) = eos_state.xn[n];
             }
 
-            // reset for the next iteration
 
             p = pnew;
 
         }
 
-        // now integrate down
 
         p = model::profile(0).state(ibase, model::ipres);
 
@@ -172,7 +147,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real h = -dx;
 
-            // entropy never changes in this model
 
             Real s = entropy_fixed;
 
@@ -183,10 +157,9 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real pnew = p + (1.0_rt/6.0_rt) * h * (k1 + 2.0_rt*k2 + 2.0_rt*k3 + k4);
 
-            //! call the EOS to get the remainder of the thermodynamics
             eos_t eos_state;
-            eos_state.T = T; // initial guess
-            eos_state.rho = rho; // initial guess
+            eos_state.T = T;
+            eos_state.rho = rho;
             for (int n = 0; n < NumSpec; n++) {
                 eos_state.xn[n] = model_params.xn[n];
             }
@@ -195,7 +168,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             eos(eos_input_ps, eos_state);
 
-            // update the thermodynamics in this zone
 
             model::profile(0).state(i, model::idens) = eos_state.rho;
             model::profile(0).state(i, model::itemp) = eos_state.T;
@@ -204,7 +176,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 model::profile(0).state(i, model::ispec+n) = eos_state.xn[n];
             }
 
-            // reset for the next iteration
 
             p = pnew;
 
@@ -212,12 +183,11 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
     } else {
 
-        //  a second order accurate scheme
 
         for (int i = ibase; i <= itop + nbuf; i++) {
 
             if (i == ibase) {
-                model::profile(0).state(i, model::idens) = model_params.density_base; // initial guess
+                model::profile(0).state(i, model::idens) = model_params.density_base;
                 model::profile(0).state(i, model::ipres) =
                     p + 0.5_rt * dx * model_params.density_base * gravity::uniform_accel;
 
@@ -252,12 +222,11 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                     p_want = model::profile(0).state(i-1, model::ipres) +
                         dx * 0.5_rt * (dens_zone + model::profile(0).state(i-1, model::idens)) * gravity::uniform_accel;
 
-                    // use the EOS with constant entropy to find corrected state
 
                     eos_state.p = p_want;
                     eos_state.s = entropy_fixed;
-                    eos_state.rho = dens_zone; // initial guess
-                    eos_state.T = model_params.T_base; // initial guess
+                    eos_state.rho = dens_zone;
+                    eos_state.T = model_params.T_base;
                     for (int n = 0; n < NumSpec; n++) {
                         eos_state.xn[n] = model_params.xn[n];
                     }
@@ -277,7 +246,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                     amrex::Error("ERROR: failed to convergence in initial model generation");
                 }
 
-                // initialize zone
 
                 model::profile(0).state(i, model::idens) = dens_zone;
                 model::profile(0).state(i, model::ipres) = p_want;
@@ -292,7 +260,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
             amrex::Print() << i << " " << model::profile(0).state(i, model::idens) << " " << model::profile(0).state(i, model::ipres) << std::endl;
         }
 
-        //  now integrate down
 
         for (int i = ibase-1; i >= 0; --i) {
 
@@ -308,12 +275,11 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 p_want = model::profile(0).state(i+1, model::ipres) -
                     dx * 0.5_rt * (dens_zone + model::profile(0).state(i+1, model::idens)) * gravity::uniform_accel;
 
-                // use the EOS with constant entropy to find corrected state
 
                 eos_state.p = p_want;
                 eos_state.s = entropy_fixed;
-                eos_state.rho = dens_zone; // initial guess
-                eos_state.T = model_params.T_base; // initial guess
+                eos_state.rho = dens_zone;
+                eos_state.T = model_params.T_base;
                 for (int n = 0; n < NumSpec; n++) {
                     eos_state.xn[n] = model_params.xn[n];
                 }
@@ -332,7 +298,6 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 amrex::Error("failed to convergence in initial model generation (down)");
             }
 
-            // initialize zone
 
             model::profile(0).state(i, model::idens) = dens_zone;
             model::profile(0).state(i, model::ipres) = p_want;

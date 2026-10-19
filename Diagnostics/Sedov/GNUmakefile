@@ -10,7 +10,6 @@ USE_OMP = FALSE
 
 USE_REACT = FALSE
 
-# programs to be compiled
 ALL: sedov_$(DIM)d.ex
 
 EOS_DIR := helmholtz
@@ -19,13 +18,9 @@ NETWORK_DIR := aprox13
 
 Bpack   := ./Make.package
 Blocs   := .
-# EXTERN_SEARCH = .
 
 HYDROSIM_HOME ?= ../..
 
-#INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Extern/amrdata
-#include $(AMREX_HOME)/Src/Extern/amrdata/Make.package
-#vpathdir += $(AMREX_HOME)/Src/Extern/amrdata
 
 include $(HYDROSIM_HOME)/Exec/Make.HydroSim
 

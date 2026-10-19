@@ -216,7 +216,6 @@ void Radiation::store_flux_plotvar(int level, const MultiFab& Snew,
 
             Real rhoInv = 1.0_rt / newtime_state_arr(i,j,k,URHO);
 
-            // frame_sign should be +1 for lab frame, -1 for moving_frame frame
             Real vx = newtime_state_arr(i,j,k,UMX) * rhoInv * frame_sign;
 #if AMREX_SPACEDIM >= 2
             Real vy = newtime_state_arr(i,j,k,UMY) * rhoInv * frame_sign;

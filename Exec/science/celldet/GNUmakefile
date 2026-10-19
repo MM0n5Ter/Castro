@@ -16,18 +16,14 @@ USE_PARTICLES = FALSE
 
 USE_MHD = FALSE
 
-#USE_PROB_PARAMS = TRUE
 
 USE_MODEL_PARSER = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-#GPU_COMPATIBLE_PROBLEM = TRUE
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := aprox13
 
 PROBLEM_DIR ?= ./

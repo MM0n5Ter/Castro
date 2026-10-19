@@ -28,6 +28,5 @@ Blocs   := $(PROBLEM_DIR)
 
 include $(HYDROSIM_HOME)/Exec/Make.HydroSim
 
-#F90FLAGS += -x f95-cpp-input -D MG_SU_OLSON
 
 CPPFLAGS += -DMG_SU_OLSON 

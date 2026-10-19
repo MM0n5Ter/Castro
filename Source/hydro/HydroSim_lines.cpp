@@ -39,7 +39,6 @@ HydroSim::lines_plm_reconstruct(const Box& bx,
   const auto domlo = geom.Domain().loVect3d();
   const auto domhi = geom.Domain().hiVect3d();
 
-  // piecewise linear slopes
   amrex::ParallelFor(bx, NQ,
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
   {
@@ -57,7 +56,6 @@ HydroSim::lines_plm_reconstruct(const Box& bx,
 
     gather_stencil(prim_arr, idir, i, j, k, n, s);
 
-    // normal velocity?
     bool is_normal_velocity = n == QU+idir;
 
     dq(i,j,k,n) = limited_slope(s, flat, at_lo_symmetry && is_normal_velocity, at_hi_symmetry && is_normal_velocity);
@@ -99,36 +97,27 @@ HydroSim::lines_plm_reconstruct(const Box& bx,
   {
 
 
-   // this is a loop over zones.  For each slope in the zone, fill the
-   // two adjacent edge states (e.g., the right state at i-1/2 and the
-   // left state at i+1/2
 
    if (idir == 0) {
 
-     // left state at i+1/2 interface
      qm(i+1,j,k,n) = prim_arr(i,j,k,n) + 0.5_rt*dq(i,j,k,n);
 
-     // right state at i-1/2 interface
      qp(i,j,k,n) = prim_arr(i,j,k,n) - 0.5_rt*dq(i,j,k,n);
 
 
 #if AMREX_SPACEDIM >= 2
    } else if (idir == 1) {
 
-     // left state at j+1/2 interface
      qm(i,j+1,k,n) = prim_arr(i,j,k,n) + 0.5_rt*dq(i,j,k,n);
 
-     // right state at j-1/2 interface
      qp(i,j,k,n) = prim_arr(i,j,k,n) - 0.5_rt*dq(i,j,k,n);
 #endif
 
 #if AMREX_SPACEDIM == 3
    } else {
 
-     // left state at k+1/2 interface
      qm(i,j,k+1,n) = prim_arr(i,j,k,n) + 0.5_rt*dq(i,j,k,n);
 
-     // right state at k-1/2 interface
      qp(i,j,k,n) = prim_arr(i,j,k,n) - 0.5_rt*dq(i,j,k,n);
 
 #endif
@@ -137,10 +126,7 @@ HydroSim::lines_plm_reconstruct(const Box& bx,
   });
 
 
-  // special care for reflecting BCs
 
-  // we have to do this after the loops above, since here we will
-  // consider interfaces, not zones
 
   set_reflecting_boundary_states(bx, idir, qm, qp);
 
@@ -168,34 +154,25 @@ HydroSim::lines_ppm_reconstruct(const Box& bx,
     parabolic_reconstruct(s, flat, sm, sp);
 
     if (idir == 0) {
-      // right state at i-1/2
       qp(i,j,k,n) = sm;
 
-      // left state at i+1/2
       qm(i+1,j,k,n) = sp;
 
     } else if (idir == 1) {
-      // right state at j-1/2
       qp(i,j,k,n) = sm;
 
-      // left state at j+1/2
       qm(i,j+1,k,n) = sp;
 
     } else {
-      // right state at k-1/2
       qp(i,j,k,n) = sm;
 
-      // left state at k+1/2
       qm(i,j,k+1,n) = sp;
 
     }
 
   });
 
-  // special care for reflecting BCs
 
-  // we have to do this after the loops above, since here we will
-  // consider interfaces, not zones
 
   set_reflecting_boundary_states(bx, idir, qm, qp);
 
@@ -203,7 +180,7 @@ HydroSim::lines_ppm_reconstruct(const Box& bx,
 
 
 void
-HydroSim::lines_cons_update(const Box& bx,  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::lines_cons_update(const Box& bx,
 #ifdef SHOCK_VAR
                    Array4<Real const> const& shk,
 #endif
@@ -234,9 +211,6 @@ HydroSim::lines_cons_update(const Box& bx,  // NOLINT(readability-convert-member
 
   amrex::ignore_unused(dt);
 
-  // For hydro, we will create an update source term that is
-  // essentially the flux divergence.  This can be added with dt to
-  // get the update
 
 #if AMREX_SPACEDIM <= 2
   const auto dx = geom.CellSizeArray();
@@ -266,14 +240,11 @@ HydroSim::lines_cons_update(const Box& bx,  // NOLINT(readability-convert-member
 #if AMREX_SPACEDIM <= 2
     if (do_hydro == 1) {
         if (n == UMX && !momentum_flux_has_pressure(0, 0, coord)) {
-            // Add gradp term to radial momentum equation -- only for axisymmetric
-            // coords.
 
             update(i,j,k,UMX) -= (q0(i+1,j,k,GDPRESSURE) - q0(i,j,k,GDPRESSURE)) / dx[0];
 
 #if AMREX_SPACEDIM == 2
         } else if (n == UMY && !momentum_flux_has_pressure(1, 1, coord)) {
-            // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
             Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
             update(i,j,k,UMY) -= (q1(i,j+1,k,GDPRESSURE) - q1(i,j,k,GDPRESSURE)) / (r * dx[1]);
@@ -282,7 +253,6 @@ HydroSim::lines_cons_update(const Box& bx,  // NOLINT(readability-convert-member
     }
 #endif
 
-    // this assumes that the species are at the end of the conserved state
     if (n < NUM_SOURCE) {
       update(i,j,k,n) += sourceTerms(i,j,k,n);
     }
@@ -290,10 +260,6 @@ HydroSim::lines_cons_update(const Box& bx,  // NOLINT(readability-convert-member
   });
 
 #ifdef SHOCK_VAR
-  // We'll update the shock data for future use in the burning step.
-  // For the update, we are starting from UFLAG_SHOCK == 0 (set at the
-  // beginning of the timestep) and we need to divide by dt since
-  // we'll be multiplying that for the update calculation.
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -347,8 +313,6 @@ HydroSim::flux_from_state(const Box& bx,
                             Array4<Real> const& F,
                             const int idir) {
 
-  // given a primitive state, compute the flux in direction idir
-  //
 
   int iu, iv1, iv2;
   int im1, im2, im3;
@@ -392,7 +356,6 @@ HydroSim::flux_from_state(const Box& bx,
     Real advect_velocity = interface_state(i,j,k,iu);
     Real rho_internal_energy = interface_state(i,j,k,QEINTDENS);
 
-    // Compute fluxes, order as conserved state (not q)
     F(i,j,k,URHO) = interface_state(i,j,k,QRHO)*advect_velocity;
 
     F(i,j,k,im1) = F(i,j,k,URHO)*interface_state(i,j,k,iu);
@@ -419,7 +382,6 @@ HydroSim::flux_from_state(const Box& bx,
     F(i,j,k,UPROTON_MU) = 0.0;
     F(i,j,k,UNEUTRON_MU) = 0.0;
 #endif
-    // passively advected quantities
     for (int passive_index = 0; passive_index < npassive; passive_index++) {
       int n  = passive_cons_index(passive_index);
       int nqp = passive_prim_index(passive_index);
@@ -428,7 +390,6 @@ HydroSim::flux_from_state(const Box& bx,
     }
 
 #ifdef HYBRID_MOMENTUM
-    // the hybrid routine uses the Godunov indices, not the full NQ state
     GpuArray<Real, NGDSTATE> godunov_zone;
     godunov_zone[GDDENSITY] = interface_state(i,j,k,QRHO);
     godunov_zone[GDU] = interface_state(i,j,k,QU);
@@ -455,9 +416,6 @@ HydroSim::save_godunov_state(const Box& bx,
 #endif
                             Array4<Real> const& godunov_state) {
 
-  // this copies the full interface state (NQ -- one for each primitive
-  // variable) over to a smaller subset of size NGDSTATE for use later in the
-  // hydro advancement.
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

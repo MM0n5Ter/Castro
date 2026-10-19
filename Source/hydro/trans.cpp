@@ -8,8 +8,6 @@
 
 using namespace amrex;
 
-// add the transverse flux difference in direction idir_tan to the
-// interface states in direction idir_normal
 
 void
 HydroSim::tangential_pass(const Box& bx,
@@ -30,8 +28,6 @@ HydroSim::tangential_pass(const Box& bx,
 #endif
                      Real hdt, Real third_dt_dx)
 {
-    // Evaluate the transverse terms for both
-    // the minus and plus states.
 
     apply_tangential_pass(bx, idir_tan, idir_normal, -1,
                         qm, qmo,
@@ -65,7 +61,7 @@ HydroSim::tangential_pass(const Box& bx,
 
 
 void
-HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::apply_tangential_pass(const Box& bx,
                             int idir_tan, int idir_normal, int d,
                             Array4<Real const> const& prim_arr,
                             Array4<Real> const& q_out_arr,
@@ -82,21 +78,8 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
                             Real hdt, Real third_dt_dx)
 {
 
-    //       qm|qp
-    //         |
-    // --------+--------
-    //   i-1       i
-    //        i-1/2
-    //
-    // the qp state will see the transverse flux in zone i
-    // the qm state will see the transverse flux in zone i-1
 
-    // we account for this with the 'd' variable:
-    // d = 0 will do qp and d = -1 will do qm
 
-    // idir_tan is the transverse direction and we set il,jl,kl
-    // and ir,jr,kr to be the face-centered indices needed for
-    // the transverse flux difference
 
     amrex::ignore_unused(hdt);
 
@@ -144,20 +127,15 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        // We are handling the states at the interface of
-        // (i, i+1) in the x-direction, and similarly for
-        // the y- and z- directions.
 
         const int il = i + ilo;
-        const int jl = j + jlo;  // NOLINT(misc-confusable-identifiers)
+        const int jl = j + jlo;
         const int kl = k + klo;
 
         const int ir = i + ihi;
         const int jr = j + jhi;
         const int kr = k + khi;
 
-        // Update all of the passively-advected quantities with the
-        // transverse term and convert back to the primitive quantity.
 
 #if AMREX_SPACEDIM == 2
         const Real volinv = 1.0_rt / vol(il,jl,kl);
@@ -198,9 +176,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
         }
 #endif
 
-        // we need to augment our conserved system with either a p
-        // equation or gammae (if we have ppm_predict_gammae = 1) to
-        // be able to deal with the general EOS
 
 #if AMREX_SPACEDIM == 2
         Real dup = area_t(ir,jr,kr) * pgp * ugp - area_t(il,jl,kl) * pgm * ugm;
@@ -214,7 +189,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
         Real uav = 0.5_rt * (ugp + ugm);
 #endif
 
-        // this is the gas gamma_1
 #ifdef RADIATION
         Real gamma1_cell = qthermo_arr(il,jl,kl,QGAMMA1G);
 #else
@@ -259,14 +233,13 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
             }
 #endif
         }
-        else { // mixed frame
+        else {
             for (int g = 0; g < NGROUPS; g++) {
                 der[g] = third_dt_dx * rad_work_term[g];
             }
         }
 #endif
 
-        // Convert to conservation form
         Real rrn = prim_arr(i,j,k,QRHO);
         Real run = rrn * prim_arr(i,j,k,QU);
         Real rvn = rrn * prim_arr(i,j,k,QV);
@@ -281,27 +254,9 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
 #endif
 
 #if AMREX_SPACEDIM == 2
-        // Add transverse predictor
 
         Real density_new = density_partial;
 
-        // Note that pressure may be treated specially here, depending on
-        // the geometry.  Our y-interface equation for (rho u) is:
-        //
-        //  d(rho u)/dt + d(rho u v)/dy = - 1/r d(r rho u u)/dr - dp/dr
-        //
-        // in cylindrical coords -- note that the p term is not
-        // in a divergence for UMX in the x-direction, so there
-        // are no area factors.
-        //
-        // Similarly for Spherical2D geometry, we have:
-        // d(rho u)/dt + d(rho u v)/(rdtheta) = -1/r^2 d(r^2 rho u u)/dr - dp/dr
-        // d(rho v)/dt + d(rho u v)/dr = -1/(r sin(theta)) d(sin(theta) rho v v)/theta_cell_width - 1/r dp/theta_cell_width
-        //
-        // For these non-cartesian geometries, we do not
-        // include p in our definition of the flux in the
-        // x-direction for Cylindrical2D or both x- and y-direction for spherical 2D
-        // So we need to fix this now.
 
         Real momentum_x_new = run - hdt * (area_t(ir,jr,kr) * flux_tan(ir,jr,kr,UMX) -
                                    area_t(il,jl,kl) * flux_tan(il,jl,kl,UMX)) * volinv;
@@ -341,7 +296,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
 #endif
 
 #else
-        // Add transverse predictor
         Real density_new = density_partial;
         Real momentum_x_new = run - third_dt_dx * (flux_tan(ir,jr,kr,UMX)   - flux_tan(il,jl,kl,UMX));
         Real momentum_y_new = rvn - third_dt_dx * (flux_tan(ir,jr,kr,UMY)   - flux_tan(il,jl,kl,UMY));
@@ -357,7 +311,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
 #endif
 #endif
 
-        // Reset to original value if adding transverse terms made density negative
         bool state_was_reset = false;
         if (density_reset_enabled && density_new < 0.0_rt) {
             density_new = rrn;
@@ -377,7 +330,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
             state_was_reset = true;
         }
 
-        // Reset to original value if adding transverse terms made any mass fraction invalid.
 
         for (int n = 0; n < NumSpec; ++n) {
             if (q_out_arr(i,j,k,n+QFS) > 1.0_rt + species_fraction_tol ||
@@ -401,7 +353,6 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
             }
         }
 
-        // Convert back to primitive form
         q_out_arr(i,j,k,QRHO) = density_new;
         const Real rhoinv = 1.0_rt / density_new;
 
@@ -409,16 +360,12 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
         q_out_arr(i,j,k,QV) = momentum_y_new * rhoinv;
         q_out_arr(i,j,k,QW) = momentum_z_new * rhoinv;
 
-        // note: we run the risk of (rho e) being negative here
         Real kinetic_energy_new = 0.5_rt * (momentum_x_new * momentum_x_new + momentum_y_new * momentum_y_new + momentum_z_new * momentum_z_new) * rhoinv;
         q_out_arr(i,j,k,QEINTDENS) = energy_new - kinetic_energy_new;
 
         if (!state_was_reset) {
-            // do the transverse terms for p, gamma, and rhoe, as necessary
 
             if (reset_eint_flag == 1 && q_out_arr(i,j,k,QEINTDENS) <= 0.0_rt) {
-                // If it is negative, reset the internal energy by
-                // using the discretized expression for updating (rho e).
 #if AMREX_SPACEDIM == 2
                 q_out_arr(i,j,k,QEINTDENS) = prim_arr(i,j,k,QEINTDENS) - hdt * (area_t(ir,jr,kr) * flux_tan(ir,jr,kr,UEINT) -
                                                             area_t(il,jl,kl) * flux_tan(il,jl,kl,UEINT) +
@@ -428,20 +375,14 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
 #endif
             }
 
-            // If (rho e) is negative by this point,
-            // set it back to the original interface state,
-            // which turns off the transverse correction.
 
             if (q_out_arr(i,j,k,QEINTDENS) <= 0.0_rt) {
                 q_out_arr(i,j,k,QEINTDENS) = prim_arr(i,j,k,QEINTDENS);
             }
 
-            // Pretend QEINTDENS has been fixed
-            // We can get pressure update via eos or using p-evolution equation
 
             if (apply_eos) {
 
-                // With the EOS route:
                 eos_rep_t eos_state;
                 eos_state.rho = density_new;
                 eos_state.e = q_out_arr(i,j,k,QEINTDENS) * rhoinv;
@@ -462,9 +403,7 @@ HydroSim::apply_tangential_pass(const Box& bx,  // NOLINT(readability-convert-me
 
             } else {
 
-                // Add the transverse term to the p evolution eq here.
 #if AMREX_SPACEDIM == 2
-                // the divergences here, dup and du, already have area factors
                 Real pres_new = prim_arr(i,j,k,QPRES) - hdt * (dup + pav * du * (gamma1_cell - 1.0_rt)) * volinv;
 #else
                 Real pres_new = prim_arr(i,j,k,QPRES) - third_dt_dx * (dup + pav * du * (gamma1_cell - 1.0_rt));
@@ -519,8 +458,6 @@ HydroSim::tangential_correction(const Box& bx,
                     Array4<Real const> const& q_tan2,
                     Real third_dt_dx_tan1, Real third_dt_dx_tan2)
 {
-    // Evaluate the transverse terms for both
-    // the minus and plus states.
 
     apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, -1,
                        qm, qmo,
@@ -557,7 +494,7 @@ HydroSim::tangential_correction(const Box& bx,
 
 
 void
-HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::apply_tangential_correction(const Box& bx,
                            int idir_normal, int idir_tan1, int idir_tan2, int d,
                            Array4<Real const> const& prim_arr,
                            Array4<Real> const& q_out_arr,
@@ -586,12 +523,10 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        // the normal state
         int iln = i;
         int jln = j;
         int kln = k;
 
-        // the first transverse state
         int trans1_left_i = i;
         int trans1_left_j = j;
         int trans1_left_k = k;
@@ -600,7 +535,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         int trans1_right_j = j;
         int trans1_right_k = k;
 
-        // the second transverse state
         int trans2_left_i = i;
         int trans2_left_j = j;
         int trans2_left_k = k;
@@ -611,17 +545,13 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
 
         if (idir_normal == 0) {
 
-            // x is the normal direction
 
-            // y is the first transverse state
             trans1_right_i += d;
             trans1_right_j += 1;
 
-            // z is the second transverse state
             trans2_right_i += d;
             trans2_right_k += 1;
 
-            // offset for the plus/minus state
             iln += d;
             trans1_left_i += d;
             trans2_left_i += d;
@@ -629,17 +559,13 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         }
         else if (idir_normal == 1) {
 
-            // y is the normal direction
 
-            // x is the first transverse state
             trans1_right_i += 1;
             trans1_right_j += d;
 
-            // z is the second transverse state
             trans2_right_j += d;
             trans2_right_k += 1;
 
-            // offset for the plus/minus state
             jln += d;
             trans1_left_j += d;
             trans2_left_j += d;
@@ -647,25 +573,19 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         }
         else {
 
-            // z is the normal direction
 
-            // x is the first transverse state
             trans1_right_i += 1;
             trans1_right_k += d;
 
-            // y is the second transverse state
             trans2_right_j += 1;
             trans2_right_k += d;
 
-            // offset for the plus/minus state
             kln += d;
             trans1_left_k += d;
             trans2_left_k += d;
 
         }
 
-        // Update all of the passively-advected quantities with the
-        // transverse terms and convert back to the primitive quantity.
 
         const Real rrn = prim_arr(i,j,k,QRHO);
         const Real density_partial = rrn - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,URHO) -
@@ -686,8 +606,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
             q_out_arr(i,j,k,nqp) = passive_cons_next / density_partial;
         }
 
-        // Add the transverse differences to the normal states for the
-        // fluid variables.
 
         const Real pres_trans1_right  = q_tan1(trans1_right_i,trans1_right_j,trans1_right_k,GDPRESSURE);
         const Real pres_trans1_left  = q_tan1(trans1_left_i,trans1_left_j,trans1_left_k,GDPRESSURE);
@@ -772,14 +690,13 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
                                third_dt_dx_tan2 * 0.5_rt * (rad_energy_trans2_right[g] + rad_energy_trans2_left[g]) * (vel_trans2_left - vel_trans2_right));
             }
         }
-        else { // mixed frame
+        else {
             for (int g = 0; g < NGROUPS; ++g) {
                 der[g] = third_dt_dx_tan1 * rad_work_trans1[g] + third_dt_dx_tan2 * rad_work_trans2[g];
             }
         }
 #endif
 
-        // Convert to conservation form
         Real run = rrn * prim_arr(i,j,k,QU);
         Real rvn = rrn * prim_arr(i,j,k,QV);
         Real rwn = rrn * prim_arr(i,j,k,QW);
@@ -792,7 +709,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         }
 #endif
 
-        // Add transverse predictor
         Real density_new = density_partial;
         Real momentum_x_new = run - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UMX) -
                                         flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UMX))
@@ -835,8 +751,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         }
 #endif
 
-        // Reset to original value if adding transverse terms
-        // made density negative
         bool state_was_reset = false;
         if (density_reset_enabled && density_new < 0.0_rt) {
             density_new = rrn;
@@ -856,7 +770,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
             state_was_reset = true;
         }
 
-        // Reset to original value if adding transverse terms made any mass fraction invalid.
 
         for (int n = 0; n < NumSpec; ++n) {
             if (q_out_arr(i,j,k,n+QFS) > 1.0_rt + species_fraction_tol ||
@@ -886,15 +799,11 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
         q_out_arr(i,j,k,QV) = momentum_y_new / density_new;
         q_out_arr(i,j,k,QW) = momentum_z_new / density_new;
 
-        // note: we run the risk of (rho e) being negative here
         const Real kinetic_energy_new = 0.5_rt * (momentum_x_new * momentum_x_new + momentum_y_new * momentum_y_new + momentum_z_new * momentum_z_new) / density_new;
         q_out_arr(i,j,k,QEINTDENS) = energy_new - kinetic_energy_new;
 
         if (!state_was_reset) {
             if (reset_eint_flag == 1 && q_out_arr(i,j,k,QEINTDENS) <= 0.0_rt) {
-                // If it is negative, reset the internal energy by
-                // using the discretized expression for updating
-                // (rho e).
                 q_out_arr(i,j,k,QEINTDENS) = prim_arr(i,j,k,QEINTDENS)
                                  - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UEINT) -
                                                flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UEINT) + pres_avg_trans1 * vel_diff_trans1)
@@ -902,20 +811,14 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
                                                flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,UEINT) + pres_avg_trans2 * vel_diff_trans2);
             }
 
-            // If (rho e) is negative by this point,
-            // set it back to the original interface state,
-            // which turns off the transverse correction.
 
             if (q_out_arr(i,j,k,QEINTDENS) <= 0.0_rt) {
                 q_out_arr(i,j,k,QEINTDENS) = prim_arr(i,j,k,QEINTDENS);
             }
 
-            // Pretend QEINTDENS has been fixed
-            // We can get pressure update via eos or using p-evolution equation
 
             if (apply_eos) {
 
-                // With the EOS route:
                 eos_rep_t eos_state;
                 eos_state.rho = density_new;
                 eos_state.e = q_out_arr(i,j,k,QEINTDENS) / density_new;
@@ -934,7 +837,6 @@ HydroSim::apply_tangential_correction(const Box& bx,  // NOLINT(readability-conv
 
             } else {
 
-                // add the transverse term to the p evolution eq here
                 Real pres_new = prim_arr(i,j,k,QPRES) - pres_correction_trans1 - pres_correction_trans2;
                 q_out_arr(i,j,k,QPRES) = pres_new;
             }

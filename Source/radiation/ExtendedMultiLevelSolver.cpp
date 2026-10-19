@@ -48,7 +48,7 @@ void ExtendedMultiLevelSolver::setAdvectionCoefficients(int level, const MultiFa
 
   BL_ASSERT( c.ok() );
 
-  int ncomp=2; // coeffs are 2-sided for upwinding
+  int ncomp=2;
   int ngrow=0;
 
   if (!cell_coefs[level]) {
@@ -159,15 +159,7 @@ void ExtendedMultiLevelSolver::assembleMatrix()
     std::cout << "  ExtendedMultiLevelSolver::delta2 = " << delta2 << std::endl;
   }
 
-  // These really ought to be members and already defined:
 #if (AMREX_SPACEDIM == 1)
-  // if we were really 1D:
-/*
-  int offsets[3][1] = {{ 0}
-                       {-1},
-                       { 1}};
-*/
-  // fake 1D as a 2D problem:
   int offsets[3][2] = {{ 0,  0},
                        {-1,  0},
                        { 1,  0}};
@@ -210,7 +202,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
       matfab.setVal<RunOn::Device>(0.0);
 
-      // build matrix interior
 
       if (aux_mass_coefs[level]) {
         for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
@@ -323,9 +314,7 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
       Gpu::streamSynchronize();
 
-      // Boundary conditions will be corrected below.
 
-      // update matrix
       mat_scratch_fab.resize(reg);
       Real* mat_tmp = mat_scratch_fab.dataPtr();
       int volume = reg.numPts();
@@ -340,35 +329,23 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
     Gpu::streamSynchronize();
 
-    // At this point we begin adding matrix entries for points around
-    // the edges of the current level.  This now includes boundary
-    // conditions as well as the coarse-fine interface discretization
-    // as seen from the fine side of each interface.
 
-    // (Later, we'll add entries corresponding to the coarse side of
-    // each coarse-fine interface.  That will be a separate section
-    // because the action will be happening on a different set of
-    // processors.)
 
     BoundaryAuxStore extrap_value(grids[level], dmap[level], BoundaryAuxStore::HALO);
     BoundaryAuxStore entry( grids[level], dmap[level], BoundaryAuxStore::INTERIOR);
     if (level == crse_level) {
-      // MultiLevelEllipticSolver creates this for finer levels but not this one.
-      // We will delete it manually below.
       normal_grad_store[level].reset(new BoundaryAuxStore(grids[level], dmap[level], BoundaryAuxStore::HALO));
     }
 
-    // Add matrix entries corresponding to physical boundary conditions
-    // and all exposed outer edges of crse_level:
 
     const Box& domain = bd[level]->getDomain();
     for (OrientationIter oitr; oitr; oitr++) {
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir), ves;
-      vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
-      ves = (ori.isLow() ?  ves : vin);    // edge shift vector
-      Real h    = geom[level].CellSize(idir); // normal fine grid spacing
+      vin = (ori.isLow() ? -vin : vin);
+      ves = (ori.isLow() ?  ves : vin);
+      Real h    = geom[level].CellSize(idir);
       Real h2   = 0.5 * h;
       Real th2  = 1.5 * h;
       Real face_sign = (ori.isLow() ? -1.0 : 1.0);
@@ -379,27 +356,20 @@ void ExtendedMultiLevelSolver::assembleMatrix()
         Box reg = amrex::adjCell(grids[level][i], ori);
         if (grids[level][i][ori] == domain[ori] || level == crse_level) {
           RadBoundaryCondition     bct = bd[level]->bndryConds(ori)[i];
-          // bct may be changed below if this is a mixed boundary
           const Real      &bcl = bd[level]->bndryLocs(ori)[i];
           const Mask      &msk = bd[level]->bndryMasks(ori,i);
-//          const Box &bbox = (*bcoefs[level])[idir][i].box();
-//          const Box &msb  = msk.box();
 
-          // Treat an exposed grid edge here as a boundary condition
-          // for the linear solver:
 
-          reg.shift(-vin); // fine interior cells
+          reg.shift(-vin);
           for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
             if (msk(v+vin) != RadBoundaryData::covered) {
 
-              // zero out interior stencil since this is a boundary cell
               if (aux_mass_coefs[level]) {
                 Real fac = alpha2 * (*aux_mass_coefs[level])[idir][i](v+ves);
                 entry(ori,i)(v).push(level, v,     -0.25 * fac);
                 entry(ori,i)(v).push(level, v+vin, -0.25 * fac);
               }
               if (cell_coefs[level]) {
-                // upwinding is determined by the components of cell_coefs
                 Real fac = gamma * ofh;
                 int  i0  = ori.isLow();
                 int  i1  = ori.isHigh();
@@ -419,7 +389,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 entry(ori,i)(v).push(level, v+vin, -fac);
               }
 
-              // determine what type of boundary this is and act accordingly
               if (reg[ori] == domain[ori] && bd[level]->isMixedFace(ori)) {
                 bct = (*(bd[level]->boundaryTypes(ori)[i]))(v+vin);
               }
@@ -446,25 +415,14 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 }
                 if (cell_coefs[level]) {
 
-                  // This was the centered difference version:
-                  //Real fac = gamma * ofh * (*cell_coefs[level])[idir][i](v+ves);
-                  //entry(ori,i)(v).push(&extrap_value(ori,i)(v+vin), fac);
 
-                  // For upwinding, we can't use extrap_value since it's centered.
-                  // The good side is we don't need to worry about being
-                  // high-order, since it's a low-order stencil anyway.
-                  // If we're upwinding from the interior, just use that value.
-                  // If we're upwinding from the exterior, interpolate
-                  // (linearly) to the ghost cell center position.
 
                   Real fac = gamma * ofh;
                   int  i0  = ori.isLow();
                   int  i1  = ori.isHigh();
-                  // upwinding from interior:
                   entry(ori,i)(v).push(level, v,
                                         fac
                                         * (*cell_coefs[level])[idir][i](v+ves,i0));
-                  // upwinding from exterior:
                   entry(ori,i)(v).push(level, v,
                                         fac * (bcl - h2) / (bcl + h2)
                                         * (*cell_coefs[level])[idir][i](v+ves,i1));
@@ -479,7 +437,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 }
               }
               else if (bct == AMREX_LO_NEUMANN) {
-                // no more action required here
               }
               else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
                 if (bho == 1) {
@@ -489,10 +446,8 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 else {
                   extrap_value(ori,i)(v+vin).push(level, v,      1.0);
                 }
-                // speed_factor should be c for photons, 1 for neutrinos
                 Real speed_factor = flux_scale;
-                Real xi = 0.0; // xi should be passed in through RadiativeBoundary?
-                //Real tmp = beta / h; // already done in MultiLevelEllipticSolver
+                Real xi = 0.0;
                 Real tmp = 0.0;
                 Real fac = 0.5 * (tmp - 0.5 * (delta1 + delta2) * face_sign * xi);
                 entry(ori,i)(v).push(&extrap_value(ori,i)(v+vin), speed_factor * fac);
@@ -506,23 +461,18 @@ void ExtendedMultiLevelSolver::assembleMatrix()
       }
     }
 
-    // If there is a coarser active level, add matrix entries here
-    // that correspond to the fine side of the interface to the next
-    // coarser level:
 
     if (level > crse_level) {
 
-      // First we do the entries as seen by the fine cells adjacent
-      // to the interface, working on the fine processor:
 
       IntVect rat = fine_ratio[level-1];
       for (OrientationIter oitr; oitr; ++oitr) {
         Orientation ori = oitr();
         int idir = ori.coordDir();
         IntVect vin = amrex::BASISV(idir), ves;
-        vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
-        ves = (ori.isLow() ?  ves : vin);    // edge shift vector
-        Real h = geom[level].CellSize(idir); // normal fine grid spacing
+        vin = (ori.isLow() ? -vin : vin);
+        ves = (ori.isLow() ?  ves : vin);
+        Real h = geom[level].CellSize(idir);
         Real face_sign = (ori.isLow() ? -1.0 : 1.0);
         Real signed_half_inv_h = face_sign * 0.5 / h;
         for (int i = coarse_interp[level]->firstOwnedIndex(); coarse_interp[level]->isValid(i);
@@ -532,7 +482,7 @@ void ExtendedMultiLevelSolver::assembleMatrix()
           ExtrapolateToFace(extrap_value(ori,i),
                     (*coarse_interp[level])(ori,i),
                     msk, reg, vin, rat[idir], bho, level);
-          reg.shift(-vin); // fine interior cells
+          reg.shift(-vin);
           for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
             if (msk(v+vin) == RadBoundaryData::not_covered) {
               if (aux_mass_coefs[level]) {
@@ -542,11 +492,8 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 entry(ori,i)(v).push(&extrap_value(ori,i)(v+vin), 0.5 * fac);
               }
               if (cell_coefs[level]) {
-                // Remove this assertion when upwinding of cell_coefs term
-                // is implemented for multilevel linear systems:
                 BL_ASSERT(level == crse_level);
 
-                // not done yet
                 Real fac = gamma * signed_half_inv_h * (*cell_coefs[level])[idir][i](v+ves);
                 entry(ori,i)(v).push(level, v,     -fac);
                 entry(ori,i)(v).push(level, v+vin, -fac);
@@ -570,20 +517,16 @@ void ExtendedMultiLevelSolver::assembleMatrix()
       }
     }
 
-    // Now we finish adding the entries from the above two sections.
 
-    // The following section is identical to version in MultiLevelEllipticSolver
-    // except for use of AddTo in place of Set:
     for (OrientationIter oitr; oitr; ++oitr) {
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir);
-      vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
+      vin = (ori.isLow() ? -vin : vin);
       for (int i = entry.firstOwnedIndex(); entry.isValid(i);
            i = entry.nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
-        reg.shift(-vin); // fine interior cells
-//        const Mask &msk = bd[level]->bndryMasks(ori,i);
+        reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
           if (!entry(ori,i)(v).empty() &&
               !entry(ori,i)(v).secondary()) {
@@ -597,7 +540,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
             BL_ASSERT(retval == 0);
             int ientry = 2 * AMREX_SPACEDIM + 1;
             for (int j = 0; j < levels.size(); j++) {
-              // identify stencil-like connections for separate treatment:
               int needs_separate_entry = 1;
               if (levels[j] == level) {
                 IntVect d = cells[j] - v;
@@ -625,11 +567,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
         continue;
     }
 
-    // Now add the matrix values seen by the coarse cells adjacent
-    // to the coarse-fine interface.  These are averages of normal_grad_store
-    // over the fine faces making up each coarse face.  We use
-    // CrseExtBndryAuxVar now because we need to work on the coarse
-    // processor.
 
     IntVect rat = fine_ratio[level-1];
     const BoxArray& ff_boxes(grids[level]);
@@ -638,20 +575,15 @@ void ExtendedMultiLevelSolver::assembleMatrix()
     fc_boxes.refine(rat);
     BoxArray cf_boxes(ff_boxes);
     cf_boxes.coarsen(rat);
-    //CoarseBoundaryAuxStore c_extrap_value(fc_boxes, ff_boxes, BoundaryAuxStore::HALO);
-    //CoarseBoundaryAuxStore c_connections( cc_boxes, cf_boxes, BoundaryAuxStore::OUTSIDE_GRID);
     CoarseBoundaryAuxStore c_extrap_value(*c_extrap_deriv[level], BoundaryAuxStore::HALO);
 
-    int nc = 0, pc[3]; // pc is index translation array
+    int nc = 0, pc[3];
     if (aux_mass_coefs[level]) {
       pc[0] = nc++;
     }
     if (cell_coefs[level]) {
-      // Remove this assertion when upwinding of cell_coefs term
-      // is implemented for multilevel linear systems:
       BL_ASSERT(level == crse_level);
 
-      // not done yet
       pc[1] = nc++;
     }
     if (gradient_coefs2[level]) {
@@ -667,59 +599,51 @@ void ExtendedMultiLevelSolver::assembleMatrix()
         c_connections[level]->storeFaceCoeffs(ori, (*aux_mass_coefs[level])[idir], 0, pc[0], 1);
       }
       if (cell_coefs[level]) {
-        // Remove this assertion when upwinding of cell_coefs term
-        // is implemented for multilevel linear systems:
         BL_ASSERT(level == crse_level);
 
-        // not done yet
         c_connections[level]->storeFaceCoeffs(ori,  (*cell_coefs[level])[idir], 0, pc[1], 1);
       }
       if (gradient_coefs2[level]) {
         c_connections[level]->storeFaceCoeffs(ori, (*gradient_coefs2[level])[idir], 0, pc[2], 1);
       }
       IntVect vin = amrex::BASISV(idir), ves;
-      vin = (ori.isLow() ? -vin : vin); // outward normal unit vector
-      ves = (ori.isLow() ? -vin : ves); // edge shift vector (diff from above)
-      Real hc = geom[level-1].CellSize(idir); // normal coarse grid spacing
+      vin = (ori.isLow() ? -vin : vin);
+      ves = (ori.isLow() ? -vin : ves);
+      Real hc = geom[level-1].CellSize(idir);
       Real face_sign = (ori.isLow() ? -1.0 : 1.0);
       Real signed_inv_coarse_h = face_sign / hc;
       Real tang_avg_scale = 1.0;
-      IntVect ve; // default constructor initializes to zero
+      IntVect ve;
 #if (AMREX_SPACEDIM >= 2)
       int jdir = (idir + 1) % AMREX_SPACEDIM;
       ve += (rat[jdir] - 1) * amrex::BASISV(jdir);
-      tang_avg_scale /= rat[jdir]; // will average over fine cells in tangential dir
+      tang_avg_scale /= rat[jdir];
 #endif
 #if (AMREX_SPACEDIM == 3)
       int kdir = (idir + 2) % 3;
       ve += (rat[kdir] - 1) * amrex::BASISV(kdir);
-      tang_avg_scale /= rat[kdir]; // will average over fine cells in tangential dir
+      tang_avg_scale /= rat[kdir];
 #endif
       for (int i = c_connections[level]->firstOwnedIndex(); c_connections[level]->isValid(i);
            i = c_connections[level]->nextOwnedIndex(i)) {
-        // parallel loop is tied to coarse grids
         for (int j = 0; j < (*c_connections[level]).size(ori,i); j++) {
-          const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-          const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-          const Mask& msk = (*c_interp[level]).mask(ori,i,j); // fine mask
+          const Box& reg = (*c_interp[level])(ori,i,j).box();
+          const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+          const Mask& msk = (*c_interp[level]).mask(ori,i,j);
           ExtrapolateToFace(c_extrap_value(ori,i,j),
                     (*c_interp[level])(ori,i,j),
                     msk, reg, vin, rat[idir], bho, level);
-          // face_coefs contains aux_mass_coefs, then cell_coefs, then gradient_coefs2, in order, but
-          // only the ones that exist.  pc array does component translation.
           const FArrayBox& face_coefs = c_connections[level]->faceFab(ori,i,j);
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+            vf[idir] = reg.smallEnd(idir);
             Box face(vf, vf + ve);
             if (msk(vf) == RadBoundaryData::not_covered) {
-              // Zero out connection to covered coarse cell:
                 (*c_connections[level])(ori,i,j)(vc).push(-1, vc-vin, 0.0);
               if (aux_mass_coefs[level]) {
                   (*c_connections[level])(ori,i,j)(vc)
                   .push(level-1, vc,
                         -0.25 * alpha2 * (*aux_mass_coefs[level-1])[idir][i](vc+ves));
-                // Add fine fluxes over face of coarse cell:
                 for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
                     (*c_connections[level])(ori,i,j)(vc)
                         .push(&((c_extrap_value(ori,i,j))(v)),
@@ -727,11 +651,9 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 }
               }
               if (cell_coefs[level]) {
-                // not done yet
                   (*c_connections[level])(ori,i,j)(vc)
                       .push(level-1, vc,
                             0.5 * gamma * signed_inv_coarse_h * (*cell_coefs[level-1])[idir][i](vc+ves));
-                // Add fine fluxes over face of coarse cell:
                 for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
                     (*c_connections[level])(ori,i,j)(vc)
                         .push(&((c_extrap_value(ori,i,j))(v)),
@@ -743,9 +665,7 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 (*c_connections[level])(ori,i,j)(vc)
                   .push(level-1, vc,
                         -0.5 * delta1 * signed_inv_coarse_h * grad_coef);
-                // Add fine fluxes over face of coarse cell:
                 for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
-                  // note that there are no fd1coefs:
                   (*c_connections[level])(ori,i,j)(vc)
                       .push(&(*c_extrap_deriv[level])(ori,i,j)(v),
                               0.5 * delta1 * face_sign * tang_avg_scale * grad_coef);
@@ -755,7 +675,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 (*c_connections[level])(ori,i,j)(vc)
                   .push(level-1, vc,
                         -0.5 * delta2 * signed_inv_coarse_h * (*gradient_coefs2[level-1])[idir][i](vc+ves));
-                // Add fine fluxes over face of coarse cell:
                 for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
                   (*c_connections[level])(ori,i,j)(vc)
                       .push(&(*c_extrap_deriv[level])(ori,i,j)(v),
@@ -768,21 +687,18 @@ void ExtendedMultiLevelSolver::assembleMatrix()
       }
     }
 
-    // The following section is identical to version in MultiLevelEllipticSolver
-    // except for use of AddTo in place of Set:
     for (OrientationIter oitr; oitr; ++oitr) {
       Orientation ori = oitr();
       int idir = ori.coordDir();
       for (int i = c_connections[level]->firstOwnedIndex(); c_connections[level]->isValid(i);
            i = c_connections[level]->nextOwnedIndex(i)) {
-        // parallel loop is tied to coarse grids
         for (int j = 0; j < (*c_connections[level]).size(ori,i); j++) {
-          const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-          const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-          const Mask &msk = (*c_interp[level]).mask(ori,i,j); // fine mask
+          const Box& reg = (*c_interp[level])(ori,i,j).box();
+          const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+          const Mask &msk = (*c_interp[level]).mask(ori,i,j);
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+            vf[idir] = reg.smallEnd(idir);
             if (msk(vf) == RadBoundaryData::not_covered &&
                 !(*c_connections[level])(ori,i,j)(vc).secondary()) {
               (*c_connections[level])(ori,i,j)(vc).collapse();
@@ -796,10 +712,8 @@ void ExtendedMultiLevelSolver::assembleMatrix()
               BL_ASSERT(retval == 0);
               int ientry = 2 * AMREX_SPACEDIM + 1;
               for (int jj = 0; jj < levels.size(); jj++) {
-                // identify stencil-like connections for separate treatment:
                 int needs_separate_entry = 1;
                 if (levels[jj] == -1) {
-                  // connection to covered coarse cell to be zeroed out:
                   IntVect d = cells[jj] - vc;
                   for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
                     if (d == IntVect(offsets[k])) {
@@ -812,7 +726,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                   BL_ASSERT(needs_separate_entry == 0);
                 }
                 if (levels[jj] == level-1) {
-                  // other coarse-level entry, may or may not be in stencil:
                   IntVect d = cells[jj] - vc;
                   for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
                     if (d == IntVect(offsets[k])) {
@@ -839,7 +752,7 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 void ExtendedMultiLevelSolver::fillLevelVectors(int level,
                                          MultiFab& dest,
                                          int icomp,
-                                         MultiFab& rhs, // will not be altered
+                                         MultiFab& rhs,
                                          BoundaryMode bc_variant)
 {
   BL_PROFILE("ExtendedMultiLevelSolver::fillLevelVectors");
@@ -849,7 +762,7 @@ void ExtendedMultiLevelSolver::fillLevelVectors(int level,
 }
 
 void ExtendedMultiLevelSolver::fillLevelRhs(int level,
-                                         MultiFab& rhs, // will not be altered
+                                         MultiFab& rhs,
                                          BoundaryMode bc_variant)
 {
   {
@@ -866,11 +779,6 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
       std::cout << "  ExtendedMultiLevelSolver::delta2 = " << delta2 << std::endl;
     }
 
-    // This block is here for debugging purposes only.  I think the code
-    // below should be used in place of the MultiLevelEllipticSolver version, not
-    // in addition to it.
-    //MultiLevelEllipticSolver::fillLevelRhs(level, rhs, bc_variant);
-    //return;
   }
 
   int part = level - crse_level;
@@ -881,7 +789,7 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
     const Box &reg = grids[level][i];
 
     FArrayBox *f;
-    if (rhs.nGrow() == 0) { // need a temporary if rhs is the wrong size
+    if (rhs.nGrow() == 0) {
       f = &rhs[mfi];
     }
     else {
@@ -891,7 +799,6 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
     }
     Real* vec = f->dataPtr();
 
-    // initialize rhs
 
     HYPRE_SStructVectorSetBoxValues(b, part, loV(reg), hiV(reg), 0, vec);
   }
@@ -900,17 +807,15 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
     return;
   }
 
-  // This version includes a new implementation of bcoefs separate from
-  // the one in the base class.
 
   const Box& domain = bd[level]->getDomain();
   for (OrientationIter oitr; oitr; oitr++) {
     Orientation ori = oitr();
     int idir = ori.coordDir();
     IntVect vin = amrex::BASISV(idir), ves;
-    vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
-    ves = (ori.isLow() ?  ves : vin);    // edge shift vector
-    Real h    = geom[level].CellSize(idir); // normal fine grid spacing
+    vin = (ori.isLow() ? -vin : vin);
+    ves = (ori.isLow() ?  ves : vin);
+    Real h    = geom[level].CellSize(idir);
     Real h2   = 0.5 * h;
     Real th2  = 1.5 * h;
     Real face_sign = (ori.isLow() ? -1.0 : 1.0);
@@ -920,20 +825,14 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
       Box reg = amrex::adjCell(grids[level][i], ori);
       if (grids[level][i][ori] == domain[ori] || level == crse_level) {
         RadBoundaryCondition     bct = bd[level]->bndryConds(ori)[i];
-        // bct may be changed below if this is a mixed boundary
         const Real      &bcl = bd[level]->bndryLocs(ori)[i];
         const FArrayBox &fs  = bd[level]->bndryValues(ori)[mfi];
         const Mask      &msk = bd[level]->bndryMasks(ori,i);
-//        const Box &bbox = (*bcoefs[level])[idir][i].box();
-//        const Box &msb  = msk.box();
 
-        // Treat an exposed grid edge here as a boundary condition
-        // for the linear solver:
 
-        reg.shift(-vin); // fine interior cells
+        reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
           if (msk(v+vin) != RadBoundaryData::covered) {
-            // determine what type of boundary this is and act accordingly
             if (reg[ori] == domain[ori] && bd[level]->isMixedFace(ori)) {
               bct = (*(bd[level]->boundaryTypes(ori)[i]))(v+vin);
             }
@@ -959,22 +858,11 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
                 HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
               }
               if (cell_coefs[level]) {
-                // This was the centered difference version:
-                //Real tmp = ((-dirichlet_weight / h) * fs(v+vin,bc_component) *
-                //            gamma * face_sign * (*cell_coefs[level])[idir][mfi](v+ves));
 
-                // For upwinding, dirichlet_weight is not the correct interpolation factor.
-                // If we're upwinding from the interior, ignore the bndry val.
-                // If we're upwinding from the exterior, interpolate
-                // (linearly) to the ghost cell center position.
 
-                // The extra minus sign in both centered and upwind versions
-                // is from moving this term to the rhs.
 
                 Real fac = gamma * ofh;
                 int  i0  = ori.isLow();
-//                int  i1  = ori.isHigh();
-                // upwinding from exterior is i1 direction:
                 Real tmp = (-fac * (2.0 * h2) / (bcl + h2) * fs(v+vin,bc_component)
                             * (*cell_coefs[level])[idir][mfi](v+ves,i0));
 
@@ -992,18 +880,16 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
               }
             }
             else if (bct == AMREX_LO_NEUMANN) {
-              // speed_factor should be c for photons, 1 for neutrinos
               Real speed_factor = 1.0;
-              Real xi = 0.0; // xi should be passed in through RadiativeBoundary?
+              Real xi = 0.0;
               Real tmp = beta / h;
               tmp = ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
                      speed_factor * fs(v+vin,bc_component));
               HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
             }
             else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-              // speed_factor should be c for photons, 1 for neutrinos
               Real speed_factor = 1.0;
-              Real xi = 0.0; // xi should be passed in through RadiativeBoundary?
+              Real xi = 0.0;
               Real tmp = beta / h;
               tmp = 2.0 * ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
                            speed_factor * fs(v+vin,bc_component));

@@ -30,10 +30,6 @@ namespace {
     Box the_same_box (const Box& b) { return b; }
     Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
 
-    //
-    // Components are:
-    //  Interior, Inflow, Outflow,  Symmetry,     SlipWall,     NoSlipWall
-    //
     constexpr std::array<int, 6> scalar_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
@@ -149,12 +145,6 @@ namespace {
     }
 #endif
 
-    // In some cases we want to replace inflow boundaries with
-    // first-order extrapolation boundaries. This is intended to
-    // be used for state data that the user is not going to
-    // provide inflow boundary conditions for, like gravity
-    // and reactions, and it works in conjunction with the
-    // generic_fill boundary routine.
 
     void
     swap_inflow_bc (BCRec& bc)
@@ -174,15 +164,11 @@ void
 HydroSim::variableSetUp ()
 {
 
-  // HydroSim::variableSetUp is called in the constructor of Amr.cpp, so
-  // it should get called every time we start or restart a job
 
 
-  // initialize the start time for our CPU-time tracker
   startCpuSeconds = ParallelDescriptor::second();
 
 
-  // Output the git commit hashes used to build the executable.
 
   if (ParallelDescriptor::IOProcessor()) {
 
@@ -210,20 +196,13 @@ HydroSim::variableSetUp ()
 
   BL_ASSERT(desc_lst.size() == 0);
 
-  // read the C++ parameters that are set in inputs and do other
-  // initializations (e.g., set phys_bc)
   read_params();
 
-  // initialize the C++ values of the problem-specific runtime parameters.
 
   init_prob_parameters();
 
-  // Initialize the runtime parameters for any of the external
-  // microphysics
   microphys_init();
 
-  // set small positive values of the "small" quantities if they are
-  // negative
   if (small_dens < 0.0_rt) {
     small_dens = 1.e-100_rt;
   }
@@ -240,7 +219,6 @@ HydroSim::variableSetUp ()
     eint_floor = 1.e-100_rt;
   }
 
-  // now initialize the C++ Microphysics
 #ifdef REACTIONS
   network_init();
 #endif
@@ -251,8 +229,6 @@ HydroSim::variableSetUp ()
   opacity_init();
 #endif
 
-  // Ensure that HydroSim's small variables are consistent
-  // with the minimum permitted by the EOS, and vice versa.
 
   Real temp_floor_next = std::max(small_temp, EOSData::mintemp);
   small_temp = temp_floor_next;
@@ -262,12 +238,6 @@ HydroSim::variableSetUp ()
   small_dens = dens_floor_next;
   EOSData::mindens = dens_floor_next;
 
-  // Given small_temp and small_dens, compute pressure_cutoff
-  // and eint_floor, assuming a more restrictive value is
-  // not already provided by the user. We'll arbitrarily
-  // set the mass fraction for this call, since we presumably
-  // don't need to be too accurate, we just need to set a
-  // reasonable floor.
 
   eos_t eos_state;
 
@@ -285,10 +255,8 @@ HydroSim::variableSetUp ()
   hydrosim::pressure_cutoff = amrex::max(hydrosim::pressure_cutoff, eos_state.p);
   hydrosim::eint_floor = amrex::max(hydrosim::eint_floor, eos_state.e);
 
-  // some consistency checks on the parameters
 #ifdef REACTIONS
 #ifdef TRUE_SDC
-  // for TRUE_SDC, we don't support retry
   if (allow_step_retry) {
     amrex::Warning("allow_step_retry = 1 is not supported with true SDC.  Disabling");
     allow_step_retry = false;
@@ -296,11 +264,6 @@ HydroSim::variableSetUp ()
 #endif
 #endif
 
-  // Set some initial data in the ambient state for safety, though the
-  // intent is that any problems using this may override these. We use
-  // the user-specified parameters if they were set, but if they were
-  // not (which is reflected by whether background_density is positive)
-  // then we use the "small" quantities.
 
   for (Real & s : ambient::ambient_reference_state) {
       s = 0.0;
@@ -332,10 +295,6 @@ HydroSim::variableSetUp ()
     }
   }
 
-  // Note that the default is state_data_extrap = false,
-  // store_in_checkpoint = true.  We only need to put these in
-  // explicitly if we want to do something different,
-  // like not store the state data in a checkpoint directory
   bool state_data_extrap = false;
   bool store_in_checkpoint;
 
@@ -378,16 +337,11 @@ HydroSim::variableSetUp ()
                          interp,state_data_extrap,store_in_checkpoint);
 #endif
 
-  // Source terms -- for the CTU method, because we do characteristic
-  // tracing on the source terms, we need SRC_GHOST_WIDTH ghost cells to do
-  // the reconstruction.  For SDC, on the other hand, we only
-  // need 1 (for the fourth-order stuff). Simplified SDC uses the CTU
-  // advance, so it behaves the same way as CTU here.
 
   store_in_checkpoint = true;
   int forcing_ng = 0;
   if (time_scheme == CornerTrace ||
-      time_scheme == SimplifiedIterCorrection) {  // NOLINT(bugprone-branch-clone)
+      time_scheme == SimplifiedIterCorrection) {
       forcing_ng = SRC_GHOST_WIDTH;
   } else if (time_scheme == IterativeCorrection) {
 #ifdef SHOCK_VAR
@@ -408,10 +362,6 @@ HydroSim::variableSetUp ()
 
 
 #ifdef REACTIONS
-  // Component is  rho_enuc = rho * (eout-ein)
-  // next NumSpec are rho * omegadot_i
-  // next NumAux are rho * auxdot_i
-  // next is nse status indication
   store_in_checkpoint = false;
 
   int num_react_comps = 1;
@@ -428,11 +378,7 @@ HydroSim::variableSetUp ()
 #endif
 
 #ifdef REACTIONS
-  // For simplified SDC, we want to store the reactions source.
-  // these are not traced, so we only need a single ghost cell
 
-  // note: this is of size NQ (and not NQSOURCE) because the species are
-  // always included
 
   if (time_scheme == SimplifiedIterCorrection) {
 
@@ -584,7 +530,6 @@ HydroSim::variableSetUp ()
   desc_lst.setComponent(Accel_Type,2,"grav_z",bc,genericBoundaryFunc);
 #endif
 
-  // Source term array will use source fill
 
   Vector<BCRec> forcing_bcs(NUM_SOURCE);
   Vector<std::string> state_type_forcing_names(NUM_SOURCE);
@@ -593,7 +538,6 @@ HydroSim::variableSetUp ()
     state_type_forcing_names[i] = name[i] + "_source";
     forcing_bcs[i] = bcs[i];
 
-    // Replace any instances of inflow boundaries with first-order extrapolation.
     swap_inflow_bc(forcing_bcs[i]);
   }
 
@@ -604,7 +548,6 @@ HydroSim::variableSetUp ()
 
   if (keep_omegadot == 1) {
 
-      // Burning_Type includes the species -- we put those after rho_enuc
       std::string react_label;
       for (int i = 0; i < NumSpec; ++i)
       {
@@ -633,7 +576,6 @@ HydroSim::variableSetUp ()
     desc_lst.setComponent(Burning_Type, 1, "in_nse", bc, genericBoundaryFunc);
   }
 #endif
-  // names for the burn_split_data that are manually added to the plotfile
 
   if (keep_burn_weights) {
 
@@ -691,14 +633,10 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-  // some optional State_Type's -- since these depend on the value of
-  // runtime parameters, we don't add these to the enum, but instead
-  // add them to the count of State_Type's if we will use them
 
 #ifdef REACTIONS
   if (time_scheme == IterativeCorrection && sdc_accuracy_order == 4) {
 
-    // we are doing 4th order reactive SDC.  We need 2 ghost cells here
     Forcing_Type_Index = desc_lst.size();
 
     store_in_checkpoint = false;
@@ -706,7 +644,6 @@ HydroSim::variableSetUp ()
                            StateDescriptor::Point, 2, NUM_STATE,
                            interp, state_data_extrap, store_in_checkpoint);
 
-    // this is the same thing we do for the sources, but now we use the generic fill
     Vector<BCRec> sdc_forcing_bcs(NUM_STATE);
     Vector<std::string> sdc_forcing_names(NUM_STATE);
 
@@ -714,7 +651,6 @@ HydroSim::variableSetUp ()
       sdc_forcing_names[i] = name[i] + "_sdc_source";
       sdc_forcing_bcs[i] = bcs[i];
 
-      // Replace any instances of inflow boundaries with first-order extrapolation.
       swap_inflow_bc(sdc_forcing_bcs[i]);
     }
 
@@ -725,88 +661,46 @@ HydroSim::variableSetUp ()
 
   num_field_types = desc_lst.size();
 
-  //
-  // DEFINE DERIVED QUANTITIES
-  //
-  // Pressure
-  //
   derive_lst.add("pressure",IndexType::TheCellType(),1,derive_pressure,the_same_box);
   derive_lst.addComponent("pressure",desc_lst,State_Type, URHO, NUM_STATE);
 
-  //
-  // Kinetic energy
-  //
   derive_lst.add("kineng",IndexType::TheCellType(),1,derive_kinetic_energy,the_same_box);
   derive_lst.addComponent("kineng",desc_lst,State_Type, URHO, 1);
   derive_lst.addComponent("kineng",desc_lst,State_Type, UMX, 3);
 
-  //
-  // Sound speed (c)
-  //
   derive_lst.add("soundspeed",IndexType::TheCellType(),1,derive_sound_speed,the_same_box);
   derive_lst.addComponent("soundspeed",desc_lst,State_Type, URHO, NUM_STATE);
 
-  //
-  // Gamma_1
-  //
   derive_lst.add("Gamma_1",IndexType::TheCellType(),1,derive_adiabatic_index,the_same_box);
   derive_lst.addComponent("Gamma_1",desc_lst,State_Type, URHO, NUM_STATE);
 
-  //
-  // Mach number(M)
-  //
   derive_lst.add("MachNumber",IndexType::TheCellType(),1,derive_mach_ratio,the_same_box);
   derive_lst.addComponent("MachNumber",desc_lst,State_Type, URHO, NUM_STATE);
 
 #if (AMREX_SPACEDIM == 1)
-  //
-  // Wave speed u+c
-  //
   derive_lst.add("uplusc",IndexType::TheCellType(),1,derive_u_plus_c,the_same_box);
   derive_lst.addComponent("uplusc",desc_lst,State_Type, URHO, NUM_STATE);
 
-  //
-  // Wave speed u-c
-  //
   derive_lst.add("uminusc",IndexType::TheCellType(),1,derive_u_minus_c,the_same_box);
   derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
 #endif
 
-  //
-  // Gravitational forcing
-  //
 #ifdef GRAVITY
-  //    derive_lst.add("rhog",IndexType::TheCellType(),1,
-  //                   BL_FORT_PROC_CALL(CA_RHOG,ca_rhog),the_same_box);
-  //    derive_lst.addComponent("rhog",desc_lst,State_Type, URHO, 1);
-  //    derive_lst.addComponent("rhog",desc_lst,Accel_Type,0,AMREX_SPACEDIM);
 #endif
 
-  //
-  // Entropy (S)
-  //
   derive_lst.add("entropy",IndexType::TheCellType(),1,derive_entropy,the_same_box);
   derive_lst.addComponent("entropy",desc_lst,State_Type,URHO,NUM_STATE);
 
 #ifdef DIFFUSION
   if (conduction_enabled) {
-    //
-    // thermal conductivity (k_th)
-    //
     derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derive_conductivity,the_same_box);
     derive_lst.addComponent("thermal_cond",desc_lst,State_Type,URHO,NUM_STATE);
 
 
-    //
-    // thermal diffusivity (k_th/(rho c_v))
-    //
     derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derive_diffusivity,the_same_box);
     derive_lst.addComponent("diff_coeff",desc_lst,State_Type,URHO,NUM_STATE);
 
 
-    //
-    // diffusion term (the divergence of thermal flux)
-    //
     derive_lst.add("diffusion_term",IndexType::TheCellType(),1,derive_diffusion_term,grow_box_by_one);
     derive_lst.addComponent("diffusion_term",desc_lst,State_Type,URHO,NUM_STATE);
 
@@ -814,39 +708,22 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-  //
-  // Vorticity
-  //
   derive_lst.add("magvort",IndexType::TheCellType(),1,derive_vorticity,grow_box_by_one);
-  // Here we exploit the fact that UMX = URHO + 1
-  //   in order to use the correct interpolation.
   if (UMX != URHO+1) {
     amrex::Error("We are assuming UMX = URHO + 1 in HydroSim_setup.cpp");
   }
   derive_lst.addComponent("magvort",desc_lst,State_Type,URHO,4);
 
-  //
-  // Div(u)
-  //
   derive_lst.add("divu",IndexType::TheCellType(),1,derive_flow_divergence,grow_box_by_one);
   derive_lst.addComponent("divu",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("divu",desc_lst,State_Type,UMX,3);
 
-  //
-  // Internal energy as derived from rho*E, part of the state
-  //
   derive_lst.add("eint_E",IndexType::TheCellType(),1,derive_internal_from_total,the_same_box);
   derive_lst.addComponent("eint_E",desc_lst,State_Type,URHO,NUM_STATE);
 
-  //
-  // Internal energy as derived from rho*e, part of the state
-  //
   derive_lst.add("eint_e",IndexType::TheCellType(),1,derive_internal_from_stored,the_same_box);
   derive_lst.addComponent("eint_e",desc_lst,State_Type,URHO,NUM_STATE);
 
-  //
-  // Log(density)
-  //
   derive_lst.add("logden",IndexType::TheCellType(),1,derive_log_density,the_same_box);
   derive_lst.addComponent("logden",desc_lst,State_Type,URHO,NUM_STATE);
 
@@ -855,9 +732,6 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("StateErr",desc_lst,State_Type,UTEMP,1);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,UFS,1);
 
-  //
-  // X from rhoX
-  //
   for (int i = 0; i < NumSpec; i++){
     std::string species_label = "X(" + short_spec_names_cxx[i] + ")";
     derive_lst.add(species_label,IndexType::TheCellType(),1,derive_mass_fraction,the_same_box);
@@ -866,10 +740,6 @@ HydroSim::variableSetUp ()
   }
 
 #ifndef AUX_THERMO
-  //
-  // Abar and Ye
-  // note: if we are using aux thermodynamics, then abar is already an aux quantity
-  //
   derive_lst.add("abar",IndexType::TheCellType(),1,derive_atomic_mass,the_same_box);
   derive_lst.addComponent("abar",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("abar",desc_lst,State_Type,UFS,NumSpec);
@@ -881,9 +751,6 @@ HydroSim::variableSetUp ()
 #endif
 #endif
 
-  //
-  // Velocities
-  //
   derive_lst.add("x_velocity",IndexType::TheCellType(),1,derive_velocity_component,the_same_box);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("x_velocity",desc_lst,State_Type,UMX,1);
@@ -897,18 +764,10 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("z_velocity",desc_lst,State_Type,UMZ,1);
 
 #ifdef REACTIONS
-  //
-  // Nuclear energy generation timescale t_e == e / edot
-  // Sound-crossing time t_s == dx / c_s
-  // Ratio of these is t_s_t_e == t_s / t_e
-  //
   derive_lst.add("t_sound_t_enuc", IndexType::TheCellType(), 1, derive_timescale_ratio, the_same_box);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, State_Type, URHO, NUM_STATE);
   derive_lst.addComponent("t_sound_t_enuc", desc_lst, Burning_Type, 0, 1);
 
-  //
-  // Nuclear energy generation rate
-  //
   derive_lst.add("enuc", IndexType::TheCellType(), 1, derive_energy_generation, the_same_box);
   derive_lst.addComponent("enuc", desc_lst, State_Type, URHO, 1);
   derive_lst.addComponent("enuc", desc_lst, Burning_Type, 0, 1);
@@ -947,11 +806,6 @@ HydroSim::variableSetUp ()
 #endif
 
 #ifdef AMREX_PARTICLES
-  //
-  // We want a derived type that corresponds to the number of particles
-  // in each cell.  We only intend to use it in plotfiles for debugging
-  // purposes.  We'll actually set the values in writePlotFile().
-  //
   derive_lst.add("particle_count",IndexType::TheCellType(),1,derive_noop,the_same_box);
   derive_lst.addComponent("particle_count",desc_lst,State_Type,URHO,1);
 
@@ -967,20 +821,13 @@ HydroSim::variableSetUp ()
 #endif
 
 #ifdef MHD
-//Electric Field at the face
-//
-//Magentic Field Cell Centered
-//x component
   derive_lst.add("B_x", IndexType::TheCellType(), 1, derive_cell_bfield_x, the_same_box);
   derive_lst.addComponent("B_x", desc_lst, Bfield_Type_x, 0, 1);
-//y component
   derive_lst.add("B_y", IndexType::TheCellType(), 1, derive_cell_bfield_y, the_same_box);
   derive_lst.addComponent("B_y", desc_lst, Bfield_Type_y, 0, 1);
-//z component
   derive_lst.add("B_z", IndexType::TheCellType(), 1, derive_cell_bfield_z, the_same_box);
   derive_lst.addComponent("B_z", desc_lst, Bfield_Type_z, 0, 1);
 
-//Divergence of B
   derive_lst.add("Div_B", IndexType::TheCellType(), 1, derive_b_divergence, the_same_box);
   derive_lst.addComponent("Div_B", desc_lst, Bfield_Type_x, 0, 1);
   derive_lst.addComponent("Div_B", desc_lst, Bfield_Type_y, 0, 1);
@@ -997,13 +844,8 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-  //
-  // Problem-specific adds
 #include <User_Derives.H>
 
-  //
-  // DEFINE ERROR ESTIMATION QUANTITIES
-  //
   tag_field_names.emplace_back("density");
   tag_field_ghosts.push_back(1);
 
@@ -1041,18 +883,12 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-  // Save the number of built-in functions; this will help us
-  // distinguish between those, and the ones the user is about to add.
 
   num_tag_fields_default = static_cast<int>(tag_field_names.size());
 
-  //
-  // Construct an array holding the names of the source terms.
-  //
 
   forcing_names.resize(num_forcing);
 
-  // Fill with an empty string to initialize.
 
   for (int n = 0; n < num_forcing; ++n) {
     forcing_names[n] = "";
@@ -1084,10 +920,8 @@ HydroSim::variableSetUp ()
 
 #ifdef TRUE_SDC
   if (sdc_quadrature == 0) {
-    // Gauss-Lobatto
 
     if (sdc_accuracy_order == 2) {
-      // trapezoid
       COLLOC_NODES = 2;
 
       node_dt_frac.resize(COLLOC_NODES);
@@ -1097,7 +931,6 @@ HydroSim::variableSetUp ()
       node_quad_weights = {0.5, 0.5};
 
     } else if (sdc_accuracy_order == 4) {
-      // Simpsons
       COLLOC_NODES = 3;
 
       node_dt_frac.resize(COLLOC_NODES);
@@ -1111,7 +944,6 @@ HydroSim::variableSetUp ()
     }
 
   } else if (sdc_quadrature == 1) {
-    // Radau
 
     if (sdc_accuracy_order == 2) {
       COLLOC_NODES = 3;

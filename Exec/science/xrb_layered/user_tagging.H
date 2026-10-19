@@ -9,8 +9,6 @@ void user_tagging(int i, int j, int k,
                      Array4<Real const> const& state,
                      int level, const GeometryData& geomdata)
 {
-    // Tag on regions of with H > H_min and rho < cutoff_density.
-    // Note that H is the first species variable and so is in index UFS of the state array.
 
     if (state(i,j,k,URHO) > problem::cutoff_density &&
         (state(i,j,k,UFS) > state(i,j,k,URHO) * problem::H_min ||

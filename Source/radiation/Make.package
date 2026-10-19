@@ -1,5 +1,3 @@
-# sources used with radiation
-# this is included if USE_RAD = TRUE
 
 CEXE_sources += ExtendedMultiLevelSolver.cpp
 CEXE_sources += MultiLevelEllipticSolver.cpp

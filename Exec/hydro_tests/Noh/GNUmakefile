@@ -1,5 +1,3 @@
-# Define the location of the HYDROSIM top directory,
-# if not already defined by an environment variable.
 
 HYDROSIM_HOME ?= ../../..
 
@@ -15,10 +13,8 @@ COMP	   = gnu
 USE_MPI    = TRUE
 USE_OMP    = FALSE
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR   := gamma_law
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := general_null
 NETWORK_INPUTS = gammalaw.net
 

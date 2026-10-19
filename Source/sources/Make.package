@@ -1,4 +1,3 @@
-# source term sources -- this is always included
 
 CEXE_headers += HydroSim_forcing.H
 

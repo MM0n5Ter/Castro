@@ -20,10 +20,8 @@ NUM_MODELS := 2
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := gamma_law
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := powerlaw
 
 CONDUCTIVITY_DIR := constant

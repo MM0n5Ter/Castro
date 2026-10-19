@@ -23,8 +23,6 @@ HydroSim::user_diagnostics ()
 
         hs_level.flame_width_properties(time, T_max, T_min, grad_T_max);
 
-        // For now we only do the flame speed calculation on the coarse grid since
-        // it doesn't share the same timestep as the fine grids.
 
         if (lev == 0)
             hs_level.flame_speed_properties(time, rho_fuel_dot);
@@ -38,8 +36,6 @@ HydroSim::user_diagnostics ()
 
     ParallelDescriptor::ReduceRealSum(rho_fuel_dot);
 
-    // Note that rho_fuel_dot has already been multiplied by dx, so
-    // the dimensionality here checks out.
 
     flame_speed = -rho_fuel_dot / rho_fuel_initial;
 
@@ -59,7 +55,6 @@ HydroSim::user_diagnostics ()
             datalog << std::setw(14) <<  "  flame speed " << std::endl;
         }
 
-        // Write the quantities at this time
         datalog << std::setw(14) <<  time;
         datalog << std::setw(14) <<  std::setprecision(6) << flame_width;
         datalog << std::setw(14) <<  std::setprecision(6) << flame_speed << std::endl;

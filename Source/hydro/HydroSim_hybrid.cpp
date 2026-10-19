@@ -51,13 +51,11 @@ HydroSim::assemble_new_hybrid_source(MultiFab& source, MultiFab& field_old, Mult
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Start by subtracting off the old-time data.
 
     Real term_weight = -0.5;
 
     fill_hybrid_source_mf(source, field_old, term_weight);
 
-    // Time center with the new data.
 
     term_weight = 0.5;
 
@@ -141,7 +139,6 @@ HydroSim::linear_to_split_momentum(MultiFab& state_in, int ng)
 
         auto u = state_in.array(mfi);
 
-        // Convert linear momentum to hybrid momentum.
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -187,7 +184,6 @@ HydroSim::split_to_linear_momentum(MultiFab& state_in, int ng)
 
         auto u = state_in.array(mfi);
 
-        // Convert hybrid momentum to linear momentum.
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

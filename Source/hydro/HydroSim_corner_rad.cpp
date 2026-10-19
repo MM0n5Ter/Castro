@@ -53,7 +53,6 @@ HydroSim::rad_cons_update(const Box& bx,
   }
 
 
-  // radiation energy update.
 
   amrex::ParallelFor(bx, NGROUPS,
   [=] AMREX_GPU_DEVICE (int i, int j, int k, int g) noexcept
@@ -70,14 +69,11 @@ HydroSim::rad_cons_update(const Box& bx,
          ) / vol(i,j,k);
   });
 
-  // add the radiation pressure gradient to the momentum for all
-  // directions
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    // radiation contribution -- this is sum{lambda E_r}
     Real radiation_pressure_grad_x = 0.0;
     Real radiation_pressure_grad_y = 0.0;
     Real radiation_pressure_grad_z = 0.0;
@@ -108,15 +104,10 @@ HydroSim::rad_cons_update(const Box& bx,
     }
 
 
-    // we now want to compute the change in the kinetic energy -- we
-    // base this off of S_new, since that already is updated with hydro
 
-    // note, we need to include the Z component here too (even
-    // for 1- and 2-d), since rotation might be in play
 
     Real cell_density_new = cons_new(i,j,k,URHO);
 
-    // this update includes the hydro fluxes and grad{p} from hydro
     Real x_momentum_new1 = cons_new(i,j,k,UMX);
     Real y_momentum_new1 = cons_new(i,j,k,UMY);
     Real z_momentum_new1 = cons_new(i,j,k,UMZ);
@@ -126,7 +117,6 @@ HydroSim::rad_cons_update(const Box& bx,
                 z_momentum_new1 * z_momentum_new1) / (2.0_rt * cell_density_new);
 
 
-    // now add the radiation pressure gradient
     cons_new(i,j,k,UMX) -= dt * radiation_pressure_grad_x;
     cons_new(i,j,k,UMY) -= dt * radiation_pressure_grad_y;
     cons_new(i,j,k,UMZ) -= dt * radiation_pressure_grad_z;
@@ -141,19 +131,16 @@ HydroSim::rad_cons_update(const Box& bx,
 
     Real dek = ek2 - ek1;
 
-    // update the kinetic energy with the radiation contribution
 
     cons_new(i,j,k,UEDEN) = cons_new(i,j,k,UEDEN) + dek;
 
     if (!radiation::moving_frame) {
-      // ! mixed-frame (single group only)
       RadEnergyOut(i,j,k,0) = RadEnergyOut(i,j,k,0) - dek;
     }
 
   });
 
 
-  // Add radiation source terms to rho*u, rhoE, and Er
 
   if (radiation::moving_frame) {
 
@@ -195,7 +182,6 @@ HydroSim::rad_cons_update(const Box& bx,
 
       Real divu = dudx[0] + dudy[1] + dudz[2];
 
-      // Note that for single group, frequency_advection_mode is always 1
       Real af[NGROUPS];
 
       for (int g = 0; g < NGROUPS; g++) {

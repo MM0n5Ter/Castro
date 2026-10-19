@@ -1,4 +1,3 @@
-// multigroup version of RadiativeBoundary.cpp
 
 #include <AMReX_ParmParse.H>
 #include <AMReX_LO_BCTYPES.H>
@@ -31,11 +30,7 @@ MultiGroupBoundary::MultiGroupBoundary(const BoxArray& _grids,
 
   const BoxArray& grids = boxes();
   const Box& domain = geom.Domain();
-//  const Real* dx = geom.CellSize();
-//  const Real* xlo = geom.ProbLo();
 
-  // It is desirable that the type array be set up after static init.
-  // This is part of the reason this step is not in BaseBoundary.
   for (OrientationIter fi; fi; ++fi) {
     Orientation face = fi();
     if (bc_kind[face] == 2) {
@@ -46,7 +41,6 @@ MultiGroupBoundary::MultiGroupBoundary(const BoxArray& _grids,
             !geom.isPeriodic(face.coordDir())) {
           const Box& face_box = bndry[face][bi].box();
           bc_type_fabs[face][igrid].reset(new BaseFab<int>(face_box));
-          // We don't care about the bndry values here, only the type array.
 #if 0
           FORT_RADIATIVE_BOUNDARY_FILL(BL_TO_FORTRAN(bndry[face][bi]),
                          bc_type_fabs[face][igrid]->dataPtr(),
@@ -60,10 +54,6 @@ MultiGroupBoundary::MultiGroupBoundary(const BoxArray& _grids,
 
 void MultiGroupBoundary::init(const int _num_groups)
 {
-  // obsolete implementation of the Marshak boundary condition requires
-  // us to scale incoming fluxes by c here, since the solver classes
-  // do not themselves know about c.  This c compensates
-  // for the c in the diffusion coefficient at the boundaries:
 
   ngroups = _num_groups;
 
@@ -116,8 +106,6 @@ void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
                              const Geometry& geom, IntVect& ratio)
 {
 
-//  NOTE: ALL BCLOC VALUES ARE NOW DEFINED AS A LENGTH IN PHYSICAL DIMENSIONS
-//        *RELATIVE* TO THE FACE, NOT IN ABSOLUTE PHYSICAL SPACE
   const BoxArray& grids = boxes();
   int ngrds = grids.size();
   const Real* dx = geom.CellSize();
@@ -136,21 +124,6 @@ void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
       const Box& grd = grids[i];
 
       if (domain[face] == grd[face] && !geom.isPeriodic(dir)) {
-/*
-        // All physical bc values are located on face
-        if (face_bc_type == amrex::BCType::ext_dir) {
-          bctag[i] = AMREX_LO_DIRICHLET;
-          bloc[i] = 0.;
-        }
-        else if (face_bc_type == EXTRAP || face_bc_type == amrex::BCType::hoextrap || face_bc_type == amrex::BCType::reflect_even) {
-          bctag[i] = AMREX_LO_NEUMANN;
-          bloc[i] = 0.;
-        }
-        else if (face_bc_type == amrex::BCType::reflect_odd) {
-          bctag[i] = AMREX_LO_REFLECT_ODD;
-          bloc[i] = 0.;
-        }
-*/
         if (face_bc_type == AMREX_LO_DIRICHLET   || face_bc_type == AMREX_LO_NEUMANN ||
             face_bc_type == AMREX_LO_REFLECT_ODD) {
           bctag[i] = face_bc_type;
@@ -158,12 +131,7 @@ void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
         }
         else if (face_bc_type == AMREX_LO_MARSHAK || face_bc_type == AMREX_LO_SANCHEZ_POMRANING) {
           bctag[i] = face_bc_type;
-          //gives asymmetric, second-order version of Marshak b.c.
-          // (worked for bbmg, works with nonsymmetric hypre solvers):
           bloc[i] = 0.;
-          //gives symmetric version of Marshak b.c.
-          //(hypre symmetric solvers ignore bloc and do this automatically):
-          //bloc[i] = -0.5 * dx[dir];
         }
         else {
           std::cerr << "MultiGroupBoundary---Not a recognized boundary condition" << std::endl;
@@ -171,7 +139,6 @@ void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
         }
       }
       else {
-        // internal bndry
         bctag[i] = AMREX_LO_DIRICHLET;
         bloc[i] = 0.5*delta;
       }
@@ -182,19 +149,15 @@ void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
 void MultiGroupBoundary::setBoundaryFluxConditions(const BCRec& bc, const BoundaryMode bc_value_mode)
 {
   const BoxArray& grids = boxes();
-//  int ngrds = grids.size();
   const Real* dx = geom.CellSize();
   const Real* xlo = geom.ProbLo();
   const Box& domain = geom.Domain();
 
-  // variables for multigroup
   Vector<Real> group_face_values;
   group_face_values.resize(ngroups);
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-//    Vector<Real> &bloc = bcloc[face];
-//    Vector<RadBoundaryCondition> &bctag = bcond[face];
 
     int dir = face.coordDir();
     int face_bc_type = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
@@ -239,8 +202,6 @@ void MultiGroupBoundary::setBoundaryFluxConditions(const BCRec& bc, const Bounda
                          bc_type_fab.dataPtr(), AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
 #endif
           if (face_bc_kind == 0) {
-            // Homogeneous case.  We called RADBNDRY2 only to set bc_type_fab right.
-            //setValue(face, i, value);
           }
         }
       }
@@ -248,7 +209,6 @@ void MultiGroupBoundary::setBoundaryFluxConditions(const BCRec& bc, const Bounda
   }
 }
 
-// *************************************************************************
 
 void MultiGroupBoundary::setHomogValues(const BCRec& bc, IntVect& ratio)
 {

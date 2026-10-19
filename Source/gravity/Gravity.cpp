@@ -30,21 +30,12 @@ int Gravity::verify_solves_flag  = 0;
 #endif
 Real Gravity::mass_shift    =  0.0;
 
-// ************************************************************************************** //
 
-// FourPiG is defined as 4 * pi * G, where G is the gravitational constant.
 
-// In CGS, this constant is currently
-//      Gconst   =  6.67428e-8           cm^3/g/s^2 , which results in
-//      FourPiG =  83.8503442814844e-8  cm^3/g/s^2
 
-// ************************************************************************************** //
 
 const Real FourPiG = 4.0 * std::numbers::pi * C::Gconst;
 
-///
-/// Multipole gravity data
-///
 AMREX_GPU_MANAGED Real multipole::volumeScale;
 AMREX_GPU_MANAGED Real multipole::parityScale;
 
@@ -149,15 +140,6 @@ Gravity::read_params ()
 
         int nlevs = parent->maxLevel() + 1;
 
-        // Allow run-time input of solver tolerance. If the user
-        // provides no value, set a reasonable default value on the
-        // coarse level, and then increase it by ref_ratio**2 as the
-        // levels get finer to account for the change in the absolute
-        // scale of the Laplacian. If the user provides one value, use
-        // that on the coarse level, and increase it the same way for
-        // the fine levels. If the user provides more than one value,
-        // we expect them to provide one for every level, and we do
-        // not apply the ref_ratio effect.
 
         int abs_tol_count = pp.countval("abs_tol");
 
@@ -181,13 +163,6 @@ Gravity::read_params ()
 
             abs_tol[0] = tol;
 
-            // Account for the fact that on finer levels, the scale of the
-            // Laplacian changes due to the zone size changing. We assume
-            // dx == dy == dz, so it is fair to say that on each level the
-            // tolerance should increase by the factor ref_ratio**2, since
-            // in absolute terms the Laplacian increases by that ratio too.
-            // The actual tolerance we'll send in is the effective tolerance
-            // on the finest level that we solve for.
 
             for (int lev = 1; lev < nlevs; ++lev) {
                 abs_tol[lev] = abs_tol[lev - 1] * amrex::Math::powi<2>(parent->refRatio(lev - 1)[0]);
@@ -203,18 +178,7 @@ Gravity::read_params ()
 
         }
 
-        // For the relative tolerance, we can again accept a single
-        // scalar (same for all levels) or one for all levels. The
-        // default value is zero, so that we only use the absolute
-        // tolerance.  The multigrid always chooses the looser of the
-        // two criteria in determining whether the solve has
-        // converged.
 
-        // Note that the parameter rel_tol used to be known as ml_tol,
-        // so if we detect that the user has set ml_tol but not
-        // rel_tol, we'll accept that for specifying the relative
-        // tolerance. ml_tol is now considered deprecated and will be
-        // removed in a future release.
 
         std::string rel_tol_key = "rel_tol";
 
@@ -417,8 +381,6 @@ Gravity::solve_potential_level (int               level,
       time = LevelTable[level]->get_state_data(Potential_Type).prevTime();
     }
 
-    // If we are below the solve_level_cap, do the Poisson solve.
-    // Otherwise, interpolate using a fillpatch from solve_level_cap.
 
     if (level <= gravity::solve_level_cap) {
 
@@ -471,8 +433,6 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 {
     BL_PROFILE("Gravity::synchronize_gravity_levels()");
 
-    // There is no need to do a synchronization if
-    // we didn't solve on the fine levels.
 
     if (fine_level > gravity::solve_level_cap) {
         return;
@@ -491,9 +451,6 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 
     int nlevs = fine_level - crse_level + 1;
 
-    // Construct delta(phi) and delta(phi_gradient). delta(phi)
-    // needs a ghost zone for holding the boundary condition
-    // in the same way that phi does.
 
     Vector<std::unique_ptr<MultiFab> > delta_phi(nlevs);
 
@@ -514,14 +471,7 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
         }
     }
 
-    // Construct a container for the right-hand-side (4 * pi * G * drho + dphi).
-    // dphi appears in the construction of the boundary conditions because it
-    // indirectly represents a change in mass on the domain (the mass motion that
-    // occurs on the fine grid, whose gravitational effects are now indirectly
-    // being propagated to the coarse grid).
 
-    // We will temporarily leave the RHS divided by (4 * pi * G) because that
-    // is the form expected by the boundary condition routine.
 
     Vector<std::unique_ptr<MultiFab> > poisson_rhs(nlevs);
 
@@ -532,7 +482,6 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
         MultiFab::Add(*poisson_rhs[lev - crse_level], *drho[lev - crse_level], 0, 0, 1, 0);
     }
 
-    // Construct the boundary conditions for the Poisson solve.
 
     if (crse_level == 0 && !crse_geom.isAllPeriodic()) {
 
@@ -554,24 +503,13 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 
     }
 
-    // Restore the factor of (4 * pi * G) for the Poisson solve.
     for (int lev = crse_level; lev <= fine_level; ++lev)
         poisson_rhs[lev - crse_level]->mult(FourPiG);
 
-    // In the all-periodic case we enforce that the RHS sums to zero.
-    // We only do this if we're periodic and the coarse level covers the whole domain.
-    // In principle this could be true for level > 0, so we'll test on whether the number
-    // of points on the level is equal to the number of points possible on the level.
-    // Note that since we did the average-down, we can stick with the data on the coarse
-    // level since the averaging down is conservative.
 
     if (crse_geom.isAllPeriodic() && (grids[crse_level].numPts() == crse_domain.numPts()))
     {
 
-        // We assume that if we're fully periodic then we're going to be in Cartesian
-        // coordinates, so to get the average value of the RHS we can divide the sum
-        // of the RHS by the number of points. This correction should probably be
-        // volume weighted if we somehow got here without being Cartesian.
 
         Real mean_offset = poisson_rhs[0]->sum() / static_cast<Real>(grids[crse_level].numPts());
 
@@ -584,14 +522,12 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
         }
     }
 
-    // Do multi-level solve for delta_phi.
 
     solve_correction_phi(crse_level, fine_level,
                         amrex::GetVecOfPtrs(poisson_rhs),
                         amrex::GetVecOfPtrs(delta_phi),
                         amrex::GetVecOfVecOfPtrs(edge_phi_gradient));
 
-    // In the all-periodic case we enforce that delta_phi averages to zero.
 
     if (crse_geom.isAllPeriodic() && (grids[crse_level].numPts() == crse_domain.numPts()) ) {
 
@@ -603,8 +539,6 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 
     }
 
-    // Add delta_phi to phi_new, and grad(delta_phi) to grad(delta_phi_curr) on each level.
-    // Update the cell-centered gravity too.
 
     for (int lev = crse_level; lev <= fine_level; lev++) {
 
@@ -624,7 +558,6 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
     for (int lev = fine_level-1; lev >= crse_level; --lev)
     {
 
-        // Average phi_new from fine to coarse level
 
         const IntVect& ratio = parent->refRatio(lev);
 
@@ -632,11 +565,9 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
                              LevelTable[lev  ]->get_new_data(Potential_Type),
                              0, 1, ratio);
 
-        // Average the edge-based phi_gradient from finer to coarser level
 
         average_fine_edges_to_coarse(lev, use_new_state);
 
-        // Average down the gravitational acceleration too.
 
         amrex::average_down(LevelTable[lev+1]->get_new_data(Accel_Type),
                              LevelTable[lev  ]->get_new_data(Accel_Type),
@@ -656,7 +587,7 @@ Gravity::FetchCoarsePotential(int level,
     BL_ASSERT(level!=0);
 
     coarse_potential.clear();
-    coarse_potential.define(grids[level-1], dmap[level-1], 1, 1); // BUT NOTE we don't trust phi's ghost cells.
+    coarse_potential.define(grids[level-1], dmap[level-1], 1, 1);
 
     const Real t_old = LevelTable[level-1]->get_state_data(Potential_Type).prevTime();
     const Real t_new = LevelTable[level-1]->get_state_data(Potential_Type).curTime();
@@ -670,9 +601,6 @@ Gravity::FetchCoarsePotential(int level,
         MultiFab::Copy(coarse_potential, phi_new, 0, 0, 1, 1);
     }
     else if (std::abs(alpha) < threshold) {
-        // Note we only access the old time if it's actually needed, to guard against
-        // scenarios where it may not be allocated yet, for example after a restart when
-        // the old time was not dumped to the checkpoint.
         MultiFab const& phi_old = LevelTable[level-1]->get_old_data(Potential_Type);
         MultiFab::Copy(coarse_potential, phi_old, 0, 0, 1, 1);
     }
@@ -773,7 +701,6 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
                             phi_ptrs, amrex::GetVecOfPtrs(poisson_rhs), phi_gradient_ptrs, empty_residuals,
                             time);
 
-        // Average phi from fine to coarse level
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--)
         {
             const IntVect& ratio = parent->refRatio(amr_lev-1);
@@ -791,21 +718,15 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
             }
         }
 
-        // Average phi_gradient from fine to coarse level
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--) {
             average_fine_edges_to_coarse(amr_lev-1,use_new_state);
         }
 
     }
 
-    // For all levels on which we're not doing the solve, interpolate from
-    // the coarsest level with correct data. Note that since FillCoarsePatch
-    // fills from the coarse level just below it, we need to fill from the
-    // lowest level upwards using successive interpolations.
 
     for (int amr_lev = gravity::solve_level_cap+1; amr_lev <= highest_level_in; amr_lev++) {
 
-        // Interpolate the potential.
 
         if (use_new_state == 1) {
 
@@ -822,19 +743,13 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
 
         }
 
-        // Interpolate the phi_gradient.
 
-        // Instantiate a bare physical BC function for phi_gradient. It doesn't do anything
-        // since the fine levels for Poisson gravity do not touch the physical boundary.
 
         PotentialGradBCFunct gradient_phys_bc;
 
-        // We need to use a interpolater that works with data on faces.
 
         Interpolater* gradient_interp = &face_linear_interp;
 
-        // For the BCs, we will use the Accel_Type BCs for convenience, but these will
-        // not do anything because we do not fill on physical boundaries.
 
         const Vector<BCRec>& gradient_bcs = LevelTable[amr_lev]->get_desc_lst()[Accel_Type].getBCs();
 
@@ -857,7 +772,6 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
 
     int ng = gravity_field_out.nGrow();
 
-    // Fill data from the level below if we're not doing a solve on this level.
 
     if (level > gravity::solve_level_cap) {
 
@@ -867,10 +781,6 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
 
     }
 
-    // Note that gravity_field_out coming into this routine always has three components.
-    // So we'll define a temporary MultiFab with AMREX_SPACEDIM dimensions.
-    // Then at the end we'll copy in all AMREX_SPACEDIM dimensions from this into
-    // the outgoing gravity_field_out, leaving any higher dimensions unchanged.
 
     MultiFab gravity_view(grids[level], dmap[level], AMREX_SPACEDIM, ng);
     gravity_view.setVal(0.0,ng);
@@ -880,10 +790,8 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
     if (gravity::gravity_model_name == "ConstantGrav") {
 
         if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            // 2D spherical r-theta, we want g in the radial direction
             gravity_view.setVal(gravity::uniform_accel, 0, 1, ng);
         } else {
-            // Set to constant value in the AMREX_SPACEDIM direction and zero in all others.
             gravity_view.setVal(gravity::uniform_accel, AMREX_SPACEDIM-1, 1, ng);
         }
 
@@ -896,13 +804,12 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
     } else if (gravity::gravity_model_name == "PoissonGrav") {
 
        amrex::average_face_to_cellcenter(gravity_view, amrex::GetVecOfConstPtrs(phi_gradient_old[level]), geom);
-       gravity_view.mult(-1.0, ng); // g = - grad(phi)
+       gravity_view.mult(-1.0, ng);
 
     } else {
        amrex::Abort("Unknown gravity_model_name in read_old_gravity_field");
     }
 
-    // Do the copy to the output vector.
 
     for (int dir = 0; dir < 3; dir++) {
         if (dir < AMREX_SPACEDIM) {
@@ -914,7 +821,6 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_model_name != "ConstantGrav") {
-        // Fill ghost cells
         AmrLevel* amrlev = &parent->getLevel(level) ;
         AmrLevel::FillPatch(*amrlev,gravity_field_out,ng,time,Accel_Type,0,AMREX_SPACEDIM);
     }
@@ -934,7 +840,6 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
 
     int ng = gravity_field_out.nGrow();
 
-    // Fill data from the level below if we're not doing a solve on this level.
 
     if (level > gravity::solve_level_cap) {
 
@@ -944,10 +849,6 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
 
     }
 
-    // Note that gravity_field_out coming into this routine always has three components.
-    // So we'll define a temporary MultiFab with AMREX_SPACEDIM dimensions.
-    // Then at the end we'll copy in all AMREX_SPACEDIM dimensions from this into
-    // the outgoing gravity_field_out, leaving any higher dimensions unchanged.
 
     MultiFab gravity_view(grids[level],dmap[level],AMREX_SPACEDIM,ng);
     gravity_view.setVal(0.0,ng);
@@ -956,16 +857,13 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
     if (gravity::gravity_model_name == "ConstantGrav") {
 
         if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            // 2D spherical r-theta, we want g in the radial direction
             gravity_view.setVal(gravity::uniform_accel, 0, 1, ng);
         } else {
-            // Set to constant value in the AMREX_SPACEDIM direction
             gravity_view.setVal(gravity::uniform_accel, AMREX_SPACEDIM-1, 1, ng);
         }
 
     } else if (gravity::gravity_model_name == "MonopoleGrav") {
 
-        // We always fill radial_field_new (at every level)
         const Real cur_time = LevelTable[level]->get_state_data(State_Type).curTime();
         build_radial_field(level,cur_time,radial_field_new[level]);
         interpolate_monopole_field(level,radial_field_new[level],gravity_view);
@@ -973,13 +871,12 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
     } else if (gravity::gravity_model_name == "PoissonGrav") {
 
         amrex::average_face_to_cellcenter(gravity_view, amrex::GetVecOfConstPtrs(phi_gradient_new[level]), geom);
-        gravity_view.mult(-1.0, ng); // g = - grad(phi)
+        gravity_view.mult(-1.0, ng);
 
     } else {
        amrex::Abort("Unknown gravity_model_name in get_new_gravity_vector");
     }
 
-    // Do the copy to the output vector.
 
     for (int dir = 0; dir < 3; dir++) {
         if (dir < AMREX_SPACEDIM) {
@@ -991,7 +888,6 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_model_name != "ConstantGrav" && ng>0) {
-        // Fill ghost cells
         AmrLevel* amrlev = &parent->getLevel(level) ;
         AmrLevel::FillPatch(*amrlev,gravity_field_out,ng,time,Accel_Type,0,AMREX_SPACEDIM);
     }
@@ -1018,16 +914,12 @@ Gravity::check_residual (const Box& bx,
                         const GpuArray<Real, AMREX_SPACEDIM>& problo,
                         int coord_type)
 {
-    // Test whether using the edge-based gradients
-    // to compute Div(Grad(Phi)) satisfies Lap(phi) = RHS
-    // Fill the RHS array with the residual
 
     AMREX_ALWAYS_ASSERT(coord_type >= 0 && coord_type <= 2);
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        // Cartesian
         if (coord_type == 0) {
 
             Real laplacian_val = (ecx(i+1,j,k) - ecx(i,j,k)) / dx[0];
@@ -1040,7 +932,6 @@ Gravity::check_residual (const Box& bx,
 
             poisson_rhs(i,j,k) -= laplacian_val;
 
-        // r-z
         } else if (coord_type == 1) {
 
             Real rlo  = problo[0] + static_cast<Real>(i) * dx[0];
@@ -1054,7 +945,6 @@ Gravity::check_residual (const Box& bx,
 
             poisson_rhs(i,j,k) -= laplacian_val;
 
-        // spherical
         } else if (coord_type == 2) {
 
             Real rlo  = problo[0] + static_cast<Real>(i) * dx[0];
@@ -1073,14 +963,12 @@ Gravity::verify_level_grad_phi_before(int level)
 {
     BL_PROFILE("Gravity::verify_level_grad_phi_before()");
 
-    // Fill the RHS for the solve
     const MultiFab& S_old = LevelTable[level]->get_old_data(State_Type);
     MultiFab Rhs(grids[level],dmap[level],1,0);
     MultiFab::Copy(Rhs,S_old, URHO,0,1,0);
 
     const Geometry& geom = parent->Geom(level);
 
-    // This is a correction for fully periodic domains only
     if ( geom.isAllPeriodic() )
     {
        if (gravity::verbose > 1 && ParallelDescriptor::IOProcessor() && mass_shift != 0.0) {
@@ -1132,14 +1020,12 @@ Gravity::verify_level_grad_phi_now(int level)
 {
     BL_PROFILE("Gravity::verify_level_grad_phi_now()");
 
-    // Fill the RHS for the solve
     const MultiFab& S_new = LevelTable[level]->get_new_data(State_Type);
     MultiFab Rhs(grids[level],dmap[level],1,0);
     MultiFab::Copy(Rhs,S_new, URHO, 0,1,0);
 
     const Geometry& geom = parent->Geom(level);
 
-    // This is a correction for fully periodic domains only
     if ( geom.isAllPeriodic() )
     {
        if (gravity::verbose > 1 && ParallelDescriptor::IOProcessor() && mass_shift != 0.0) {
@@ -1224,14 +1110,10 @@ Gravity::average_fine_edges_to_coarse(int level, int use_new_state)
 {
     BL_PROFILE("Gravity::average_fine_edges_to_coarse()");
 
-    // NOTE: this is called with level == the coarser of the two levels involved
     if (level == parent->finestLevel()) {
         return;
     }
 
-    //
-    // Coarsen() the fine stuff on processors owning the fine data.
-    //
     BoxArray coarse_grad_fine_BA(grids[level+1].size());
 
     IntVect fine_ratio = parent->refRatio(level);
@@ -1267,7 +1149,6 @@ Gravity::check_composite_potential (int crse_level)
 {
     BL_PROFILE("Gravity::check_composite_potential()");
 
-    // the lhas only really been tested with crse_level = 0
     AMREX_ALWAYS_ASSERT(crse_level == 0);
 
     if (gravity::verbose > 1 && ParallelDescriptor::IOProcessor()) {
@@ -1309,7 +1190,6 @@ Gravity::check_composite_potential (int crse_level)
                         amrex::GetVecOfPtrs(res),
                         time);
 
-    // Average residual from fine to coarse level before printing the norm
     for (int amr_lev = highest_level_here-1; amr_lev >= crse_level; --amr_lev)
     {
         const IntVect& ratio = parent->refRatio(amr_lev);
@@ -1351,8 +1231,6 @@ Gravity::interpolate_monopole_field(int level, RealVector& radial_field, MultiFa
         auto gravity_view = gravity_field_out.array(mfi);
         const Real* const radial_accel_ptr = radial_field.dataPtr();
 
-        // Note that we are interpolating onto the entire range of gravity_view,
-        // including the ghost cells.
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -1384,13 +1262,11 @@ Gravity::interpolate_monopole_field(int level, RealVector& radial_field, MultiFa
 
             if (index == 0) {
 
-                // Linear interpolation or extrapolation
                 Real slope = (radial_accel_ptr[index+1] - radial_accel_ptr[index]) / dr;
                 accel_mag = radial_accel_ptr[index] + slope * xi;
 
             } else if (index == n1d-1) {
 
-                // Linear interpolation or extrapolation
                 Real slope = (radial_accel_ptr[index] - radial_accel_ptr[index-1]) / dr;
                 accel_mag = radial_accel_ptr[index] + slope * xi;
 
@@ -1403,14 +1279,11 @@ Gravity::interpolate_monopole_field(int level, RealVector& radial_field, MultiFa
                     std::cout << "R / DR IS " << r << " " << dr << "\n";
                     amrex::Abort("Error:: Gravity.cpp :: interpolate_monopole_field");
                 } else {
-                    // NOTE: we don't do anything to this point if it's outside the
-                    //       radial grid and level > 0
                 }
 #endif
 
             } else {
 
-                // Quadratic interpolation
                 Real ghi = radial_accel_ptr[index+1];
                 Real gmd = radial_accel_ptr[index  ];
                 Real glo = radial_accel_ptr[index-1];
@@ -1517,10 +1390,6 @@ Gravity::tally_radial_profile(const Box& bx,
         Real r = distance(geomdata, loc);
         int index = static_cast<int>(r * drinv);
 
-        // We may be coming in here with a masked out zone (in a zone on a coarse
-        // level underlying a fine level). We don't want to be calling the EOS in
-        // this case, so we'll skip these masked out zones (which will have rho
-        // exactly equal to zero).
 
         if (u(i,j,k,URHO) == 0.0_rt) {
             return;
@@ -1543,7 +1412,6 @@ Gravity::tally_radial_profile(const Box& bx,
         }
 #endif
 
-        // Compute pressure from the EOS
         eos(eos_input_re, eos_state);
 #endif
 
@@ -1639,11 +1507,6 @@ Gravity::init_multipole_field() const
     const auto problo = parent->Geom(0).ProbLoArray();
     const auto probhi = parent->Geom(0).ProbHiArray();
 
-    // If any of the boundaries are symmetric, we need to account for the mass that is assumed
-    // to lie on the opposite side of the symmetric axis. If the center in any direction
-    // coincides with the boundary, then we can simply double the mass as a result of that reflection.
-    // Otherwise, we need to do a more general solve. We include a logical that is set to true
-    // if any boundary is symmetric, so that we can avoid unnecessary function calls.
 
     multipole::volumeScale = 1.0_rt;
     multipole::parityScale = 1.0_rt;
@@ -1686,7 +1549,6 @@ Gravity::init_multipole_field() const
 
     }
 
-    // Compute pre-factors now to save computation time, for qC and qS
 
     for (int l = 0; l <= multipole::max_moment_order; ++l) {
         multipole::axis_parity_table(l) = 1.0_rt;
@@ -1698,13 +1560,11 @@ Gravity::init_multipole_field() const
 
     for (int l = 0; l <= multipole::max_moment_order; ++l) {
 
-        // The odd l Legendre polynomials are odd in their argument, so
-        // a symmetric reflection about the z axis leads to a total cancellation.
 
         multipole::axis_parity_table(l) = 1.0_rt;
 
         if (l % 2 != 0) {
-            if (AMREX_SPACEDIM == 3 && (multipole::doMirrorLo(2) || multipole::doMirrorHi(2))) {  // NOLINT(bugprone-branch-clone)
+            if (AMREX_SPACEDIM == 3 && (multipole::doMirrorLo(2) || multipole::doMirrorHi(2))) {
                 multipole::axis_parity_table(l) = 0.0_rt;
             }
             else if (AMREX_SPACEDIM == 2 && parent->Geom(0).Coord() == 1) {
@@ -1715,8 +1575,6 @@ Gravity::init_multipole_field() const
             }
         }
 
-        // In 1D spherical, every term above l == 0 cancels out since the integration
-        // of the Legendre polynomial from 0 to pi is zero.
 
         if (l > 0) {
             if (AMREX_SPACEDIM == 1 && parent->Geom(0).Coord() == 2) {
@@ -1726,19 +1584,12 @@ Gravity::init_multipole_field() const
 
         for (int m = 1; m <= l; ++m) {
 
-            // The parity properties of the associated Legendre polynomials are:
-            // P_l^m (-x) = (-1)^(l+m) P_l^m (x)
-            // Therefore, a complete cancellation occurs if l+m is odd and
-            // we are reflecting about the z axis.
 
-            // Additionally, the cosine and sine terms flip sign when reflected
-            // about the x or y axis, so if we have a reflection about x or y
-            // then the terms have a complete cancellation.
 
             if (AMREX_SPACEDIM == 3) {
                 multipole::azimuth_parity_table(l,m) = 1.0_rt;
             }
-            else if (AMREX_SPACEDIM == 2 && parent->Geom(0).Coord() == 1) {  // NOLINT(bugprone-branch-clone)
+            else if (AMREX_SPACEDIM == 2 && parent->Geom(0).Coord() == 1) {
                 multipole::azimuth_parity_table(l,m) = 0.0_rt;
             }
             else if (AMREX_SPACEDIM == 1 && parent->Geom(0).Coord() == 2) {
@@ -1759,14 +1610,6 @@ Gravity::init_multipole_field() const
 
     }
 
-    // Now let's take care of a safety issue. The multipole calculation involves taking powers of r^l,
-    // which can overflow the floating point exponent limit if lnum is very large. Therefore,
-    // we will normalize all distances to the maximum possible physical distance from the center,
-    // which is the diagonal from the center to the edge of the box. Then r^l will always be
-    // less than or equal to one. For large enough lnum, this may still result in roundoff
-    // errors that don't make your answer any more precise, but at least it avoids
-    // possible NaN issues from having numbers that are too large for double precision.
-    // We will put the rmax factor back in at the end of ca_put_multipole_phi.
 
     Real maxWidth = probhi[0] - problo[0];
     if (AMREX_SPACEDIM >= 2) {
@@ -1776,7 +1619,7 @@ Gravity::init_multipole_field() const
         maxWidth = amrex::max(maxWidth, probhi[2] - problo[2]);
     }
 
-    multipole::rmax = 0.5_rt * maxWidth * std::sqrt(static_cast<Real>(AMREX_SPACEDIM));  // NOLINT(modernize-use-std-numbers)
+    multipole::rmax = 0.5_rt * maxWidth * std::sqrt(static_cast<Real>(AMREX_SPACEDIM));
 }
 
 void
@@ -1784,7 +1627,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 {
     BL_PROFILE("Gravity::fill_multipole_boundaries()");
 
-    // Multipole BCs only make sense to construct if we are starting from the coarse level.
 
     BL_ASSERT(crse_level == 0);
 
@@ -1798,14 +1640,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
     const int npts = 1;
 #endif
 
-    // Storage arrays for the multipole moments.
-    // We will initialize them to zero, and then
-    // sum up the results over grids.
-    // Note that since Boxes are defined with
-    // AMREX_SPACEDIM dimensions, we cannot presently
-    // use this array to fill the interior of the
-    // domain in 2D, since we can only have one
-    // radial index for calculating the multipole moments.
 
     Box momentBox0( IntVect(AMREX_D_DECL(0, 0, 0)), IntVect(AMREX_D_DECL(gravity::lnum, 0,    npts-1)) );
     Box momentBoxC( IntVect(AMREX_D_DECL(0, 0, 0)), IntVect(AMREX_D_DECL(gravity::lnum, gravity::lnum, npts-1)) );
@@ -1826,9 +1660,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
     qUC.setVal<RunOn::Device>(0.0);
     qUS.setVal<RunOn::Device>(0.0);
 
-    // This section needs to be generalized for computing
-    // full multipole gravity, not just BCs. At present this
-    // does nothing.
 
 #if (AMREX_SPACEDIM == 3)
     int surface_only_mode = 1;
@@ -1836,13 +1667,9 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
     const int surface_only_mode = 1;
 #endif
 
-    // Use all available data in constructing the boundary conditions,
-    // unless the user has indicated that a maximum level at which
-    // to stop using the more accurate data.
 
     for (int lev = crse_level; lev <= fine_level; ++lev) {
 
-        // Create a local copy of the RHS so that we can mask it.
 
         MultiFab source(Rhs[lev - crse_level]->boxArray(),
                         Rhs[lev - crse_level]->DistributionMap(), 1, 0);
@@ -1859,10 +1686,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
             }
         }
 
-        // Loop through the grids and compute the individual contributions
-        // to the various moments. The multipole moment constructor
-        // is coded to only add to the moment arrays, so it is safe
-        // to directly hand the arrays to them.
 
         const auto dx = parent->Geom(lev).CellSizeArray();
         const auto problo = parent->Geom(lev).ProbLoArray();
@@ -1923,15 +1746,12 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                 amrex::ParallelFor(amrex::Gpu::KernelInfo().setReduction(true), bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k, amrex::Gpu::Handler const& handler) noexcept
                 {
-                    // If we're using this to construct boundary values, then only fill
-                    // the outermost bin.
 
                     int nlo = 0;
                     if (surface_only_mode == 1) {
                         nlo = npts-1;
                     }
 
-                    // Note that we don't currently support dx != dy != dz, so this is acceptable.
 
                     Real binScale = multipole::rmax / dx[0];
 
@@ -1962,24 +1782,21 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                         sampleAzimuth = std::atan2(y, x);
                     }
                     else if (AMREX_SPACEDIM == 2 && coord_type == 1) {
-                        index = nlo; // We only do the boundary potential in 2D.
+                        index = nlo;
                         cosPolar = y / r;
                         sampleAzimuth = z;
                     }
                     else if (AMREX_SPACEDIM == 1 && coord_type == 2) {
-                        index = nlo; // We only do the boundary potential in 1D.
+                        index = nlo;
                         cosPolar = 1.0_rt;
                         sampleAzimuth = 0.0_rt;
                     }
 
-                    // Now, compute the multipole moments.
 
                     accumulate_moments(cosPolar, sampleAzimuth, r, rho(i,j,k), vol(i,j,k) * cutoff_cubed_inv,
                                   lowerMoment0_arr, lowerMomentC_arr, lowerMomentS_arr, upperMoment0_arr, upperMomentC_arr, upperMomentS_arr,
                                   npts, nlo, index, handler, true);
 
-                    // Now add in contributions if we have any symmetric boundaries in 3D.
-                    // The symmetric boundary in 2D axisymmetric is handled separately.
 
                     if (multipole::doFoldedAdd) {
 
@@ -2053,17 +1870,15 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
             }
 #endif
 
-        } // end OpenMP parallel loop
+        }
 
-    } // end loop over levels
+    }
 
-    // Now, do a global reduce over all processes.
 
     Real* lowerMoment0_ptr = qL0.dataPtr();
     Real* lowerMomentC_ptr = qLC.dataPtr();
     Real* lowerMomentS_ptr = qLS.dataPtr();
 
-    // Create temporary pinned host containers in case we need them.
 
     FArrayBox lowerMoment0_host(The_Pinned_Arena());
     FArrayBox lowerMomentC_host(The_Pinned_Arena());
@@ -2161,9 +1976,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
     }
 
-    // Finally, construct the boundary conditions using the
-    // complete multipole moments, for all points on the
-    // boundary that are held on this process.
 
     const Box& domain = parent->Geom(crse_level).Domain();
     const auto dx = parent->Geom(crse_level).CellSizeArray();
@@ -2188,8 +2000,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
             const int* domlo = domain.loVect();
             const int* domhi = domain.hiVect();
 
-            // If we're using this to construct boundary values, then only use
-            // the outermost bin.
 
             int nlo = 0;
             if (surface_only_mode == 1) {
@@ -2245,7 +2055,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
             z = z / multipole::rmax;
 
-            // Only adjust ghost zones here
 
             if (i < domlo[0] || i > domhi[0]
 #if AMREX_SPACEDIM >= 2
@@ -2256,10 +2065,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 #endif
                 ) {
 
-                // There are some cases where r == 0. This might occur, for example,
-                // when we have symmetric BCs and our corner is at one edge.
-                // In this case, we'll set phi to zero for safety, to avoid NaN issues.
-                // These cells should not be accessed anyway during the gravity solve.
 
                 Real r = std::sqrt(x * x + y * y + z * z);
 
@@ -2280,7 +2085,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
                 phi_arr(i,j,k) = 0.0_rt;
 
-                // Compute the potentials on the ghost cells.
 
                 Real legendreValue, legendreValue1, legendreValue2;
                 Real assocLegendreValue, assocLegendreValue1, assocLegendreValue2;
@@ -2293,7 +2097,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
                         Real r_U = std::pow(r, -l-1);
 
-                        // Make sure we undo the volume scaling here.
 
                         phi_arr(i,j,k) += lowerMoment0_arr(l,0,n) * legendreValue * r_U * cutoff_cubed;
 
@@ -2310,7 +2113,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
                             Real r_U = std::pow(r, -l-1);
 
-                            // Make sure we undo the volume scaling here.
 
                             phi_arr(i,j,k) += (lowerMomentC_arr(l,m,n) * std::cos(m * sampleAzimuth) + lowerMomentS_arr(l,m,n) * std::sin(m * sampleAzimuth)) *
                                               assocLegendreValue * r_U * cutoff_cubed;
@@ -2354,7 +2156,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
     const Geometry& crse_geom = parent->Geom(crse_level);
 
-    // Storage arrays for the BCs.
 
     const int* domlo = crse_geom.Domain().loVect();
     const int* domhi = crse_geom.Domain().hiVect();
@@ -2424,9 +2225,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
     boundaryYZLo.setVal<RunOn::Device>(0.0);
     boundaryYZHi.setVal<RunOn::Device>(0.0);
 
-    // Loop through the grids and compute the individual contributions
-    // to the BCs. The BC constructor is coded to only add to the
-    // BCs, so it is safe to directly hand the arrays to them.
 
     int physbc_lo[3];
     int physbc_hi[3];
@@ -2438,7 +2236,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
     for (int lev = crse_level; lev <= fine_level; ++lev) {
 
-        // Create a local copy of the RHS so that we can mask it.
 
         MultiFab source(Rhs[lev - crse_level]->boxArray(),
                         Rhs[lev - crse_level]->DistributionMap(),
@@ -2488,7 +2285,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
                 const auto rho = source[mfi].array();
                 const auto vol = (*volume[lev])[mfi].array();
 
-                // Determine if we need to add contributions from any symmetric boundaries.
 
                 GpuArray<bool, 3> doFoldedAddLo {false};
                 GpuArray<bool, 3> doFoldedAddHi {false};
@@ -2540,11 +2336,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
                     loc[2] = 0.0_rt;
 #endif
 
-                    // Do xy interfaces first. Note that the boundary conditions
-                    // on phi are expected to live directly on the interface.
-                    // We also have to handle the domain corners correctly. We are
-                    // assuming that bc_lo = domlo - 1 and bc_hi = domhi + 1, where
-                    // domlo and domhi are the coarse domain extent.
 
                     for (int m = bc_lo[1]; m <= bc_hi[1]; ++m) {
                         if (m == bc_lo[1]) {
@@ -2577,8 +2368,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
                             Real dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
 
-                            // Now, add any contributions from mass that is hidden behind
-                            // a symmetric boundary.
 
                             if (doFoldedAdd) {
 
@@ -2611,7 +2400,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
                     }
 
-                    // Now do xz interfaces.
 
                     for (int n = bc_lo[2]; n <= bc_hi[2]; ++n) {
                         if (n == bc_lo[2]) {
@@ -2675,7 +2463,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
                     }
 
-                    // Finally, do yz interfaces.
 
                     for (int n = bc_lo[2]; n <= bc_hi[2]; ++n) {
                         if (n == bc_lo[2]) {
@@ -2781,9 +2568,8 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 #endif
         }
 
-    } // end loop over levels
+    }
 
-    // because the number of elements in mpi_reduce is int
     BL_ASSERT(pointCountXY <= std::numeric_limits<int>::max());
     BL_ASSERT(pointCountXZ <= std::numeric_limits<int>::max());
     BL_ASSERT(pointCountYZ <= std::numeric_limits<int>::max());
@@ -2879,7 +2665,6 @@ Gravity::applyCurvatureTerms(int level, MultiFab& Rhs, const Vector<MultiFab*>& 
         const Box& ybx = mfi.nodaltilebox(1);
 #endif
 
-        // Modify Rhs and coeffs with the appropriate metric terms.
         apply_curvilinear_weights(bx,
                      Rhs.array(mfi), (Rhs[mfi]).box(),
                      (*coeffs[0]).array(mfi), xbx,
@@ -2915,7 +2700,6 @@ Gravity::build_solver_bc ()
         }
     }
 
-    // Set Neumann bc at r=0.
     if (geom.IsSPHERICAL() || geom.IsRZ() ) {
         mlmg_lobc[0] = MLLinOp::BCType::Neumann;
     }
@@ -2950,7 +2734,7 @@ Gravity::set_mass_shift (Real time, bool span_all_levels) const
         {
             auto* cs = dynamic_cast<HydroSim*>(&parent->getLevel(0));
             if (cs != nullptr) {
-                mass_shift = cs->volWeightedTotal("density", time, false, false);  // do not mask off fine grids
+                mass_shift = cs->volWeightedTotal("density", time, false, false);
             } else {
                 amrex::Abort("unable to access volWeightedTotal");
             }
@@ -2996,7 +2780,6 @@ Gravity::include_point_source_field (int level, MultiFab& phi, MultiFab& gravity
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            // Compute radial gravity due to a point mass at center[:].
 
             Real x = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
 #if AMREX_SPACEDIM >= 2
@@ -3035,9 +2818,6 @@ Gravity::include_point_source_field (int level, MultiFab& phi, MultiFab& gravity
 
             Real inv_dist = 1.e0_rt / std::sqrt(rsq);
 
-            // Note that gravity_view may have more ghost zones than
-            // phi, so we need to check that we're doing
-            // valid indexing here.
 
             if (phi_arr.contains(i,j,k)) {
                 phi_arr(i,j,k) -= C::Gconst * hydrosim::point_mass * inv_dist;
@@ -3057,7 +2837,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
 
     const Real strt = ParallelDescriptor::second();
 
-    // This is just here in case we need to debug ...
     int diag_print_on = 0;
 
     Real total_over_levels = 0.;
@@ -3068,14 +2847,9 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
         const Real t_new = LevelTable[lev]->get_state_data(State_Type).curTime();
         const Real eps   = (t_new - t_old) * 1.e-6;
 
-        // Create MultiFab with NUM_STATE components and no ghost cells
         MultiFab S(grids[lev],dmap[lev],NUM_STATE,0);
 
-        if ( eps == 0.0 ) {  // NOLINT(bugprone-branch-clone,-warnings-as-errors)
-            // Old and new time are identical; this should only happen if
-            // dt is smaller than roundoff compared to the current time,
-            // in which case we're probably in trouble anyway,
-            // but we will still handle it gracefully here.
+        if ( eps == 0.0 ) {
             MultiFab::Copy(S, LevelTable[lev]->get_new_data(State_Type), 0, 0, NUM_STATE, 0);
         }
         else if ( std::abs(time-t_old) < eps)
@@ -3247,14 +3021,12 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     const Real* const target_mass_bins = radial_shell_mass[level].dataPtr();
     Real* const mass_total = radial_mass_total.dataPtr();
 
-    // First add the contribution from this level
     amrex::ParallelFor(n1d,
     [=] AMREX_GPU_DEVICE (int i) noexcept
     {
         mass_total[i] = target_mass_bins[i];
     });
 
-    // Now add the contribution from coarser levels
     if (level > 0)
     {
         int ratio = parent->refRatio(level-1)[0];
@@ -3307,14 +3079,12 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
 
     const Real* const level_vol = radial_shell_vol[level].dataPtr();
 
-    // First add the contribution from this level
     amrex::ParallelFor(n1d,
     [=] AMREX_GPU_DEVICE (int i) noexcept
     {
         vol_total[i] = level_vol[i];
     });
 
-    // Now add the contribution from coarser levels
     if (level > 0)
     {
         int ratio = parent->refRatio(level-1)[0];
@@ -3352,14 +3122,12 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     Real* const pres_total = radial_pres_total.dataPtr();
     Real* const target_pres_bins = radial_shell_pres[level].dataPtr();
 
-    // First add the contribution from this level
     amrex::ParallelFor(n1d,
     [=] AMREX_GPU_DEVICE (int i) noexcept
     {
         pres_total[i] = target_pres_bins[i];
     });
 
-    // Now add the contribution from coarser levels
     if (level > 0)
     {
         int ratio = parent->refRatio(level-1)[0];
@@ -3388,7 +3156,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     });
 #endif
 
-    // Integrate radially outward to define the gravity
 
     const Real* const mass = radial_mass_total.dataPtr();
 #ifdef GR_GRAV
@@ -3397,15 +3164,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
 #endif
     Real* const gravity_view = radial_field.dataPtr();
 
-    // At a given radius r corresponding to an index i, the gravity is
-    // g(r) = -G * M(r) / r**2. The enclosed mass can be computed via
-    // an inclusive prefix sum, which yields the same result one would
-    // obtain with a serial calculation from 0 to i but with the ability
-    // to be parallelized. The first lambda returns the mass at radial
-    // zone index i (which includes the upper shell of zone i-1 and the
-    // lower shell of zone i) and the second lambda accepts the current
-    // enclosed mass as an argument and computes the gravity at the
-    // corresponding radius.
 
     Scan::PrefixSum<Real> (n1d,
         [=] AMREX_GPU_DEVICE (int i) -> Real
@@ -3413,8 +3171,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
             Real dM = 0.0;
 
             if (i > 0) {
-                // The mass at (i-1) is distributed into an upper and lower shell; the
-                // contribution to the mass at zone center i is from the upper shell.
                 Real rlo = (static_cast<Real>(i-1)         ) * dr;
                 Real rc  = (static_cast<Real>(i-1) + 0.5_rt) * dr;
                 Real rhi = (static_cast<Real>(i-1) + 1.0_rt) * dr;
@@ -3428,8 +3184,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
             Real rc  = (static_cast<Real>(i) + 0.5_rt) * dr;
             Real rhi = (static_cast<Real>(i) + 1.0_rt) * dr;
 
-            // The mass at (i) is distributed into an upper and lower shell; the
-            // contribution to the mass at zone center i is from the lower shell.
             Real shell_volume = (4.0_rt / 3.0_rt * std::numbers::pi) * dr * (rc  * rc  * rc  - rlo * rlo * rlo);
             Real zone_volume  = (4.0_rt / 3.0_rt * std::numbers::pi) * dr * (rhi * rhi * rhi - rlo * rlo * rlo);
             dM = dM + (shell_volume / zone_volume) * mass[i];
@@ -3443,7 +3197,6 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
             gravity_view[i] = -C::Gconst * running_mass / (rc * rc);
 
 #ifdef GR_GRAV
-            // Tolman-Oppenheimer-Volkoff (TOV) post-Newtonian correction
 
             if (den[i] > 0.0_rt) {
                 Real ga = (1.0_rt + pres[i] / (den[i] * C::c_light * C::c_light));
@@ -3492,11 +3245,6 @@ Gravity::fetch_poisson_rhs (int crse_level, int nlevs, int use_new_state)
 void
 Gravity::sanity_check (int level)
 {
-    // This is a sanity check on whether we are trying to fill multipole boundary conditiosn
-    //  for grids at this level > 0 -- this case is not currently supported.
-    //  Here we shrink the domain at this level by 1 in any direction which is not symmetry or periodic,
-    //  then ask if the grids at this level are contained in the shrunken domain.  If not, then grids
-    //  at this level touch the domain boundary and we must abort.
 
     const Geometry& geom = parent->Geom(level);
 
@@ -3526,11 +3274,6 @@ Gravity::update_max_density()
 {
     BL_PROFILE("Gravity::update_max_density()");
 
-    // Calculate the maximum value of the RHS over all levels.
-    // This should only be called at a synchronization point where
-    // all HydroSim levels have valid new time data at the same simulation time.
-    // The RHS we will use is the density multiplied by 4*pi*G and also
-    // multiplied by the metric terms, just as it would be in a real solve.
 
     int crse_level = 0;
     int nlevs = parent->finestLevel() + 1;
@@ -3561,8 +3304,6 @@ Gravity::update_max_density()
 
         for (int lev = 0; lev < nlevs; ++lev) {
 
-            // We need to include this bit about the coefficients because
-            // it's required by applyCurvatureTerms.
 
             coeffs[lev].resize(AMREX_SPACEDIM);
 
@@ -3632,13 +3373,6 @@ Gravity::solve_potential_mlmg (int crse_level, int fine_level,
 
     Real rel_tolerance = rel_tol[fine_level];
 
-    // The absolute tolerance is determined by the error tolerance
-    // chosen by the user (tol) multiplied by the maximum value of
-    // the RHS (4 * pi * G * rho). If we're doing periodic BCs, we
-    // subtract off the mass_shift corresponding to the average
-    // density on the domain. This will automatically be zero for
-    // non-periodic BCs. And this also accounts for the metric
-    // terms that are applied in non-Cartesian coordinates.
 
     Real abs_tolerance = abs_tol[fine_level] * peak_rhs_value;
 
@@ -3713,7 +3447,6 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
 
     MLPoisson mlpoisson(gmv, bav, dmv, info);
 
-    // BC
     mlpoisson.setDomainBC(mlmg_lobc, mlmg_hibc);
     if (mlpoisson.needsCoarseDataForBC())
     {
@@ -3726,11 +3459,11 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
     }
 
     MLMG mlmg(mlpoisson);
-    mlmg.setVerbose(gravity::verbose - 1); // With normal verbosity we don't want MLMG information
+    mlmg.setVerbose(gravity::verbose - 1);
     if (crse_level == 0) {
         mlmg.setMaxFmgIter(gravity::mlmg_fmg_cycles);
     } else {
-        mlmg.setMaxFmgIter(0); // Vcycle
+        mlmg.setMaxFmgIter(0);
     }
 
     AMREX_ALWAYS_ASSERT( !phi_gradient.empty() or !res.empty() );

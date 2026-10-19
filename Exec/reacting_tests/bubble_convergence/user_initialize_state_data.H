@@ -57,7 +57,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
     }
 
-    // Initial velocities = 0
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
@@ -65,7 +64,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     if (problem::do_pert) {
 
-        // Now add the perturbation
         Real t0 = state(i,j,k,UTEMP);
 
         Real rho_old = state(i,j,k,URHO);
@@ -83,17 +81,14 @@ void user_initialize_state_data (int i, int j, int k,
 
         state(i,j,k,UTEMP) = t0 * (1.0_rt + 0.6_rt * (1.0_rt + std::tanh(4.0_rt - r)));
 
-        // update the temperature in the EOS state -- leave the pressure unchanged
 
         eos_state.T = state(i,j,k,UTEMP);
 
-        // now get the new density from this T, p
 
         eos(eos_input_tp, eos_state);
 
         state(i,j,k,URHO) = eos_state.rho;
 
-        // correct the mass fractions and energy with the new density
 
         state(i,j,k,UEINT) = state(i,j,k,URHO) * eos_state.e;
         state(i,j,k,UEDEN) = state(i,j,k,UEINT);

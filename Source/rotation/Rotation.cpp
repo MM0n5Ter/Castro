@@ -9,14 +9,6 @@ HydroSim::fill_scaled_centrifugal_potential(const Box& bx,
 
     amrex::ignore_unused(time);
 
-  // Construct psi, which is the distance-related part of the rotation
-  // law.  For rigid-body
-  // rotation, psi = -R^2 / 2, where R is the distance orthogonal to
-  // the rotation axis. There are also v-constant and j-constant
-  // rotation laws that we do not implement here. We will construct
-  // this as potential / omega**2, so that the centrifugal_potential
-  // routine uniquely determines the rotation law. For the other
-  // rotation laws, we would simply divide by v_0^2 or j_0^2 instead.
 
   const auto omega = get_angular_speed();
   Real denom = omega * omega;

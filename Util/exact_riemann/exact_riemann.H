@@ -16,16 +16,11 @@ AMREX_INLINE
 void
 exact_riemann() {
 
-    // we need a composition to interface with our EOS, but we are not
-    // exploring composition jumps here.  We'll take a constant
-    // composition.
 
     amrex::Real xn[NumSpec] = {0.0};
     xn[0] = 1.0_rt;
 
 
-    // if we are using T as the independent variable (rather than p), then
-    // get p now
     if (problem::use_Tinit) {
 
         eos_t eos_state;
@@ -58,20 +53,16 @@ exact_riemann() {
 
     std::cout << "found star state, niter = " << niter << "; pstar, ustar = " << pstar << " " << ustar << std::endl;
 
-    // find the solution as a function of xi = x/t
     std::ofstream ofile;
     ofile.open("riemann.out");
 
     amrex::Real dx = (problem::xmax - problem::xmin) / static_cast<amrex::Real>(problem::npts);
 
-    // loop over xi space
 
     std::cout << "evaluating at t = " << problem::t << std::endl;
 
     for (int i = 1; i <= problem::npts; i++) {
 
-        // compute xi = x/t -- this is the similarity variable for the
-        // solution
         amrex::Real x  = problem::xmin + (static_cast<amrex::Real>(i) - 0.5_rt) * dx;
 
         amrex::Real rho, u, p, xn_s[NumSpec];
@@ -82,7 +73,6 @@ exact_riemann() {
                        x, problem::xjump, problem::t,
                        rho, u, p, xn_s);
 
-        // get the thermodynamics for this state for output
 
         eos_t eos_state;
         eos_state.rho = rho;

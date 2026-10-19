@@ -38,7 +38,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = amrex::max(interpolate(height, model::ispec+n), network_rp::small_x);
     }
 
-    // normalize
 
     Real sum = 0.0_rt;
     for (int n = 0; n < NumSpec; n++) {
@@ -49,7 +48,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) /= sum;
     }
 
-    // Here we enforce the EOS by calling rho and T (giving us p)
     eos_t eos_state;
     eos_state.rho = state(i,j,k,URHO);
     eos_state.T = state(i,j,k,UTEMP);
@@ -67,13 +65,11 @@ void user_initialize_state_data (int i, int j, int k,
     }
 
 
-    // Setting up the initial velocities = 0
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
 
-    //  Now add the velocity perturbation
     if (problem::apply_vel_field) {
 
         Real zdist = 0.0_rt;
@@ -81,7 +77,6 @@ void user_initialize_state_data (int i, int j, int k,
 
         Real upert[3] = {0.0_rt};
 
-        // loop over each vortex
 
         for (int vortex = 0; vortex < problem::num_vortices; vortex++) {
 
@@ -112,7 +107,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     }
 
-    // Now we add the temperature perturbation
     if (problem::apply_temp_field){
 
 #if AMREX_SPACEDIM == 2
@@ -149,7 +143,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UTEMP) = state(i,j,k, UTEMP)*(1.0_rt + temp_pert);
 #endif
 
-        // Now we enforce the EOS by calling T and p (giving us rho)
         eos_state.T = state(i,j,k,UTEMP);
 
         eos(eos_input_tp, eos_state);

@@ -14,7 +14,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     Real yy = problo[1] + dx[1] * (static_cast<Real>(j) + 0.5_rt) - problem::center[1];
     Real zz = problo[2] + dx[2] * (static_cast<Real>(k) + 0.5_rt) - problem::center[2];
 
-    // Establish the sphere
 
     if (std::pow(xx * xx + yy * yy + zz * zz, 0.5_rt) < problem::diameter / 2) {
         state(i,j,k,URHO) = problem::density;
@@ -23,8 +22,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
         state(i,j,k,URHO) = problem::ambient_dens;
     }
 
-    // Establish the thermodynamic quantities. They don't have to be
-    // valid because this test will never do a hydro step.
 
     state(i,j,k,UTEMP) = 1.0_rt;
     state(i,j,k,UEINT) = 1.0_rt;

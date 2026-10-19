@@ -23,20 +23,9 @@ deferred_stiff_solve(const Real substep_dt,
                GpuArray<Real, NUM_STATE> const& C,
                const int correction_iter) {
 
-    // The purpose of this function is to solve the system the
-    // approximate system dU/dt = R + C using the VODE ODE
-    // integrator.
-    // The solution we get here will then be used as the
-    // initial guess to the Newton solve on the real system.
-
-    // We will do the implicit update of only the terms that
-    // have reactive sources
-    //
-    // 1:NumSpec : (rho X)
-    // NumSpec+1 : (rho e)
 
 
-    // Update the density and momenta for this zone -- they don't react
+
 
     cons_new[URHO] = Conserved_old[URHO] + substep_dt * C[URHO];
 
@@ -44,31 +33,20 @@ deferred_stiff_solve(const Real substep_dt,
         cons_new[UMX+n] = Conserved_old[UMX+n] + substep_dt * C[UMX+n];
     }
 
-    // Now only save the subset that participates in the
-    // nonlinear solve -- note: we include the old state
-    // in f_source
 
     burn_t burn_state;
 
     burn_state.success = true;
 
-    // store the state
 
     fill_burn_type_from_conserved(Conserved_old, burn_state);
 
-    // we need an initial T guess for the EOS
     burn_state.T = Conserved_old[UTEMP];
 
     burn_state.T_fixed = -1.e30_rt;
     burn_state.rho = burn_state.y[SRHO];
 
-    // If we are solving the system as an ODE, then we are
-    // solving
-    //   dU/dt = R(U) + C
-    // so we simply pass in C
 
-    // Note: we need to use the indexing order that is defined in the burn_t
-    // so we are compatible with the integrator logic
 
     burn_state.ydot_a[SRHO] = C[URHO];
     burn_state.ydot_a[SMX] = C[UMX];
@@ -94,7 +72,6 @@ deferred_stiff_solve(const Real substep_dt,
         amrex::Error("Error: integration failed");
     }
 
-    // update the full cons_new -- we already did density and momentum
 
     cons_new[UEDEN] = burn_state.y[SEDEN];
     cons_new[UEINT] = burn_state.y[SEINT];
@@ -107,7 +84,6 @@ deferred_stiff_solve(const Real substep_dt,
     }
 #endif
 
-    // keep our temperature guess
     cons_new[UTEMP] = Conserved_old[UTEMP];
 
 }

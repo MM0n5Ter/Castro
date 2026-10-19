@@ -19,11 +19,11 @@ void Radiation::build_groups(int verbose)
   group_output_scale   = 1.0;
   group_unit_label          = " (units are Hz)";
 
-  xnu.resize(nGroups+1, 0.0); // Bounds of the frequency group
-  freq_center.resize(nGroups, 1.0); // Geometric center of the frequency group
-  freq_width.resize(nGroups, 0.0); // Width of the frequency group
-  log_group_center.resize(nGroups, 0.0); // Log of the center of the frequency group
-  log_group_widths.resize(nGroups, 0.0); // Log of the width of the frequency group
+  xnu.resize(nGroups+1, 0.0);
+  freq_center.resize(nGroups, 1.0);
+  freq_width.resize(nGroups, 0.0);
+  log_group_center.resize(nGroups, 0.0);
+  log_group_widths.resize(nGroups, 0.0);
 
   ParmParse pp("radiation");
 

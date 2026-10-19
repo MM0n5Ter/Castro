@@ -25,7 +25,6 @@ void user_initialize_mhd_data (int i, int j, int k,
 
 
     if (problem::idir == 1) {
-        // initialize along the x-direction
 
         if (ibdir == 0) {
             if (x <= problem::split[0]+1) {
@@ -48,7 +47,6 @@ void user_initialize_mhd_data (int i, int j, int k,
         }
 
     } else if (problem::idir == 2) {
-        // initialize along the y-direction
 
         if (ibdir == 0) {
             if (y <= problem::split[1]) {
@@ -71,7 +69,6 @@ void user_initialize_mhd_data (int i, int j, int k,
         }
 
     } else {
-        // initialize along the z-direction
 
         if (ibdir == 0) {
             if (z <= problem::split[2]) {

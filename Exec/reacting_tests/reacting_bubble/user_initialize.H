@@ -10,11 +10,9 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // Read initial model
 
     read_model_file(problem::model_name);
 
-    // set the ambient state for the upper boundary condition
 
     ambient::ambient_reference_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_reference_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
@@ -26,7 +24,6 @@ void user_initialize ()
     ambient::ambient_reference_state[UMY] = 0.0_rt;
     ambient::ambient_reference_state[UMZ] = 0.0_rt;
 
-    // make the ambient state thermodynamically consistent
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];

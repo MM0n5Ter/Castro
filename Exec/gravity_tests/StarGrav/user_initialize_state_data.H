@@ -44,7 +44,6 @@ void user_initialize_state_data (int i, int j, int k,
     eos(eos_input_rt, eos_state);
 
 
-    // perturbuation on y axis
 
     if (problem::pert_amplitude > 0.0_rt) {
         Real pdist2 = x * x + (y - problem::pert_dist) * (y - problem::pert_dist);
@@ -68,7 +67,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
     }
 
-    // Initial velocities = 0
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;

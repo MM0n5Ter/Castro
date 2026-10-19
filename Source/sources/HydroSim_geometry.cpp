@@ -3,11 +3,6 @@
 
 using namespace amrex;
 
-///
-/// this adds the geometric source terms for non-Cartesian Coordinates
-/// This includes 2D Cylindrical (R-Z) coordinate
-/// and 2D Spherical (R-THETA) coordinate.
-///
 
 void
 HydroSim::assemble_old_geometry_source(MultiFab& source, const MultiFab& state_in, Real time, Real dt)
@@ -41,7 +36,7 @@ HydroSim::assemble_old_geometry_source(MultiFab& source, const MultiFab& state_i
 
   Real term_weight = 1.0;
 
-  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);
 
   if (verbose > 1)
   {
@@ -90,7 +85,6 @@ HydroSim::assemble_new_geometry_source(MultiFab& source, const MultiFab& field_o
 
   geometry_source.setVal(0.0);
 
-  // Subtract off the old-time value first
   Real old_time = time - dt;
 
   if (geom.Coord() == 1) {
@@ -101,9 +95,8 @@ HydroSim::assemble_new_geometry_source(MultiFab& source, const MultiFab& field_o
 
   Real term_weight = -0.5;
 
-  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);
 
-  // Time center with the new data
 
   geometry_source.setVal(0.0);
 
@@ -115,7 +108,7 @@ HydroSim::assemble_new_geometry_source(MultiFab& source, const MultiFab& field_o
       fill_spherical_geometry_source(time, dt, field_new, geometry_source);
   }
 
-  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);   // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);
 
   if (verbose > 1)
   {
@@ -142,9 +135,6 @@ void
 HydroSim::fill_axisymmetric_geometry_source (Real time, Real dt, const MultiFab& conserved_state, MultiFab& geometry_source)
 {
 
-  // Compute the geometric source for axisymmetric coordinates (R-Z)
-  // resulting from taking the divergence of (rho U U) in cylindrical
-  // coordinates.
 
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
@@ -167,13 +157,10 @@ HydroSim::fill_axisymmetric_geometry_source (Real time, Real dt, const MultiFab&
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-      // radius for non-Cartesian
       Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt)*dx[0];
 
-      // radial momentum: F = rho v_phi**2 / r
       src(i,j,k,UMX) = field_arr(i,j,k,UMZ) * field_arr(i,j,k,UMZ) / (field_arr(i,j,k,URHO) * r);
 
-      // azimuthal momentum: F = - rho v_r v_phi / r
       src(i,j,k,UMZ) = - field_arr(i,j,k,UMX) * field_arr(i,j,k,UMZ) / (field_arr(i,j,k,URHO) * r);
 
     });
@@ -186,8 +173,6 @@ void
 HydroSim::fill_spherical_geometry_source (Real time, Real dt, const MultiFab& conserved_state, MultiFab& geometry_source)
 {
 
-  // Compute the geometric source resulting from taking the divergence of (rho U U)
-  // in Spherical 2D (R-Theta) coordinate.
 
   amrex::ignore_unused(time);
   amrex::ignore_unused(dt);
@@ -210,7 +195,6 @@ HydroSim::fill_spherical_geometry_source (Real time, Real dt, const MultiFab& co
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-      // Cell-centered Spherical Radius and Theta
       Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt)*dx[0];
       Real theta_cotangent{};
 #if AMREX_SPACEDIM >= 2
@@ -218,15 +202,12 @@ HydroSim::fill_spherical_geometry_source (Real time, Real dt, const MultiFab& co
       theta_cotangent = cot(theta);
 #endif
 
-      // radial momentum: F = rho (v_theta**2 + v_phi**2) / r
       src(i,j,k,UMX) = (field_arr(i,j,k,UMY) * field_arr(i,j,k,UMY) +
                         field_arr(i,j,k,UMZ) * field_arr(i,j,k,UMZ)) / (field_arr(i,j,k,URHO) * r);
 
-      // Theta momentum F = rho v_phi**2 cot(theta) / r - rho v_r v_theta / r
       src(i,j,k,UMY) = (field_arr(i,j,k,UMZ) * field_arr(i,j,k,UMZ) * theta_cotangent -
                         field_arr(i,j,k,UMX) * field_arr(i,j,k,UMY)) / (field_arr(i,j,k,URHO) * r);
 
-      // Phi momentum: F = - rho v_r v_phi / r - rho v_theta v_phi cot(theta) / r
       src(i,j,k,UMZ) = (- field_arr(i,j,k,UMY) * field_arr(i,j,k,UMZ) * theta_cotangent -
                         field_arr(i,j,k,UMX) * field_arr(i,j,k,UMZ)) / (field_arr(i,j,k,URHO) * r);
 

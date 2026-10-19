@@ -5,30 +5,16 @@
 
 using namespace amrex;
 
-///
-/// For hybrid momentum advection, convert the linear momentum into the
-/// hybrid / angular momentum components
-///
-/// @param loc         spatial location
-/// @param cartesian_vector  linear momentum
-/// @param hybrid_vector  hybrid / angular momentum
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void cartesian_to_hybrid(const GpuArray<Real, 3>& loc,
                       const GpuArray<Real, 3>& cartesian_vector,
                       GpuArray<Real, 3>& hybrid_vector)
 {
-    // Convert a linear momentum into the "hybrid" scheme
-    // that has radial and angular components.
 
     Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
                         std::numeric_limits<Real>::min());
     Real InvRadius = 1.0_rt / R;
 
-    // Note that we expect the linear momentum to be consistent
-    // with which frame we're measuring the fluid quantities in.
-    // So we're effectively always using the first form of those
-    // equalities, not the second.
 
     hybrid_vector[0] = cartesian_vector[0] * (loc[0] * InvRadius) + cartesian_vector[1] * (loc[1] * InvRadius);
     hybrid_vector[1] = cartesian_vector[1] * loc[0] - cartesian_vector[0] * loc[1];
@@ -36,25 +22,16 @@ void cartesian_to_hybrid(const GpuArray<Real, 3>& loc,
 }
 
 
-///
-/// Convert the hybrid / angular momentum back to linear momentum
-///
-/// @param loc          spatial location
-/// @param hybrid_vector   hybrid / angular momentum
-/// @param cartesian_vector   linear momentum
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void hybrid_to_cartesian(const GpuArray<Real, 3>& loc,
                       const GpuArray<Real, 3>& hybrid_vector,
                       GpuArray<Real, 3>& cartesian_vector)
 {
-    // Convert a "hybrid" momentum into a linear one.
 
     Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
                         std::numeric_limits<Real>::min());
     Real InvRadius = 1.0_rt / R;
 
-    // This is the inverse.
 
     cartesian_vector[0] = hybrid_vector[0] * (loc[0] * InvRadius) - hybrid_vector[1] * (loc[1] * InvRadius * InvRadius);
     cartesian_vector[1] = hybrid_vector[1] * (loc[0] * InvRadius * InvRadius) + hybrid_vector[0] * (loc[1] * InvRadius);
@@ -62,14 +39,6 @@ void hybrid_to_cartesian(const GpuArray<Real, 3>& loc,
 }
 
 
-///
-/// Create the hydrodynamic source term for the hybrid momenta based on the
-/// input linear momentum source term
-///
-/// @param loc             spatial location
-/// @param cartesian_source_vector   linear momentum source term
-/// @param hybrid_source_vector   hybrid / angular momentum source term
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void compute_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
                                 const GpuArray<Real, 3>& cartesian_source_vector,
@@ -79,7 +48,6 @@ void compute_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
                         std::numeric_limits<Real>::min());
     Real InvRadius = 1.0_rt / R;
 
-    // This is analogous to the conversion of linear momentum to hybrid momentum.
 
     hybrid_source_vector[0] = cartesian_source_vector[0] * (loc[0] * InvRadius) + cartesian_source_vector[1] * (loc[1] * InvRadius);
     hybrid_source_vector[1] = cartesian_source_vector[1] * loc[0] - cartesian_source_vector[0] * loc[1];
@@ -87,18 +55,6 @@ void compute_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
 }
 
 
-///
-/// Compute and store the flux of the hybrid momentum components
-///
-/// @param state          the Godunov state
-/// @param geomdata       the HydroSim geometry data object
-/// @param idir           coordinate direction for flux computation (0 = x, 1 = y, 2 = z)
-/// @param i              x zone index
-/// @param j              y zone index
-/// @param k              z zone index
-/// @param flux           hydrodynamic flux in direction idir
-/// @param on_cell_center  is this a cell-centered flux or an interface flux?
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void hybrid_flux_from_state(const GpuArray<Real, NGDSTATE>& state, const GeometryData& geomdata,
                          int idir, int i, int j, int k,

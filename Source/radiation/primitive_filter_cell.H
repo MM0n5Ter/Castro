@@ -12,8 +12,6 @@ void primitive_filter_cell (int i, int j, int k,
                 const GeometryData& geomdata,
                 Real time)
 {
-    // this is a stub -- a problem can override this in its own directory
-    // to implement filtering
 }
 
 #endif

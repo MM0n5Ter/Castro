@@ -15,10 +15,8 @@ USE_SIMPLIFIED_SDC := TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 ifeq ($(USE_NSE_NET), TRUE)
 	NETWORK_DIR := ase
 	SCREEN_METHOD := chabrier1998

@@ -26,7 +26,7 @@ HydroSim::assemble_old_thermodynamic_source(MultiFab& source, MultiFab& state_in
 
   Real term_weight = 1.0;
 
-  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);
 
   if (verbose > 1)
   {
@@ -48,7 +48,7 @@ HydroSim::assemble_old_thermodynamic_source(MultiFab& source, MultiFab& state_in
 
 
 
-void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+void
 HydroSim::assemble_new_thermodynamic_source(MultiFab& source, const MultiFab& field_old, MultiFab& field_new,
                                     Real time, Real dt)
 {
@@ -77,21 +77,19 @@ HydroSim::assemble_new_thermodynamic_source(MultiFab& source, const MultiFab& fi
 
   Real term_weight = -0.5;
 
-  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);
 
-  //Time center with the new data
 
   thermodynamic_src.setVal(0.0);
 
   term_weight = 0.5;
 
-  //field_new needs ghost cell
   FillPatchIterator fpi(*this, field_new, 1, time, State_Type, 0, NUM_STATE);
   MultiFab& grown_field = fpi.get_mf();
 
   fill_thermodynamic_source(grown_field, thermodynamic_src);
 
-  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);  // NOLINT(readability-suspicious-call-argument)
+  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);
 
   if (verbose > 1)
   {
@@ -111,7 +109,7 @@ HydroSim::assemble_new_thermodynamic_source(MultiFab& source, const MultiFab& fi
     }
 
 
-#endif //MHD
+#endif
 }
 
 
@@ -120,11 +118,6 @@ void
 HydroSim::fill_thermodynamic_source (const MultiFab& state_in, MultiFab& thermodynamic_src)
 {
 
-  // Compute thermodynamic sources for the internal energy equation.
-  // At the moment, this is only the -p div{U} term in the internal
-  // energy equation, and only for method-of-lines integration,
-  // including the new SDC method (the `-` is because it is on the RHS
-  // of the equation)
 
   const auto dx = geom.CellSizeArray();
   const auto prob_lo = geom.ProbLoArray();
@@ -147,23 +140,19 @@ HydroSim::fill_thermodynamic_source (const MultiFab& state_in, MultiFab& thermod
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-      // radius for non-Cartesian
       Real rp = prob_lo[0] + (static_cast<Real>(i) + 1.5_rt)*dx[0];
       Real rm = prob_lo[0] + (static_cast<Real>(i) - 0.5_rt)*dx[0];
       Real r = 0.5_rt*(rm + rp);
 
-      // compute -div{U}
       if (coord == 0) {
         src(i,j,k,UEINT) = -0.5_rt*(U(i+1,j,k,UMX)/U(i+1,j,k,URHO)  -
                                     U(i-1,j,k,UMX)/U(i-1,j,k,URHO))/dx[0];
 
       } else if (coord == 1) {
-        // axisymmetric
         src(i,j,k,UEINT) = -0.5_rt*(rp*U(i+1,j,k,UMX)/U(i+1,j,k,URHO) -
                                     rm*U(i-1,j,k,UMX)/U(i-1,j,k,URHO))/(r*dx[0]);
 
       } else if (coord == 2) {
-        // spherical
         src(i,j,k,UEINT) = -0.5_rt*(rp*rp*U(i+1,j,k,UMX)/U(i+1,j,k,URHO) -
                                     rm*rm*U(i-1,j,k,UMX)/U(i-1,j,k,URHO))/(r*r*dx[0]);
       }
@@ -187,8 +176,6 @@ HydroSim::fill_thermodynamic_source (const MultiFab& state_in, MultiFab& thermod
                                    U(i,j,k-1,UMZ)/U(i,j,k-1,URHO))/dx[2];
 #endif
 
-      // we now need the pressure -- we will assume that the
-      // temperature is consistent with the input state
       eos_rep_t eos_state;
       eos_state.rho = U(i,j,k,URHO);
       eos_state.T = U(i,j,k,UTEMP);
@@ -203,7 +190,6 @@ HydroSim::fill_thermodynamic_source (const MultiFab& state_in, MultiFab& thermod
 
       eos(eos_input_rt, eos_state);
 
-      // final source term, -p div{U}
       src(i,j,k,UEINT) = eos_state.p * src(i,j,k,UEINT);
 
     });

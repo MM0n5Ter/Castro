@@ -10,7 +10,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
     GpuArray<Real, 3> loc;
     position(i, j, k, geomdata, loc);
 
-    // Uniform density, negligible pressure.
 
     eos_t zone_state;
 
@@ -22,7 +21,6 @@ void user_initialize_state_data (int i, int j, int k, Array4<Real> const& state,
 
     eos(eos_input_rp, zone_state);
 
-    // Radial inflow with |v| = 1.
 
     Real r = std::sqrt(loc[0] * loc[0] + loc[1] * loc[1] + loc[2] * loc[2]);
 

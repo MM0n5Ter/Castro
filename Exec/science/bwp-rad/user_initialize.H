@@ -14,12 +14,10 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // Read initial model
 
     read_model_file(problem::model_name);
 
 #if AMREX_SPACEDIM == 2
-    // assume axisymmetric
     problem::center[0] = 0.0_rt;
     problem::center[1] = 0.5_rt * (problo[1] + probhi[1]);
     problem::center[2] = 0.0_rt;

@@ -28,12 +28,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
       MultiFab& old_forcing = get_old_data(Forcing_Type);
 
 
-      //MultiFab electric[AMREX_SPACEDIM];
-      //for (int j = 0; j < AMREX_SPACEDIM; j++)
-      //{
-      //  electric[j].define(getEdgeBoxArray(j), dmap, 1, 0);
-      //  electric[j].setVal(0.0);
-      //}
 
 
       BL_ASSERT(NUM_GROW == 6);
@@ -90,7 +84,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& obx = amrex::grow(bx, 1);
           const Box& gbx = amrex::grow(bx, 2);
 
-          // box with NUM_GROW ghost cells for PPM stuff
           const Box& ghost_box = amrex::grow(bx, NUM_GROW);
 
           FArrayBox &statein  = Sborder[mfi];
@@ -121,7 +114,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           auto Bz_new_arr = Bz_new_fab.array();
 
 
-          // allocate fabs for fluxes and electric field
 
           const Box& nbx = amrex::surroundingNodes(bx, 0);
           const Box& nby = amrex::surroundingNodes(bx, 1);
@@ -131,7 +123,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& nodal_flux_box_y = amrex::grow(nby, IntVect(1, 0, 1));
           const Box& nodal_flux_box_z = amrex::grow(nbz, IntVect(1, 1, 0));
 
-          // need to revisit these box sizes
           const Box& nodal_emf_box_x = amrex::grow(nbx, IntVect(2, 3, 3));
           const Box& nodal_emf_box_y = amrex::grow(nby, IntVect(3, 2, 3));
           const Box& nodal_emf_box_z = amrex::grow(nbz, IntVect(3, 3, 2));
@@ -161,7 +152,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           auto emf_z_hold = E[2].elixir();
 
 
-          // Calculate primitives based on conservatives
           q.resize(ghost_box, NQ);
           auto prim_arr = q.array();
           auto prim_state_hold = q.elixir();
@@ -188,8 +178,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
               hydro::source_to_primitive(i, j, k, dt, state_view, prim_arr, prev_source_arr, source_corrector_arr, prim_source_arr);
           });
 
-          // we need to compute the flattening coefficient for every zone
-          // center where we do reconstruction
 
           const Box& bxi = amrex::grow(bx, IntVect(3, 3, 3));
 
@@ -215,7 +203,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
           }
 
-          // Interpolate Cell centered values to faces
           prim_left[0].resize(ghost_box, NQ);
           auto prim_x_left_arr = prim_left[0].array();
           auto prim_x_left_hold = prim_left[0].elixir();
@@ -259,15 +246,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
             }
           }
 
-          // Corner Couple and find the correct fluxes + electric fields
 
-          // Do the corner coupling and the CT updates
 
-          // CTU Step 1
-          // Calculate Flux 1D
 
-          // x-dir
-          // [lo(1)-2, lo(2)-3, lo(3)-3] [hi(1)+3, hi(2)+3, hi(3)+3]
           const Box& bfx = amrex::grow(nbx, IntVect(2, 3, 3));
 
           flux_x_1d.resize(bfx, NUM_STATE+3);
@@ -276,8 +257,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
           mhd_riemann_flux(bfx, prim_left[0].array(), prim_right[0].array(), flux_x_1d_arr, 0);
 
-          // y-dir
-          // [lo(1)-3, lo(2)-2, lo(3)-3] [hi(1)+3, hi(2)+3, hi(3)+3]
           const Box& bfy = amrex::grow(nby, IntVect(3, 2, 3));
 
           flux_y_1d.resize(bfy, NUM_STATE+3);
@@ -286,8 +265,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
           mhd_riemann_flux(bfy, prim_left[1].array(), prim_right[1].array(), flux_y_1d_arr, 1);
 
-          // z-dir
-          // [lo(1)-3, lo(2)-3, lo(3)-2] [hi(1)+3, hi(2)+3, hi(3)+3]
           const Box& bfz = amrex::grow(nbz, IntVect(3, 3, 2));
 
           flux_z_1d.resize(bfz, NUM_STATE+3);
@@ -297,7 +274,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           mhd_riemann_flux(bfz, prim_left[2].array(), prim_right[2].array(), flux_z_1d_arr, 2);
 
 
-          // Prim to Cons
 
           cons_x_left.resize(gbx, NUM_STATE+3);
           auto cons_x_left_arr = cons_x_left.array();
@@ -332,10 +308,7 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           PrimitiveToConserved(gbx, prim_z_left_arr, cons_z_left_arr);
           PrimitiveToConserved(gbx, prim_z_right_arr, cons_z_right_arr);
 
-          // CTU Step 2
-          // Use "1D" fluxes To interpolate Temporary Edge Centered Electric Fields
 
-          // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+2, hi(2)+3, hi(3)+3]
           Box emf_box_x_wide = amrex::grow(bx, 2);
           emf_box_x_wide.growHi(1);
           emf_box_x_wide.growHi(2);
@@ -343,7 +316,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_x(emf_box_x_wide, prim_arr, emf_x_arr, flux_y_1d_arr, flux_z_1d_arr);
 
 
-          // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+3, hi(2)+2, hi(3)+3]
           Box emf_box_y_wide = amrex::grow(bx, 2);
           emf_box_y_wide.growHi(0);
           emf_box_y_wide.growHi(2);
@@ -351,7 +323,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_y(emf_box_y_wide, prim_arr, emf_y_arr, flux_x_1d_arr, flux_z_1d_arr);
 
 
-          // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+3, hi(2)+3, hi(3)+2]
           Box emf_box_z_wide = amrex::grow(bx, 2);
           emf_box_z_wide.growHi(0);
           emf_box_z_wide.growHi(1);
@@ -359,13 +330,8 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_z(emf_box_z_wide, prim_arr, emf_z_arr, flux_x_1d_arr, flux_y_1d_arr);
 
 
-          // CTU Steps 3, 4, and 5
-          // Corner Couple, Correct Conservative vars using Transverse Fluxes
 
-          // X direction
 
-          // affected by Y Flux
-          // [lo(1)-1, lo(2)-2, lo(3)-2] [hi(1)+2, hi(2)+2, hi(2)+2]
           const Box& ccbx = amrex::grow(nbx, IntVect(1, 2, 2));
 
           corner_left_state.resize(gbx, NQ);
@@ -382,22 +348,18 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                         flux_y_1d_arr, emf_x_arr, emf_z_arr,
                         0, 1, 2, dt);
 
-          // Calculate Flux 2D
-          // F^{x|y}
           trans_flux_xy.resize(ccbx, NUM_STATE+3);
           auto flux_xy_arr = trans_flux_xy.array();
           auto flux_xy_hold = trans_flux_xy.elixir();
 
           mhd_riemann_flux(ccbx, corner_left_state_arr, corner_right_state_arr, flux_xy_arr, 0);
 
-          // affected by Z Flux
           corner_coupling(ccbx,
                         corner_right_state_arr, corner_left_state_arr,
                         cons_x_right_arr, cons_x_left_arr,
                         flux_z_1d_arr, emf_x_arr, emf_y_arr,
                         0, 2, 1, dt);
 
-          // F^{x|z}
           trans_flux_xz.resize(ccbx, NUM_STATE+3);
           auto flux_xz_arr = trans_flux_xz.array();
           auto flux_xz_hold = trans_flux_xz.elixir();
@@ -405,10 +367,7 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           mhd_riemann_flux(ccbx, corner_left_state_arr, corner_right_state_arr, flux_xz_arr, 0);
 
 
-          // Y direction
 
-          // affected by X Flux
-          // [lo(1)-2, lo(2)-1, lo(3)-2] [hi(1)+2, hi(2)+2, hi(3)+2]
           const Box& corner_box_y = amrex::grow(nby, IntVect(2, 1, 2));
 
           corner_coupling(corner_box_y,
@@ -417,14 +376,12 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                         flux_x_1d_arr, emf_y_arr, emf_z_arr,
                         1, 0, 2, dt);
 
-          // F^{y|x}
           trans_flux_yx.resize(corner_box_y, NUM_STATE+3);
           auto flux_yx_arr = trans_flux_yx.array();
           auto flux_yx_hold = trans_flux_yx.elixir();
 
           mhd_riemann_flux(corner_box_y, corner_left_state_arr, corner_right_state_arr, flux_yx_arr, 1);
 
-          // affected by Z Flux
 
           corner_coupling(corner_box_y,
                         corner_right_state_arr, corner_left_state_arr,
@@ -432,17 +389,13 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                         flux_z_1d_arr, emf_y_arr, emf_x_arr,
                         1, 2, 0, dt);
 
-          // F^{y|z}
           trans_flux_yz.resize(corner_box_y, NUM_STATE+3);
           auto flux_yz_arr = trans_flux_yz.array();
           auto flux_yz_hold = trans_flux_yz.elixir();
 
           mhd_riemann_flux(corner_box_y, corner_left_state_arr, corner_right_state_arr, flux_yz_arr, 1);
 
-          // Z direction
 
-          // affected by X Flux
-          // [lo(1)-2, lo(2)-2, lo(3)-1] [hi(1)+2, hi(2)+2, hi(3)+2]
           const Box& corner_box_z = amrex::grow(nbz, IntVect(2, 2, 1));
 
           corner_coupling(corner_box_z,
@@ -451,14 +404,12 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                         flux_x_1d_arr, emf_z_arr, emf_y_arr,
                         2, 0, 1, dt);
 
-          // F^{z|x}
           trans_flux_zx.resize(corner_box_z, NUM_STATE+3);
           auto flux_zx_arr = trans_flux_zx.array();
           auto flux_zx_hold = trans_flux_zx.elixir();
 
           mhd_riemann_flux(corner_box_z, corner_left_state_arr, corner_right_state_arr, flux_zx_arr, 2);
 
-          // affected by Y Flux
 
           corner_coupling(corner_box_z,
                         corner_right_state_arr, corner_left_state_arr,
@@ -466,7 +417,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                         flux_y_1d_arr, emf_z_arr, emf_x_arr,
                         2, 1, 0, dt);
 
-          // F^{z|y}
           trans_flux_zy.resize(corner_box_z, NUM_STATE+3);
           auto flux_zy_arr = trans_flux_zy.array();
           auto flux_zy_hold = trans_flux_zy.elixir();
@@ -474,8 +424,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           mhd_riemann_flux(corner_box_z, corner_left_state_arr, corner_right_state_arr, flux_zy_arr, 2);
 
 
-          // CTU Step 6
-          // Use Averaged 2D fluxes to interpolate temporary Edge Centered Electric Fields, reuse "flx1D"
 
           amrex::ParallelFor(ccbx, NUM_STATE+3,
           [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
@@ -496,7 +444,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           });
 
 
-          // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+1, hi(2)+2, hi(3)+2]
           Box emf_box_x_narrow = amrex::grow(bx, 1);
           emf_box_x_narrow.growHi(1);
           emf_box_x_narrow.growHi(2);
@@ -504,7 +451,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_x(emf_box_x_narrow, prim_arr, emf_x_arr, flux_y_1d_arr, flux_z_1d_arr);
 
 
-          // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+2, hi(2)+1, hi(3)+2]
           Box emf_box_y_narrow = amrex::grow(bx, 1);
           emf_box_y_narrow.growHi(0);
           emf_box_y_narrow.growHi(2);
@@ -512,7 +458,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_y(emf_box_y_narrow, prim_arr, emf_y_arr, flux_x_1d_arr, flux_z_1d_arr);
 
 
-          // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+2, hi(2)+2, hi(3)+1]
           Box emf_box_z_narrow = amrex::grow(bx, 1);
           emf_box_z_narrow.growHi(0);
           emf_box_z_narrow.growHi(1);
@@ -520,12 +465,7 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           edge_emf_z(emf_box_z_narrow, prim_arr, emf_z_arr, flux_x_1d_arr, flux_y_1d_arr);
 
 
-          // CTU Step 7, 8, and 9
-          // Half Step conservative vars
-          // Here we reuse corner_left_state/right to denote the half-time conservative state
 
-          // for x direction
-          // [lo(1), lo(2)-1, lo(3)-1][hi(1)+1, hi(2)+1, hi(3)+1]
           const Box& nodal_grown_box = amrex::grow(nbx, IntVect(0, 1, 1));
 
           predict_half_step(nodal_grown_box,
@@ -535,14 +475,10 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                     emf_x_arr, emf_y_arr, emf_z_arr,
                     0, 1, 2, dt);
 
-          // Final Fluxes
 
-          // We need to compute these on a box 1 larger in the transverse directions
-          // than we'd need for hydro alone due to the electric update
 
           mhd_riemann_flux(nodal_grown_box, corner_left_state_arr, corner_right_state_arr, flux[0].array(), 0);
 
-          // for y direction
           const Box& nodal_box_y_half = amrex::grow(nby, IntVect(1, 0, 1));
 
           predict_half_step(nodal_box_y_half,
@@ -554,7 +490,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
           mhd_riemann_flux(nodal_box_y_half, corner_left_state_arr, corner_right_state_arr, flux[1].array(), 1);
 
-          // for z direction
           const Box& nodal_box_z_half = amrex::grow(nbz, IntVect(1, 1, 0));
 
           predict_half_step(nodal_box_z_half,
@@ -567,8 +502,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           mhd_riemann_flux(nodal_box_z_half, corner_left_state_arr, corner_right_state_arr, flux[2].array(), 2);
 
 
-          // CTU Step 10
-          // Primitive update
           q2D.resize(obx, NQ);
           auto prim_half_state_arr = q2D.array();
           auto prim_half_state_hold = q2D.elixir();
@@ -576,36 +509,30 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           primitive_half_update(obx, prim_half_state_arr, prim_arr,
                     flux_x_1d_arr, flux_y_1d_arr, flux_z_1d_arr, dt);
 
-          // Final Electric Field Update
 
-          // [lo(1), lo(2), lo(3)][hi(1), hi(2)+1, hi(3)+1]
           Box emf_box_x_final = mfi.tilebox();
           emf_box_x_final.growHi(1, 1);
           emf_box_x_final.growHi(2, 1);
 
           edge_emf_x(emf_box_x_final, prim_half_state_arr, emf_x_arr, flux_y_arr, flux_z_arr);
 
-          // [lo(1), lo(2), lo(3)][hi(1)+1, hi(2), hi(3)+1]
           Box emf_box_y_final = mfi.tilebox();
           emf_box_y_final.growHi(0, 1);
           emf_box_y_final.growHi(2, 1);
 
           edge_emf_y(emf_box_y_final, prim_half_state_arr, emf_y_arr, flux_x_arr, flux_z_arr);
 
-          // [lo(1), lo(2), lo(3)][hi(1)+1, hi(2)+1 ,hi(3)]
           Box emf_box_z_final = mfi.tilebox();
           emf_box_z_final.growHi(0, 1);
           emf_box_z_final.growHi(1, 1);
 
           edge_emf_z(emf_box_z_final, prim_half_state_arr, emf_z_arr, flux_x_arr, flux_y_arr);
 
-          // clean the final fluxes
 
           div.resize(obx, 1);
           Elixir div_hold = div.elixir();
           auto divergence_arr = div.array();
 
-          // compute divu -- we'll use this later when doing the artificial viscosity
           divu(obx, prim_arr, divergence_arr);
 
           for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
@@ -614,7 +541,6 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
             Array4<Real> const dir_flux_arr = (flux[idir]).array();
 
-            // Zero out shock and temp fluxes -- these are physically meaningless here
             amrex::ParallelFor(nbox,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
@@ -631,11 +557,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           }
 
 
-          // Conservative update
 
           cons_update_mhd(bx, dt, updated_state_arr, flux_x_arr, flux_y_arr, flux_z_arr);
 
-          // magnetic update
 
           Real dtdx = dt / dx[0];
 
@@ -673,18 +597,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           });
 
 
-          // not sure if this is needed
 
-          //Ex(ex_lo(1):ex_hi(1),ex_lo(2):ex_hi(2), ex_lo(3):ex_hi(3)) = Extemp(ex_lo(1):ex_hi(1),ex_lo(2):ex_hi(2),ex_lo(3):ex_hi(3))
-          //Ey(ey_lo(1):ey_hi(1),ey_lo(2):ey_hi(2), ey_lo(3):ey_hi(3)) = Eytemp(ey_lo(1):ey_hi(1),ey_lo(2):ey_hi(2),ey_lo(3):ey_hi(3))
-          //Ez(ez_lo(1):ez_hi(1),ez_lo(2):ez_hi(2), ez_lo(3):ez_hi(3)) = Eztemp(ez_lo(1):ez_hi(1),ez_lo(2):ez_hi(2),ez_lo(3):ez_hi(3))
 
-          // Store the fluxes from this advance.
 
-          // For normal integration we want to add the fluxes from this advance
-          // since we may be subcycling the timestep. But for simplified SDC integration
-          // we want to copy the fluxes since we expect that there will not be
-          // subcycling and we only want the last iteration's fluxes.
 
           for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
@@ -716,13 +631,12 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
               density_flux_fab(i,j,k,0) = dir_flux_fab(i,j,k,URHO);
             });
 
-          } // idir loop
+          }
 
         }
 
     }
 
-    // Check for small/negative densities and X > 1 or X < 0.
 
     status = scan_for_negative_mass_density();
 
@@ -730,15 +644,12 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
         return status;
     }
 
-    // Sync up state after hydro source.
 
     clean_state(magfield_x_new, magfield_y_new, magfield_z_new, S_new, time + dt, 0);
 
-    // Check for NaN's.
 
     scan_for_nan(S_new);
 
-    // Perform reflux (for non-subcycling advances).
 
     if (parent->subcyclingMode() == "None") {
         if (do_reflux == 1) {

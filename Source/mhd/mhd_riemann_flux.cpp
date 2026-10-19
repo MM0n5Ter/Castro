@@ -11,15 +11,9 @@ HydroSim::mhd_riemann_flux(const Box& bx,
              Array4<Real> const& flx,
              const int dir) {
 
-  // Riemann solve:
-
-  // Main assumption, the normal velocity/Mag field is constant in the
-  // Riemann fan, and is sM/Bn respectively.  Total Pressure is constant
-  // throughout the Riemann fan, pst!
 
 
-  // `n` here is the normal
-  // `p` are the perpendicular
+
 
   int QBNORM, QBPERP1, QBPERP2;
   int QVNORM, QVPERP1, QVPERP2;
@@ -54,7 +48,7 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     UBPERP1 = UBZ;
     UBPERP2 = UBX;
 
-  } else {  // dir == 2
+  } else {
     QBNORM  = QBFIELDZ;
     QBPERP1 = QBFIELDX;
     QBPERP2 = QBFIELDY;
@@ -73,8 +67,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    // this is a loop over interfaces, so, e.g., for idir = 0 (x), we are seeing
-    // q_{i-1/2,j,k,L} and q_{i-1/2,j,k,R}
 
     Array1D<Real, 0, NQ-1> qL;
     Array1D<Real, 0, NQ-1> qR;
@@ -84,7 +76,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
       qR(n) = prim_right(i,j,k,n);
     }
 
-    // check to not go lower than small_dens and small_press
     qL(QRHO) = amrex::max(small_dens, qL(QRHO));
     qR(QRHO) = amrex::max(small_dens, qR(QRHO));
     qL(QPRES) = amrex::max(pressure_cutoff, qL(QPRES));
@@ -95,7 +86,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
 
     PrimToConsAndGamma(qL, uL, gamma1_L);
 
-    // Compute the fluxes.  Here use total p not just p_g
     Real BL2 = qL(QBFIELDX) * qL(QBFIELDX) + qL(QBFIELDY) * qL(QBFIELDY) + qL(QBFIELDZ) * qL(QBFIELDZ);
     Real UBL = qL(QBFIELDX) * qL(QU) + qL(QBFIELDY) * qL(QV) + qL(QBFIELDZ) * qL(QW);
     Array1D<Real, 0, NUM_STATE+2> FL;
@@ -141,73 +131,58 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     Real asL = gamma1_L * qL(QPRES) / qL(QRHO);
     Real asR = gamma1_R * qR(QPRES) / qR(QRHO);
 
-    Real caL  = BL2 / qL(QRHO); // Magnetic Speeds
+    Real caL  = BL2 / qL(QRHO);
     Real caR  = BR2 / qR(QRHO);
 
     Real normalAlfvenSqL = qL(QBNORM) * qL(QBNORM) / qL(QRHO);
     Real normalAlfvenSqR = qR(QBNORM) * qR(QBNORM) / qR(QRHO);
 
-    // fast waves
-    // cf
 
     Real fastSpeedL = std::sqrt(0.5_rt * ((asL + caL) + std::sqrt((asL + caL)*(asL + caL) - 4.0_rt * asL * normalAlfvenSqL)));
     Real cfR = std::sqrt(0.5_rt * ((asR + caR) + std::sqrt((asR + caR)*(asR + caR) - 4.0_rt * asR * normalAlfvenSqR)));
 
-    // Riemann Speeds
-    // sL and sR
 
     Real sL = amrex::min(qL(QVNORM) - fastSpeedL, qR(QVNORM) - cfR);
     Real sR = amrex::max(qL(QVNORM) + fastSpeedL, qR(QVNORM) + cfR);
 
-    // Pressures in the Riemann Fan
 
     Real ptL = qL(QPRES) + 0.5_rt * BL2;
     Real ptR = qR(QPRES) + 0.5_rt * BR2;
 
-    // sM -- the entropy wave
 
     Real sM  = ((sR - qR(QVNORM)) * qR(QRHO) * qR(QVNORM) - (sL - qL(QVNORM)) * qL(QRHO) * qL(QVNORM) -
            ptR + ptL) /
       ((sR - qR(QVNORM)) * qR(QRHO) - (sL - qL(QVNORM)) * qL(QRHO));
 
 
-    // pst (pstar_total)
 
     Real pst  = (sR - qR(QVNORM)) * qR(QRHO) * ptL - (sL - qL(QVNORM)) * qL(QRHO) * ptR +
       qL(QRHO) * qR(QRHO) * (sR - qR(QVNORM)) * (sL - qL(QVNORM)) * (qR(QVNORM) - qL(QVNORM));
     pst  = pst / ((sR - qR(QVNORM)) * qR(QRHO) - (sL - qL(QVNORM)) * qL(QRHO));
 
-    // Density * states
 
     Array1D<Real, 0, NUM_STATE+2> UsL;
     Array1D<Real, 0, NUM_STATE+2> UsR;
 
-    // Density
 
     UsL(URHO) = amrex::max(small_dens, qL(QRHO) * ((sL - qL(QVNORM)) / (sL - sM)));
     UsR(URHO) = amrex::max(small_dens, qR(QRHO) * ((sR - qR(QVNORM)) / (sR - sM)));
 
-    // Species * states
 
     for (int n = 0; n < NumSpec; n++) {
       UsL(UFS+n) = qL(QFS+n) * UsL(URHO);
       UsR(UFS+n) = qR(QFS+n) * UsR(URHO);
     }
 
-    // e
 
     UsL(UEINT) = uL(UEINT) / uL(URHO) * UsL(URHO);
     UsR(UEINT) = uR(UEINT) / uR(URHO) * UsR(URHO);
 
-    // Vel * states
 
-    // Normal dir
 
     UsL(UMN) = sM;
     UsR(UMN) = sM;
 
-    // Perpendicular dir
-    // Second Perpendicular dir
 
     Real denom_vperp_L = qL(QRHO) * (sL - qL(QVNORM)) * (sL - sM) - qL(QBNORM) * qL(QBNORM);
     Real denom_vperp_R = qR(QRHO) * (sR - qR(QVNORM)) * (sR - sM) - qR(QBNORM)*qR(QBNORM);
@@ -245,15 +220,11 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     UsR(UMY) = UsR(UMY) * UsR(URHO);
     UsR(UMZ) = UsR(UMZ) * UsR(URHO);
 
-    // B * states
 
-    // Normal dir
 
     UsL(UBNORM) = qL(QBNORM);
     UsR(UBNORM) = qR(QBNORM);
 
-    // Perpendicular dir
-    // Second Perpendicular dir
 
     Real denom_bperp_L = qL(QRHO) * (sL - qL(QVNORM)) * (sL - sM) - qL(QBNORM) * qL(QBNORM);
     Real denom_bperp_R = qR(QRHO) * (sR - qR(QVNORM)) * (sR - sM) - qR(QBNORM) * qR(QBNORM);
@@ -283,7 +254,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     }
 
 
-    // Energy
 
     UsL(UEDEN) = (sL - qL(QVNORM)) * uL(UEDEN) - ptL * qL(QVNORM) + pst * sM +
       qL(QBNORM) * (UBL - (UsL(UMX) * UsL(UBX) + UsL(UMY) * UsL(UBY) + UsL(UMZ) * UsL(UBZ)) / UsL(URHO));
@@ -296,38 +266,31 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     UsL(UTEMP) = 0.0_rt;
     UsR(UTEMP) = 0.0_rt;
 
-    // speeds
 
     Real ssL = sM - std::abs(qL(QBNORM)) / std::sqrt(UsL(URHO));
     Real ssR = sM + std::abs(qR(QBNORM)) / std::sqrt(UsR(URHO));
 
-    // ** states
 
     Array1D<Real, 0, NUM_STATE+2> DoubleStarL;
     Array1D<Real, 0, NUM_STATE+2> DoubleStarR;
 
-    // Dens
 
     DoubleStarL(URHO) = UsL(URHO);
     DoubleStarR(URHO) = UsR(URHO);
 
-    // species
 
     for (int n = 0; n < NumSpec; n++) {
       DoubleStarL(UFS+n) = UsL(UFS+n);
       DoubleStarR(UFS+n) = UsR(UFS+n);
     }
 
-    // e
     DoubleStarL(UEINT) = UsL(UEINT);
     DoubleStarR(UEINT) = UsR(UEINT);
 
-    // Vel in normal direction
 
     DoubleStarL(UMN) = sM;
     DoubleStarR(UMN) = sM;
 
-    // Vel in perpendicular direction
 
     DoubleStarL(UMPERP1) = (std::sqrt(UsL(URHO)) * UsL(UMPERP1) / UsL(URHO) +
                   std::sqrt(UsR(URHO)) * UsR(UMPERP1) / UsR(URHO) +
@@ -335,7 +298,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
       (std::sqrt(UsL(URHO)) + std::sqrt(UsR(URHO)));
     DoubleStarR(UMPERP1) = DoubleStarL(UMPERP1);
 
-    // Vel in second perpendicular direction
 
     DoubleStarL(UMPERP2) = (std::sqrt(UsL(URHO)) * UsL(UMPERP2) / UsL(URHO) +
                   std::sqrt(UsR(URHO)) * UsR(UMPERP2) / UsR(URHO) +
@@ -351,12 +313,10 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     DoubleStarR(UMY) = DoubleStarR(UMY) * DoubleStarR(URHO);
     DoubleStarR(UMZ) = DoubleStarR(UMZ) * DoubleStarR(URHO);
 
-    // B in normal direction
 
     DoubleStarL(UBNORM) = UsL(UBNORM);
     DoubleStarR(UBNORM) = UsR(UBNORM);
 
-    // B in perpendicular direction
 
     DoubleStarL(UBPERP1) = (std::sqrt(UsL(URHO)) * UsR(UBPERP1) + std::sqrt(UsR(URHO)) * UsL(UBPERP1) +
                     std::sqrt(UsL(URHO) * UsR(URHO)) * (UsR(UMPERP1) / UsR(URHO) -
@@ -365,7 +325,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
 
     DoubleStarR(UBPERP1) = DoubleStarL(UBPERP1);
 
-    // B in second perpendicular direction
 
     DoubleStarL(UBPERP2) = (std::sqrt(UsL(URHO)) * UsR(UBPERP2) + std::sqrt(UsR(URHO)) * UsL(UBPERP2) +
                     std::sqrt(UsL(URHO) * UsR(URHO)) * (UsR(UMPERP2) / UsR(URHO) -
@@ -373,7 +332,6 @@ HydroSim::mhd_riemann_flux(const Box& bx,
       (std::sqrt(UsL(URHO)) + std::sqrt(UsR(URHO)));
     DoubleStarR(UBPERP2) = DoubleStarL(UBPERP2);
 
-    // Energy
 
     DoubleStarL(UEDEN) = UsL(UEDEN) - std::sqrt(UsL(URHO)) *
       ((UsL(UMX) * UsL(UBX) + UsL(UMY) * UsL(UBY) + UsL(UMZ) * UsL(UBZ)) / UsL(URHO) -
@@ -387,9 +345,7 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     DoubleStarL(UTEMP) = 0.0_rt;
     DoubleStarR(UTEMP) = 0.0_rt;
 
-    // fluxes
 
-    // Solve the RP
 
     if (sL > 0.0) {
       for (int n = 0; n < NUM_STATE+3; n++) {
@@ -397,25 +353,21 @@ HydroSim::mhd_riemann_flux(const Box& bx,
       }
 
     } else if (sL <= 0.0 && ssL > 0.0) {
-      // FsL  = FL + sL*UsL - sL*uL
       for (int n = 0; n < NUM_STATE+3; n++) {
         flx(i,j,k,n) = FL(n) + sL * UsL(n) - sL * uL(n);
       }
 
     } else if (ssL <= 0.0 && sM > 0.0) {
-      // FssL = FL + ssL*DoubleStarL - (ssL-sL)*UsL - sL*uL
       for (int n = 0; n < NUM_STATE+3; n++) {
         flx(i,j,k,n) = FL(n) + ssL * DoubleStarL(n) - (ssL - sL) * UsL(n) - sL * uL(n);
       }
 
     } else if (sM <= 0.0 && ssR > 0.0) {
-      // FssR = FR + ssR*DoubleStarR - (ssR-sR)*UsR - sR*uR
       for (int n = 0; n < NUM_STATE+3; n++) {
         flx(i,j,k,n) = FR(n) + ssR * DoubleStarR(n) - (ssR - sR) * UsR(n) - sR * uR(n);
       }
 
     } else if (ssR <= 0.0 && sR > 0.0) {
-      // FsR  = FR + sR*UsR - sR*uR
       for (int n = 0; n < NUM_STATE+3; n++) {
         flx(i,j,k,n) = FR(n) + sR * UsR(n) - sR * uR(n);
       }

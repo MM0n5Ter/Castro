@@ -16,46 +16,7 @@
 
 using namespace amrex;
 
-///
-/// read in an initial model and return arrays with the model data.
-/// take care to match the species available in the model file to
-/// those defined by the network
-///
-/// There are 2 different model formats supported.
-///
-/// The old format has a header of the form:
-///
-/// # npts = 896
-/// # num of variables = 6
-/// # density
-/// # temperature
-/// # pressure
-/// # carbon-12
-/// # oxygen-16
-/// # magnesium-24
-/// 195312.5000  5437711139.  8805500.952   .4695704813E+28  0.3  0.7  0
-/// 585937.5000  5410152416.  8816689.836  0.4663923963E+28  0.3  0.7  0
-///
-/// Note that the first data column is the coordinate, but that is not
-/// listed as a variable.
-///
-/// The new format has a single line header, labeling the columns,
-/// including the coordinate.  This format plays nicely with NumPy
-/// genfromtxt to read in the header
-///
-/// # r density temperature pressure carbon-12 oxygen-16 magnesium-24
-/// 195312.5000  5437711139.  8805500.952   .4695704813E+28  0.3  0.7  0
-/// 585937.5000  5410152416.  8816689.836  0.4663923963E+28  0.3  0.7  0
-///
-/// The format is detected automatically.
-///
-/// we read in the number of variables and their order and use this to
-/// map them into the model_state array.  We ignore anything other than
-/// density, temperature, pressure and composition.
-///
-/// composition is assumed to be in terms of mass fractions
 
-// remove whitespace -- from stackoverflow
 
 
 namespace model_string
@@ -78,13 +39,6 @@ namespace model_string
 }
 
 
-///
-/// return the index into the model coordinate, loc, such that
-/// model::profile(model_index).r(loc) < r < model::profile(model_index).r(loc+1)
-/// if r < model::profile(model_index).r(0) then we return 0, likewise
-/// if r > model::profile(model_index).r(model::npts-2) then we return model::npt-2,
-/// since this will give us the interval [npts-2, npts-1] to interpolate in
-///
 AMREX_INLINE AMREX_GPU_HOST_DEVICE
 int
 locate(const Real r, const int model_index) {
@@ -123,7 +77,6 @@ AMREX_INLINE AMREX_GPU_HOST_DEVICE
 Real
 interpolate(const Real r, const int var_index, const int model_index=0) {
 
-    // this gives us an index such that profile.r(id) < r < profile.r(id+1)
 
     int id = locate(r, model_index);
 
@@ -136,8 +89,6 @@ interpolate(const Real r, const int var_index, const int model_index=0) {
     interp = slope * (r - model::profile(model_index).r(id)) +
         model::profile(model_index).state(id, var_index);
 
-    // safety check to make sure interp lies within the bounding points.  We don't
-    // do this at the lower boundary, which usually corresponds to the center of the star.
     if (r >= model::profile(model_index).r(0)) {
         Real stencil_min = std::min(model::profile(model_index).state(id+1, var_index),
                                model::profile(model_index).state(id, var_index));
@@ -151,20 +102,9 @@ interpolate(const Real r, const int var_index, const int model_index=0) {
 }
 
 
-///
-/// Subsample the interpolation to get an averaged profile. For this we need to know the
-/// 3D coordinate (relative to the model center) and cell size.
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real interpolate_3d (const Real* loc, const Real* dx, int var_index, int nsub = 1, int model_index = 0)
 {
-    // We perform a sub-grid-scale interpolation, where
-    // nsub determines the number of intervals we split the zone into.
-    // If nsub = 1, we simply interpolate using the cell-center location.
-    // As an example, if nsub = 3, then the sampled locations will be
-    // k = 0 --> z = loc(3) - dx(3) / 3   (1/6 of way from left edge of zone)
-    // k = 1 --> z = loc(3)               (halfway between left and right edge)
-    // k = 2 --> z = loc(3) + dx(3) / 3   (1/6 of way from right edge of zone)
 
     Real interp = 0.0_rt;
 
@@ -184,47 +124,25 @@ Real interpolate_3d (const Real* loc, const Real* dx, int var_index, int nsub = 
         }
     }
 
-    // Now normalize by the number of intervals.
 
     interp /= (nsub * nsub * nsub);
 
     return interp;
 }
 
-// Establish an isothermal initial model. The constraints are:
-// dx: the spacing of the points
-// temperature: uniform stellar temperature
-// core_comp: uniform composition of the core
-// envelope_mass: the mass of the envelope with composition core_comp (can be set to zero to ignore)
-//
-// The user can pass in either a target mass_want or central_density_want, and should leave the
-// other one negative. Both mass_want and central_density_want will be updated with the final mass
-// and central density of the model. The radius will also be returned, which is the distance at which
-// we switch from the initial model to ambient material.
 
 AMREX_INLINE
 void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
                     const Real core_comp[NumSpec], Real temperature, Real dx,
                     Real envelope_mass, const Real envelope_comp[NumSpec], int model_index = 0)
 {
-    // Note that if central_density > 0, then this initial model generator will use it in calculating
-    // the model. If mass is also provided in this case, we assume it is an estimate used for the purpose of
-    // determining the envelope mass boundary.
 
-    // Check to make sure we've specified at least one of them.
 
     if (mass_want < 0.0_rt && central_density_want < 0.0_rt) {
         amrex::Error("Error: Must specify either mass or central density in the initial model generator.");
     }
 
-    // If we are specifying the mass, then we don't know what WD central density
-    // will give the desired total mass, so we need to do a secant iteration
-    // over central density. rho_c_old is the 'old' guess for the central
-    // density and rho_c is the current guess.  After two loops, we can
-    // start estimating the density required to yield our desired mass.
 
-    // If instead we are specifying the central density, then we only need to do a
-    // single HSE integration.
 
     const int max_hse_iter = 250;
     int max_mass_iter;
@@ -246,11 +164,10 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
         max_mass_iter = max_hse_iter;
 
         rho_c_old = -1.0_rt;
-        rho_c     = 1.e7_rt;     // A reasonable starting guess for moderate-mass WDs
+        rho_c     = 1.e7_rt;
 
     }
 
-    // Check to make sure the initial temperature makes sense.
 
     if (temperature < hydrosim::small_temp) {
         amrex::Error("Error: WD central temperature is less than small_temp. Aborting.");
@@ -264,8 +181,6 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
         bool fluff = false;
 
-        // We start at the center of the WD and integrate outward.  Initialize
-        // the central conditions.
 
         model.state(0, model::itemp) = temperature;
         model.state(0, model::idens) = rho_c;
@@ -291,7 +206,6 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
         int icutoff = NPTS_MODEL;
 
-        // Make the initial guess be completely uniform.
 
         for (int i = 1; i < NPTS_MODEL; ++i) {
             model.state(i, model::idens) = model.state(0, model::idens);
@@ -303,7 +217,6 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
             model.r(i) = model.r(i-1) + dx;
         }
 
-        // Keep track of the mass enclosed below the current zone.
 
         Real rl = 0.0_rt;
         Real rr = rl + dx;
@@ -311,15 +224,11 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
         Real M_enclosed = (4.0_rt / 3.0_rt) * M_PI * (std::pow(rr, 3) - std::pow(rl, 3)) * model.state(0, model::idens);
         mass = M_enclosed;
 
-        //-------------------------------------------------------------------------
-        // HSE solve
-        //-------------------------------------------------------------------------
         for (int i = 1; i < NPTS_MODEL; ++i) {
 
             rl += dx;
             rr += dx;
 
-            // As the initial guess for the density, use the underlying zone.
 
             model.state(i, model::idens) = model.state(i-1, model::idens);
 
@@ -342,11 +251,7 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
             Real g = -C::Gconst * M_enclosed / (std::pow(rl, 2));
 
 
-            //----------------------------------------------------------------------
-            // Iteration loop
-            //----------------------------------------------------------------------
 
-            // Start off the Newton loop by assuming that the zone has not converged.
 
             bool hydrostatic_converged = false;
 
@@ -358,11 +263,7 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
                     break;
                 }
 
-                // The core is isothermal, so we just need to constrain
-                // the density and pressure to agree with the EOS and HSE.
 
-                // We difference HSE about the interface between the current
-                // zone and the one just inside.
 
                 Real rho_avg = 0.5_rt * (model.state(i, model::idens) + model.state(i-1, model::idens));
                 p_want = model.state(i-1, model::ipres) + dx * rho_avg * g;
@@ -402,30 +303,26 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
             }
 
-            // Call the EOS to establish the final properties of this zone.
 
             eos(eos_input_rt, eos_state);
 
             model.state(i, model::ipres) = eos_state.p;
 
-            // Discretize the mass enclosed as (4 pi / 3) * rho * dr * (rl**2 + rl * rr + rr**2).
 
             Real dM = (4.0_rt / 3.0_rt) * M_PI * model.state(i, model::idens) * dx *
                       (rr * rr + rl * rr + rl * rl);
             M_enclosed += dM;
 
             if (i <= icutoff) {
-                // Also update the final WD mass if we're not in the ambient material.
                 mass += dM;
             }
 
-        } // End loop over zones
+        }
 
         radius = model.r(icutoff);
 
         if (rho_c_old < 0.0_rt) {
 
-            // Not enough iterations yet -- use an arbitrary guess for the next iteration.
 
             rho_c_old = rho_c;
             rho_c = 0.5_rt * rho_c_old;
@@ -433,15 +330,12 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
         }
         else {
 
-            // Check if we have converged.
 
             if (std::abs(mass - mass_want) / mass_want < model::mass_tol) {
                 mass_converged = true;
                 break;
             }
 
-            // Do a secant iteration:
-            // M_tot = M(rho_c) + dM/drho |_rho_c x drho + ...
 
             drho_c = (mass_want - mass) / ((mass  - mass_old) / (rho_c - rho_c_old));
 
@@ -452,7 +346,7 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
         mass_old = mass;
 
-    } // End mass constraint loop
+    }
 
     if (!mass_converged && max_mass_iter > 1) {
         amrex::Error("ERROR: WD mass did not converge.");
@@ -475,7 +369,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
     bool found_aux[NumAux];
 #endif
 
-    // read in the initial model
 
     std::ifstream initial_model_file;
 
@@ -492,16 +385,11 @@ read_model_file(std::string& model_file, const int model_index=0) {
     std::vector<std::string> varnames_stored;
     int nvars_model_file{-1};
 
-    // first the header line -- this will determine the format.  If it
-    // tells us the number of points (npts), then we are the old style.
 
     getline(initial_model_file, line);
 
     if (line.find("npts") != std::string::npos) {
-        // old format
 
-        // we'll ignore this line, and detect the number of points
-        // automatically below
 
         getline(initial_model_file, line);
 
@@ -512,7 +400,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
         std::string num_vars_string = line.substr(line.find('=')+1, line.length());
         nvars_model_file = std::stoi(num_vars_string);
 
-        // now read in the names of the variables
 
         for (int n = 0; n < nvars_model_file; n++) {
             getline(initial_model_file, line);
@@ -522,15 +409,12 @@ read_model_file(std::string& model_file, const int model_index=0) {
 
     } else {
 
-        // remove the leading "#"
         if (!line.empty() && line[0] == '#') {
             line = line.substr(1);
         }
 
         std::istringstream iss(line);
 
-        // in this format, the first column name is the coordinate --
-        // we can skip that
 
         std::string word;
         iss >> word;
@@ -548,7 +432,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
                    << " variables found in the initial model file"
                    << ResetDisplay << std::endl;
 
-    // start reading in the data
 
     amrex::Vector<Real> vars_stored;
     vars_stored.resize(nvars_model_file);
@@ -572,7 +455,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
             model::profile(model_index).state(i,j) = 0.0_rt;
         }
 
-        // make sure that each of the variables we care about is found
         found_dens = false;
         found_temp = false;
         found_pres = false;
@@ -588,8 +470,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
 
         for (int j = 0; j < nvars_model_file; j++) {
 
-            // keep track of whether the current variable from the model
-            // file is one that we care about
             found_model = false;
 
             if (varnames_stored[j] == "density") {
@@ -635,7 +515,6 @@ read_model_file(std::string& model_file, const int model_index=0) {
 #endif
             }
 
-            // yell if we didn't find the current variable
 
             if (!found_model && i == 0) {
                 amrex::Print() << Font::Bold << FGColor::Yellow
@@ -644,9 +523,8 @@ read_model_file(std::string& model_file, const int model_index=0) {
             }
 
 
-        } // end loop over nvars_model_file
+        }
 
-        //  were all the variables we care about provided?
 
         if (i == 0) {
             if (!found_dens) {
@@ -694,7 +572,7 @@ read_model_file(std::string& model_file, const int model_index=0) {
 
         i++;
 
-    }  // end of loop over lines in the model file
+    }
 
     model::npts = i;
 

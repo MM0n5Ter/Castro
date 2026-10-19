@@ -42,7 +42,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = interpolate(height, model::ispec+n);
     }
 
-    // add an isobaric perturbation
 
     Real x1 = problem::center[0];
     Real y1 = problem::y_pert_center;
@@ -71,12 +70,10 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,URHO) = eos_state.rho;
     state(i,j,k,UEINT) = eos_state.rho * eos_state.e;
 
-    // make state conservative
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = eos_state.rho * state(i,j,k,UFS+n);
     }
 
-    // assumes ke=0
     state(i,j,k,UEDEN) = state(i,j,k,UEINT);
 
     state(i,j,k,UMX) = 0.0_rt;

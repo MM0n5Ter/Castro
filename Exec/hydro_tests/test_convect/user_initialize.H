@@ -18,7 +18,6 @@ void user_initialize ()
         amrex::Error("num_vortices too large, please increase max_num_vortices and the size of xloc_vortices");
     }
 
-    // Read initial model
     read_model_file(problem::model_name);
 
     if (ParallelDescriptor::IOProcessor()) {
@@ -27,7 +26,6 @@ void user_initialize ()
         }
     }
 
-    // velocity perturbation stuff
 
     Real offset = (probhi[0] - problo[0]) / problem::num_vortices;
 
@@ -35,7 +33,6 @@ void user_initialize ()
         problem::xloc_vortices[i] = (static_cast<Real>(i) + 0.5_rt) * offset + problo[0];
     }
 
-    // Set up HydroSim data logs for this problem
 
     if (hydrosim::sum_step_period > 0 && amrex::ParallelDescriptor::IOProcessor()) {
 

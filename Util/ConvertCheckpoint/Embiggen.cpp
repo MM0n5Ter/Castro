@@ -1,7 +1,4 @@
 
-// This is the version that reads a Checkpoint file
-// and writes it out again.
-// ---------------------------------------------------------------
 #include <iomanip>
 #include <iostream>
 #include <fstream>
@@ -47,36 +44,9 @@ using std::endl;
 
 using namespace amrex;
 
-// Global Parameters
 
-// Currently supports two different Embiggen modes:
-// 1. full_hierarchy
-//
-//    Grow the computational domain by creating a new coarse level.
-//    Existing AMR levels are shifted up by one level
-//    (old level 0 -> new level 1, old level 1 -> new level 2, ...).
-//    A new level 0 is created and initialized according to the
-//    specified growth parameters.
-//
-//    Required parameters:
-//        ref_ratio
-//        restart_grow_factor
-//        body_at_center
-//
-// 2. theta_extend
 
-//    Extend the existing level 0 domain in the theta direction
-//    without adding a new AMR level. Existing data are preserved
-//    and copied into the enlarged domain. Newly added cells are
-//    initialized by using the zones along the old theta boundary.
-//    Designed for 2D Spherical Geometry specifically.
-//    It needs the new theta upper boundary in radian and the
-//    blocking factor used for running the simulation
 
-//    Required parameters:
-//        theta_new_hi
-//        blocking_factor
-//
 
 std::string mode("full_hierarchy");
 std::string CheckFileIn;
@@ -99,7 +69,6 @@ Vector<int> nsets_save(1);
 VisMF::How how = VisMF::OneFilePerCPU;
 
 
-// ---------------------------------------------------------------
 struct FakeStateData {
     struct TimeInterval {
         Real start, stop;
@@ -116,13 +85,13 @@ struct FakeStateData {
 
 
 struct FakeAmrLevel {
-    int level;                        // AMR level (0 is coarsest).
-    Geometry geom;                    // Geom at this level.
-    BoxArray grids;                   // Cell-centered locations of grids.
-    IntVect crse_ratio;               // Refinement ratio to coarser level.
-    IntVect fine_ratio;               // Refinement ratio to finer level.
-    Vector<FakeStateData> state;       // Array of state data.
-    Vector<FakeStateData> new_state;   // Array of new state data.
+    int level;
+    Geometry geom;
+    BoxArray grids;
+    IntVect crse_ratio;
+    IntVect fine_ratio;
+    Vector<FakeStateData> state;
+    Vector<FakeStateData> new_state;
 };
 
 
@@ -142,7 +111,6 @@ struct FakeAmr {
 
 FakeAmr fakeAmr;
 
-// ---------------------------------------------------------------
 static void ScanArguments() {
     ParmParse pp;
 
@@ -199,7 +167,6 @@ static void ScanArguments() {
     }
 }
 
-// ---------------------------------------------------------------
 
 static void PrintUsage(char* progName)
 {
@@ -228,7 +195,6 @@ static void PrintUsage(char* progName)
     exit(1);
 }
 
-// ---------------------------------------------------------------
 
 static void ReadCheckpointFile(const std::string& fileName) {
     int i;
@@ -246,11 +212,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
         amrex::FileOpenFailed(File);
     }
 
-    //
-    // Read global data.
-    //
-    // Attempt to differentiate between old and new CheckPointFiles.
-    //
     int         spdim;
     bool        new_checkpoint_format = false;
     std::string first_line;
@@ -269,7 +230,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
         amrex::Abort();
     }
 
-    // Currently theta_extend is designed for 2D only
     if (mode == "theta_extend" && AMREX_SPACEDIM != 2) {
         amrex::Abort("Currently only works for Spherical 2D geometry");
     }
@@ -284,8 +244,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
 
     int n = 0;
     if (mode == "full_hierarchy") {
-        // ADDING LEVELS: shift pre-existing levels up
-        // for full_hierarchy mode
 
         n = num_new_levels;
         mx_lev = mx_lev + n;
@@ -298,7 +256,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
         }
     }
 
-    // Initialize all level arrays
     fakeAmr.geom.resize(mx_lev + 1);
     fakeAmr.ref_ratio.resize(mx_lev);
     fakeAmr.dt_level.resize(mx_lev + 1);
@@ -308,7 +265,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
     fakeAmr.level_count.resize(mx_lev + 1);
     fakeAmr.fakeAmrLevels.resize(mx_lev + 1);
 
-    // READING GEOM, REF_RATIO, DT_LEVEL
     for (i = n; i <= mx_lev; i++) {
       is >> fakeAmr.geom[i];
     }
@@ -329,7 +285,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
     }
 
     if (mode == "full_hierarchy") {
-        // Make sure current domain is divisible by 2*ref_ratio so length of coarsened domain is even
         Box dom0(fakeAmr.geom[0].Domain());
         for (int d = 0; d < AMREX_SPACEDIM; d++)
             {
@@ -358,14 +313,11 @@ static void ReadCheckpointFile(const std::string& fileName) {
     }
 
     if (mode == "full_hierarchy") {
-        // Coarsen the old coarse level to define domain for new level
         domain.coarsen(ref_ratio);
         fakeAmr.geom[0].define(domain,&prob_domain,coord);
 
-        // Define ref_ratio for new levels
         fakeAmr.ref_ratio[0] = ref_ratio * IntVect::TheUnitVector();
 
-        // Define dt_level for new levels
         fakeAmr.dt_level[0] = fakeAmr.dt_level[1] * ref_ratio;
     }
 
@@ -380,7 +332,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
       for (i = 0; i <= mx_lev; i++) fakeAmr.dt_min[i] = fakeAmr.dt_level[i];
     }
 
-    // READING N_CYCLE, LEVEL_STEPS, LEVEL_COUNT
     for (i = n; i <= mx_lev; i++) {
       is >> fakeAmr.n_cycle[i];
     }
@@ -392,31 +343,25 @@ static void ReadCheckpointFile(const std::string& fileName) {
     }
 
     if (mode == "full_hierarchy") {
-        // ADDING LEVELS
 
-        // n_cycle is always equal to 1 at the coarsest level
         fakeAmr.n_cycle[0] = 1;
 
-        // At the old coarsest level, which is now level 1, we set n_cycle to ref_ratio
         fakeAmr.n_cycle[1] = ref_ratio;
 
         fakeAmr.level_steps[0] = fakeAmr.level_steps[1] / ref_ratio;
         if ( (fakeAmr.level_steps[0]*ref_ratio) != fakeAmr.level_steps[1] )
             amrex::Abort("Number of steps in original checkpoint must be divisible by ref_ratio");
 
-        // level_count is how many steps we've taken at this level since the last regrid
         if (fakeAmr.level_count[1] == fakeAmr.level_steps[1])
             {
                 fakeAmr.level_count[0] = fakeAmr.level_steps[0];
 
-                // this is actually wrong but should work for now
             } else {
             fakeAmr.level_count[0] = std::min(fakeAmr.level_count[1],fakeAmr.level_steps[0]);;
         }
     }
     int ndesc_save;
 
-    // READ LEVEL DATA
     for(int lev = n; lev <= fakeAmr.finest_level; ++lev) {
 
       FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[lev];
@@ -445,10 +390,8 @@ static void ReadCheckpointFile(const std::string& fileName) {
       int ndesc = nstate;
 
       if (lev == n) {
-          // This should be the same at all levels
           ndesc_save = ndesc;
 
-          // ndesc depends on which descriptor so we store a value for each
           nsets_save.resize(ndesc_save);
       }
 
@@ -456,7 +399,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
       falRef.new_state.resize(ndesc);
 
       for(int i = 0; i < ndesc; i++) {
-        // ******* StateDescriptor::restart
 
         is >> falRef.state[i].domain;
 
@@ -478,12 +420,9 @@ static void ReadCheckpointFile(const std::string& fileName) {
         std::string mf_name;
         std::string FullPathName;
 
-        // This reads the "new" data, if it's there
         if (nsets >= 1) {
            falRef.state[i].new_data = new MultiFab;
            is >> mf_name;
-           // Note that mf_name is relative to the Header file.
-           // We need to prepend the name of the fileName directory.
            FullPathName = fileName;
            if( ! fileName.empty() && fileName[fileName.length()-1] != '/') {
              FullPathName += '/';
@@ -492,12 +431,9 @@ static void ReadCheckpointFile(const std::string& fileName) {
            VisMF::Read(*(falRef.state[i].new_data), FullPathName);
         }
 
-        // This reads the "old" data, if it's there
         if (nsets == 2) {
           falRef.state[i].old_data = new MultiFab;
           is >> mf_name;
-          // Note that mf_name is relative to the Header file.
-          // We need to prepend the name of the fileName directory.
           FullPathName = fileName;
           if( ! fileName.empty() && fileName[fileName.length()-1] != '/') {
             FullPathName += '/';
@@ -509,7 +445,6 @@ static void ReadCheckpointFile(const std::string& fileName) {
       }
     }
 
-    // Compute the effective max_grid_size
     int max_len = 0;
     BoxArray g(fakeAmr.fakeAmrLevels[n].grids);
     for (int b = 0; b < g.size(); b++)
@@ -518,13 +453,11 @@ static void ReadCheckpointFile(const std::string& fileName) {
     max_grid_size = max_len;
 
     if (mode == "full_hierarchy") {
-        // Add new level data
         FakeAmrLevel &falRef_orig = fakeAmr.fakeAmrLevels[n];
         for(int lev(n-1); lev >= 0; lev--) {
             FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[lev];
             falRef.level = lev;
 
-            // This version breaks up the new coarser domain based on the computed max_grid_size
             BoxArray new_grids(domain);
             new_grids.maxSize(max_grid_size);
 
@@ -571,26 +504,20 @@ static void ReadCheckpointFile(const std::string& fileName) {
     }
 }
 
-// ---------------------------------------------------------------
 static void WriteCheckpointFile(const std::string& inFileName, const std::string &outFileName) {
     VisMF::SetNOutFiles(nFiles);
-    // In checkpoint files always write out FABs in NATIVE format.
     FABio::Format thePrevFormat = FArrayBox::getFormat();
     FArrayBox::setFormat(FABio::FAB_NATIVE);
 
     const std::string ckfile = outFileName;
 
-    // Only the I/O processor makes the directory if it doesn't already exist.
     if(ParallelDescriptor::IOProcessor()) {
       if( ! amrex::UtilCreateDirectory(ckfile, 0755)) {
         amrex::CreateDirectoryFailed(ckfile);
       }
     }
-    // Force other processors to wait till directory is built.
     ParallelDescriptor::Barrier();
 
-    // Copy some standard auxiliary files to the new checkpoint.
-    // Only one processor (the I/O processor) needs to do this.
 
     if (ParallelDescriptor::IOProcessor()) {
 
@@ -617,7 +544,6 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
 
     }
 
-    // Write the main header file.
 
     std::string HeaderFileName = ckfile + "/Header";
 
@@ -630,7 +556,6 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
     int old_prec(0), i;
 
     if(ParallelDescriptor::IOProcessor()) {
-        // Only the IOProcessor() writes to the header file.
         HeaderFile.open(HeaderFileName.c_str(),
                         std::ios::out|std::ios::trunc|std::ios::binary);
 
@@ -646,9 +571,6 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
                    << fakeAmr.cumtime           << '\n'
                    << max_level                 << '\n'
                    << fakeAmr.finest_level      << '\n';
-        //
-        // Write out problem domain.
-        //
         for (i = 0; i <= max_level; i++) HeaderFile << fakeAmr.geom[i]        << ' ';
         HeaderFile << '\n';
         for (i = 0; i < max_level; i++)  HeaderFile << fakeAmr.ref_ratio[i]   << ' ';
@@ -671,24 +593,20 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
       FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[lev];
       int ndesc = falRef.state.size();
 
-      // Build directory to hold the MultiFabs in the StateData at this level.
       char buf[64];
       sprintf(buf, "Level_%d", lev);
       std::string Level = buf;
 
-      // Now for the full pathname of that directory.
       std::string FullPath = ckfile;
       if( ! FullPath.empty() && FullPath[FullPath.length()-1] != '/') {
         FullPath += '/';
       }
       FullPath += Level;
 
-      // Only the I/O processor makes the directory if it doesn't already exist.
       if(ParallelDescriptor::IOProcessor()) { if( ! amrex::UtilCreateDirectory(FullPath, 0755)) {
           amrex::CreateDirectoryFailed(FullPath);
         }
       }
-      // Force other processors to wait till directory is built.
       ParallelDescriptor::Barrier();
 
       if(ParallelDescriptor::IOProcessor()) {
@@ -696,23 +614,12 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
         falRef.grids.writeOn(os);
         os << ndesc << '\n';
       }
-      //
-      // Output state data.
-      //
       for(int i(0); i < ndesc; ++i) {
-        //
-        // Now build the full relative pathname of the StateData.
-        // The name is relative to the Header file containing this name.
-        // It's the name that gets written into the Header.
-        //
-        // There is only one MultiFab written out at each level in HyperCLaw.
-        //
         std::string PathNameInHeader = Level;
         sprintf(buf, "/SD_%d", i);
         PathNameInHeader += buf;
         std::string FullPathName = FullPath;
         FullPathName += buf;
-        // ++++++++++++ state[i].checkPoint(PathNameInHeader, FullPathName, os, how);
           static const std::string NewSuffix("_New_MF");
           static const std::string OldSuffix("_Old_MF");
           const std::string name(PathNameInHeader);
@@ -724,7 +631,6 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
           }
 
           if(ParallelDescriptor::IOProcessor()) {
-            // The relative name gets written to the Header file.
             std::string mf_name_old = name;
             mf_name_old += OldSuffix;
             std::string mf_name_new = name;
@@ -765,9 +671,7 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
             mf_fullpath_old += OldSuffix;
             VisMF::Write(*(falRef.state[i].old_data),mf_fullpath_old,how);
           }
-          // ++++++++++++
       }
-      // ========================
 
        if (ParallelDescriptor::IOProcessor()) {
           if (lev == 0) {
@@ -799,14 +703,11 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
     FArrayBox::setFormat(thePrevFormat);
 }
 
-// ---------------------------------------------------------------
 
 static void ConvertData() {
 
    int max_level(fakeAmr.finest_level);
 
-   // Modify the "grids" boxarray *only* at level 0
-   // NOTE: must do this before re-defining domain below.
 
    FakeAmrLevel &falRef0 = fakeAmr.fakeAmrLevels[0];
    Box domain(fakeAmr.geom[0].Domain());
@@ -820,7 +721,6 @@ static void ConvertData() {
 #endif
 #endif
 
-   // We treat the r-z case with the star in the middle specially
 #if (AMREX_SPACEDIM == 2)
    if (coord == 1 && body_at_center == 1)
    {
@@ -848,8 +748,6 @@ static void ConvertData() {
 
    if (body_at_center == 1 && restart_grow_factor == 2)
    {
-   // Here we tile the domain with tiles smaller than the original domain --
-   //   we first tile with domain-sized pieces, then intersect with the new domain
 
 #if (AMREX_SPACEDIM == 3)
    for (int jz = 0; jz < 3; jz++)
@@ -878,7 +776,6 @@ static void ConvertData() {
       newgrid_list.intersect(new_domain);
 
    } else {
-   // Here we tile the domain with tiles the size of the original domain
 
 #if (AMREX_SPACEDIM == 3)
    for (int jz = 0; jz < restart_grow_factor; jz++)
@@ -903,10 +800,10 @@ static void ConvertData() {
         newgrid_list.push_back(bx);
       }
 
-   }  // end of body_at_center test
+   }
 
 #if (AMREX_SPACEDIM == 2)
-   }  // end of r-z test
+   }
 #endif
 
    BoxArray newgrids(newgrid_list);
@@ -917,26 +814,17 @@ static void ConvertData() {
    for (int n = 0; n < nstatetypes; n++)
       falRef0.state[n].grids = newgrids;
 
-   // Enlarge the ProbDomain (RealBox) of the geom at each level --
-   //   but we only have to do this at level 0 because they are
-   //   actually all the same copy
    RealBox rb(fakeAmr.geom[0].ProbDomain());
 
-   // If this is an octant then we always grow only in the high directions
    if (body_at_center == 0)
    {
-      // Here we grow only prob_hi, extending the domain in one direction.
-      // This works when the star's center is at the origin
       for (int dm = 0; dm < AMREX_SPACEDIM; dm++)
          rb.setHi(dm,restart_grow_factor*rb.hi(dm));
    }
 
-   // We treat the r-z case with the star in the middle specially
 #if (AMREX_SPACEDIM == 2)
    else if (coord == 1)
    {
-      // Here we grow only prob_hi in the r-direction, but both prob_hi
-      //   and prob_lo in the z-direction.
      int dm = 0;
      rb.setHi(dm,restart_grow_factor*rb.hi(dm));
 
@@ -950,11 +838,8 @@ static void ConvertData() {
    }
 #endif
 
-   // This has body_at_center = 0
    else
    {
-      // Here we grow prob_lo and prob_hi, extending the domain in all directions.
-      // This works when the star's center is at the center of the domain.
       for (int dm = 0; dm < AMREX_SPACEDIM; dm++)
       {
          Real dist   = 0.5 * (rb.hi(dm)-rb.lo(dm));
@@ -976,25 +861,21 @@ static void ConvertData() {
 
    const Real* xlo = fakeAmr.geom[0].ProbLo();
 
-   // This sets the CoordSys member "offset" which should be identical to Geometry's problo
-   //    but isn't automatically set.
    fakeAmr.geom[0].SetOffset(xlo);
 
    IntVect shift_iv[max_level+1];
 
-   // Define the shift IntVect for later
    if (body_at_center == 1)
    {
-      if (coord == 1) // r-z
+      if (coord == 1)
       {
          for (int i = 0; i <= max_level; i++)
          {
             Box domain(fakeAmr.geom[i].Domain());
-            // We only handle restart_grow_factor = 2
             shift_iv[i][0] = 0;
             shift_iv[i][1] = domain.size()[1] / 2;
          }
-      } else if (coord == 0) { // x-y
+      } else if (coord == 0) {
          for (int i = 0; i <= max_level; i++)
          {
             Box domain(fakeAmr.geom[i].Domain());
@@ -1007,7 +888,6 @@ static void ConvertData() {
       }
    }
 
-   // Enlarge the Domain (Box) of the geom at each level
    for (int i = 0; i <= max_level; i++)
    {
       Box domain(fakeAmr.geom[i].Domain());
@@ -1018,7 +898,6 @@ static void ConvertData() {
       falRef.geom.Domain(domain);
    }
 
-   // Now fix the state data domain
    for (int i = 0; i <= max_level; i++)
    {
       FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[i];
@@ -1028,7 +907,6 @@ static void ConvertData() {
 
    DistributionMapping newdm {newgrids};
 
-   // We need to allocate a MultiFab for new data but don't need to fill it
    for (int n = 0; n < nstatetypes; n++)
    {
       if (falRef0.state[n].new_data != 0) {
@@ -1042,11 +920,9 @@ static void ConvertData() {
 
          falRef0.state[n].new_data = newNewData;
 
-//       newNewData->copy(*(falRef0.state[n].new_data),0,0,ncomps);
       }
    }
 
-   // If we have old_data as well as new_data
    for (int n = 0; n < nstatetypes; n++)
    {
       if (falRef0.state[n].old_data != 0) {
@@ -1059,25 +935,20 @@ static void ConvertData() {
 
          falRef0.state[n].old_data = newOldData;
 
-//       newOldData->copy(*(falRef0.state[n].old_data),0,0,ncomps);
       }
    }
 
-   // Now shift the data at the higher levels
    if (body_at_center == 1) {
       for (int i = 1; i <= max_level; i++)
       {
          FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[i];
 
-         // Shift the grids associated with each level
          falRef.grids.shift(shift_iv[i]);
 
          for (int n = 0; n < nstatetypes; n++)
          {
-            // Shift the grids associated with each StateData
             falRef.state[n].grids.shift(shift_iv[i]);
 
-            // Shift the grids associated with the MultiFab in each StateData
             if (falRef0.state[n].new_data != 0)
                (falRef.state[n].new_data)->shift(shift_iv[i]);
             if (falRef0.state[n].old_data != 0)
@@ -1087,18 +958,11 @@ static void ConvertData() {
    }
 }
 
-// ---------------------------------------------------------------
 
 static void ExtendThetaDomain() {
-    /// Extend level 0 domain only. Finer levels are left untounched.
-    /// Except the domain metadata are updated.
-    /// We expect finer levels are handled internally via HydroSim
-    /// by regridding them on restart via amr.regrid_on_restart=1
 
     int max_level = fakeAmr.finest_level;
 
-    // Make sure new theta bound satisfies blocking_factor constraint at level 0
-    // Get level 0 information.
     Box dom0 = fakeAmr.geom[0].Domain();
     RealBox rb0 = fakeAmr.geom[0].ProbDomain();
 
@@ -1108,7 +972,6 @@ static void ExtendThetaDomain() {
     int  ncells_old = dom0.size()[1];
     Real theta_cell_width = (theta_hi - theta_lo) / ncells_old;
 
-    // Make sure the request theta generates cells divisible by blocking_factor
     int theta_cells_requested = (int)std::round((theta_new_hi - theta_lo) / theta_cell_width);
     int theta_cells_new = blocking_factor *
         (int)std::ceil((Real)theta_cells_requested / blocking_factor);
@@ -1122,18 +985,14 @@ static void ExtendThetaDomain() {
              << blocking_factor  << ")" << endl;
     }
 
-    // Update theta_new_hi to new value.
     theta_new_hi = theta_snapped;
 
-    // Now update each level individually
     for (int lev = 0; lev <= max_level; lev++) {
 
-        // Get level data
         FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[lev];
         Box old_domain = fakeAmr.geom[lev].Domain();
         RealBox old_rb = fakeAmr.geom[lev].ProbDomain();
 
-        // We want to update the domain cell count for each level
         int refine_theta = 1;
         for (int l = 0; l < lev; l++) {
             refine_theta *= fakeAmr.ref_ratio[l][1];
@@ -1143,67 +1002,46 @@ static void ExtendThetaDomain() {
         int ncells_old_lev = old_domain.size()[1];
         int theta_cells_add_lev = theta_cells_new_lev - ncells_old_lev;
 
-        // Create a new domain (Box) and extend it
         Box new_domain = old_domain;
         new_domain.growHi(1, theta_cells_add_lev);
 
         RealBox new_rb = old_rb;
         new_rb.setHi(1, theta_snapped);
 
-        // redefine level geometry with updated Box and RealBox
         fakeAmr.geom[lev].define(new_domain, &new_rb, coord);
         falRef.geom.define(new_domain, &new_rb, coord);
 
         if (lev == 0) {
-            // Now we want to add grids and data for level 0 data only.
 
-            // Get the new BoxArray
             BoxArray new_ba(new_domain);
 
-            // Now change the size so that each Box spans over the entire theta
-            // this is convenient so that we have access to data along the old theta boundary
-            // Once hydrosim restart the simulation, it will resize based on amr.max_grid_size
-            // new_ba.maxSize(IntVect(max_grid_size, theta_cells_new_lev));
             new_ba.maxSize(IntVect(max_grid_size, max_grid_size));
             DistributionMapping new_dm(new_ba);
             falRef.grids = new_ba;
 
-            // Now update data
             int nstatetypes = falRef.state.size();
             for (int n = 0; n < nstatetypes; n++) {
 
                 falRef.state[n].domain = new_domain;
                 falRef.state[n].grids  = new_ba;
 
-                // Update "new" data in StateData first
                 if (falRef.state[n].new_data != 0) {
 
-                    // Get the new_data multifab, number of components and ghost cells.
                     MultiFab* old_mf = falRef.state[n].new_data;
                     int ncomp = old_mf->nComp();
                     int ngrow = old_mf->nGrow();
 
-                    // Create new MultiFab with the new BoxArray
                     MultiFab* new_mf = new MultiFab(new_ba, new_dm, ncomp, ngrow);
 
-                    // Set the all components from 0 to ncomp to value 0.
                     new_mf->setVal(0., 0, ncomp, ngrow);
 
-                    // Copy data from old_mf starting with src starting component = 0
-                    // and destination component = 0 to ncomp. This only copies data
-                    // for regions of intersection.
-                    // We keep new cells with initial values equal to 0.
-                    // Once hydrosim restarts with the new checkpoint file
-                    // the new cells with be filled using user_initialize_state_data
 
                     new_mf->ParallelCopy(*old_mf, 0, 0, ncomp);
 
-                    // Update the new_data with the updated MultiFab
                     delete old_mf;
                     falRef.state[n].new_data = new_mf;
                 }
 
-                // Same update to "old" data in StateData
                 if (falRef.state[n].old_data != 0) {
                     MultiFab* old_mf = falRef.state[n].old_data;
                     int ncomp = old_mf->nComp();
@@ -1231,8 +1069,6 @@ static void ExtendThetaDomain() {
             }
 
         } else {
-            // Finer levels: only update domain metadata.
-            // Grids and data stay exactly as read in
 
             int nstatetypes = falRef.state.size();
             for (int n = 0; n < nstatetypes; n++) {
@@ -1246,10 +1082,9 @@ static void ExtendThetaDomain() {
             }
         }
 
-    } // end of level loop
+    }
 }
 
-// ---------------------------------------------------------------
 int main(int argc, char *argv[]) {
     amrex::Initialize(argc,argv);
 
@@ -1257,7 +1092,6 @@ int main(int argc, char *argv[]) {
       PrintUsage(argv[0]);
     }
 
-    // Get input arguments
     ScanArguments();
 
     if(verbose && ParallelDescriptor::IOProcessor()) {
@@ -1266,10 +1100,8 @@ int main(int argc, char *argv[]) {
       cout << " " << std::endl;
     }
 
-    // Read in the original checkpoint directory and add a coarser level covering the same domain
     ReadCheckpointFile(CheckFileIn);
 
-    // Extend the domain depending on different modes
     if (mode == "full_hierarchy") {
         if (verbose && ParallelDescriptor::IOProcessor()) {
             if (body_at_center == 0) cout << "Star at corner " << endl;
@@ -1286,7 +1118,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Write out the new checkpoint directory
     WriteCheckpointFile(CheckFileIn, CheckFileOut);
 
     if(verbose && ParallelDescriptor::IOProcessor()) {
@@ -1297,5 +1128,3 @@ int main(int argc, char *argv[]) {
 
     amrex::Finalize();
 }
-// ---------------------------------------------------------------
-// ---------------------------------------------------------------

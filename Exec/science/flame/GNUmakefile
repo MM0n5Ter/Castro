@@ -15,13 +15,10 @@ USE_DIFFUSION = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := aprox13
 
-#Conductivity_dir := constant_opacity
 CONDUCTIVITY_DIR := stellar
 
 PROBLEM_DIR ?= ./

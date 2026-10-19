@@ -7,25 +7,20 @@
 
 using namespace amrex;
 
-void ca_derxash(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
-                const FArrayBox& datfab, const Geometry& /*geomdata*/,
-                Real /*time*/, const int* /*bcrec*/, int /*level*/)
+void ca_derxash(const Box& bx, FArrayBox& derfab, int  , int  ,
+                const FArrayBox& datfab, const Geometry&  ,
+                Real  , const int*  , int  )
 {
 
-    // determine which species should be considered ash
 
     std::bitset<NumSpec> is_ash{};
 
     for (int i = 0; i < NumSpec; ++i) {
-        // include all elements beyond oxygen
         if (zion[i] > 8.0) {
             is_ash.set(i);
         }
     }
 
-    // exclude all of the "ash" species from the input file; they're actually
-    // used for the star composition and hiding them helps make the flame more
-    // visible
     for (const std::string& ash_name : {problem::ash1_name,
                                         problem::ash2_name,
                                         problem::ash3_name}) {

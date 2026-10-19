@@ -83,8 +83,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UTEMP) = T_height;
         state(i,j,k,URHO) = dens;
 
-        // which bubble are we in? -- we want their rho perturbations to be the
-        // same so they have the same buoyancy
 
         if (r1 < 2.0_rt) {
             state(i,j,k,URHO) = dens * (1.0_rt - (problem::pert_factor * (1.0_rt + std::tanh(2.0_rt - r1))));
@@ -111,7 +109,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UEINT) = eos_state.e;
         state(i,j,k,UTEMP) = eos_state.T;
 
-        // make state conservative
 
         for (int n = 0; n < NumSpec; n++) {
             state(i,j,k,UFS+n) = state(i,j,k,URHO) * eos_state.xn[n];
@@ -119,7 +116,6 @@ void user_initialize_state_data (int i, int j, int k,
 
         state(i,j,k,UEINT) = state(i,j,k,URHO) * state(i,j,k,UEINT);
 
-        // assumes ke=0
 
         state(i,j,k,UEDEN) = state(i,j,k,UEINT);
 
@@ -155,8 +151,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,URHO) = dens;
 
 
-        // which bubble are we in? -- we want their rho perturbations to be the
-        // same so they have the same buoyancy
 
         if (r1 < 2.0_rt) {
             state(i,j,k,URHO) = dens * (1.0_rt - (problem::pert_factor * (1.0_rt + std::tanh(2.0_rt - r1))));
@@ -176,7 +170,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UTEMP) = eos_state.T;
 
 
-        // make state conservative
 
         for (int n = 0; n < NumSpec; n++) {
             state(i,j,k,UFS+n) = state(i,j,k,URHO) * eos_state.xn[n];
@@ -184,7 +177,6 @@ void user_initialize_state_data (int i, int j, int k,
 
         state(i,j,k,UEINT) = state(i,j,k,URHO) * state(i,j,k,UEINT);
 
-        // assumes ke=0
 
         state(i,j,k,UEDEN) = state(i,j,k,UEINT);
 

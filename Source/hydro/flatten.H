@@ -10,13 +10,11 @@ Real flatten(int i, int j, int k,
 {
     constexpr Real pressure_cutoff = 1.e-200_rt;
 
-    // Knobs for detection of strong shock
     constexpr Real shock_threshold = 0.33_rt;
     constexpr Real zcut_low = 0.75_rt;
     constexpr Real zcut_high = 0.85_rt;
     constexpr Real zcut_inv_width = 1.0_rt / (zcut_high-zcut_low);
 
-    // x-direction flattening coef
 
     Real dp = prim_arr(i+1,j,k,pressure_index) - prim_arr(i-1,j,k,pressure_index);
 
@@ -61,7 +59,6 @@ Real flatten(int i, int j, int k,
 
 
 #if AMREX_SPACEDIM >= 2
-    // y-direction flattening coef
 
     dp = prim_arr(i,j+1,k,pressure_index) - prim_arr(i,j-1,k,pressure_index);
 
@@ -107,7 +104,6 @@ Real flatten(int i, int j, int k,
 
 
 #if AMREX_SPACEDIM == 3
-    // z-direction flattening coef
 
     dp = prim_arr(i,j,k+1,pressure_index) - prim_arr(i,j,k-1,pressure_index);
 

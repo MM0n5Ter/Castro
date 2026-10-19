@@ -67,12 +67,10 @@ void user_initialize_state_data (int i, int j, int k,
             Ye += model::profile(0).state(model::npts-1, model::iaux+problem::iye) * vsub;
             Abar += model::profile(0).state(model::npts-1, model::iaux+problem::iinvmu) * vsub;
 
-            // u += 0.e0_rt;
 
         } else if (xx <= model::profile(0).r(0)) {
             rho += model::profile(0).state(0, model::idens) * vsub;
             T += model::profile(0).state(0, model::itemp) * vsub;
-            // u += 0.e0_rt;
             Ye += model::profile(0).state(0, model::iaux+problem::iye) * vsub;
             Abar += model::profile(0).state(0, model::iaux+problem::iinvmu) * vsub;
 
@@ -91,8 +89,6 @@ void user_initialize_state_data (int i, int j, int k,
     Ye /= vtot;
     Abar /= vtot;
 
-    // what we read in from the model was really 1/mu_I, which is why we called it Abar here.
-    // now we compute that total 1/mu = 1/mu_I + 1/mu_e = 1/Abar + Ye
 
     Real invmu = (1.0_rt + Abar * Ye) / Abar;
 
@@ -102,7 +98,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // set the composition to be all in the first species
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = 0.0_rt;
@@ -112,7 +107,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UFX+problem::iye) = Ye * rho;
     state(i,j,k,UFX+problem::iinvmu) = invmu * rho;
 
-    // set the internal energy via the EOS
 
     Real rhoInv = 1.0_rt / state(i,j,k,URHO);
 

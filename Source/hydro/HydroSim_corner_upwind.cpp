@@ -42,7 +42,6 @@ HydroSim::cons_update_hydro(const Box& bx,
 #endif
         ) * volinv;
 
-    // Add the p div(u) source term to (rho e).
     if (n == UEINT) {
 
       Real pdu = (qx(i+1,j,k,GDPRESSURE) + qx(i,j,k,GDPRESSURE)) *
@@ -66,14 +65,11 @@ HydroSim::cons_update_hydro(const Box& bx,
       cons_new(i,j,k,n) = cons_new(i,j,k,n) - dt * pdu;
 
     } else if (n == UMX && !momentum_flux_has_pressure(0, 0, geomdata.Coord())) {
-        // Add gradp term to momentum equation -- only for axisymmetric
-        // coords (and only for the radial flux).
 
         cons_new(i,j,k,UMX) += - dt * (qx(i+1,j,k,GDPRESSURE) - qx(i,j,k,GDPRESSURE)) / geomdata.CellSize(0);
 
 #if AMREX_SPACEDIM >= 2
     } else if (n == UMY && !momentum_flux_has_pressure(1, 1, geomdata.Coord())) {
-        // Add gradp term to polar(theta) momentum equation for Spherical 2D geometry
 
         Real r = geomdata.ProbLo(0) + (static_cast<Real>(i) + 0.5_rt) * geomdata.CellSize(0);
         cons_new(i,j,k,UMY) += - dt * (qy(i,j+1,k,GDPRESSURE) - qy(i,j,k,GDPRESSURE)) / (r * geomdata.CellSize(1));
@@ -108,10 +104,6 @@ HydroSim::corner_ppm_states(const Box& bx, const Box& vbx,
 #endif
                        const Real dt) {
 
-  // Compute the normal interface states by reconstructing
-  // the primitive variables using the piecewise parabolic method
-  // and doing characteristic tracing.  We do not apply the
-  // transverse terms here.
 
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
@@ -256,14 +248,6 @@ HydroSim::corner_plm_states(const Box& bx, const Box& vbx,
 #endif
                        const Real dt) {
 
-  // Compute the normal interface states by reconstructing
-  // the primitive variables using piecewise linear slopes and doing
-  // characteristic tracing.  We do not apply the transverse terms here.
-  //
-  // .. todo::
-  //    we can get rid of the the different temporary q Godunov
-  //    state arrays
-  //
 
 
 #ifdef RADIATION
@@ -272,10 +256,8 @@ HydroSim::corner_plm_states(const Box& bx, const Box& vbx,
 #endif
 #endif
 
-  // Compute all slopes
   for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
 
-    // compute the interface states
 
     if (idir == 0) {
       trace_piecewise_linear(bx, 0,
@@ -326,8 +308,6 @@ HydroSim::inject_deferred_source(const Box& bx, const int idir, const Real dt,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        // of the state variables, only pressure, rhoe, and
-        // composition have source terms
 
         Real pressure_old = prim_left(i,j,k,QPRES);
         Real rhoe_old = prim_left(i,j,k,QEINTDENS);
@@ -374,7 +354,6 @@ HydroSim::inject_deferred_source(const Box& bx, const int idir, const Real dt,
             prim_right(i,j,k,n) += 0.5 * dt * deferred_source(i,j,k,n);
 
             if (n >= QFS && n <= QFS-1+NumSpec) {
-                // mass fractions should be in [0, 1]
                 prim_left(i,j,k,n) = amrex::Clamp(prim_left(i,j,k,n), 0.0_rt, 1.0_rt);
                 prim_right(i,j,k,n) = amrex::Clamp(prim_right(i,j,k,n), 0.0_rt, 1.0_rt);
             }

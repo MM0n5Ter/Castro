@@ -18,13 +18,8 @@ riemann_invariant_rhs(const amrex::Real p, const amrex::Real tau, const amrex::R
 
     amrex::ignore_unused(u);
 
-    // here, p is out independent variable, and tau, u are the
-    // dependent variables.  We return the derivatives of these
-    // wrt p for integration.
 
-    // T should be an initial guess coming in
 
-    // get the thermodynamics
 
     eos_rep_t eos_state;
     eos_state.rho = 1.0_rt / tau;
@@ -58,13 +53,8 @@ riemann_invariant_rhs2(const amrex::Real u, const amrex::Real tau, const amrex::
                        amrex::Real& T,
                        amrex::Real& dtaudu, amrex::Real& dpdu) {
 
-    // here, u is out independent variable, and tau, p are the
-    // dependent variables.  We return the derivatives of these
-    // wrt u for integration.
 
-    // here T is an initial guess
 
-    // get the thermodynamics
 
     amrex::ignore_unused(u);
 
@@ -99,8 +89,6 @@ single_step_p(const amrex::Real pstar0, const amrex::Real dp,
               const amrex::Real u0, const amrex::Real tau0,
               const amrex::Real* xn, const int iwave, amrex::Real& T) {
 
-    // this takes a single step of the Riemann invariant system where
-    // p is the independent variable
 
     amrex::Real dtaudp1, dudp1;
     riemann_invariant_rhs(pstar0, tau0, u0, xn, iwave, T, dtaudp1, dudp1);
@@ -130,8 +118,6 @@ single_step_u(const amrex::Real u0, const amrex::Real du,
               const amrex::Real tau0, const amrex::Real p0,
               const amrex::Real* xn, const int iwave, amrex::Real& T) {
 
-    // this takes a single step of the Riemann invariant system where
-    // u is the independent variable
 
     amrex::Real dtaudu1, dpdu1;
     riemann_invariant_rhs2(u0, tau0, p0, xn, iwave, T, dtaudu1, dpdu1);
@@ -162,32 +148,20 @@ rarefaction(const amrex::Real pstar,
             const amrex::Real* xn, const int iwave,
             amrex::Real& Z_s, amrex::Real& W_s, amrex::Real& rhostar) {
 
-    // Compute Z_s = C(p*, rho*) for a rarefaction connecting the
-    // state to the star region by integrating the Riemann invariant
-    // from p_s to pstar.
-    //
-    // The system is:
-    //
-    //    dtau/dp = -1/C**2
-    //    du/dp = +/- 1/C    (+ for 1-wave, - for 3-wave)
 
     const double S1{0.9};
     const double S2{4.0};
 
-    // initial conditions
 
     amrex::Real tau = 1.0_rt / rho_s;
     amrex::Real u = u_s;
     amrex::Real p = p_s;
 
-    // initial guess at integration step
     amrex::Real dp = (pstar - p_s) / static_cast<amrex::Real>(100);
 
     amrex::Real T = hydrosim::eos_temp_guess;
 
-    // adaptive RK4 loop
 
-    // note: we should only be in here if p > pstar, since otherwise we'd have a shock
 
     amrex::Real dp_new{dp};
     int nstep{0};
@@ -202,7 +176,6 @@ rarefaction(const amrex::Real pstar,
 
         amrex::Real rel_error = std::numeric_limits<double>::max();
 
-        // take a step
 
         while (rel_error > solver_constants::integral_tolerance) {
             dp = dp_new;
@@ -210,16 +183,13 @@ rarefaction(const amrex::Real pstar,
                 dp = pstar - p;
             }
 
-            // take 2 half steps
             amrex::Real u_tmp;
             amrex::Real tau_tmp;
             std::tie(u_tmp, tau_tmp) = single_step_p(p, 0.5*dp, u0, tau0, xn, iwave, T);
             std::tie(u_new, tau_new) = single_step_p(p + 0.5*dp, 0.5*dp, u_tmp, tau_tmp, xn, iwave, T);
 
-            // now take a single step to cover dp
             auto [u_single, tau_single] = single_step_p(p, dp, u0, tau0, xn, iwave, T);
 
-            // estimate the relative error
             amrex::Real u_err = std::abs(u_new - u_single);
             if (u0 != 0.0) {
                 u_err /= u0;
@@ -228,14 +198,12 @@ rarefaction(const amrex::Real pstar,
 
             rel_error = std::max(u_err, tau_err);
 
-            // adaptive step estimate
 
             double dp_est = S1 * dp * std::pow(std::abs(solver_constants::integral_tolerance/rel_error), 0.2);
-            dp_new = dp_est; //std::clamp(S1*dp_est, dp/S2, S2*dp);
+            dp_new = dp_est;
 
         }
 
-        // success
         p += dp;
         u = u_new;
         tau = tau_new;
@@ -243,7 +211,6 @@ rarefaction(const amrex::Real pstar,
         nstep++;
     }
 
-    // Z_s is just the Lagrangian sound speed
 
     eos_rep_t eos_state;
     eos_state.rho = 1.0_rt / tau;
@@ -257,7 +224,6 @@ rarefaction(const amrex::Real pstar,
 
     Z_s = std::sqrt(eos_state.gam1 * p / tau);
 
-    // also need W_s.  u above is ustar_s.
 
     if (u == u_s) {
         W_s = Z_s;
@@ -277,29 +243,14 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
     const int npts = 1000;
 
-    // here we integrate the Riemann invariants for a rarefaction up to
-    // some intermediate u (between u_s and ustar).  This accounts for
-    // the fact that we are inside the rarefaction.
-    //
-    // We reformulate the system of ODEs to make u the
-    // dependent variable.  Now we solve:
-    //
-    //   dp/du =  C; dtau/du = -1/C   for the 1-wave
-    //   dp/du = -C; dtau/du =  1/C   for the 3-wave
-    //
-    // we actually don't know the stopping point.  For the 1-wave, we
-    // stop at u = xi + c, for the 3-wave, we stop at u = xi - c, where
-    // c is computed as we step.
 
     const double S1{0.9};
 
-    // initial conditions
 
     amrex::Real tau = 1.0_rt / rho_s;
     u = u_s;
     p = p_s;
 
-    // compute c and estimate the velocity for the endpoint of integration
 
     eos_rep_t eos_state;
     eos_state.rho = 1.0_rt / tau;
@@ -315,13 +266,11 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
     amrex::Real ustop = (iwave == 1) ? xi + c : xi - c;
 
-    // initial guess at the step size -- we'll adapt below
 
     amrex::Real du = (ustop - u_s) / static_cast<amrex::Real>(10);
 
     bool finished = false;
 
-    // this will be used as an initial guess to accelerate the EOS inversions
 
     amrex::Real T = eos_state.T;
 
@@ -337,30 +286,23 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
         amrex::Real rel_error = std::numeric_limits<double>::max();
 
-        // take a step
 
         while (rel_error > solver_constants::integral_tolerance) {
             du = du_new;
 
-            // take 2 half steps
             amrex::Real p_tmp;
             amrex::Real tau_tmp;
             std::tie(tau_tmp, p_tmp) = single_step_u(u, 0.5*du, tau0, p0, xn, iwave, T);
             std::tie(tau_new, p_new) = single_step_u(u + 0.5*du, 0.5*du, tau_tmp, p_tmp, xn, iwave, T);
 
-            // now take a single step to cover du
             auto [tau_single, p_single] = single_step_u(u, du, tau0, p0, xn, iwave, T);
 
-            // estimate the relative error
             amrex::Real p_err = std::abs((p_new - p_single) / p0);
             amrex::Real tau_err = std::abs((tau_new - tau_single) / tau0);
 
             rel_error = std::max(p_err, tau_err);
 
-            // adaptive step estimate
 
-            // if our original step was too small, the error might be zero, in which case,
-            // just bump up the step for next time
 
             amrex::Real du_est{};
             if (rel_error > 0) {
@@ -372,12 +314,10 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
         }
 
-        // success
         u += du;
         p = p_new;
         tau = tau_new;
 
-        // compute c and re-estimate the endpoint of integration
 
         eos_rep_t eos_state;
         eos_state.rho = 1.0_rt/tau;
@@ -393,8 +333,6 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
         ustop = (iwave == 1) ? xi + c : xi - c;
 
-        // check the step size for the next step to ensure we don't
-        // go past the stopping velocity, ustop
 
         if (du_new * u > 0.0_rt) {
             while (std::abs(u + du_new) > std::abs(ustop) && du_new != 0.0_rt) {

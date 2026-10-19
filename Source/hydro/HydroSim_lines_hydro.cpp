@@ -12,12 +12,6 @@
 
 using namespace amrex;
 
-///
-/// Construct the hydrodynamic source at the specified time
-/// (essentially the flux divergence).  This source is suitable for
-/// method of lines or SDC integration.  The output, as a MultiFab
-/// is stored in A_divergence, which comes through the argument list.
-///
 void
 HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 {
@@ -60,11 +54,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
   {
 
-    // Declare local storage now. This should be done outside the
-    // MFIter loop, and then we will resize the Fabs in each MFIter
-    // loop iteration. We use the async arenato ensure that their
-    // memory is saved until it is no longer needed (only relevant for
-    // the asynchronous case, usually on GPUs).
 
     FArrayBox flatten_factor(The_Async_Arena());
     FArrayBox cond(The_Async_Arena());
@@ -89,7 +78,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
     MultiFab& old_forcing = get_old_data(Forcing_Type);
 
-    // The fourth order stuff cannot do tiling because of the Laplacian corrections
     for (MFIter mfi(S_new, (sdc_accuracy_order == 4) ? untiled_size : hydro_tile_size); mfi.isValid(); ++mfi)
       {
         const Box& bx  = mfi.tilebox();
@@ -102,7 +90,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
         auto previous_source_arr = old_forcing.array(mfi);
 
-        // the output of this will be stored in the correct stage MF
         auto update_out_arr = A_divergence.array(mfi);
 
         Real quadrature_weight = 1.0;
@@ -111,7 +98,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
           quadrature_weight = node_quad_weights[current_colloc_node];
         }
 
-        // get the flattening coefficient
         flatten_factor.resize(obx, 1);
 
         Array4<Real const> const prim_arr = q.array(mfi);
@@ -144,8 +130,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
         bool shock_enabled = false;
 #endif
 
-        // for well-balancing and shock detection, we need to
-        // primitive variable source terms
 
         prim_source_fab.resize(grown_src_box, NQSOURCE);
         Array4<Real> const prim_source_arr = prim_source_fab.array();
@@ -159,13 +143,10 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
             });
         }
 
-        // get the interface states and shock variable
 
         shk.resize(obx, 1);
         Array4<Real> const shock_flag_arr = shk.array();
 
-        // Multidimensional shock detection
-        // Used for the hybrid Riemann solver
 
 
         if (shock_flux_switch == 1 || shock_enabled) {
@@ -211,9 +192,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #ifndef AMREX_USE_GPU
         if (sdc_accuracy_order == 4) {
 
-          // -----------------------------------------------------------------
-          // fourth order method
-          // -----------------------------------------------------------------
 
           Box ibx[AMREX_SPACEDIM];
           ibx[0] = amrex::grow(amrex::surroundingNodes(bx, 0), IntVect(AMREX_D_DECL(0,1,1)));
@@ -250,23 +228,16 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
             for (int n = 0; n < NQ; n++) {
 
-              // construct the interface states in the idir direction
-              // operate on nodal_grown_box
               fourth_face_states(nodal_grown_box,
                                 idir, n,
                                 prim_arr, interp_state_arr);
 
-              // compute the limited interface states
-              // operate on obx -- this loop is over cell-centers
               states(obx,
                      idir, n,
                      prim_arr, interp_state_arr, flatten_arr,
                      face_minus_arr, face_plus_arr);
             }
 
-            // get the face-averaged state and flux, <q> and F(<q>),
-            // in the idir direction by solving the Riemann problem
-            // operate on ibx[idir]
 
             compute_godunov_flux(ibx[idir],
                                 face_minus_arr, face_plus_arr,
@@ -285,9 +256,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
             }
 
 #ifdef DIFFUSION
-            // add diffusive flux to F(<q>) if needed
-            // Note: this can act even if do_hydro = 0
-            // operate on ibx[idir]
             if (conduction_enabled == 1) {
               bool holds_cell_average = true;
               fourth_accumulate_diffusion(ibx[idir],
@@ -297,12 +265,8 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
             }
 #endif
 
-            // we now have the face-average interface states and
-            // fluxes evaluated with these
 
 #if AMREX_SPACEDIM == 1
-            // for 1-d, we are done here, so just copy averaged_flux to flux[0],
-            // since there is no face averaging
             Array4<Real> const dir_flux_arr = (flux[0]).array();
 
             amrex::ParallelFor(nbx, NUM_STATE,
@@ -314,7 +278,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
 
 #if AMREX_SPACEDIM >= 2
-            // construct the face-center interface states face_center_state
             const int* lo_bc = phys_bc.lo();
             const int* hi_bc = phys_bc.hi();
 
@@ -339,7 +302,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
             });
 
-            // compute the face-center fluxes F(face_center_state)
             Array4<Real> const face_flux_arr = (flux[idir]).array();
 
             flux_from_state(nbx, face_center_state_arr, face_flux_arr, idir);
@@ -357,7 +319,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
 #ifdef DIFFUSION
             if (conduction_enabled == 1) {
-              // add the diffusive flux to F(face_center_state) if needed
               bool holds_cell_average = false;
               fourth_accumulate_diffusion(nbx,
                                         Temperature_cc.array(mfi), 0,
@@ -367,7 +328,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
 
 
-            // compute the final fluxes
             Array4<Real> const dir_flux_arr = (flux[idir]).array();
 
             amrex::ParallelFor(nbx, NUM_STATE,
@@ -383,14 +343,8 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
 #endif
 
-            // add artificial viscosity
             if (do_hydro == 1) {
 
-              // avisc_coefficient is the coefficient we use.
-              // alpha = 0.3, but
-              // our other hydro solvers use a coefficient on the
-              // divergence that defaults to 0.1, so we normalize to
-              // that value, to allow for adjustments
               const Real alpha = 0.3;
 
               Real viscosity_coef = alpha * (viscosity_coeff / 0.1);
@@ -405,7 +359,7 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
               amrex::ParallelFor(nbx, NUM_STATE,
               [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
               {
-                  if (n == UTEMP) {  // NOLINT(bugprone-branch-clone)
+                  if (n == UTEMP) {
                       dir_flux_arr(i,j,k,n) = 0.0;
 #ifdef SHOCK_VAR
                   } else if (n == UFLAG_SHOCK) {
@@ -435,7 +389,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
             }
 
-            // store the Godunov state
             auto godunov_state_arr = (qe[idir]).array();
             save_godunov_state(nbx, averaged_state_arr, godunov_state_arr);
 
@@ -443,13 +396,9 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
 
         } else {
-#endif   // AMREX_USE_GPU
+#endif
 
-          // -----------------------------------------------------------------
-          // second order method
-          // -----------------------------------------------------------------
 
-          // get div{U} -- we'll use this for artificial viscosity
           div.resize(obx, 1);
           auto divergence_arr = div.array();
 
@@ -465,7 +414,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
           qp.resize(tbx, NQ);
           Array4<Real> const face_plus_arr = qp.array();
 
-          // compute the fluxes and add artificial viscosity
 
           for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -488,7 +436,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                                     face_minus_arr, face_plus_arr);
               }
 
-              // ppm_temp_mode = 1
               if (ppm_temp_mode == 1) {
                   edge_temp_to_pressure(obx, qm.array(), qp.array());
               }
@@ -505,7 +452,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                  qthermo_arr, shock_flag_arr,
                  idir, false);
 
-              // set UTEMP, UFLAG_SHOCK, and chemical potential fluxes to zero
               amrex::ParallelFor(nbx,
               [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
               {
@@ -519,11 +465,9 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
               });
 
-              // apply artificial viscosity
               apply_viscosity(nbx, idir, divergence_arr, input_state_arr, dir_flux_arr);
 
             } else {
-                // we are not doing hydro, so simply zero out the fluxes
                 const Box& nbx = amrex::surroundingNodes(bx, idir);
                 const Box& gbx = amrex::grow(nbx, 1);
 
@@ -543,10 +487,9 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                     godunov_state_arr(i,j,k,n) = 0.e0;
                 });
 
-            } // end do_hydro
+            }
 
 #ifdef DIFFUSION
-            // add a diffusive flux
             cond.resize(obx, 1);
             auto conductivity_arr = cond.array();
 
@@ -559,10 +502,10 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                                flux[idir].array());
 #endif
 
-          } // end idir loop
+          }
 
 #ifndef AMREX_USE_GPU
-        } // end of 4th vs 2nd order MOL update
+        }
 #endif
 
         if (do_hydro) {
@@ -573,7 +516,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
                 Array4<Real> const dir_flux_arr = (flux[idir]).array();
 
-                // apply the density flux limiter
                 if (clip_small_rho_flux == 1) {
                     clip_fluxes_at_density_floor(nbx, idir,
                                                      Sborder.array(mfi),
@@ -583,14 +525,12 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                                                      dt);
                 }
 
-                // ensure that the species fluxes are normalized
                 balance_species_flux(nbx, dir_flux_arr);
 
             }
 
         }
 
-        // do the conservative update -- and store the shock variable
         lines_cons_update(bx,
 #ifdef SHOCK_VAR
                    shock_flag_arr,
@@ -645,7 +585,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
         });
 #endif
 
-        // scale the fluxes
 #if AMREX_SPACEDIM <= 2
         if (!Geom().IsCartesian()) {
           scaled_pressure.resize(xbx, 1);
@@ -664,7 +603,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
           scale_flux_by_area(nbx, dir_flux_arr, face_area_arr, dt);
 
 #if AMREX_SPACEDIM <= 2
-          // get the scaled radial pressure -- we need to treat this specially
 
           if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
               Array4<Real> const x_edge_state_arr = qe[idir].array();
@@ -679,12 +617,7 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
         }
 
 
-        // Store the fluxes from this advance -- we weight them by the
-        // integrator weight for this stage
 
-        // For SDC, we store node 0 the only time we enter here (the
-        // first iteration) and we store the other nodes only on the
-        // last iteration.
         if (time_scheme == IterativeCorrection &&
              (current_colloc_node == 0 || correction_iter == sdc_accuracy_order+sdc_extra_passes-1)) {
 
@@ -716,9 +649,9 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
         }
 
-      } // MFIter loop
+      }
 
-  }  // end of omp parallel region
+  }
 
 
   BL_PROFILE_VAR_STOP(HS_ADVANCE_HYDRO);
@@ -744,5 +677,5 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
     }
 
-#endif // radiation
+#endif
 }

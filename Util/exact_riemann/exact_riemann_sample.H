@@ -17,7 +17,6 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
                const amrex::Real x, const amrex::Real xjump, const amrex::Real time,
                amrex::Real& rho, amrex::Real& u, amrex::Real& p, amrex::Real* xn) {
 
-    // get the initial sound speeds
 
     eos_t eos_state;
     eos_state.rho = rho_l;
@@ -43,14 +42,10 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
     amrex::Real cs_r = std::sqrt(eos_state.gam1 * p_r / rho_r);
 
 
-    // find the solution as a function of xi = x/t
 
-    // compute xi = x/t -- this is the similarity variable for the
-    // solution
 
     amrex::Real xi = (x - xjump) / time;
 
-    // check which side of the contact we need to worry about
 
     amrex::Real chi = std::copysign(1.0_rt, xi - ustar);
 
@@ -92,24 +87,19 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
         uhat_star = chi * ustar;
 
     } else {
-        // we should average in this case
         amrex::Error("Not implemented");
 
     }
 
 
-    // are we a shock or rarefaction?
 
     amrex::Real rhostar, Z_temp;
 
     if (pstar > p_s) {
-        // shock
 
         rhostar = 1.0_rt / (1.0_rt / rho_s - (pstar - p_s)/ (W_s * W_s));
 
     } else {
-        // rarefaction.  Here we need to integrate the Riemann
-        // invariant curves to our pstar to get rhostar and cs_star
         amrex::Real Z_temp, W_temp;
         if (chi == -1.0_rt) {
             rarefaction(pstar, rho_s, u_s, p_s, xn, 1, Z_temp, W_temp, rhostar);
@@ -119,7 +109,6 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
 
     }
 
-    // get the soundspeed via the EOS
 
     eos_state.rho = rhostar;
     eos_state.p = pstar;
@@ -132,7 +121,6 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
 
     amrex::Real cs_star = std::sqrt(eos_state.gam1 * pstar / rhostar);
 
-    // now deal with the cases where we are not spanning a rarefaction
 
     amrex::Real lambdahat_s, lambdahat_star;
 
@@ -156,18 +144,9 @@ riemann_sample(const amrex::Real rho_l, const amrex::Real u_l, const amrex::Real
 
     } else {
 
-        // we are inside the rarefaction.  To find the solution here,
-        // we need to integrate up to the point where uhat + c = xihat
-        // starting from U = U_s
 
-        // for the 1-rarefaction, chi = -1, so this is -u + c = -xi,
-        // or u - c = xi, meaning we integrate to u = xi + c
 
-        // for the 3-rarefaction, chi = 1, so this is u + c = xi,
-        // so we integrate to u = xi - c
 
-        // Note that c here is c(rho,p) -- we need to compute that
-        // self-consistently as we integrate
 
         if (chi == -1.0_rt) {
             rarefaction_to_u(rho_s, u_s, p_s, xn, 1, xi, rho, p, u);

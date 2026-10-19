@@ -22,7 +22,6 @@ HydroSim::blend_source_terms(MultiFab& S_new, MultiFab& source_prev, MultiFab &s
 {
   BL_PROFILE("HydroSim::blend_source_terms()");
 
-  // Subtract off half of the old source term, and add half of the new.
 
   MultiFab::Saxpy(S_new,-0.5*dt,source_prev,0,0,S_new.nComp(),0);
   MultiFab::Saxpy(S_new, 0.5*dt,source_next,0,0,S_new.nComp(),0);
@@ -104,7 +103,7 @@ HydroSim::source_enabled(int src)
     default:
         return false;
 
-    } // end switch
+    }
 }
 
 void
@@ -119,7 +118,6 @@ HydroSim::run_old_sources(
 
     const Real strt_time = ParallelDescriptor::second();
 
-    // Construct the old-time sources.
 
     source.setVal(0.0, source.nGrow());
 
@@ -140,16 +138,12 @@ HydroSim::run_old_sources(
                      field_new, time, 0);
     }
 
-    // Fill the ghost cells (but only for CTU; the time would not be correct for true SDC, so
-    // the FillPatch is handled separately in the SDC advance).
 
     if (hydrosim::time_scheme == CornerTrace ||
         hydrosim::time_scheme == SimplifiedIterCorrection) {
         AmrLevel::FillPatch(*this, source, source.nGrow(), time, Forcing_Type, 0, NUM_SOURCE);
     }
 
-    // Optionally print out diagnostic information about how much
-    // these source terms changed the state.
 
     if (modify_state_flag && log_source_changes) {
       bool use_new_state = false;
@@ -218,7 +212,6 @@ HydroSim::run_new_sources(
         return;
     }
 
-    // Construct the new-time source terms.
 
     for (int n = 0; n < num_forcing; ++n) {
         assemble_new_source(n, source, field_old, field_new, time, dt);
@@ -234,8 +227,6 @@ HydroSim::run_new_sources(
     }
 
 
-    // Optionally print out diagnostic information about how much
-    // these source terms changed the state.
 
     if (log_source_changes) {
       bool use_new_state = true;
@@ -315,7 +306,6 @@ HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Rea
 #ifdef DIFFUSION
     case conduction_src:
         if (!(time_scheme == IterativeCorrection)) {
-          // for MOL or SDC, we'll compute a diffusive flux in the MOL routine
           assemble_old_conduction_source(source, state_in, time, dt);
         }
         break;
@@ -342,7 +332,7 @@ HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Rea
     default:
         break;
 
-    } // end switch
+    }
 }
 
 void
@@ -401,10 +391,9 @@ HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& field_old, Mu
     default:
         break;
 
-    } // end switch
+    }
 }
 
-// Returns whether any sources are actually applied.
 
 bool
 HydroSim::apply_source_terms()
@@ -420,13 +409,6 @@ HydroSim::apply_source_terms()
 
 }
 
-// Evaluate diagnostics quantities describing the effect of an
-// update on the state. The optional parameter local determines
-// whether we want to do this calculation globally over all processes
-// or locally just on this processor. The latter is useful if you
-// are evaluating the contribution from multiple source changes at once
-// and want to amortize the cost of the parallel reductions.
-// Note that the resultant output is volume-weighted.
 
 Vector<Real>
 HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
@@ -436,8 +418,6 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
 
   Vector<Real> update(source.nComp(), 0.0);
 
-  // Create a temporary array which will hold a single component
-  // at a time of the volume-weighted source.
 
   MultiFab volume_weighted_component(source.boxArray(), source.DistributionMap(), 1, 0);
 
@@ -445,7 +425,6 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
 
     volume_weighted_component.setVal(0.0);
 
-    // Fill volume_weighted_component with source x volume.
 
     MultiFab::AddProduct(volume_weighted_component, source, n, volume, 0, 0, 1, 0);
 
@@ -457,10 +436,6 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
 
 }
 
-// Print the change due to a given source term update.
-// We assume here that the input array is lined up with
-// the NUM_STATE components of State_Type because we are
-// interested in printing changes to energy, mass, etc.
 
 void
 HydroSim::log_source_change(const Vector<Real>& update)
@@ -482,8 +457,6 @@ HydroSim::log_source_change(const Vector<Real>& update)
 
 }
 
-// Calculate the changes to the state due to a source term,
-// and also print the results.
 
 void
 HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const std::string& source_name)
@@ -509,8 +482,6 @@ HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const 
 #endif
 }
 
-// For the old-time or new-time sources update, evaluate the change in the state
-// for all source terms, then print the results.
 
 void
 HydroSim::log_all_source_changes(Real dt, bool use_new_state)
@@ -522,33 +493,22 @@ HydroSim::log_all_source_changes(Real dt, bool use_new_state)
     measure_and_log_source_change(source, dt, source_name);
 }
 
-// Perform all operations that occur prior to computing the predictor sources
-// and the hydro advance.
 
 step_result
-HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::before_advance_hooks (Real time, Real dt)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
     step_result status {};
 
-    // If we are using gravity, solve for the potential and
-    // gravitational field.  note: since reactions don't change
-    // density, we can do this before or after the burn.
 
 #ifdef GRAVITY
     assemble_old_gravity(time);
 #endif
 
 #ifdef SHOCK_VAR
-    // we want to compute the shock flag that will be used
-    // (optionally) in disabling reactions in shocks.  We compute this
-    // only once per timestep using the time-level n data.
 
-    // We need to compute the old sources -- note that we will
-    // recompute the old sources after the burn, so this is done here
-    // only for evaluating the shock flag.
 
     const bool modify_state_flag{false};
     run_old_sources(time, dt, modify_state_flag);
@@ -583,12 +543,7 @@ HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-conve
 
         shock(bx, prim_arr, prev_source_arr, shock_flag_arr);
 
-        // now store it in S_old -- we'll fillpatch into Sborder in a bit
 
-        // Note: we still compute the shock flag in the hydro for the
-        // hybrid-Riemann (for now) since that version will have seen the
-        // effect of the burning in the first dt), but that version is
-        // never stored in State_Type
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -598,8 +553,6 @@ HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-conve
 
     }
 
-    // we only computed the shock flag on the interior, but the first
-    // burn needs ghost cells, so FillPatch just the shock flag
 
     if (Sborder.nGrow() > 0) {
       AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, UFLAG_SHOCK, 1, UFLAG_SHOCK);
@@ -607,7 +560,6 @@ HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-conve
 
 #endif
 
-    // If we are Strang splitting the reactions, do the old-time contribution now.
 
 #ifndef TRUE_SDC
 #ifdef REACTIONS
@@ -620,7 +572,6 @@ HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-conve
 #endif
 
 
-    // Initialize the new-time data. This copy needs to come after all Strang-split operators.
 
     MultiFab& S_new = get_new_data(State_Type);
 
@@ -629,11 +580,9 @@ HydroSim::before_advance_hooks (Real time, Real dt)  // NOLINT(readability-conve
     return status;
 }
 
-// Perform all operations that occur after computing the predictor sources
-// but before the hydro advance.
 
 step_result
-HydroSim::before_hydro_hooks (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::before_hydro_hooks (Real time, Real dt)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -641,8 +590,6 @@ HydroSim::before_hydro_hooks (Real time, Real dt)  // NOLINT(readability-convert
     step_result status {};
 
 #ifdef REACTIONS
-    // The SDC reactive source ghost cells on coarse levels might not
-    // be in sync due to any average down done, so fill them here.
 
     if (hydrosim::time_scheme == SimplifiedIterCorrection) {
         MultiFab& reaction_source_arr = get_new_data(Burn_Corr_Type);
@@ -654,11 +601,9 @@ HydroSim::before_hydro_hooks (Real time, Real dt)  // NOLINT(readability-convert
     return status;
 }
 
-// Perform all operations that occur after the hydro source
-// but before the corrector sources.
 
 step_result
-HydroSim::after_hydro_hooks (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::after_hydro_hooks (Real time, Real dt)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -672,10 +617,9 @@ HydroSim::after_hydro_hooks (Real time, Real dt)  // NOLINT(readability-convert-
     return status;
 }
 
-// Perform all operations that occur after the corrector sources.
 
 step_result
-HydroSim::after_advance_hooks (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::after_advance_hooks (Real time, Real dt)
 {
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);

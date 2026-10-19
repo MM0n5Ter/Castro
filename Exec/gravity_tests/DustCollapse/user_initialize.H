@@ -40,13 +40,11 @@ void user_initialize ()
     }
 #endif
 
-    // set the composition to be uniform
     for (int n = 0; n < NumSpec; ++n) {
         problem::X_0[n] = 0.0_rt;
     }
     problem::X_0[0] = 1.0_rt;
 
-    // get the ambient temperature and sphere temperature, T_0
 
     eos_t eos_state;
 
@@ -55,7 +53,7 @@ void user_initialize ()
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = problem::X_0[n];
     }
-    eos_state.T = hydrosim::small_temp; // Initial guess for the EOS
+    eos_state.T = hydrosim::small_temp;
 
     eos(eos_input_rp, eos_state);
 

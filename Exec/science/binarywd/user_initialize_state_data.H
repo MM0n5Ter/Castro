@@ -12,9 +12,6 @@ void user_initialize_state_data (int i, int j, int k,
                                     Array4<Real> const& state,
                                     const GeometryData& geomdata)
 {
-    // Set the zone state depending on whether we are inside the primary
-    // or secondary (in which case interpolate from the respective model)
-    // or if we are in an ambient zone.
 
     auto omega = get_angular_velocity(geomdata, j);
 
@@ -29,20 +26,6 @@ void user_initialize_state_data (int i, int j, int k,
                             std::pow(loc[1] - problem::center_S_initial[1], 2) +
                             std::pow(loc[2] - problem::center_S_initial[2], 2));
 
-    // If the zone size is smaller than the stellar radius,
-    // then use interpolation from the 1D model. If the zone
-    // size is larger than the stellar radius, which can happen
-    // on the coarsest levels on large grids, we need to ensure
-    // that some mass gets loaded onto the grid so that we can
-    // refine in the appropriate place. This does not need to be
-    // accurate, as the average down from the fine levels will get
-    // things right on the coarse levels. So we can still use the
-    // interpolation scheme, because it handles this special case
-    // for us by simply using the central zone of the model; we
-    // just need to make sure we catch it.  Finally, sometimes
-    // the stars are so close that the interpolation will overlap.
-    // in this case, look at which model has the highest density
-    // at that location and use that model.
 
     const Real* dx = geomdata.CellSize();
 
@@ -86,7 +69,6 @@ void user_initialize_state_data (int i, int j, int k,
         }
 
         if (rho_P > rho_S) {
-            // use the primary star initialization
             zone_state.rho = rho_P;
             zone_state.T   = interpolate_3d(pos_P, dx, model::itemp, problem::nsub, 0);
             for (int n = 0; n < NumSpec; ++n) {
@@ -94,7 +76,6 @@ void user_initialize_state_data (int i, int j, int k,
             }
 
         } else {
-            // use the secondary star initialization
             zone_state.rho = rho_S;
             zone_state.T   = interpolate_3d(pos_S, dx, model::itemp, problem::nsub, 1);
             for (int n = 0; n < NumSpec; ++n) {
@@ -135,7 +116,6 @@ void user_initialize_state_data (int i, int j, int k,
     }
 #endif
 
-    // Set the velocities in each direction to zero by default.
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
@@ -145,8 +125,6 @@ void user_initialize_state_data (int i, int j, int k,
         loc[n] -= problem::center[n];
     }
 
-    // Add any additional velocity imparted to the stars, usually
-    // from an eccentric orbit or from a collision calculation.
 
     if (problem::problem != 1) {
 
@@ -163,21 +141,11 @@ void user_initialize_state_data (int i, int j, int k,
         }
     }
 
-    // If we're in the inertial reference frame, use rigid body rotation with velocity omega x r.
 
     if (hydrosim::do_frame_spin != 1 && problem::problem == 1) {
 
         GpuArray<Real, 3> rot_loc = {loc[0], loc[1], loc[2]};
 
-        // At large enough distances from the center, our rigid body rotation formula gives
-        // meaningless results, and this is enough to be an issue for the problem sizes of
-        // interest. We don't want the stars to be plowing through ambient material, though.
-        // So we need a solution for the ambient material that satisfies both criteria. Our
-        // solution is to set a cap on the radius used in calculating the rotation velocity:
-        // the material around the stars will be rotating at the same speed, avoiding unwanted
-        // numerical effects, but the material near the domain boundaries will still have a
-        // reasonable velocity. We'll arbitrarily apply the cap at some multiple of the larger
-        // of the two stellar radii.
 
         if (state(i,j,k,URHO) <= hydrosim::ambient_threshold_factor * ambient::ambient_reference_state[URHO]) {
 
@@ -197,9 +165,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UMY) += state(i,j,k,URHO) * vel[1];
         state(i,j,k,UMZ) += state(i,j,k,URHO) * vel[2];
 
-        // In 2D we have to be careful: the third coordinate is an angular
-        // coordinate, whose unit vector is tangent to the unit circle, so we should
-        // have the same velocity everywhere along that coordinate to begin with.
 
         if (AMREX_SPACEDIM == 2) {
             state(i,j,k,UMZ) = std::abs(state(i,j,k,UMZ));
@@ -207,7 +172,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     }
 
-    // Add corresponding kinetic energy from the velocity on the grid.
 
     state(i,j,k,UEDEN) += 0.5_rt * (state(i,j,k,UMX) * state(i,j,k,UMX) +
                                     state(i,j,k,UMY) * state(i,j,k,UMY) +

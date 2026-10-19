@@ -21,7 +21,6 @@ HydroSim::rsrc(const Box& bx,
     Real Sr[3] = {};
     Real src[NUM_SOURCE] = {};
 
-    // Temporary array for seeing what the new state would be if the update were applied here.
 
     Real snew[NUM_STATE] = {};
 
@@ -82,13 +81,10 @@ HydroSim::rsrc(const Box& bx,
     src[UMP] = hybrid_source_vector[2];
 #endif
 
-    // Kinetic energy source: this is v . the momentum source.
-    // We don't apply in the case of the conservative energy
-    // formulation.
 
     Real SrE;
 
-    if (rotation_source_mode == 1 || rotation_source_mode == 2) {  // NOLINT(bugprone-branch-clone)
+    if (rotation_source_mode == 1 || rotation_source_mode == 2) {
 
       SrE = uold(i,j,k,UMX) * rhoInv * Sr[0] +
             uold(i,j,k,UMY) * rhoInv * Sr[1] +
@@ -101,14 +97,6 @@ HydroSim::rsrc(const Box& bx,
 
     } else if (rotation_source_mode == 4) {
 
-      // The conservative energy formulation does not strictly require
-      // any energy source-term here, because it depends only on the
-      // fluid motions from the hydrodynamical fluxes which we will only
-      // have when we get to the 'corrector' step. Nevertheless we add a
-      // predictor energy source term in the way that the other methods
-      // do, for consistency. We will fully subtract this predictor value
-      // during the corrector step, so that the final result is correct.
-      // Here we use the same approach as rotation_source_mode == 2.
 
       SrE = uold(i,j,k,UMX) * rhoInv * Sr[0] +
             uold(i,j,k,UMY) * rhoInv * Sr[1] +
@@ -124,7 +112,6 @@ HydroSim::rsrc(const Box& bx,
 
     snew[UEDEN] += dt * src[UEDEN];
 
-    // Add to the outgoing source array.
 
     for (int n = 0; n < NUM_SOURCE; n++) {
       source(i,j,k,n) += src[n];
@@ -146,26 +133,12 @@ HydroSim::apply_rotation_correction(const Box& bx,
                  const Real dt,
                  Array4<Real const> const& vol) {
 
-  // Corrector step for the rotation source terms. This is applied
-  // after the hydrodynamics update to fix the time-level n
-  // prediction and add the time-level n+1 data.
-
-  // uold and unew are the old and new time state data
-
-  // source is the source term to send back
-
-  // xface_flux, flux1, and flux2 are the hydrodynamical mass fluxes
 
 
-  // Rotation source options for how to add the work to (rho E):
-  // rotation_source_mode =
-  // 1: Standard version ("does work")
-  // 2: Modification of type 1 that updates the momentum before constructing the energy corrector
-  // 3: Puts all rotational work into KE, not (rho e)
-  // 4: Conservative energy formulation
 
-  // Note that the time passed to this function
-  // is the new time at time-level n+1.
+
+
+
 
   GeometryData geomdata = geom.data();
   const auto coord = geomdata.Coord();
@@ -189,7 +162,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
     Real mom_source_corr[3] = {};
     Real src[NUM_SOURCE] = {};
 
-    // Temporary array for seeing what the new state would be if the update were applied here.
 
     Real snew[NUM_STATE] = {};
 
@@ -215,7 +187,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
     Real kinetic_energy_old = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
 
 
-    // Define old source terms
 
     GpuArray<Real, 3> vold;
 
@@ -233,7 +204,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
     Real energy_source_old = vold[0] * mom_source_old[0] + vold[1] * mom_source_old[1] + vold[2] * mom_source_old[2];
 
 
-    // Define new source terms
 
     GpuArray<Real, 3> velocity_new;
 
@@ -250,7 +220,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
     Real energy_source_new = velocity_new[0] * mom_source_new[0] + velocity_new[1] * mom_source_new[1] + velocity_new[2] * mom_source_new[2];
 
 
-    // Define correction terms
 
     for (int n = 0; n < 3; n++) {
       mom_source_corr[n] = 0.5_rt * (mom_source_new[n] - mom_source_old[n]);
@@ -258,10 +227,7 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
     if (rotation_implicit_step == 1) {
 
-      // Coupled/implicit momentum update
 
-      // Do the full corrector step with the old contribution (subtract 1/2 times the old term) and do
-      // the non-Coriolis parts of the new contribution (add 1/2 of the new term).
 
       Real acc[3];
       with_coriolis = false;
@@ -273,22 +239,12 @@ HydroSim::apply_rotation_correction(const Box& bx,
       }
 
 
-      // The following is the general solution to the 3D coupled system,
-      // assuming that the rotation vector has components along all three
-      // axes, obtained using Cramer's rule (the coefficient matrix is
-      // defined above). In practice the user will probably only be using
-      // one axis for rotation. Note that this will
-      // have the correct form regardless of whether the state variables are
-      // measured in the rotating frame or not; we handled that in the construction
-      // of the omega_times_dt_matrix. It also has the correct form if we have disabled
-      // the Coriolis force entirely; at that point it reduces to the identity matrix.
 
       Array2D<Real, 0, 2, 0, 2> omega_times_dt_matrix = {};
       fill_omega_times_dt_matrix(dt, omega, omega_times_dt_matrix);
 
       Real updated_momentum[3] = {};
 
-      // updated_momentum = matmul(omega_times_dt_matrix, updated_momentum)
 
       for (int l = 0; l < 3; l++) {
         for (int m = 0; m < 3; m++) {
@@ -297,8 +253,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
       }
 
 
-      // Obtain the effective source term; remember that we're ultimately going
-      // to multiply the source term by dt to get the update to the state.
 
       for (int n = 0; n < 3; n++) {
         mom_source_corr[n] = (updated_momentum[n] - unew(i,j,k,UMX+n)) / dt;
@@ -306,7 +260,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
     }
 
-    // Correct momenta
 
     src[UMX] = mom_source_corr[0];
     src[UMY] = mom_source_corr[1];
@@ -335,20 +288,16 @@ HydroSim::apply_rotation_correction(const Box& bx,
     src[UMP] = hybrid_source_vector[2];
 #endif
 
-    // Correct energy
 
     Real energy_source_corr;
 
     if (rotation_source_mode == 1) {
 
-      // If rotation_source_mode == 1, then we calculated energy_source_corr before updating the velocities.
 
       energy_source_corr = 0.5_rt * (energy_source_new - energy_source_old);
 
     } else if (rotation_source_mode == 2) {
 
-      // For this source type, we first update the momenta
-      // before we calculate the energy source term.
 
       velocity_new[0] = snew[UMX] * rho_new_inv;
       velocity_new[1] = snew[UMY] * rho_new_inv;
@@ -368,30 +317,19 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
     } else if (rotation_source_mode == 3) {
 
-      // Instead of calculating the energy source term explicitly,
-      // we simply update the kinetic energy.
 
       Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
       energy_source_corr = kinetic_energy_updated - kinetic_energy_old;
 
     } else if (rotation_source_mode == 4) {
 
-      // Conservative energy update
 
-      // First, subtract the predictor step we applied earlier.
 
       energy_source_corr = - energy_source_old;
 
-      // See corrgsrc for an explanation of this algorithm. We can implement this identically
-      // to the conservative gravity, swapping out the gravitational acceleration for the
-      // rotational acceleration. We only need to calculate the rotational acceleration on
-      // edges, which is straightforward to do. The Coriolis term does not play a role in
-      // the energy update (it does no work), so we turn it off and pass in a temporary
-      // velocity array which will be ignored.
 
       Real edge_spin_source[3][2];
 
-      // Loop over directions and edges
 
       for (int dir = 0; dir < 3; ++dir) {
           for (int edge = 0; edge <= 1; ++edge) {
@@ -436,7 +374,6 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
     src[UEDEN] = energy_source_corr;
 
-    // Add to the outgoing source array.
 
     for (int n = 0; n < NUM_SOURCE; n++) {
       source(i,j,k,n) += src[n];

@@ -16,7 +16,6 @@ void user_bc_fill(int i, int j, int k,
 
     const int* domhi = geomdata.Domain().hiVect();
 
-    // Overwrite the outer boundary conditions
 
     if (!(i > domhi[0] || j > domhi[1] || k > domhi[2])) {
         return;
@@ -36,7 +35,6 @@ void user_bc_fill(int i, int j, int k,
 
     eos(eos_input_rp, zone_state);
 
-    // Radial inflow with |v| = 1.
 
     Real vel[3] = {-loc[0] / r, -loc[1] / r, -loc[2] / r};
 

@@ -29,7 +29,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real pert = 1.0e-5_rt * std::sin(2.0_rt * M_PI * (problem::k_x * x + problem::k_y * y));
 
-    // initialize
     state(i,j,k,URHO) = problem::rho_0;
     state(i,j,k,UMX) = (problem::u_x + (std::sqrt(2.0_rt) * problem::cw * problem::cw *
                                         problem::u_by - problem::c_s * problem::u_ky) *
@@ -46,12 +45,11 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real pressure = problem::p_0 + problem::rho_0 * problem::c_s * pert;
 
-    // compute the internal energy (erg/cc)
 
     eos_t eos_state;
     eos_state.rho = problem::rho_0;
     eos_state.p = pressure;
-    eos_state.T = 100.0_rt;  // initial guess
+    eos_state.T = 100.0_rt;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = state(i,j,k,UFS+n) / state(i,j,k,URHO);
     }

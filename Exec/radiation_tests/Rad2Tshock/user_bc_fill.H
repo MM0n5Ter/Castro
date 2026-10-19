@@ -8,16 +8,12 @@ void user_bc_fill(int i, int j, int k,
                      const Array1D<BCRec, 0, NUM_STATE-1>& bcs,
                      const GeometryData& geomdata)
 {
-    // The strategy here is to set Dirichlet condition for inflow and
-    // outflow boundaries, and let the Riemann solver sort out the
-    // proper upwinding.
 
     const int* domlo = geomdata.Domain().loVect();
     const int* domhi = geomdata.Domain().hiVect();
 
     if (problem::idir == 1) {
 
-        // XLO
         if ((bcs(URHO).lo(0) == amrex::BCType::ext_dir || bcs(URHO).lo(0) == amrex::BCType::foextrap) && i < domlo[0]) {
             state(i,j,k,URHO) = problem::rho0;
             state(i,j,k,UMX) = problem::rho0 * problem::v0;
@@ -32,7 +28,6 @@ void user_bc_fill(int i, int j, int k,
             state(i,j,k,UTEMP) = problem::T0;
         }
 
-        // XHI
         if ((bcs(URHO).hi(0) == amrex::BCType::ext_dir || bcs(URHO).hi(0) == amrex::BCType::foextrap) && i > domhi[0]) {
             state(i,j,k,URHO) = problem::rho1;
             state(i,j,k,UMX) = problem::rho1 * problem::v1;
@@ -50,7 +45,6 @@ void user_bc_fill(int i, int j, int k,
     }
     else if (problem::idir == 2) {
 
-        // YLO
         if ((bcs(URHO).lo(1) == amrex::BCType::ext_dir || bcs(URHO).lo(1) == amrex::BCType::foextrap) && j < domlo[1]) {
             state(i,j,k,URHO) = problem::rho0;
             state(i,j,k,UMX) = 0.e0_rt;
@@ -65,7 +59,6 @@ void user_bc_fill(int i, int j, int k,
             state(i,j,k,UTEMP) = problem::T0;
         }
 
-        // YHI
         if ((bcs(URHO).hi(1) == amrex::BCType::ext_dir || bcs(URHO).hi(1) == amrex::BCType::foextrap) && j > domhi[1]) {
             state(i,j,k,URHO) = problem::rho1;
             state(i,j,k,UMX) = 0.e0_rt;
@@ -83,7 +76,6 @@ void user_bc_fill(int i, int j, int k,
     }
     else if (problem::idir == 3) {
 
-        // ZLO
         if ((bcs(URHO).lo(2) == amrex::BCType::ext_dir || bcs(URHO).lo(2) == amrex::BCType::foextrap) && k < domlo[2]) {
             state(i,j,k,URHO) = problem::rho0;
             state(i,j,k,UMX) = 0.e0_rt;
@@ -98,7 +90,6 @@ void user_bc_fill(int i, int j, int k,
             state(i,j,k,UTEMP) = problem::T0;
         }
 
-        // ZHI
         if ((bcs(URHO).hi(2) == amrex::BCType::ext_dir || bcs(URHO).hi(2) == amrex::BCType::foextrap) && k > domhi[2]) {
             state(i,j,k,URHO) = problem::rho1;
             state(i,j,k,UMX) = 0.e0_rt;

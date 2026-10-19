@@ -41,12 +41,9 @@ void user_initialize_state_data (int i, int j, int k,
     Real pertheight;
 
 #if AMREX_SPACEDIM == 2
-    // We explicitly make the perturbation symmetric here.
-    // This prevents the RT from bending.
     pertheight = 0.01_rt * 0.5_rt * (std::cos(2.0_rt * M_PI * r[0] / problem::L_x) +
                                      std::cos(2.0_rt * M_PI * (problem::L_x - r[0]) / problem::L_x)) + 0.5_rt;
 #else
-    // In 3D, the perturbation is in both x and y.
     Real r2d = amrex::min(0.5e0_rt * L_x,
                           std::sqrt((r[0] - problem::split[0]) * (r[0] - problem::split[0]) +
                                     (r[1] - problem::split[1]) * (r[1] - problem::split[1])));

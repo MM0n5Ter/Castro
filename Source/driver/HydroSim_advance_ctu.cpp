@@ -12,12 +12,8 @@
 using namespace amrex;
 
 step_result
-HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-member-functions-to-static)
+HydroSim::run_advance_ctu (Real time, Real dt)
 {
-    // this routine will advance the old state data (called Sborder here)
-    // to the new time, for a single level.  The new data is called
-    // S_new here.  The update includes reactions (if we are not doing
-    // SDC), hydro, and the source terms.
 
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
@@ -28,8 +24,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
 
 #ifndef TRUE_SDC
 
-    // Advance simultaneously on all levels that are not subcycling
-    // relative to this level.
 
     int top_level_to_advance = level;
 
@@ -41,7 +35,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
     const Real  cur_time = state[State_Type].curTime();
 
     for (int lev = level; lev <= top_level_to_advance; ++lev) {
-        // Perform initialization steps.
 
         status = getLevel(lev).begin_step_advance(time, dt);
 
@@ -49,8 +42,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Perform all pre-advance operations and then initialize
-        // the new-time state with the output of those operators.
 
         status = getLevel(lev).before_advance_hooks(prev_time, dt);
 
@@ -58,11 +49,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Construct the old-time sources from Sborder. This will already
-        // be applied to S_new (with full dt weighting), to be corrected
-        // later. Note that this does not affect the prediction of the
-        // interface state; an explicit source will be traced there as
-        // needed.
 
         status = getLevel(lev).run_old_sources(prev_time, dt);
 
@@ -70,7 +56,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Perform any operations that occur after the sources but before the hydro.
 
         status = getLevel(lev).before_hydro_hooks(prev_time, dt);
 
@@ -78,8 +63,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Do the hydro update. We build directly off of Sborder, which
-        // is the state that has already seen the burn.
 
 #ifndef MHD
         status = getLevel(lev).assemble_ctu_hydro_source(prev_time, dt);
@@ -92,16 +75,12 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
         }
     }
 
-    // We can perform the reflux immediately if there's no subcycling
-    // above this level.
 
     if (do_reflux && level < top_level_to_advance) {
         reflux(level, top_level_to_advance, false);
     }
 
     for (int lev = level; lev <= top_level_to_advance; ++lev) {
-        // Perform any operations that occur after the hydro but before
-        // the corrector sources.
 
         status = getLevel(lev).after_hydro_hooks(cur_time, dt);
 
@@ -109,7 +88,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Construct and apply new-time source terms.
 
         status = getLevel(lev).run_new_sources(cur_time, dt);
 
@@ -117,7 +95,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Do the second half of the reactions for Strang, or the full burn for simplified SDC.
 
         status = getLevel(lev).after_advance_hooks(cur_time, dt);
 
@@ -125,7 +102,6 @@ HydroSim::run_advance_ctu (Real time, Real dt)  // NOLINT(readability-convert-me
             return status;
         }
 
-        // Perform finalization steps.
 
         status = getLevel(lev).end_step_advance(cur_time, dt);
 
@@ -180,15 +156,10 @@ HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
             std::cout << std::endl;
         }
 
-        // If we are doing a retry and this is the first attempt
-        // at the advance, make a copy of the state data. This will
-        // be useful to us at the end of the timestep when we need
-        // to restore the original old data.
 
         for (int lev = level; lev <= top_level_to_advance; ++lev) {
             getLevel(lev).snapshot_for_rerun();
 
-            // Clear the contribution to the fluxes from this step.
 
             for (int dir = 0; dir < 3; ++dir) {
                 getLevel(lev).fluxes[dir]->setVal(0.0);
@@ -218,11 +189,6 @@ HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
             }
 #endif
 
-            // For simplified SDC, we'll have garbage data if we
-            // attempt to use the lagged source terms (both reacting
-            // and non-reacting) from the last timestep, since that
-            // advance failed and we don't know if we can trust it.
-            // So we zero out both source term correctors.
 
             if (time_scheme == SimplifiedIterCorrection) {
                 getLevel(lev).forcing_corrector.setVal(0.0, getLevel(lev).forcing_corrector.nGrow());
@@ -247,10 +213,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 {
     BL_PROFILE("HydroSim::advance_subcycles_ctu()");
 
-    // Start the subcycle time off with the main dt,
-    // unless we already came in here with an estimate
-    // that is different from the initial value we assigned,
-    // for example from the post-step regrid algorithm.
 
     if (dt_cycle_step == 1.e200) {
         dt_cycle_step = dt;
@@ -268,9 +230,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
         top_level_to_advance = parent->finestLevel();
     }
 
-    // Subcycle until we've reached the target time.
-    // Compare against a slightly smaller number to
-    // avoid roundoff concerns.
 
     Real eps = 1.0e-14;
 
@@ -280,20 +239,9 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     while (subcycle_clock < (1.0 - eps) * (time + dt)) {
 
-        // Save the dt_cycle_step before modifying it, we will use it later.
 
         final_dt_subcycle = dt_cycle_step;
 
-        // Shorten the last timestep so that we don't overshoot
-        // the ending time. Relatedly, we also don't want to
-        // undershoot the ending time, which would cause us to
-        // have to take a very short final timestep to get to
-        // the desired time. We'll use a slightly larger tolerance
-        // factor than we do in the outer while loop, to avoid
-        // roundoff issues, under the logic that as long as the
-        // tolerance is still small, there is no meaningful harm
-        // from the timestep being slightly larger than our recommended
-        // safe dt in the subcycling.
 
         AMREX_ASSERT(min_dt_time_ratio > eps);
 
@@ -301,7 +249,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
           dt_cycle_step = (time + dt) - subcycle_clock;
         }
 
-        // Determine whether we're below the cutoff timestep.
 
         if (dt_cycle_step <= min_dt_time_ratio * time) {
             if (ParallelDescriptor::IOProcessor()) {
@@ -313,7 +260,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             amrex::Abort("Error: subcycled timesteps too short.");
         }
 
-        // Check on whether we are going to take too many subcycles.
 
         int subcycles_left = int(round(((time + dt) - subcycle_clock) / dt_cycle_step));
 
@@ -326,7 +272,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             amrex::Abort("Error: too many subcycles.");
         }
 
-        // If we get to this point, we survived the sanity checks. Print out the current subcycle iteration.
 
         if (verbose && ParallelDescriptor::IOProcessor()) {
             std::cout << std::endl;
@@ -338,9 +283,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
                       << subcycles_left << std::endl << std::endl;
         }
 
-        // Swap the time levels. Only do this after the first iteration;
-        // the first iteration used the swap done in begin_advance.
-        // After that, the only exception will be if we do a retry.
 
         if (do_swap) {
 
@@ -358,7 +300,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             do_swap = true;
         }
 
-        // Set the relevant time levels.
 
         for (int lev = level; lev <= top_level_to_advance; ++lev) {
             for (int k = 0; k < num_field_types; k++) {
@@ -366,21 +307,13 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             }
         }
 
-        // Do the advance and construct the relevant source terms. For CTU this
-        // will include Strang-split reactions; for simplified SDC, we defer the
-        // burn until after the advance.
 
         int sub_iter_count = 1;
 
-        // Save the number of SDC iterations in case we are about to modify it.
 
         int sdc_passes_old = deferred_iters;
 
         if (time_scheme == SimplifiedIterCorrection) {
-            // If we're in a retry we want to add one more iteration. This is
-            // because we will have zeroed out the lagged corrector from the
-            // last iteration/timestep and so having another iteration will
-            // approximately compensate for that.
 
             if (retry_active) {
                 deferred_iters += 1;
@@ -402,7 +335,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
                 amrex::Print() << "Beginning SDC iteration " << n + 1 << " of " << sub_iter_count << "." << std::endl << std::endl;
             }
 
-            // We do the hydro advance here, and record whether we completed it.
 
             status = run_advance_ctu(subcycle_clock, dt_cycle_step);
 
@@ -429,17 +361,12 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             std::cout << Font::Bold << FGColor::Green << "  Subcycle completed" << ResetDisplay << std::endl << std::endl;
         }
 
-        // Set deferred_iters to its original value, in case we modified it above.
 
         deferred_iters = sdc_passes_old;
 
-        // If we're allowing for retries, check for that here.
 
         if (allow_step_retry) {
 
-            // If we hit a retry, signal that we want to try again.
-            // The retry function will handle resetting the state,
-            // and updating dt_cycle_step.
 
             if (rerun_advance_ctu(dt_cycle_step, status)) {
                 do_swap = false;
@@ -460,13 +387,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
         subcycle_clock += dt_cycle_step;
         sub_pass += 1;
 
-        // Continually record the last timestep we took on each level advanced
-        // in case we need it later. We only record it if the subcycle
-        // was completed successfully (i.e. we got to this point).
-        // Note: this is different from final_dt_subcycle. This variable
-        // records the actual timestep taken in this subcycle, while
-        // the other one records the timestep as if it had not been
-        // modified by the constraint of matching the final time.
 
         for (int lev = level; lev <= top_level_to_advance; ++lev) {
             getLevel(lev).lastStepDt = dt_cycle_step;
@@ -478,7 +398,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
         amrex::Print() << "  Subcycling complete" << std::endl << std::endl;
     }
 
-    // Record the number of subcycles we took for diagnostic purposes.
 
     for (int lev = level; lev <= top_level_to_advance; ++lev) {
         getLevel(lev).num_sub_taken = sub_pass;
@@ -486,11 +405,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     if (sub_pass > 1) {
 
-        // Finally, copy the original data back to the old state
-        // data so that externally it appears like we took only
-        // a single timestep. We'll do this as a swap so that
-        // we still have the last iteration's old data if we need
-        // it later.
 
         for (int lev = level; lev <= top_level_to_advance; ++lev) {
             for (int k = 0; k < num_field_types; k++) {
@@ -502,14 +416,9 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             }
         }
 
-        // If we took more than one step and are going to do a reflux,
-        // keep the data past the end of the step.
 
         if (do_reflux && refresh_sources_after_reflux) {
 
-            // Note that since we only want to do this if there's actually a
-            // reflux immediately following this, skip this if we're on the
-            // finest level and this is not the last iteration.
 
             for (int lev = level; lev <= top_level_to_advance; ++lev) {
                 if (!(amr_pass < amr_cycles && lev == parent->finestLevel())) {
@@ -521,10 +430,6 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     }
 
-    // We want to return the subcycled timestep as a suggestion.
-    // Let's be sure to return the subcycled timestep that was
-    // unmodified by anything we had to do in the last subcycle
-    // to reach the target time.
 
     dt_cycle_step = final_dt_subcycle;
 

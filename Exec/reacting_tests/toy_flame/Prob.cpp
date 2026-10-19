@@ -1,4 +1,3 @@
-/* Implementations of functions in Problem.H go here */
 
 #include <HydroSim.H>
 
@@ -31,13 +30,10 @@ HydroSim::flame_width_properties (Real time, Real& T_max, Real& T_min, Real& gra
         reduce_op.eval(box, reduce_data,
         [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
         {
-            // Assumes 1D simulation, right now. Also assumes that
-            // we have at least one ghost cell in the x dimension.
 
             Real T = temp(i,j,k);
             Real grad_T = std::abs(temp(i+1,j,k) - temp(i-1,j,k)) / (2.0_rt * dx[0]);
 
-            // Ignore problem zones where we have a negative temperature
 
             if (T < 0.0_rt) {
                 T = 0.0_rt;

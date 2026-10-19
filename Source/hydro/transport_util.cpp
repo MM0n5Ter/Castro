@@ -64,8 +64,6 @@ HydroSim::shock(const Box& bx,
               Array4<Real const> const& U_source_arr,
               Array4<Real> const& shk) {
 
-  // This is a basic multi-dimensional shock detection algorithm.
-  // we look for |grad P . dx| / P > 2/3 and div u < 0
 
   const auto dx = geom.CellSizeArray();
   const auto problo = geom.ProbLoArray();
@@ -84,10 +82,8 @@ HydroSim::shock(const Box& bx,
   {
     Real div_vel = 0.0_rt;
 
-    // construct div{U}
     if (coord_type == 0) {
 
-      // Cartesian
       div_vel += 0.5_rt * (prim_arr(i+1,j,k,QU) - prim_arr(i-1,j,k,QU)) * dxinv;
 #if (AMREX_SPACEDIM >= 2)
       div_vel += 0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
@@ -99,7 +95,6 @@ HydroSim::shock(const Box& bx,
 #if AMREX_SPACEDIM <= 2
    } else if (coord_type == 1) {
 
-     // r-z
      Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
      Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
      Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
@@ -115,7 +110,6 @@ HydroSim::shock(const Box& bx,
 
     } else if (coord_type == 2) {
 
-      // 1-d spherical
       Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
       Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
       Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
@@ -140,17 +134,6 @@ HydroSim::shock(const Box& bx,
     }
 
 
-    // now compute (grad P - rho g) . dx
-    // We subtract off the hydrostatic force, since the pressure that
-    // balances that is not available to make a shock.  We compute this
-    // as:
-    //
-    // P'_{i+1} = P_{i+1} - [ P_i + \int_{x_i}^{x_{i+1}} rho g dx ]
-    //
-    // where the term in the [ ] is the hydrostatic pressure in i+1
-    // computed by integrating from x_i to x_{i+1}
-    //
-    // We'll use a centered diff for the pressure gradient.
     Real pressure_diff_x = 0.5_rt * (prim_arr(i+1,j,k,QPRES) - prim_arr(i-1,j,k,QPRES));
     if (shock_sensor_subtract_src == 1) {
         pressure_diff_x += -0.25_rt * dx[0] * (U_source_arr(i+1,j,k,UMX) + 2.0_rt * U_source_arr(i,j,k,UMX) + U_source_arr(i-1,j,k,UMX));
@@ -162,7 +145,6 @@ HydroSim::shock(const Box& bx,
     if (shock_sensor_subtract_src == 1) {
         Real dy{dx[1]};
         if (coord_type == 2) {
-            // dx[1] is just theta_cell_width
             Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
             dy *= rc;
         }
@@ -176,7 +158,6 @@ HydroSim::shock(const Box& bx,
     }
 #endif
 
-    //Real relative_pressure_grad = std::sqrt(pressure_diff_x * pressure_diff_x + pressure_diff_y * pressure_diff_y + pressure_diff_z * pressure_diff_z) / prim_arr(i,j,k,QPRES);
     Real vel = std::sqrt(prim_arr(i,j,k,QU) * prim_arr(i,j,k,QU) +
                          prim_arr(i,j,k,QV) * prim_arr(i,j,k,QV) +
                          prim_arr(i,j,k,QW) * prim_arr(i,j,k,QW));
@@ -203,7 +184,6 @@ void
 HydroSim::divu(const Box& bx,
              Array4<Real const> const& prim_arr,
              Array4<Real> const& div) {
-  // this computes the *node-centered* divergence
 
   const auto dx = geom.CellSizeArray();
 
@@ -229,7 +209,6 @@ HydroSim::divu(const Box& bx,
         div(i,j,k) = (prim_arr(i,j,k,QU) - prim_arr(i-1,j,k,QU)) * dxinv;
 
     } else if (coord_type == 1) {
-        // axisymmetric
         if (i == 0) {
             div(i,j,k) = 0.0_rt;
         } else {
@@ -240,7 +219,6 @@ HydroSim::divu(const Box& bx,
             div(i,j,k) = (rr * prim_arr(i,j,k,QU) - rl * prim_arr(i-1,j,k,QU)) * dxinv / rc;
         }
     } else {
-        // spherical
         if (i == 0) {
             div(i,j,k) = 0.0_rt;
         } else {
@@ -259,14 +237,12 @@ HydroSim::divu(const Box& bx,
 
     if (coord_type == 0) {
 
-        // Cartesian
 
         ux = 0.5_rt * (prim_arr(i,j,k,QU) - prim_arr(i-1,j,k,QU) + prim_arr(i,j-1,k,QU) - prim_arr(i-1,j-1,k,QU)) * dxinv;
         vy = 0.5_rt * (prim_arr(i,j,k,QV) - prim_arr(i,j-1,k,QV) + prim_arr(i-1,j,k,QV) - prim_arr(i-1,j-1,k,QV)) * dyinv;
 
     } else if (coord_type == 1) {
 
-        // Cylindrical R-Z
 
         if (i == 0) {
             ux = 0.0_rt;
@@ -275,15 +251,12 @@ HydroSim::divu(const Box& bx,
             Real rr = (i + 0.5_rt) * dx[0] + problo[0];
             Real rc = (i) * dx[0] + problo[0];
 
-            // These are transverse averages in the y-direction
             Real ul = 0.5_rt * (prim_arr(i-1,j,k,QU) + prim_arr(i-1,j-1,k,QU));
             Real ur = 0.5_rt * (prim_arr(i,j,k,QU) + prim_arr(i,j-1,k,QU));
 
-            // Take 1/r d/dr(r*u)
             ux = (rr * ur - rl * ul) * dxinv / rc;
         }
 
-        // These are transverse averages in the x-direction
         Real vb = 0.5_rt * (prim_arr(i,j-1,k,QV) + prim_arr(i-1,j-1,k,QV));
         Real vt = 0.5_rt * (prim_arr(i,j,k,QV) + prim_arr(i-1,j,k,QV));
 
@@ -291,34 +264,26 @@ HydroSim::divu(const Box& bx,
 
     } else {
 
-        // Spherical R-Theta
 
         Real rl = (i - 0.5_rt) * dx[0] + problo[0];
         Real rr = (i + 0.5_rt) * dx[0] + problo[0];
         Real rc = (i) * dx[0] + problo[0];
 
-        // cell-centered sin(theta) of top, bot cell and face-centered
         Real sint = std::sin((j + 0.5_rt) * dx[1] + problo[1]);
         Real sinb = std::sin((j - 0.5_rt) * dx[1] + problo[1]);
         Real sinc = std::sin(j  * dx[1] + problo[1]);
 
-        // These are transverse averages in the y-direction
         Real ul = 0.5_rt * (prim_arr(i-1,j,k,QU) + prim_arr(i-1,j-1,k,QU));
         Real ur = 0.5_rt * (prim_arr(i,j,k,QU) + prim_arr(i,j-1,k,QU));
 
-        // Finite difference to get divergence. ux = 1/r^2 d/dr(r^2 * u)
         ux = (ur * rr * rr - ul * rl * rl) * dxinv / (rc * rc);
 
-        // If sinc == 0, then vy goes inf.
-        // But due to Phi-symmetry, vt*sint = vb*sinb, so set to 0.
         if (sinc == 0.0_rt) {
             vy = 0.0_rt;
         } else {
-            // These are transverse averages in the x-direction
             Real vb = 0.5_rt * (prim_arr(i,j-1,k,QV) + prim_arr(i-1,j-1,k,QV));
             Real vt = 0.5_rt * (prim_arr(i,j,k,QV) + prim_arr(i-1,j,k,QV));
 
-            // Finite difference to get divergence. vy = 1/(r sin) * d/theta_cell_width(v sin)
             vy = (vt * sint - vb * sinb) * dyinv / (rc * sinc);
         }
     }
@@ -473,8 +438,6 @@ void
 HydroSim::balance_species_flux(const Box& bx,
                                  Array4<Real> const& flux) {
 
-  // Normalize the fluxes of the mass fractions so that
-  // they sum to 0.  This is essentially the CMA procedure.
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -488,13 +451,6 @@ HydroSim::balance_species_flux(const Box& bx,
 
     Real fac = 1.0_rt;
 
-    // We skip the normalization if the sum is zero or within epsilon.
-    // There can be numerical problems here if the density flux is
-    // approximately zero at the interface but not exactly, resulting in
-    // division by a small number and/or resulting in one of the species
-    // fluxes being negative because of roundoff error. There are also other
-    // terms like artificial viscosity which can cause these problems.
-    // So checking that sum is sufficiently large helps avoid this.
 
     if (std::abs(sum) > std::numeric_limits<Real>::epsilon() * std::abs(flux(i,j,k,URHO))) {
       fac = flux(i,j,k,URHO) / sum;
@@ -507,7 +463,7 @@ HydroSim::balance_species_flux(const Box& bx,
 }
 
 
-void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+void
 HydroSim::scale_flux_by_area(const Box& bx,
                    Array4<Real> const& flux,
                    Array4<Real const> const& face_area_arr,
@@ -548,30 +504,15 @@ HydroSim::clip_fluxes_at_density_floor(const Box& bx,
                                          Real dt,
                                          bool scale_by_area_dt)
 {
-    // a positivity-preserving advection scheme. That algorithm blends the actual
-    // (second-order) hydro flux with the first-order Lax-Friedrichs flux to ensure
-    // positivity. However, we demand a stronger requirement, that rho > small_dens.
-    // Additionally, the blending approach can cause problems with multiple advecting
-    // species, since adding the Lax-Friedrichs flux does not guarantee physical consistency
-    // between the species advection and the density advection. So instead of trying the
-    // blending approach, we simply apply a linear scaling to each flux such that it does
-    // not violate the density floor.
 
     const Real floor_margin = 1.1_rt;
 
-    // The density floor is the small density, modified by a small factor.
-    // In practice numerical error can cause the density that is created
-    // by this flux limiter to be slightly lower than the target density,
-    // so we set the target to be slightly larger than the real density floor
-    // to avoid density resets.
 
     Real floor_density = small_dens * floor_margin;
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        // Grab the states on either side of the interface we are working with,
-        // depending on which dimension we're currently calling this with.
 
         Real right_density = u(i,j,k,URHO);
         Real right_volume = vol(i,j,k);
@@ -591,7 +532,6 @@ HydroSim::clip_fluxes_at_density_floor(const Box& bx,
             left_volume = vol(i,j,k-1);
         }
 
-        // Coefficients of fluxes on either side of the interface.
 
         Real right_flux_scale = 1.0_rt / right_volume;
         Real left_flux_scale = 1.0_rt / left_volume;
@@ -601,28 +541,10 @@ HydroSim::clip_fluxes_at_density_floor(const Box& bx,
             left_flux_scale *= dt * face_area_arr(i,j,k);
         }
 
-        // Updates to the zones on either side of the interface.
 
         Real right_density_change = right_flux_scale * flux(i,j,k,URHO);
         Real left_density_change = left_flux_scale * flux(i,j,k,URHO);
 
-        // Limit all fluxes such that the zone does not go negative in density.
-        // We apply this flux limiter on a per-edge basis. So we can guarantee
-        // that any individual flux cannot cause a small density in one step,
-        // but with the above floor we cannot guarantee that the sum of the
-        // fluxes will enforce this constraint. A simple way to guarantee that
-        // is to note that in the worst case, all six faces adjacent to a zone
-        // could be evacuating that zone (more generally, 2 * AMREX_SPACEDIM).
-        // So instead of checking whether rho + drho is less than the floor,
-        // we can check whether rho + 6 * drho is less than the floor, and
-        // strengthen the limiter by that same factor of 6, so that even in the
-        // worst case, the zone will remain positive. This is simple to implement
-        // at the risk of being overly aggressive on flux limiting. A more
-        // sophisticated version of this might check the ratio of the fluxes
-        // (or, similarly, the ratio of the edge velocities coming from the
-        // Riemann solver) and scale the larger fluxes more strongly than the
-        // weaker fluxes, and perhaps only consider fluxes that subtract from
-        // the zone, but this would also be more complicated to implement.
 
         if (right_density >= floor_density && std::abs(right_density_change) > 0.0_rt && right_density + 2 * AMREX_SPACEDIM * right_density_change < floor_density) {
             Real floor_scale = std::abs((floor_density - right_density) / (2 * AMREX_SPACEDIM * right_density_change));
@@ -642,7 +564,7 @@ HydroSim::clip_fluxes_at_density_floor(const Box& bx,
 #endif
 
 
-void  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+void
 HydroSim::clamp_state_density(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const int warning_level) {
@@ -667,8 +589,6 @@ HydroSim::clamp_state_density(const Box& bx,
           std::cout << ">>> RESETTING NEG.  DENSITY AT " << i << ", " << j << ", " << k << std::endl;
         }
         else if (state_arr(i,j,k,URHO) == 0.0_rt) {
-          // If the density is *exactly* zero, that almost certainly means something has gone wrong,
-          // like we failed to properly fill the state data on grid creation.
           amrex::Error("Density exactly zero at " + std::to_string(i) + ", " +
                                                     std::to_string(j) + ", " +
                                                     std::to_string(k));
@@ -744,7 +664,6 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
                                Array4<Real> const& qm,
                                Array4<Real> const& qp) {
 
-    // special care for reflecting BCs
     const int* lo_bc = phys_bc.lo();
     const int* hi_bc = phys_bc.hi();
 
@@ -754,10 +673,8 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
     bool at_lo_symmetry = lo_bc[idir] == amrex::PhysBCType::symmetry;
     bool at_hi_symmetry = hi_bc[idir] == amrex::PhysBCType::symmetry;
 
-    // normal velocity
     const int QUN = QU + idir;
 
-    // this is a loop over interfaces
 
     if (at_lo_symmetry) {
 
@@ -765,7 +682,6 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
 
-            // reset the left state at domlo if needed -- it is outside the domain
             if ((idir == 0 && i == domlo[0]) ||
                 (idir == 1 && j == domlo[1]) ||
                 (idir == 2 && k == domlo[2])) {
@@ -786,7 +702,6 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
 
-            // reset the right state at domhi+1 if needed -- it is outside the domain
             if ((idir == 0 && i == domhi[0]+1) ||
                 (idir == 1 && j == domhi[1]+1) ||
                 (idir == 2 && k == domhi[2]+1)) {

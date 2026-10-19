@@ -1,85 +1,53 @@
 HYDROSIM_HOME ?= /path/to/HydroSim
 
-# clang-tidy support via AMReX
 CLANG_TIDY_CONFIG_FILE := $(HYDROSIM_HOME)/.clang-tidy
-# space-separated list of paths to skip when running clang-tidy
 CLANG_TIDY_IGNORE_SOURCES = $(AMREX_HOME)/Src $(MICROPHYSICS_HOME)
 
-# radiation needs hypre
 HYPRE_DIR ?= /path/to/Hypre
 
 TOP := $(HYDROSIM_HOME)
 
-# Allow a problem setup to define a root location.
-# Otherwise, assume we're building in the current directory.
 
 PROBLEM_DIR ?= ./
 
-# Microphysics is a git submodule of HydroSim. By default
-# we assume it is in the external/ directory.
-# The user may override this with their own installation
-# of Microphysics as long as they set the environment variable
-# MICROPHYSICS_HOME.
 
 MICROPHYSICS_HOME ?= $(TOP)/external/Microphysics
 
-# Check to make sure that Microphysics actually exists,
-# using an arbitrary file that must exist to check.
-# Throw an error if we don't have Microphysics.
 ifeq ("$(wildcard $(MICROPHYSICS_HOME)/Make.Microphysics)","")
   $(error Microphysics has not been downloaded. Please run "git submodule update --init" from the top level of the code)
 endif
 
-# Locations within Microphysics
 EOS_HOME ?= $(MICROPHYSICS_HOME)/EOS
 NETWORK_HOME ?= $(MICROPHYSICS_HOME)/networks
 CONDUCTIVITY_HOME ?= $(MICROPHYSICS_HOME)/conductivity
 
 BL_NO_FORT := TRUE
 
-# AMReX is a git submodule of HydroSim. By default
-# we assume it is in the external/ directory.
-# The user may override this with their own installation
-# of AMReX as long as they set the environment variable
-# AMREX_HOME.
 
 AMREX_HOME ?= $(TOP)/external/amrex
 
-# Check to make sure that AMReX actually exists,
-# using an arbitrary file that must exist to check.
-# Throw an error if we don't have AMReX.
 ifeq ("$(wildcard $(AMREX_HOME)/Tools/GNUMake/Make.defs)","")
   $(error AMReX has not been downloaded. Please run "git submodule update --init" from the top level of the code)
 endif
 
-# Require C++20
 CXXSTD := c++20
 
-# Use Lazy QueueReduction for the timing outputs
 LAZY := TRUE
 
-# default integrator
 INTEGRATOR_DIR ?= VODE
 
-# number of passively advected quantities that are not species or auxiliary
 NUMADV ?= 0
 
-# number of radiation groups
 NGROUPS ?= 1
 
-# this can be turned off for unit tests, etc., and not
-# the entire HydroSim build
 USE_ALL_HYDROSIM ?= TRUE
 
 USE_AMR_CORE ?= TRUE
 
-# all HydroSim problems use a dimension-agnostic interface
 DIMENSION_AGNOSTIC = TRUE
 
 EBASE = HydroSim
 
-# EXTERN_CORE is simply a list of the directories we use in EOS,
-# Networks and Util this list will be searched for runtime parameters
 EXTERN_CORE ?=
 
 ifeq ($(USE_SDC), TRUE)
@@ -92,7 +60,6 @@ ifeq ($(USE_SIMPLIFIED_SDC), TRUE)
   endif
 endif
 
-# need to put any build suffices before Make.defs
 ifeq ($(USE_SIMPLIFIED_SDC), TRUE)
   ifneq ($(USERSuffix),)
     USERSuffix := .SMPLSDC$(USERSuffix)
@@ -118,9 +85,7 @@ ifeq ($(USE_RAD), TRUE)
 endif
 
 ifeq ($(USE_MPI), TRUE)
-  # Use thread support in MPI to support asynchronous I/O
   MPI_THREAD_MULTIPLE := TRUE
-  # But keep the suffix MPI, not MTMPI, for simplicity
   MPI_THREAD_MULTIPLE_UPDATE_SUFFIX := FALSE
 endif
 
@@ -133,8 +98,6 @@ AMREX_NO_PROBINIT := TRUE
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
 ifeq ($(USE_GPU),TRUE)
-  # We don't currently support host-side OpenMP being enabled
-  # when using GPUs. Throw an error to prevent this case.
   ifeq ($(USE_OMP),TRUE)
     $(error OpenMP is not supported by HydroSim when building with GPU support)
   endif
@@ -146,7 +109,6 @@ endif
 
 HYDROSIM_AUTO_SOURCE_DIR := $(TmpBuildDir)/hydrosim_sources/$(optionsSuffix).EXE
 
-# for rich output
 ESC := $(shell printf '\033')
 
 define info-green
@@ -165,21 +127,14 @@ build_status:
           --git_names "HydroSim AMReX Microphysics" \
           --git_dirs "$(TOP) $(AMREX_HOME) $(MICROPHYSICS_HOME)"
 
-# If we make and then make again with a different network, undefined
-# behavior may result.  One should always do a `make clean` before
-# changing networks.  This tries to check if there is an inconsistency.
 check_network:
 	$(HYDROSIM_HOME)/Util/scripts/check_network.py $(NETWORK_DIR) $(HYDROSIM_AUTO_SOURCE_DIR)
 	@if [ ! -d $(HYDROSIM_AUTO_SOURCE_DIR) ]; then mkdir -p $(HYDROSIM_AUTO_SOURCE_DIR); fi
 	echo $(NETWORK_DIR) > $(HYDROSIM_AUTO_SOURCE_DIR)/NETWORK_USED
 
-# The default is to include the sponge functionality
 DEFINES += -DSPONGE
 
 
-#------------------------------------------------------------------------------
-# HydroSim directories
-#------------------------------------------------------------------------------
 
 ifeq ($(USE_ALL_HYDROSIM), TRUE)
   Bdirs := Source/driver Source/hydro \
@@ -198,7 +153,6 @@ ifeq ($(USE_RNG_STATE_INIT), TRUE)
   DEFINES += -DRNG_STATE_INIT
 endif
 
-# add / define any special physics we need
 
 ifeq ($(USE_MHD), TRUE)
   Bdirs += Source/mhd
@@ -281,13 +235,7 @@ Bpack += $(foreach dir, $(Bdirs), $(TOP)/$(dir)/Make.package)
 Blocs += $(foreach dir, $(Bdirs), $(TOP)/$(dir))
 
 
-#------------------------------------------------------------------------------
-# AMReX
-#------------------------------------------------------------------------------
 
-# core AMReX directories -- note the Make.package for these adds these
-# directories into VPATH_LOCATIONS and INCLUDE_LOCATIONS for us, so we
-# don't need to do it here
 
 ifeq ($(USE_AMR_CORE), TRUE)
   Pdirs	:= Base AmrCore Amr Boundary
@@ -306,13 +254,7 @@ endif
 Bpack	+= $(foreach dir, $(Pdirs), $(AMREX_HOME)/Src/$(dir)/Make.package)
 
 
-#------------------------------------------------------------------------------
-# microphysics
-#------------------------------------------------------------------------------
 
-# Specify that we want to write any automatically generated network
-# file (including the general_null network) to our temporary build
-# directory
 NETWORK_OUTPUT_PATH = $(HYDROSIM_AUTO_SOURCE_DIR)
 
 include $(MICROPHYSICS_HOME)/Make.Microphysics_extern
@@ -322,9 +264,6 @@ Blocs += $(foreach dir, $(EXTERN_CORE), $(dir))
 
 
 
-#------------------------------------------------------------------------------
-# external libraries
-#------------------------------------------------------------------------------
 
 ifeq ($(USE_HDF5), TRUE)
   INCLUDE_LOCATIONS += $(HDF5_DIR)/include
@@ -334,9 +273,6 @@ ifeq ($(USE_HDF5), TRUE)
 endif
 
 
-#------------------------------------------------------------------------------
-# include all of the necessary directories
-#------------------------------------------------------------------------------
 
 include $(Bpack)
 
@@ -347,15 +283,9 @@ INCLUDE_LOCATIONS += $(Blocs)
 VPATH_LOCATIONS   += $(Blocs)
 
 
-#------------------------------------------------------------------------------
-# autogenerated source files
-#------------------------------------------------------------------------------
 
 include $(TOP)/Exec/Make.auto_source
 
-#------------------------------------------------------------------------------
-# finish up
-#------------------------------------------------------------------------------
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
 
@@ -364,15 +294,10 @@ clean::
 	$(SILENT) $(RM) AMReX_buildInfo.cpp
 	$(SILENT) $(RM) $(HYDROSIM_AUTO_SOURCE_DIR)/*.H $(HYDROSIM_AUTO_SOURCE_DIR)/*.[fF]90 $(HYDROSIM_AUTO_SOURCE_DIR)/*.cpp
 
-# these files are now created directly in the HYDROSIM_AUTO_SOURCE_DIR so eventually we
-# can get rid of explicitly removing them (this is for backwards compatibility)
 clean::
 	$(RM) set_conserved.H set_primitive.H set_godunov.H set_indices.F90 state_sizes.f90
 
 
-# for debugging.  To see the value of a Makefile variable,
-# e.g. Fmlocs, simply do "make print-Fmlocs".  This will print out the
-# value.
 
 print-%::
 	@echo "$* is $($*)"

@@ -8,7 +8,6 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // Force a different pressure choice for problem 5
 
     if (problem::problem == 5) {
         problem::pressure = 10.0;

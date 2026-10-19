@@ -7,11 +7,9 @@ int main(int argc, char *argv[]) {
 
     amrex::Initialize(argc, argv);
 
-    // initialize the external runtime parameters in C++
 
     init_extern_parameters();
 
-    // now initialize the C++ Microphysics
 #ifdef REACTIONS
     network_init();
 #endif
@@ -23,8 +21,6 @@ int main(int argc, char *argv[]) {
     std::string model = "sub_chandra.M_WD-1.10.M_He-0.050.hse.CO.N14.N.10.00km";
     read_model_file(model);
 
-    // test locate and ensure that the index we get is such that
-    // profile.r(idx) < r < profile.r(idx+1)
 
     Real r{3.89e7};
 
@@ -36,14 +32,11 @@ int main(int argc, char *argv[]) {
 
     std::cout << "testing interpolate" << std::endl;
 
-    // density is monotonically decreasing
-    // test to make sure that we see that
 
     auto dens = interpolate(r, model::idens);
     AMREX_ALWAYS_ASSERT(dens <= model::profile(0).state(idx, model::idens) &&
                         dens >= model::profile(0).state(idx+1, model::idens));
 
-    // test the bounds.  Our model spans r = [5.e5, 4.0955e9]
 
     std::cout << "testing boundaries of the model" << std::endl;
 
@@ -55,8 +48,6 @@ int main(int argc, char *argv[]) {
     AMREX_ALWAYS_ASSERT(idx_hi_bnd == model::npts-2);
     std::cout << "value a r > r_max = " << interpolate(4.1e9, model::idens) << std::endl;
 
-    // test if we interpolate to exactly a point in the model that we
-    // recover the data there to roundoff
 
     std::cout << "testing interpolating exactly on model point" << std::endl;
 

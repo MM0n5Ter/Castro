@@ -21,9 +21,7 @@ void user_initialize_state_data (int i, int j, int k,
     Real x0 = l0 / std::sqrt(3.0_rt);
     Real u0 = B0 * std::pow(nu0, 3);
 
-    // rhoe_0 = R * k_B * Tcgs * u0 / hplanck
     Real rhoe_0 = 99968636.6828e0_rt * Tcgs * problem::rho_0;
-    //                cv               * T        * rho
 
     Real xcen = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt);
 
@@ -32,7 +30,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // set the composition to be all in the first species
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = 0.0_rt;

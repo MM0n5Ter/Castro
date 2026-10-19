@@ -22,7 +22,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real pert_width = problem::pert_delta * L;
 
-    // fuel state
 
     Real xn_fuel[NumSpec];
     for (int n = 0; n < NumSpec; n++) {
@@ -42,7 +41,6 @@ void user_initialize_state_data (int i, int j, int k,
     Real e_fuel = eos_state.e;
     Real p_fuel = eos_state.p;
 
-    // compute the ash state
 
     Real rho_ash = problem::rho_fuel / (1.0_rt + 0.6_rt * specific_q_burn / e_fuel);
     Real e_ash = e_fuel - p_fuel*(1.0_rt/rho_ash - 1.0_rt / problem::rho_fuel) + specific_q_burn;
@@ -66,7 +64,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     if (xx <= x_int) {
 
-        // ash
 
         state(i,j,k,URHO ) = rho_ash;
         state(i,j,k,UEDEN) = rho_ash * e_ash;
@@ -78,7 +75,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     } else if (xx > x_int && xx < x_int + pert_width) {
 
-        // linearly interpolate
 
         Real f = (xx - x_int) / pert_width;
         eos_state.e = (1.0_rt - f) * e_ash + f * e_fuel;
@@ -99,7 +95,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     } else {
 
-        // fuel
 
         state(i,j,k,URHO ) = problem::rho_fuel;
         state(i,j,k,UEDEN) = problem::rho_fuel * e_fuel;

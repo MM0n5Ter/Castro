@@ -13,11 +13,6 @@ struct model_t {
 
 
 
-///
-/// construct an initial model in HSE.  Note: this does not return
-/// anything, but rather updates the model_parser globals with the
-/// model information.
-///
 AMREX_INLINE
 void
 generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
@@ -30,12 +25,9 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         amrex::Error("Error: model has more than NPTS_MODEL points,  Increase MAX_NPTS_MODEL");
     }
 
-    // compute the pressure scale height (for an isothermal, ideal-gas
-    // atmosphere)
 
     amrex::Real pres_base = model_params.scale_height * model_params.density_base * std::abs(gravity::uniform_accel);
 
-    // create the grid -- cell centers
 
     Real dx = (xmax - xmin) / npts_model;
 
@@ -66,7 +58,6 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
                 std::pow(density / model_params.density_base, eos_rp::eos_gamma);
         }
 
-        // initial guess
 
         amrex::Real temp = eos_temp_guess;
 

@@ -20,7 +20,6 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     const amrex::Real SMALL = 1.e-8_rt;
 
 
-    // get the initial sound speeds
 
     eos_t eos_state;
     eos_state.rho = rho_l;
@@ -55,18 +54,12 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     amrex::Real gammaC_bar = 0.5_rt * (gammaC_l + gammaC_r);
 
 
-    // create an initial guess for pstar using a primitive variable
-    // Riemann solver
 
-    // We follow the PVRS solver
 
-    // alternative: two shock solver
 
     W_l = rho_l * cs_l;
     W_r = rho_r * cs_r;
 
-    // prevent roundoff errors from giving us a pstar that is unphysical
-    // if our input states are the same
 
     if (W_l == W_r) {
         pstar = 0.5_rt * (p_l + p_r + W_l * (u_l - u_r));
@@ -77,30 +70,7 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     pstar = std::max(pstar, smallp);
 
 
-    // find the exact pstar and ustar
 
-    // this procedure follows directly from Colella & Glaz
-    // the basic idea is that we want to find the pstar that satisfies:
-    //
-    //   star_velocity_left(pstar) - star_velocity_right(pstar) = 0
-    //
-    // where star_velocity_left connects the left state to the star state across
-    // the left wave.  this wave can be a shock or rarefaction, so we
-    // need to use either the Riemann invariants (rarefaction) or
-    // Rankine-Hugoniot jump conditions (shock).
-    //
-    // We use a Newton method.  It takes the form:
-    //
-    //  pstar <-- pstar - Z_l Z_r (star_velocity_right - star_velocity_left) / (Z_l + Z_r)
-    //
-    // where Z_s = | dpstar / dustar_s | is the derivative in the p-u plane
-    //
-    // and we get ustar via:
-    //
-    //  ustar_s = u_s +/- (pstar - p_s) / W_s
-    //
-    // where W_s is the wave speed (this also depends on shock or
-    // rarefaction)
 
     amrex::Real star_velocity_left, star_velocity_right;
     bool converged = false;
@@ -108,29 +78,21 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     int iter = 1;
     while (! converged && iter < hydrosim::shock_star_max_iters) {
 
-        // compute Z_l, W_l and Z_r, W_r -- the form of these depend
-        // on whether the wave is a shock or a rarefaction
 
         amrex::Real Z_l, Z_r;
 
-        // left wave
 
         if (pstar - p_l > SMALL * p_l) {
-            // left shock
             shock(pstar, rho_l, u_l, p_l, xn_l, gammaE_bar, gammaC_bar, Z_l, W_l);
         } else {
-            // left rarefaction
             amrex::Real rhostar_dummy;
             rarefaction(pstar, rho_l, u_l, p_l, xn_l, 1, Z_l, W_l, rhostar_dummy);
         }
 
-        // right wave
 
         if (pstar - p_r > SMALL * p_r) {
-            // right shock
             shock(pstar, rho_r, u_r, p_r, xn_r, gammaE_bar, gammaC_bar, Z_r, W_r);
         } else {
-            // right rarefaction
             amrex::Real rhostar_dummy;
             rarefaction(pstar, rho_r, u_r, p_r, xn_r, 3, Z_r, W_r, rhostar_dummy);
         }
@@ -140,7 +102,6 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
 
         amrex::Real pstar_new = pstar - Z_l * Z_r * (star_velocity_right - star_velocity_left) / (Z_l + Z_r);
 
-        // estimate the error in the current pstar solution
 
         amrex::Real error = std::abs(pstar_new - pstar);
 
@@ -148,7 +109,6 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
             converged = true;
         }
 
-        // get ready for the next iteration
         pstar = amrex::Clamp(pstar_new, 0.5 * pstar, 2.0 * pstar);
 
         iter++;

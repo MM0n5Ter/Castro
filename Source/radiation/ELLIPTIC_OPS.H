@@ -10,10 +10,6 @@ using namespace amrex;
 
 namespace ELLIPTIC_OPS
 {
-    // habec is Hypre abec, where abec is the form of the linear equation
-    // we are solving:
-    //
-    // alpha*phi - div(beta*grad phi) + div(\vec{c}*phi)
 
     AMREX_INLINE
     void face_flux (Array4<Real> const flux,
@@ -217,11 +213,6 @@ namespace ELLIPTIC_OPS
     {
         Real h;
 
-        // Index shift for whichever edge we're checking.
-        // Negative means we're looking at the lo edge,
-        // positive means we're looking at the hi edge.
-        // The first group is for cell centers, the second
-        // group is for cell edges.
 
         int icp = 0;
         int jcp = 0;
@@ -353,7 +344,6 @@ namespace ELLIPTIC_OPS
 
                     Real face_normal_sign = 1.0_rt;
                     if (iep != 0 || jep != 0 || kep != 0) {
-                        // right edge
                         face_normal_sign = -1.0_rt;
                     }
 
@@ -380,11 +370,6 @@ namespace ELLIPTIC_OPS
     {
         Real h;
 
-        // Index shift for whichever edge we're checking.
-        // Negative means we're looking at the lo edge,
-        // positive means we're looking at the hi edge.
-        // The first group is for cell centers, the second
-        // group is for cell edges.
 
         int icp = 0;
         int jcp = 0;
@@ -460,7 +445,6 @@ namespace ELLIPTIC_OPS
                     if (bct == AMREX_LO_DIRICHLET) {
                         Real d_sign = 1.0_rt;
                         if (iep != 0 || jep != 0 || kep != 0) {
-                            // right edge
                             d_sign = -1.0_rt;
                         }
                         bc_term(i+iep,j+jep,k+kep) = d(i+iep,j+jep,k+kep) * d_sign * (er(i,j,k) - bcval(i+icp,j+jcp,k+kcp)) / (0.5_rt * h + bcl);
@@ -484,11 +468,6 @@ namespace ELLIPTIC_OPS
     {
         Real h;
 
-        // Index shift for whichever edge we're checking.
-        // Negative means we're looking at the lo edge,
-        // positive means we're looking at the hi edge.
-        // The first group is for cell centers, the second
-        // group is for cell edges.
 
         int icp = 0;
         int jcp = 0;
@@ -571,7 +550,6 @@ namespace ELLIPTIC_OPS
                     if (bct == AMREX_LO_DIRICHLET) {
                         Real d_sign = 1.0_rt;
                         if (iep != 0 || jep != 0 || kep != 0) {
-                            // right edge
                             d_sign = -1.0_rt;
                         }
                         bc_term(i+iep,j+jep,k+kep) = d(i+iep,j+jep,k+kep) * d_sign * (er(i,j,k) - bcval(i+icp,j+jcp,k+kcp)) / (0.5_rt * h + bcl);
@@ -583,6 +561,6 @@ namespace ELLIPTIC_OPS
             }
         });
     }
-} // namespace ELLIPTIC_OPS
+}
 
 #endif

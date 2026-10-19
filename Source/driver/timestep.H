@@ -40,7 +40,6 @@ namespace timestep {
                                      diffusion
     };
 
-    // Estimate timestep given various constraints
 
     template <dtlimit_type T, typename... MFs>
     AMREX_INLINE
@@ -63,10 +62,8 @@ namespace timestep {
 
         if constexpr (T == hydro) {
 
-            // Validate we don't have any extra MultiFabs.
             static_assert(count_multifabs == 0);
 
-            // Courant-condition limited timestep
 
             auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
@@ -98,7 +95,6 @@ namespace timestep {
 
                 eos(eos_input_re, eos_state);
 
-                // Compute velocity and then calculate CFL timestep.
 
                 Real ux = u(i,j,k,UMX) * rhoInv;
 #if AMREX_SPACEDIM >= 2
@@ -116,8 +112,6 @@ namespace timestep {
 #if AMREX_SPACEDIM >= 2
                 dt2 = dx[1]/(c + std::abs(uy));
                 if (coord == 2) {
-                    // dx[1] in Spherical2D is just theta_cell_width, need rdtheta for physical length
-                    // so just multiply by the smallest r
                     dt2 *= problo[0] + 0.5_rt * dx[0];
                 }
 #else
@@ -131,15 +125,11 @@ namespace timestep {
                 dt3 = dt1;
 #endif
 
-                // The CTU method has a less restrictive timestep than MOL-based
-                // schemes (including the true SDC).  Since the simplified SDC
-                // solver is based on CTU, we can use its timestep.
                 if (hydrosim::time_scheme == 0 || hydrosim::time_scheme == 3) {
                     Real dt = amrex::min(dt1, dt2, dt3);
                     return {ValLocPair<Real, IntVect>{dt, idx}};
 
                 } else {
-                    // method of lines-style constraint is tougher
                     Real dt_tmp = 1.0_rt/dt1;
 #if AMREX_SPACEDIM >= 2
                     dt_tmp += 1.0_rt/dt2;
@@ -154,13 +144,11 @@ namespace timestep {
 
             return r;
 
-        } // hydro
+        }
 #ifdef MHD
         else if constexpr (T == mhd) {
 
-            // MHD timestep limiter
 
-            // Validate we have three extra MultiFabs (Bx, By, and Bz).
 
             static_assert(count_multifabs == 3);
 
@@ -262,15 +250,11 @@ namespace timestep {
 
             return r;
 
-        } // mhd
-#endif // MHD
+        }
+#endif
 #ifdef DIFFUSION
         else if constexpr (T == diffusion) {
 
-            // Diffusion-limited timestep
-            //
-            // dt < 0.5 dx**2 / D
-            // where D = k/(rho c_v), and k is the conductivity
 
             const Real diffusion_min_density = hydrosim::conduction_cutoff_density;
             const Real timestep_ceiling = hydrosim::max_dt;
@@ -293,7 +277,6 @@ namespace timestep {
 
                     Real rho_inv = 1.0_rt/state_fab_view(i,j,k,URHO);
 
-                    // we need cv
                     eos_t eos_state;
 
                     eos_state.rho = state_fab_view(i,j,k,URHO);
@@ -310,10 +293,8 @@ namespace timestep {
 
                     eos(eos_input_re, eos_state);
 
-                    // we also need the conductivity
                     conductivity(eos_state);
 
-                    // maybe we should check (and take action) on negative cv here?
                     Real D = eos_state.conductivity * rho_inv / eos_state.cv;
 
                     Real dt1 = 0.5_rt * dx[0]*dx[0] / D;
@@ -345,8 +326,8 @@ namespace timestep {
 
             return r;
 
-        } // diffusion
-#endif // DIFFUSION
+        }
+#endif
 #ifdef REACTIONS
         else if constexpr (T == burning) {
 
@@ -371,7 +352,6 @@ namespace timestep {
                 const auto coord = geomdata.Coord();
 #endif
 
-                // Don't consider zones that are masked out.
 
                 if (exclude_covered_zones && mask.contains(i,j,k)) {
                     if (mask(i,j,k) == 0.0_rt) {
@@ -379,33 +359,9 @@ namespace timestep {
                     }
                 }
 
-                // Set a floor on the minimum size of a derivative. This floor
-                // is small enough such that it will result in no timestep limiting.
 
                 const Real derivative_min_magnitude = 1.e-50_rt;
 
-                // We want to limit the timestep so that it is not larger than
-                // burn_dt_energy * (e / (de/dt)).  If the timestep factor dtnuc is
-                // equal to 1, this says that we don't want the
-                // internal energy to change by any more than its current
-                // magnitude in the next timestep.
-                //
-                // If dtnuc is less than one, it controls the fraction we will
-                // allow the internal energy to change in this timestep due to
-                //  nuclear burning, provided that our instantaneous estimate
-                // of the energy release is representative of the full timestep.
-                //
-                // We also do the same thing for the species, using a timestep
-                // limiter burn_dt_massfrac * (X_k / (dX_k/dt)). To prevent changes
-                // due to trace isotopes that we probably are not interested in,
-                // only apply the limiter to species with an abundance greater
-                // than a user-specified threshold.
-                //
-                // To estimate de/dt and dX/dt, we are going to call the RHS of the
-                // burner given the current state data. We need to do an EOS
-                // call before we do the RHS call so that we have accurate
-                // values for the thermodynamic data like abar, zbar, etc.
-                // But we will call in (rho, T) mode, which is inexpensive.
 
                 Real rhoInv = 1.0_rt / S(i,j,k,URHO);
 
@@ -435,15 +391,12 @@ namespace timestep {
                 }
 #endif
 
-                // Don't consider zones that are outside our burning criteria.
 
                 if (burn_state.T < hydrosim::burn_temp_min || burn_state.T > hydrosim::burn_temp_max ||
                     burn_state.rho < hydrosim::burn_rho_min || burn_state.rho > hydrosim::burn_rho_max) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                 }
 
-                // Don't consider zones with shocks if we disabled
-                // burning in shocks
 #ifdef SHOCK_VAR
                 if (S(i,j,k,UFLAG_SHOCK) > 0.0_rt && hydrosim::skip_burning_in_shocks == 1) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
@@ -467,11 +420,6 @@ namespace timestep {
                     dXdt[n] = ydot(n+1) * aion[n];
                 }
 
-                // Apply a floor to the derivatives. This ensures that we don't
-                // divide by zero; it also gives us a quick method to disable
-                // the timestep limiting, because the floor is small enough
-                // that the implied timestep will be very large, and thus
-                // ignored compared to other limiters.
 
                 dedt = amrex::max(std::abs(dedt), derivative_min_magnitude);
 
@@ -486,16 +434,13 @@ namespace timestep {
 #ifdef NSE
 
 #ifdef SIMPLIFIED_SDC
-                // if we are doing simplified-SDC + NSE, then the `in_nse()`
-                // check will use burn_state.y[], so we need to ensure that
-                // those are initialized
                 for (int n = 0; n < NumSpec; ++n) {
                     burn_state.y[SFS+n] = burn_state.rho * burn_state.xn[n];
                 }
 
                 burn_state.y[SEINT] = burn_state.rho * burn_state.e;
 
-#endif // SIMPLIFIED_SDC
+#endif
 
 #ifdef NSE_NET
                 burn_state.mu_p = S(i,j,k,UPROTON_MU);
@@ -503,11 +448,11 @@ namespace timestep {
 #endif
 
                 if (!in_nse(burn_state)) {
-#endif // NSE
+#endif
                     dt_tmp = hydrosim::burn_dt_energy * e / dedt;
 #ifdef NSE
                 }
-#endif // NSE
+#endif
                 for (int n = 0; n < NumSpec; ++n) {
                     dt_tmp = amrex::min(dt_tmp, hydrosim::burn_dt_massfrac * (X[n] / dXdt[n]));
                 }
@@ -517,19 +462,16 @@ namespace timestep {
 
             return r;
 
-        } // burning
-#endif // REACTIONS
+        }
+#endif
 
     }
 
 #ifdef RADIATION
-    ///
-    /// Radiation hydro timestep
-    ///
     amrex::Real dtlimit_rad (const amrex::MultiFab& activeState, const amrex::MultiFab& radiationField,
                            const amrex::GeometryData& geomdata);
 #endif
 
-} // namespace timestep
+}
 
-#endif // DTLIMIT_H
+#endif

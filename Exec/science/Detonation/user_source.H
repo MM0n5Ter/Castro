@@ -16,8 +16,6 @@ void user_source (int i, int j, int k,
     amrex::ignore_unused(dt);
     amrex::ignore_unused(time);
 
-    // Add a mock gravitational acceleration which points to the center
-    // with uniform magnitude on either side of the center.
 
     const Real* problo = geomdata.ProbLo();
     const Real* probhi = geomdata.ProbHi();
@@ -31,7 +29,6 @@ void user_source (int i, int j, int k,
 
     src(i,j,k,UMX) = state(i,j,k,URHO) * g;
 
-    // Energy source is v . momentum source
 
     src(i,j,k,UEDEN) = state(i,j,k,UMX) * g;
 }

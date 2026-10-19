@@ -8,12 +8,11 @@ using namespace amrex;
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
               const FArrayBox& datfab, const Geometry& geomdata,
-              Real /*time*/, const int* /*bcrec*/, int /*level*/)
+              Real  , const int*  , int  )
 {
 
-    // derive the dynamic pressure
 
     const auto dx = geomdata.CellSizeArray();
     const auto problo = geomdata.ProbLoArray();
@@ -60,7 +59,6 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
         }
 #endif
 
-        // Protect against negative internal energy
 
         if (e <= 0.0_rt) {
             eos_state.rho = dat(i,j,k,URHO);
@@ -87,9 +85,9 @@ void ca_derpi(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 }
 
 
-void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                     const FArrayBox& datfab, const Geometry& geomdata,
-                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
+                    Real  , const int*  , int  )
 {
 
     const auto dx = geomdata.CellSizeArray();
@@ -137,7 +135,6 @@ void ca_derpioverp0(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
         }
 #endif
 
-        // Protect against negative internal energy
 
         if (e <= 0.0_rt) {
             eos_state.rho = dat(i,j,k,URHO);

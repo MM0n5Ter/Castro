@@ -6,17 +6,11 @@
 
 using namespace amrex;
 
-// sound speed calc for ideal MHD
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 fast_magnetosonic_speed(Real& c, Real as, Real ca, Real bd) {
 
-  // inputs:
-  // as = P_g * gam1/rho
-  // ca = B^2/rho
-  // bd = B_direction^2/rho
 
-  // Fast Magneto-Sonic Wave
   c = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*bd));
   c = std::sqrt(c);
 }
@@ -25,10 +19,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 to_prim_flux(Real* prim_flux, const Real* flx, const Real* zone_prim) {
 
-  // Calculate the C to P Jacobian applied to the fluxes
 
-  // this implements dW/dU . to_prim_flux, where dW/dU is the Jacobian of
-  // the primitive quantities (W) with respect to conserved quantities (U)
 
   prim_flux[QRHO] = flx[URHO];
   prim_flux[QU] = (flx[UMX] - flx[URHO] * zone_prim[QU]) / zone_prim[QRHO];
@@ -42,7 +33,7 @@ to_prim_flux(Real* prim_flux, const Real* flx, const Real* zone_prim) {
   eos_t eos_state;
   eos_state.rho = zone_prim[QRHO];
   eos_state.p = zone_prim[QPRES];
-  eos_state.T = 100.0_rt; // dummy initial guess
+  eos_state.T = 100.0_rt;
   for (int n = 0; n < NumSpec; n++) {
     eos_state.xn[n] = zone_prim[QFS+n];
   }
@@ -78,9 +69,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 electric(const Real* zone_prim, Real& cell_efield, const int comp) {
 
-  // this takes the cell-center primitive state, zone_prim, and computes the cell-center
-  // electric field, cell_efield, using Faraday's law:
-  // E = -v X B
 
   if (comp == 0) {
     cell_efield = -zone_prim[QV] * zone_prim[QBFIELDZ] + zone_prim[QW] * zone_prim[QBFIELDY];
@@ -99,9 +87,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
 
-  // calculate the primitive variables from the conserved
-  // U has NUM_STATE+3 components
-  // q has NQ components
 
 
   zone_prim[QRHO] = cons_zone[URHO];
@@ -116,7 +101,6 @@ ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
               cons_zone[UBY] * cons_zone[UBY] +
               cons_zone[UBZ] * cons_zone[UBZ]);
 
-  // species
 
   for (int n = 0; n < NumSpec; n++) {
     zone_prim[QFS+n] = cons_zone[UFS+n] / cons_zone[URHO];
@@ -134,7 +118,7 @@ ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
     eos_state.aux[n] = zone_prim[QFX+n];
   }
 #endif
-  eos_state.T = 100.0_rt; // initial guess
+  eos_state.T = 100.0_rt;
 
   eos(eos_input_re, eos_state);
 
@@ -154,7 +138,6 @@ PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
      Array1D<Real, 0, NUM_STATE+2>& U,
      Real& gam1) {
 
-  // first the conserved state
   U(URHO) = q(QRHO);
   U(UMX) = q(QRHO) * q(QU);
   U(UMY) = q(QRHO) * q(QV);
@@ -172,7 +155,7 @@ PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
     eos_state.aux[n] = q(QFX+n);
   }
 #endif
-  eos_state.T = 100.0;  // dummy initial guess
+  eos_state.T = 100.0;
 
   eos(eos_input_rp, eos_state);
 

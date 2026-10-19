@@ -15,12 +15,10 @@ W_s_shock(const amrex::Real W_s, const amrex::Real pstar,
           const amrex::Real* xn,
           amrex::Real& rhostar_s, eos_rep_t& eos_state, amrex::Real& f, amrex::Real& fprime) {
 
-    // we need rhostar -- get it from the R-H conditions
 
     amrex::Real taustar_s = (1.0_rt / rho_s) - (pstar - p_s) / (W_s * W_s);
     rhostar_s = 1.0_rt / taustar_s;
 
-    // get the thermodynamics
 
     eos_state.rho = rhostar_s;
     eos_state.p = pstar;
@@ -31,11 +29,9 @@ W_s_shock(const amrex::Real W_s, const amrex::Real pstar,
 
     eos(eos_input_rp, eos_state);
 
-    // compute the correction
 
     f = W_s * W_s * (eos_state.e - e_s) - 0.5_rt * (pstar * pstar - p_s * p_s);
 
-    // we need de/drho at constant p -- this is not returned by the EOS
 
     amrex::Real dedrho_p = eos_state.dedr - eos_state.dedT * eos_state.dpdr / eos_state.dpdT;
 
@@ -53,12 +49,6 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
              amrex::Real* rhostar_hist, amrex::Real* Ws_hist,
              eos_rep_t& eos_state) {
 
-    // Newton iterations -- we are zeroing the energy R-H jump condition
-    // W^2 [e] = 1/2 [p^2]
-    //
-    // we write f(W) = W^2 (e(pstar, rhostar_s) - e_s) - (1/2)(pstar^2 - p_s)
-    //
-    // and then compute f'
 
     bool converged = false;
 
@@ -78,7 +68,6 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
 
         W_s = amrex::Clamp(W_s + dW, 0.5_rt * W_s, 2.0_rt * W_s);
 
-        // store some history
 
         rhostar_hist[iter] = rhostar_s;
         Ws_hist[iter] = W_s;
@@ -101,14 +90,8 @@ shock(const amrex::Real pstar,
 
     amrex::Real rhostar_hist[solver_constants::STAR_HISTORY_DEPTH], Ws_hist[solver_constants::STAR_HISTORY_DEPTH];
 
-    // compute the Z_s function for a shock.
-    // Here the "_s" variables are the state (L or R) that we are
-    // connecting to the star region through a shock.
 
-    // first we need to compute W_s -- this is iterative because of
-    // the nonlinear EOS.  We use the R-H jump conditions + the EOS
 
-    // get the s-state energy, e_s
 
     eos_rep_t eos_state;
     eos_state.rho = rho_s;
@@ -122,9 +105,6 @@ shock(const amrex::Real pstar,
 
     amrex::Real e_s = eos_state.e;
 
-    // to kick things off, we need a guess for W_s.  We'll use the
-    // approximation from Colella & Glaz, which in turn
-    // makes an approximation for gammaE_star.
 
     amrex::Real gammaE_s = p_s / (rho_s * e_s) + 1.0_rt;
 
@@ -132,9 +112,6 @@ shock(const amrex::Real pstar,
         2.0_rt * (1.0_rt - gammaE_bar / gammaC_bar) * (gammaE_bar - 1.0_rt) *
         (pstar - p_s) / (pstar + p_s);
 
-    // there is a pathological case that if p_s - pstar ~ 0, the root finding
-    // just doesn't work.  In this case, we use the ideas from CG, and
-    // take W = sqrt(gamma p rho)
 
     if (pstar - p_s < solver_constants::pressure_tolerance * p_s) {
         W_s = std::sqrt(eos_state.gam1 * p_s * rho_s);
@@ -144,7 +121,6 @@ shock(const amrex::Real pstar,
                        (pstar / rho_s - (gammaE_star - 1.0_rt) / (gammaE_s - 1.0_rt) * p_s / rho_s));
     }
 
-    // we need rhostar -- get it from the R-H conditions
 
     amrex::Real taustar_s = (1.0_rt / rho_s) - (pstar - p_s) / (W_s * W_s);
     amrex::Real rhostar_s;
@@ -154,14 +130,12 @@ shock(const amrex::Real pstar,
         W_s = std::sqrt((pstar - p_s) / (1.0_rt / rho_s - 1.0_rt / rhostar_s));
     }
 
-    // newton
 
     auto converged = newton_shock(W_s, pstar, rho_s, p_s, e_s, xn,
                                   rhostar_hist, Ws_hist,
                                   eos_state);
 
 
-    // now did we converge?
 
     if (! converged) {
         for (int i = 0; i < hydrosim::shock_star_max_iters; ++i) {
@@ -172,13 +146,10 @@ shock(const amrex::Real pstar,
     }
 
 
-    // now that we have W_s, we can get rhostar from the R-H conditions
 
     taustar_s = (1.0_rt / rho_s) - (pstar - p_s) / (W_s * W_s);
     rhostar_s = 1.0_rt / taustar_s;
 
-    // next we compute the derivative dW_s/dpstar --
-    // dW**2/dpstar, so we take 1/2W of that
 
     amrex::Real C = std::sqrt(eos_state.gam1 * pstar * rhostar_s);
 
@@ -192,7 +163,6 @@ shock(const amrex::Real pstar,
 
     amrex::Real dWdpstar = 0.5_rt * dW2dpstar / W_s;
 
-    // finally compute Z_s
 
     Z_s = W_s * W_s / (W_s - dWdpstar * (pstar - p_s));
 

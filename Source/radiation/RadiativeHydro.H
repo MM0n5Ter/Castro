@@ -1,7 +1,6 @@
 #ifndef RADIATIVE_HYDRO_H
 #define RADIATIVE_HYDRO_H
 
-// do the advection in frequency space for the radiation energy.
 
 constexpr int rk_order = 3;
 constexpr bool use_nonlinear_recon = false;
@@ -12,7 +11,6 @@ constexpr Real onethird = 1.0_rt/3.0_rt;
 constexpr Real twothirds = 2.0_rt/3.0_rt;
 constexpr Real onesixth = 1.0_rt/6.0_rt;
 
-// RK5
 constexpr Real B1 = 0.5_rt;
 constexpr Real B2 = 1.0_rt/16.0_rt;
 constexpr Real B3 = 0.5_rt;
@@ -98,19 +96,13 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 dudt(Real* u, Real* a, const Real* dx, const int n, Real* rhs_buffer) {
 
-  // compute the RHS for the g'th energy group out of n note, since
-  // this is advection in frequency space, we will need to assume some
-  // boundary conditions on the stencil used to reconstruct over nu
 
   Array1D<Real, 0, NGROUPS> f;
 
-  // we need 2 ghost cells on each end
   Array1D<Real, -2, NGROUPS+1> ag;
   Array1D<Real, -2, NGROUPS+1> ug;
   Array1D<Real, -2, NGROUPS+1> fg;
 
-  // ag and ug have 2 ghost cells on each end.  First fill the
-  // interiors and then the ghost cells.
   for (int g = 0; g < n; g++) {
     ag(g) = a[g];
     ug(g) = u[g];
@@ -219,7 +211,6 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
 
   for (int istep = 1; istep <= nstep; istep++) {
     if (rk_order == 5) {
-      // RK5
       dudt(u, a, dx, n, rhs_buffer);
       for (int g = 0; g < n; g++) {
         u1[g] = u[g] + B1 * dt * rhs_buffer[g];
@@ -246,7 +237,6 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
       }
 
     } else if (rk_order == 4) {
-      // RK4
       dudt(u, a, dx, n, rhs_buffer);
       for (int g = 0; g < n; g++) {
         u1[g] = u[g] + 0.5_rt * dt * rhs_buffer[g];
@@ -265,7 +255,6 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
       }
 
     } else if (rk_order == 3) {
-      // RK3
       dudt(u, a, dx, n, rhs_buffer);
       for (int g = 0; g < n; g++) {
         u1[g] = u[g] + dt * rhs_buffer[g];
@@ -280,7 +269,6 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
       }
 
     } else {
-      // first-order
       dudt(u, a, dx, n, rhs_buffer);
       for (int g = 0; g < n; g++) {
         u[g] += dt * rhs_buffer[g];

@@ -24,7 +24,6 @@ HydroSim::reset_edge_thermo(const Box& bx,
         eos_rep_t eos_state;
 
         if (reset_eint_flag == 1) {
-            // if we are still negative, then we need to reset
             if (edge_state(i,j,k,QEINTDENS) < 0.0_rt) {
 
                 eos_state.rho = edge_state(i,j,k,QRHO);
@@ -65,8 +64,6 @@ HydroSim::reset_edge_thermo(const Box& bx,
         }
 
 #ifdef RADIATION
-        // correct the total pressure (gas + radiation) with any
-        // change to the gas pressure state
         edge_state(i,j,k,QPTOTAL) = edge_state(i,j,k,QPTOTAL) + (edge_state(i,j,k,QPRES) - prior_pressure);
 #endif
 
@@ -82,14 +79,11 @@ HydroSim::edge_temp_to_pressure(const Box& bx,
                                 Array4<Real> const& qp)
 {
 
-    // use T to define p
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        // We just got the extremes corresponding to a particular cell-center, but now
-        // we need to assign them to interfaces.
 
         eos_rep_t eos_state;
 
@@ -108,7 +102,6 @@ HydroSim::edge_temp_to_pressure(const Box& bx,
 
         qp(i,j,k,QPRES) = eos_state.p;
         qp(i,j,k,QEINTDENS) = qp(i,j,k,QRHO) * eos_state.e;
-        // should we try to do something about Gamma_! on interface?
 
         eos_state.rho    = qm(i,j,k,QRHO);
         eos_state.T      = qm(i,j,k,QTEMP);
@@ -125,7 +118,6 @@ HydroSim::edge_temp_to_pressure(const Box& bx,
 
         qm(i,j,k,QPRES) = eos_state.p;
         qm(i,j,k,QEINTDENS) = qm(i,j,k,QRHO) * eos_state.e;
-        // should we try to do something about Gamma_! on interface?
 
     });
 

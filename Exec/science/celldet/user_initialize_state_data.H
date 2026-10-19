@@ -43,7 +43,6 @@ void user_initialize_state_data (int i, int j, int k,
     }
 
 #ifdef AUX_THERMO
-    // set the aux quantities -- we need to do this if we are using the NSE network
     set_aux_comp_from_X(eos_state);
 
     for (int n = 0; n < NumAux; n++) {

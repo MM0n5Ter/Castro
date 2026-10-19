@@ -32,33 +32,8 @@ int MultiLevelEllipticSolver::vh[2] = { 0, 0 };
 
 void AuxVar::collapse()
 {
-  // "Flattens" the dependency list.  Any entry that points to another
-  // AuxVar is replaced by a copy of the dependency list from that AuxVar.
-  // The values in the inserted elements are multiplied by the value from
-  // the entry being replaced.  AuxVar pointers that were in the dependency
-  // list are removed from it, but the AuxVars they point to are not
-  // themselves modified.  Entries pointing to the same cell are then
-  // combined.
 
-  // The loops in this function are tricky, since we're modifying
-  // a list at the same time we're looping through it.  for statements
-  // are used in somewhat unusual ways.  Erasing an entry invalidates
-  // its iterator, so before we can do that we need to have another
-  // iterator pointing to an adjacent entry.  While "past-the-end" is
-  // a valid target for an iterator, we assume there is no corresponding
-  // "before-the-beginning" position.
 
-  // There is one property that can be useful in dealing with the hypre
-  // semi-structured interface:  Call two AuxVar objects or two AuxLink
-  // lists "similar" if they point to the same locations in the same order.
-  // If two AuxVar objects are built whose AuxLink lists are similar up to
-  // a point, and all the latter entries point only to locations already
-  // referenced in the similar initial sections, then after being
-  // collapsed the two AuxVars will be similar.  If one AuxVar is then
-  // used for establishing the graph entries, and the other is used for
-  // initializing the matrix coefficients, then it is ok for the second
-  // AuxVar to include additional entries so long as they don't point
-  // to any new locations not already established in the graph.
 
   for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ) {
     AuxVar *o = it->other;
@@ -66,12 +41,11 @@ void AuxVar::collapse()
       std::list<AuxLink>::iterator kt = it;
       a.insert(++kt, o->a.begin(), o->a.end());
 
-      // multiply inserted entries by it->var here:
       for (std::list<AuxLink>::iterator jt = it; ++jt != kt; ) {
         jt->val *= it->val;
       }
 
-      kt = it; // entry to be erased
+      kt = it;
       ++it;
       a.erase(kt);
     }
@@ -80,7 +54,6 @@ void AuxVar::collapse()
     }
   }
 
-  // Combine entries that point to same cell:
 
   for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
     for (std::list<AuxLink>::iterator jt = it; ++jt != a.end(); ) {
@@ -103,7 +76,7 @@ void AuxVar::clear()
 int AuxVar::read_stencil_sites(Vector<int>& levels, Vector<IntVect>& cells)
 {
   if (secondary()) {
-    return 1; // failure
+    return 1;
   }
 
   int n = a.size();
@@ -113,20 +86,20 @@ int AuxVar::read_stencil_sites(Vector<int>& levels, Vector<IntVect>& cells)
   int i = 0;
   for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
-      return 2; // failure
+      return 2;
     }
     levels[i] = it->level;
     cells[i]  = it->index;
     i++;
   }
 
-  return 0; // success
+  return 0;
 }
 
 int AuxVar::read_stencil_values(Vector<Real>& values)
 {
   if (secondary()) {
-    return 1; // failure
+    return 1;
   }
 
   int n = a.size();
@@ -135,13 +108,13 @@ int AuxVar::read_stencil_values(Vector<Real>& values)
   int i = 0;
   for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
-      return 2; // failure
+      return 2;
     }
     values[i] = it->val;
     i++;
   }
 
-  return 0; // success
+  return 0;
 }
 
 int BoundaryAuxBase::firstOwnedIndex()
@@ -176,7 +149,6 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
                          Location loc)
     : BoundaryAuxBase(_dmap), grids(_grids)
 {
-  // For Location type OUTSIDE_GRID use CoarseBoundaryAuxStore instead:
   BL_ASSERT(loc == INTERIOR || loc == HALO);
 
   int normal_side_index = (loc == INTERIOR) ? 0 : 1;
@@ -191,12 +163,10 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
     }
   }
 
-  // Make primary-secondary connections:
 
   if (loc == INTERIOR) {
     for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
 #if 1
-      // This is the current default implementation:
       for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
         Orientation om = outer_orient_iter();
         const Box& bm = aux[om][i]->box();
@@ -214,7 +184,6 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
         }
       }
 #elif 0
-      // This was the original implementation, 2D only:
       Orientation face_x_low(0, Orientation::low);
       Orientation face_x_high(0, Orientation::high);
       Orientation face_y_low(1, Orientation::low);
@@ -228,11 +197,6 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
       p = aux[face_x_high][i]->box().bigEnd();
       (*aux[face_x_high][i])(p).add_secondary_link(&(*aux[face_y_high][i])(p));
 #elif 0
-      // This version is like the new default, except that
-      // it loops through orientations in a different order.
-      // Some primary/secondary pairs are therefore flipped, and in
-      // the end the solvers return slightly different numbers.
-      // (Results should be the same within the solver tolerance.)
       for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
         Orientation om = outer_orient_iter();
         const Box& bm = aux[om][i]->box();
@@ -257,7 +221,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
                                  const BoxArray& _fine_boxes, Location loc)
     : BoundaryAuxBase(_coarse_dmap), coarse_boxes(_coarse_boxes), fgrids(_fine_boxes)
 {
-  // For Location type INTERIOR use BoundaryAuxStore instead:
   BL_ASSERT(loc == OUTSIDE_GRID || loc == HALO);
 
   for (OrientationIter oitr; oitr; ++oitr) {
@@ -279,9 +242,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
         }
       }
 
-      // bl now has every fine grid face in it, even those entirely
-      // covered by other fine grids.  We might optimize by removing
-      // the covered ones here.
 
       int n = bl.size();
       aux[ori][i].resize(n);
@@ -307,10 +267,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
 
         msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::outside_domain);
 
-        // If we had the Geometry, we would have the problem domain
-        // and would not have to loop over coarse grids below.  Also,
-        // if we ever care to do this right for periodic domains we
-        // will need the Geometry.  (See RadBoundaryData.cpp)
 
         for (int k = 0; k < coarse_boxes.size(); k++) {
           if (coarse_boxes[k].intersects(mask_region)) {
@@ -337,7 +293,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
 CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const CoarseBoundaryAuxStore& other, Location loc)
     : BoundaryAuxBase(other.distributionMap), coarse_boxes(other.coarse_boxes), fgrids(other.fgrids)
 {
-  // For Location type INTERIOR use BoundaryAuxStore instead:
   BL_ASSERT(loc == OUTSIDE_GRID || loc == HALO);
 
   for (OrientationIter oitr; oitr; ++oitr) {
@@ -375,7 +330,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
                                  const CoarseBoundaryAuxStore& other, Location loc)
     : BoundaryAuxBase(other.distributionMap), coarse_boxes(_coarse_boxes), fgrids(_fine_boxes)
 {
-  // For Location type INTERIOR use BoundaryAuxStore instead:
   BL_ASSERT(loc == OUTSIDE_GRID || loc == HALO);
 
   for (OrientationIter oitr; oitr; ++oitr) {
@@ -410,10 +364,6 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
 
         msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::outside_domain);
 
-        // If we had the Geometry, we would have the problem domain
-        // and would not have to loop over coarse grids below.  Also,
-        // if we ever care to do this right for periodic domains we
-        // will need the Geometry.  (See RadBoundaryData.cpp)
 
         for (int k = 0; k < coarse_boxes.size(); k++) {
           if (coarse_boxes[k].intersects(mask_region)) {
@@ -456,7 +406,6 @@ void CoarseBoundaryAuxStore::rebuild_links(Location loc)
 
 void CoarseBoundaryAuxStore::link_secondary_entries(Location loc)
 {
-  // Make primary-secondary connections:
 
   if (loc == OUTSIDE_GRID) {
     for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
@@ -498,7 +447,6 @@ void CoarseBoundaryAuxStore::makeFaceStorage(IntVect& rat, int ncomp)
       face_fabs[ori][i].resize(n);
       for (int j = 0; j < n; j++) {
           Box face_box = aux[ori][i][j]->box();
-        // face_box is known to be "adjacent cell", convert to face:
         face_box.shiftHalf(ori.coordDir(), (ori.isLow() ? 1 : -1));
         face_box.refine(rat);
         face_fabs[ori][i][j].reset(new FArrayBox(face_box, ncomp));
@@ -672,10 +620,6 @@ MultiLevelEllipticSolver::MultiLevelEllipticSolver(int _coarse_lvl, int _fine_lv
 
 #if (AMREX_SPACEDIM == 1)
 
-  // Hypre doesn't support 1D directly, so we use 2D Hypre with
-  // the second dimension collapsed.
-  // (SMG reduces to cyclic reduction in this case, so it's an exact solve.)
-  // (PFMG will not work.)
 
   HYPRE_SStructGridCreate(MPI_COMM_WORLD, 2, nparts, &hgrid);
 
@@ -777,7 +721,6 @@ void MultiLevelEllipticSolver::attachLevel(int             level,
     }
   }
 
-  // All variables are cell-centered
   HYPRE_SStructVariable vars[1] = {HYPRE_SSTRUCT_VARIABLE_CELL};
   HYPRE_SStructGridSetVariables(hgrid, part, 1, vars);
 }
@@ -792,11 +735,10 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
 {
   for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
     IntVect vf = rat * vc;
-    vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+    vf[idir] = reg.smallEnd(idir);
     Box face(vf, vf + ve);
     if (msk(vf) == RadBoundaryData::not_covered) {
 #if (0)
-      // force piecewise constant interpolation for debugging:
       for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
         coarse_interp(v).push(coarse_level_index, vc,     1.0);
       }
@@ -805,7 +747,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
 #elif (AMREX_SPACEDIM == 2)
       if (msk(vf-vj1) != RadBoundaryData::not_covered &&
           msk(vf+vjr) == RadBoundaryData::not_covered) {
-        // low direction not available, use linear interp upwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc+vj1, xx);
@@ -814,7 +755,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vj1) == RadBoundaryData::not_covered &&
                msk(vf+vjr) == RadBoundaryData::not_covered) {
-        // use piecewise quadratic interpolation whenever possible:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc+vj1, 0.5*xx*(xx+1));
@@ -824,7 +764,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vj1) == RadBoundaryData::not_covered &&
                msk(vf+vjr) != RadBoundaryData::not_covered) {
-        // high direction not available, use linear interp downwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc,     1.0 + xx);
@@ -832,19 +771,15 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
         }
       }
       else {
-        // neither direction available, drop back to piecewise const:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           coarse_interp(v).push(coarse_level_index, vc,     1.0);
         }
-        //amrex::Error("Case not implemented");
       }
 #elif (AMREX_SPACEDIM == 3)
 
-      // First do the jdir direction, including piecewise-constant term:
 
       if (msk(vf-vj1) != RadBoundaryData::not_covered &&
           msk(vf+vjr) == RadBoundaryData::not_covered) {
-        // low direction not available, use linear interp upwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc+vj1, xx);
@@ -853,7 +788,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vj1) == RadBoundaryData::not_covered &&
                msk(vf+vjr) == RadBoundaryData::not_covered) {
-        // use piecewise quadratic interpolation whenever possible:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc+vj1, 0.5*xx*(xx+1));
@@ -863,7 +797,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vj1) == RadBoundaryData::not_covered &&
                msk(vf+vjr) != RadBoundaryData::not_covered) {
-        // high direction not available, use linear interp downwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real xx = (v[jdir] - vf[jdir] - 0.5 * ve[jdir]) / rat[jdir];
           coarse_interp(v).push(coarse_level_index, vc,     1.0 + xx);
@@ -871,17 +804,14 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
         }
       }
       else {
-        // neither direction available, drop back to piecewise const:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           coarse_interp(v).push(coarse_level_index, vc,     1.0);
         }
       }
 
-      // Then add on contributions from the kdir direction:
 
       if (msk(vf-vk1) != RadBoundaryData::not_covered &&
           msk(vf+vkr) == RadBoundaryData::not_covered) {
-        // low direction not available, use linear interp upwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real yy = (v[kdir] - vf[kdir] - 0.5 * ve[kdir]) / rat[kdir];
           coarse_interp(v).push(coarse_level_index, vc+vk1, yy);
@@ -890,7 +820,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vk1) == RadBoundaryData::not_covered &&
                msk(vf+vkr) == RadBoundaryData::not_covered) {
-        // use piecewise quadratic interpolation whenever possible:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real yy = (v[kdir] - vf[kdir] - 0.5 * ve[kdir]) / rat[kdir];
           coarse_interp(v).push(coarse_level_index, vc+vk1, 0.5*yy*(yy+1));
@@ -900,7 +829,6 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
       }
       else if (msk(vf-vk1) == RadBoundaryData::not_covered &&
                msk(vf+vkr) != RadBoundaryData::not_covered) {
-        // high direction not available, use linear interp downwards:
         for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
           Real yy = (v[kdir] - vf[kdir] - 0.5 * ve[kdir]) / rat[kdir];
           coarse_interp(v).push(coarse_level_index, vc,      yy);
@@ -908,11 +836,8 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
         }
       }
       else {
-        // neither direction available, drop back to piecewise const:
-        // (do nothing, no need to explicitly add a zero contribution here)
       }
 
-      // Finally add in cross derivative terms:
 
       if (msk(vf-vj1-vk1) == RadBoundaryData::not_covered &&
           msk(vf-vj1+vkr) == RadBoundaryData::not_covered &&
@@ -951,7 +876,7 @@ compute_normal_gradient(BoxAuxStorage& normal_grad_store, BoxAuxStorage& coarse_
     }
   }
   else {
-    Real normal_grad_scale = 2.0 / (h * (1 + r)); // normal derivative factor
+    Real normal_grad_scale = 2.0 / (h * (1 + r));
     for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
       if (msk(v) == RadBoundaryData::not_covered) {
         normal_grad_store(v).push(&coarse_interp(v),     normal_grad_scale);
@@ -963,8 +888,6 @@ compute_normal_gradient(BoxAuxStorage& normal_grad_store, BoxAuxStorage& coarse_
 
 void MultiLevelEllipticSolver::makeMatrixLayout()
 {
-  // Build MultiFabs first, so that distribution maps are available
-  // when building the graph below:
 
   for (int level = crse_level; level <= fine_level; level++) {
     int ncomp=1;
@@ -982,20 +905,11 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
     }
   }
 
-  // This can be done now that attachLevel has been called for each level:
 
   HYPRE_SStructGridAssemble(hgrid);
 
-  // Setup stencils:
 
 #if (AMREX_SPACEDIM == 1)
-  // if we were really 1D:
-/*
-  int offsets[3][1] = {{ 0}
-                       {-1},
-                       { 1}};
-*/
-  // fake 1D as a 2D problem:
   int offsets[3][2] = {{ 0,  0},
                        {-1,  0},
                        { 1,  0}};
@@ -1035,7 +949,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
     HYPRE_SStructGraphSetStencil(graph, part, 0, stencil);
   }
 
-  // Add non-stencil entries to the graph here:
 
   for (int level = crse_level + 1; level <= fine_level; level++) {
     int part = level - crse_level;
@@ -1048,12 +961,12 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir);
-      vin = (ori.isLow() ? -vin : vin); // outward normal unit vector
-      Real h = geom[level].CellSize(idir); // normal fine grid spacing
-      IntVect ve; // default constructor initializes to zero
+      vin = (ori.isLow() ? -vin : vin);
+      Real h = geom[level].CellSize(idir);
+      IntVect ve;
 #if (AMREX_SPACEDIM >= 2)
       int jdir = (idir + 1) % AMREX_SPACEDIM;
-      IntVect vj1 = amrex::BASISV(jdir); // tangential unit vector
+      IntVect vj1 = amrex::BASISV(jdir);
       IntVect vjr = rat * vj1;
       ve += (vjr - vj1);
 #endif
@@ -1066,7 +979,7 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       for (int i = coarse_interp[level]->firstOwnedIndex(); coarse_interp[level]->isValid(i);
            i = coarse_interp[level]->nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
-        Box coarse_box = amrex::coarsen(reg, rat); // coarse adjacent cells
+        Box coarse_box = amrex::coarsen(reg, rat);
         const Mask &msk = bd[level]->bndryMasks(ori,i);
 
         interpolate_transverse((*coarse_interp[level])(ori,i), msk, reg, coarse_box,
@@ -1079,14 +992,10 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
                          (*coarse_interp[level])(ori,i),
                          msk, reg, vin, h, rat[idir], bho, level);
 
-        // coarse_interp and normal_grad_store are now complete.  entry will be done in
-        // draft form to establish the graph connections, but must be
-        // done again later when the edge coefficients are available.
 
-        reg.shift(-vin); // fine interior cells
+        reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
           if (msk(v+vin) == RadBoundaryData::not_covered) {
-            // value not important, since coefficient not known.
               entry(ori,i)(v).push(&(*normal_grad_store[level])(ori,i)(v+vin), 1.0);
           }
         }
@@ -1097,12 +1006,11 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir);
-      vin = (ori.isLow() ? -vin : vin); // outward normal unit vector
+      vin = (ori.isLow() ? -vin : vin);
       for (int i = entry.firstOwnedIndex(); entry.isValid(i);
            i = entry.nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
-        reg.shift(-vin); // fine interior cells
-//        const Mask &msk = bd[level]->bndryMasks(ori,i);
+        reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
 #if (0 && !defined(NDEBUG))
           if (msk(v+vin) == RadBoundaryData::not_covered &&
@@ -1112,8 +1020,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
                  << std::endl;
           }
 #endif
-          // Even if this entry is covered, it could have a
-          // not_covered secondary:
           if (!entry(ori,i)(v).empty() &&
               !entry(ori,i)(v).secondary()) {
             entry(ori,i)(v).collapse();
@@ -1122,7 +1028,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
             int retval = entry(ori,i)(v).read_stencil_sites(levels, cells);
             BL_ASSERT(retval == 0);
             for (int j = 0; j < levels.size(); j++) {
-              // eliminate stencil-like connections:
               int needs_separate_entry = 1;
               if (levels[j] == level) {
                 IntVect d = cells[j] - v;
@@ -1144,11 +1049,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       }
     }
 
-    // Now add the graph entries seen by the coarse cells adjacent
-    // to the coarse-fine interface.  These are averages of normal_grad_store
-    // over the fine faces making up each coarse face.  Since we
-    // have to do this from the processor owning the coarse grid,
-    // we recompute information using CoarseBoundaryAuxStore
 
     const BoxArray& ff_boxes(grids[level]);
     const BoxArray& cc_boxes(grids[level-1]);
@@ -1169,12 +1069,12 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir);
-      vin = (ori.isLow() ? -vin : vin); // outward normal unit vector
-      Real h = geom[level].CellSize(idir); // normal fine grid spacing
-      IntVect ve; // default constructor initializes to zero
+      vin = (ori.isLow() ? -vin : vin);
+      Real h = geom[level].CellSize(idir);
+      IntVect ve;
 #if (AMREX_SPACEDIM >= 2)
       int jdir = (idir + 1) % AMREX_SPACEDIM;
-      IntVect vj1 = amrex::BASISV(jdir); // tangential unit vector
+      IntVect vj1 = amrex::BASISV(jdir);
       IntVect vjr = rat * vj1;
       ve += (vjr - vj1);
 #endif
@@ -1187,9 +1087,9 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       for (int i = c_interp[level]->firstOwnedIndex(); c_interp[level]->isValid(i);
          i = c_interp[level]->nextOwnedIndex(i)) {
          for (int j = 0; j < (*c_interp[level]).size(ori,i); j++) {
-           const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-           const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-           const Mask &msk = c_interp[level]->mask(ori,i,j); // fine mask
+           const Box& reg = (*c_interp[level])(ori,i,j).box();
+           const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+           const Mask &msk = c_interp[level]->mask(ori,i,j);
 
          interpolate_transverse((*c_interp[level])(ori,i,j), msk, reg, coarse_box,
                                 AMREX_D_DECL(rat,  vj1,  vk1),
@@ -1201,17 +1101,13 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
                           (*c_interp[level])(ori,i,j),
                           msk, reg, vin, h, rat[idir], bho, level);
 
-          // c_interp and c_extrap_deriv are now complete.  c_connections will be done
-          // in draft form to establish the graph connections, but must be
-          // done again later when the edge coefficients are available.
 
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+            vf[idir] = reg.smallEnd(idir);
             Box face(vf, vf + ve);
             if (msk(vf) == RadBoundaryData::not_covered) {
               for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
-                // value not important, since coefficient not known.
                   (*c_connections[level])(ori,i,j)(vc)
                       .push(&(*c_extrap_deriv[level])(ori,i,j)(v), 1.0);
               }
@@ -1227,14 +1123,12 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
       for (int i = c_interp[level]->firstOwnedIndex(); c_interp[level]->isValid(i);
            i = c_interp[level]->nextOwnedIndex(i)) {
         for (int j = 0; j < (*c_interp[level]).size(ori,i); j++) {
-          const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-          const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-          const Mask &msk = c_interp[level]->mask(ori,i,j); // fine mask
+          const Box& reg = (*c_interp[level])(ori,i,j).box();
+          const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+          const Mask &msk = c_interp[level]->mask(ori,i,j);
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
-            // Unlike fine entry, it should not be possible for this
-            // entry to be covered but have a not_covered secondary:
+            vf[idir] = reg.smallEnd(idir);
             if (msk(vf) == RadBoundaryData::not_covered &&
                 !(*c_connections[level])(ori,i,j)(vc).secondary()) {
               (*c_connections[level])(ori,i,j)(vc).collapse();
@@ -1244,7 +1138,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
                 .read_stencil_sites(levels, cells);
               BL_ASSERT(retval == 0);
               for (int jj = 0; jj < levels.size(); jj++) {
-                // eliminate stencil-like connections:
                 int needs_separate_entry = 1;
                 if (levels[jj] == level-1) {
                   IntVect d = cells[jj] - vc;
@@ -1273,15 +1166,11 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
   BL_ASSERT(A == NULL);
   HYPRE_SStructMatrixCreate(MPI_COMM_WORLD, graph, &A);
   HYPRE_SStructMatrixSetObjectType(A, ObjectType);
-  //HYPRE_StructMatrixSetSymmetric(A, 1);
-  //HYPRE_StructMatrixSetNumGhost(A, matrix_ghost_widths);
   HYPRE_SStructMatrixInitialize(A);
 
   BL_ASSERT(A0 == NULL);
   HYPRE_SStructMatrixCreate(MPI_COMM_WORLD, graph, &A0);
   HYPRE_SStructMatrixSetObjectType(A0, ObjectType);
-  //HYPRE_StructMatrixSetSymmetric(A0, 1);
-  //HYPRE_StructMatrixSetNumGhost(A0, matrix_ghost_widths);
   HYPRE_SStructMatrixInitialize(A0);
 
   BL_ASSERT(b == NULL);
@@ -1295,9 +1184,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
   HYPRE_SStructVectorInitialize(b);
   HYPRE_SStructVectorInitialize(x);
 
-  // the following is necessary in some cases before
-  // we call the solver setup routine (and we may do that before loading
-  // the vectors with data):
 
   HYPRE_SStructVectorAssemble(b);
   HYPRE_SStructVectorAssemble(x);
@@ -1715,8 +1601,6 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
 
     const Real fac = beta / (h * h);
 
-    // The -fac * b(i,j,k) term applied to the matrix diagonal is the contribution
-    // from the interior stencil which must be removed at the boundary.
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
@@ -2182,13 +2066,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
   BL_PROFILE("MultiLevelEllipticSolver::assembleMatrix");
 
 #if (AMREX_SPACEDIM == 1)
-  // if we were really 1D:
-/*
-  int offsets[3][1] = {{ 0}
-                       {-1},
-                       { 1}};
-*/
-  // fake 1D as a 2D problem:
   int offsets[3][2] = {{ 0,  0},
                        {-1,  0},
                        { 1,  0}};
@@ -2217,7 +2094,7 @@ void MultiLevelEllipticSolver::assembleMatrix()
     stencil_indices[i] = i;
   }
 
-  BaseFab<GpuArray<Real, size>> matfab; // AoS indexing
+  BaseFab<GpuArray<Real, size>> matfab;
   FArrayBox sub_matrix_buf;
   for (int level = crse_level; level <= fine_level; level++) {
     int part = level - crse_level;
@@ -2230,7 +2107,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
       Real* mat = (Real*) matfab.dataPtr();
       Elixir mat_hold = matfab.elixir();
 
-      // build matrix interior
 
       hmac(reg, matfab.array(), (*acoefs[level])[mfi].array(), alpha);
 
@@ -2239,8 +2115,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
                beta, geom[level].CellSize(), idim);
       }
 
-      // add b.c.'s to matrix diagonal, and
-      // zero out offdiag values at domain boundaries
 
       const Box& domain = bd[level]->getDomain();
       for (OrientationIter oitr; oitr; oitr++) {
@@ -2253,8 +2127,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
         const Box &msb  = msk.box();
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
-          // Treat an exposed grid edge here as a boundary condition
-          // for the linear solver:
 
           if (reg[oitr()] == domain[oitr()]) {
             Array4<const int> tfp{};
@@ -2282,9 +2154,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
         }
         else {
 
-          // An exposed grid edge here actually borders the next coarser
-          // level in the current linear system.  Zero out the interior
-          // stencil using Neumann BC:
 
           const RadBoundaryCondition coarse_boundary_type = AMREX_LO_NEUMANN;
           fillLevelMat(reg, matfab.array(), cdir, coarse_boundary_type, bho, bcl,
@@ -2293,7 +2162,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
         }
       }
 
-      // initialize matrix
 
       if (subgrids[level][i].size() > 0) {
         for (int j = 0; j < subgrids[level][i].size(); j++) {
@@ -2317,27 +2185,24 @@ void MultiLevelEllipticSolver::assembleMatrix()
       }
     }
 
-    // Add coarse-fine interface entries to the matrix here:
     if (level == crse_level) {
       continue;
     }
 
-    // First we do the entries as seen by the fine cells adjacent
-    // to the interface, working on the fine processor:
 
     BoundaryAuxStore entry(grids[level], dmap[level], BoundaryAuxStore::INTERIOR);
     for (OrientationIter oitr; oitr; ++oitr) {
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir), ves;
-      vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
-      ves = (ori.isLow() ?  ves : vin);    // edge shift vector
-      Real h = geom[level].CellSize(idir); // normal fine grid spacing
-      Real fine_div_factor = (-beta / h);             // divergence factor
+      vin = (ori.isLow() ? -vin : vin);
+      ves = (ori.isLow() ?  ves : vin);
+      Real h = geom[level].CellSize(idir);
+      Real fine_div_factor = (-beta / h);
       for (int i = coarse_interp[level]->firstOwnedIndex(); coarse_interp[level]->isValid(i);
            i = coarse_interp[level]->nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
-        reg.shift(-vin); // fine interior cells
+        reg.shift(-vin);
         const Mask &msk = bd[level]->bndryMasks(ori,i);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
           if (msk(v+vin) == RadBoundaryData::not_covered) {
@@ -2352,12 +2217,11 @@ void MultiLevelEllipticSolver::assembleMatrix()
       Orientation ori = oitr();
       int idir = ori.coordDir();
       IntVect vin = amrex::BASISV(idir);
-      vin = (ori.isLow() ? -vin : vin);    // outward normal unit vector
+      vin = (ori.isLow() ? -vin : vin);
       for (int i = coarse_interp[level]->firstOwnedIndex(); coarse_interp[level]->isValid(i);
            i = coarse_interp[level]->nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
-        reg.shift(-vin); // fine interior cells
-//        const Mask &msk = bd[level]->bndryMasks(ori,i);
+        reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
           if (!entry(ori,i)(v).empty() &&
               !entry(ori,i)(v).secondary()) {
@@ -2371,7 +2235,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
             BL_ASSERT(retval == 0);
             int ientry = 2 * AMREX_SPACEDIM + 1;
             for (int j = 0; j < levels.size(); j++) {
-              // identify stencil-like connections for separate treatment:
               int needs_separate_entry = 1;
               if (levels[j] == level) {
                 IntVect d = cells[j] - v;
@@ -2394,11 +2257,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
       }
     }
 
-    // Now add the matrix values seen by the coarse cells adjacent
-    // to the coarse-fine interface.  These are averages of normal_grad_store
-    // over the fine faces making up each coarse face.  We use
-    // CoarseBoundaryAuxStore now because we need to work on the coarse
-    // processor.
 
     IntVect rat = fine_ratio[level-1];
     const BoxArray& ff_boxes(grids[level]);
@@ -2407,7 +2265,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
     fc_boxes.refine(rat);
     BoxArray cf_boxes(ff_boxes);
     cf_boxes.coarsen(rat);
-    //CoarseBoundaryAuxStore c_connections(cc_boxes, cf_boxes, BoundaryAuxStore::OUTSIDE_GRID);
     c_connections[level]->rebuild_links(BoundaryAuxStore::OUTSIDE_GRID);
     c_connections[level]->makeFaceStorage(rat);
 
@@ -2416,42 +2273,37 @@ void MultiLevelEllipticSolver::assembleMatrix()
       int idir = ori.coordDir();
       c_connections[level]->storeFaceCoeffs(ori, (*bcoefs[level])[idir], 0, 0, 1);
       IntVect vin = amrex::BASISV(idir), ves;
-      vin = (ori.isLow() ? -vin : vin); // outward normal unit vector
-      ves = (ori.isLow() ? -vin : ves); // edge shift vector (diff from above)
-      Real hc = geom[level-1].CellSize(idir); // normal coarse grid spacing
-      Real coarse_div_factor = (beta / hc);                // divergence factor
-      //coarse_div_factor = 0.0;
-      Real covered_div_factor = (-coarse_div_factor / hc);               // factor for covered cell
-      //coarse_div_factor = 0.0;
-      IntVect ve; // default constructor initializes to zero
+      vin = (ori.isLow() ? -vin : vin);
+      ves = (ori.isLow() ? -vin : ves);
+      Real hc = geom[level-1].CellSize(idir);
+      Real coarse_div_factor = (beta / hc);
+      Real covered_div_factor = (-coarse_div_factor / hc);
+      IntVect ve;
 #if (AMREX_SPACEDIM >= 2)
       int jdir = (idir + 1) % AMREX_SPACEDIM;
       ve += (rat[jdir] - 1) * amrex::BASISV(jdir);
-      coarse_div_factor /= rat[jdir]; // will average over fine cells in tangential dir
+      coarse_div_factor /= rat[jdir];
 #endif
 #if (AMREX_SPACEDIM == 3)
       int kdir = (idir + 2) % 3;
       ve += (rat[kdir] - 1) * amrex::BASISV(kdir);
-      coarse_div_factor /= rat[kdir]; // will average over fine cells in tangential dir
+      coarse_div_factor /= rat[kdir];
 #endif
       for (int i = c_connections[level]->firstOwnedIndex(); c_connections[level]->isValid(i);
            i = c_connections[level]->nextOwnedIndex(i)) {
-        // parallel loop is tied to coarse grids
           for (int j = 0; j < (*c_connections[level]).size(ori,i); j++) {
-          const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-          const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-          const Mask& msk = c_interp[level]->mask(ori,i,j); // fine mask
+          const Box& reg = (*c_interp[level])(ori,i,j).box();
+          const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+          const Mask& msk = c_interp[level]->mask(ori,i,j);
           const FArrayBox& face_coef_data = c_connections[level]->faceFab(ori,i,j);
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+            vf[idir] = reg.smallEnd(idir);
             Box face(vf, vf + ve);
             if (msk(vf) == RadBoundaryData::not_covered) {
-              // Zero out connection to covered coarse cell:
               (*c_connections[level])(ori,i,j)(vc).push(-1, vc-vin, 0.0);
               (*c_connections[level])(ori,i,j)(vc).push(level-1, vc,
                                                        covered_div_factor * (*bcoefs[level-1])[idir][i](vc+ves));
-              // Add fine fluxes over face of coarse cell:
               for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
                   (*c_connections[level])(ori,i,j)(vc)
                       .push(&(*c_extrap_deriv[level])(ori,i,j)(v), coarse_div_factor * face_coef_data(v+ves));
@@ -2467,14 +2319,13 @@ void MultiLevelEllipticSolver::assembleMatrix()
       int idir = ori.coordDir();
       for (int i = c_connections[level]->firstOwnedIndex(); c_connections[level]->isValid(i);
            i = c_connections[level]->nextOwnedIndex(i)) {
-        // parallel loop is tied to coarse grids
           for (int j = 0; j < (*c_connections[level]).size(ori,i); j++) {
-          const Box& reg = (*c_interp[level])(ori,i,j).box(); // adjacent cells
-          const Box& coarse_box = (*c_connections[level])(ori,i,j).box(); // adjacent cells
-          const Mask &msk = c_interp[level]->mask(ori,i,j); // fine mask
+          const Box& reg = (*c_interp[level])(ori,i,j).box();
+          const Box& coarse_box = (*c_connections[level])(ori,i,j).box();
+          const Mask &msk = c_interp[level]->mask(ori,i,j);
           for (IntVect vc = coarse_box.smallEnd(); vc <= coarse_box.bigEnd(); coarse_box.next(vc)) {
             IntVect vf = rat * vc;
-            vf[idir] = reg.smallEnd(idir); // same as bigEnd(idir)
+            vf[idir] = reg.smallEnd(idir);
             if (msk(vf) == RadBoundaryData::not_covered &&
                 !(*c_connections[level])(ori,i,j)(vc).secondary()) {
               (*c_connections[level])(ori,i,j)(vc).collapse();
@@ -2488,10 +2339,8 @@ void MultiLevelEllipticSolver::assembleMatrix()
               BL_ASSERT(retval == 0);
               int ientry = 2 * AMREX_SPACEDIM + 1;
               for (int jj = 0; jj < levels.size(); jj++) {
-                // identify stencil-like connections for separate treatment:
                 int needs_separate_entry = 1;
                 if (levels[jj] == -1) {
-                  // connection to covered coarse cell to be zeroed out:
                   IntVect d = cells[jj] - vc;
                   for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
                     if (d == IntVect(offsets[k])) {
@@ -2504,7 +2353,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
                   BL_ASSERT(needs_separate_entry == 0);
                 }
                 if (levels[jj] == level-1) {
-                  // other coarse-level entry, may or may not be in stencil:
                   IntVect d = cells[jj] - vc;
                   for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
                     if (d == IntVect(offsets[k])) {
@@ -2551,11 +2399,10 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
     int i = mfi.index();
     const Box &reg = grids[level][i];
 
-    // initialize dest, since we will reuse the space to set up rhs below:
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) { // need a temporary if dest is the wrong size
+    if (dest.nGrow() == 0) {
       f = &dest[mfi];
       fcomp = icomp;
     }
@@ -2567,13 +2414,12 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
     }
     Elixir f_hold = scratch_fab.elixir();
 
-    vec = f->dataPtr(fcomp); // sharing space, dest will be overwritten below
+    vec = f->dataPtr(fcomp);
 
     writeVectorBox(x, part, reg, subgrids[level][i], vec);
 
     f->copy<RunOn::Device>(rhs[mfi], 0, fcomp, 1);
 
-    // add b.c.'s to rhs
 
     if (bc_variant) {
       const Box& domain = bd[level]->getDomain();
@@ -2588,8 +2434,6 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
 
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
-          // Treat an exposed grid edge here as a boundary condition
-          // for the linear solver:
 
           if (reg[oitr()] == domain[oitr()]) {
             Array4<const int> tfp{};
@@ -2618,12 +2462,9 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
                                beta, geom[level].CellSize());
           }
         }
-        // There is no else here, since we would then be at an
-        // interior edge and would not need to add anything to vec.
       }
     }
 
-    // initialize rhs
 
     writeVectorBox(b, part, reg, subgrids[level][i], vec);
   }
@@ -2644,7 +2485,7 @@ void MultiLevelEllipticSolver::loadLevelSolution(int level,
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) { // need a temporary if dest is the wrong size
+    if (dest.nGrow() == 0) {
       f = &dest[mfi];
       fcomp = icomp;
     }
@@ -2663,7 +2504,7 @@ void MultiLevelEllipticSolver::loadLevelSolution(int level,
 }
 
 void MultiLevelEllipticSolver::fillLevelRhs(int level,
-                                      MultiFab& rhs, // will be altered
+                                      MultiFab& rhs,
                                       BoundaryMode bc_variant)
 {
   BL_PROFILE("MultiLevelEllipticSolver::fillLevelRhs");
@@ -2676,7 +2517,7 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
     const Box &reg = grids[level][i];
 
     FArrayBox *f;
-    if (rhs.nGrow() == 0) { // need a temporary if rhs is the wrong size
+    if (rhs.nGrow() == 0) {
       f = &rhs[mfi];
     }
     else {
@@ -2688,7 +2529,6 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
 
     Real* vec = f->dataPtr();
 
-    // add b.c.'s to rhs
 
     if (bc_variant) {
       const Box& domain = bd[level]->getDomain();
@@ -2703,8 +2543,6 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
         const Box &msb  = msk.box();
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
-          // Treat an exposed grid edge here as a boundary condition
-          // for the linear solver:
 
           if (reg[oitr()] == domain[oitr()]) {
             Array4<const int> tfp{};
@@ -2733,12 +2571,9 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
                                beta, geom[level].CellSize());
           }
         }
-        // There is no else here, since we would then be at an
-        // interior edge and would not need to add anything to vec.
       }
     }
 
-    // initialize rhs
 
     writeVectorBox(b, part, reg, subgrids[level][i], vec);
   }
@@ -2757,7 +2592,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
   BL_PROFILE("MultiLevelEllipticSolver::configureSolver");
 
   reltol = _rel_tolerance;
-  abstol = _abs_tolerance; // may be used to change tolerance for solve
+  abstol = _abs_tolerance;
 
   BL_ASSERT(solver_handle == NULL);
   BL_ASSERT(solver         == NULL);
@@ -2775,30 +2610,18 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
-    //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
 #if 0
-    // Barry used these four settings, at least for level solves:
     HYPRE_BoomerAMGSetInterpType(solver, 6);
     HYPRE_BoomerAMGSetCoarsenType(solver, 8);
     HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
     HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
 #endif
-    //HYPRE_BoomerAMGSetStrongThreshold(solver, 0.6);
-    //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
-    //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
 #if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
     int num_sweeps[4] = {2, 2, 2, 1};
     HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
 #endif
-    //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_choice == 101) {
     int nparts = fine_level - crse_level + 1;
@@ -2839,7 +2662,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructFACSetPRefinements(solver_handle, nparts, prefinements);
     HYPRE_SStructFACSetRelChange(solver_handle, 0);
     HYPRE_SStructFACSetRelaxType(solver_handle, 1);
-    //HYPRE_SStructFACSetRelaxType(solver_handle, 2);
     HYPRE_SStructFACSetRelaxType(solver_handle, 2);
     HYPRE_SStructFACSetNumPreRelax(solver_handle, pre_relax_sweeps);
     HYPRE_SStructFACSetNumPostRelax(solver_handle, post_relax_sweeps);
@@ -2883,7 +2705,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_ParCSRGMRESSetKDim(solver, gmres_restart);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_ParCSRGMRESSetup(solver, par_A, par_b, par_x);
   }
@@ -2900,7 +2721,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructGMRESSetKDim(solver_handle, gmres_restart);
     HYPRE_SStructGMRESSetMaxIter(solver_handle, maxiter);
     HYPRE_SStructGMRESSetTol(solver_handle, reltol);
-    //HYPRE_SStructGMRESSetLogging(solver_handle, 1);
 
     HYPRE_SStructGMRESSetup(solver_handle, A, b, x);
   }
@@ -2916,7 +2736,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver);
     HYPRE_ParCSRPCGSetMaxIter(solver, maxiter);
     HYPRE_ParCSRPCGSetTol(solver, reltol);
-    //HYPRE_ParCSRPCGSetLogging(solver, 1);
 
     HYPRE_ParCSRPCGSetup(solver, par_A, par_b, par_x);
   }
@@ -2924,7 +2743,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructPCGCreate(MPI_COMM_WORLD, &solver_handle);
     HYPRE_SStructPCGSetMaxIter(solver_handle, maxiter);
     HYPRE_SStructPCGSetTol(solver_handle, reltol);
-    //HYPRE_SStructPCGSetLogging(solver_handle, 1);
 
     HYPRE_SStructPCGSetup(solver_handle, A, b, x);
   }
@@ -2949,16 +2767,10 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_ParCSRGMRESSetKDim(solver, gmres_restart);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_BoomerAMGCreate(&precond);
     HYPRE_BoomerAMGSetMaxIter(precond, 1);
     HYPRE_BoomerAMGSetTol(precond, reltol);
-    //HYPRE_BoomerAMGSetStrongThreshold(precond, 0.6);
-    //HYPRE_BoomerAMGSetPrintLevel(precond, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(precond, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(precond, 6);
-    //HYPRE_BoomerAMGSetLogging(precond, 2);
     HYPRE_ParCSRGMRESSetPrecond(solver,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSolve,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSetup,
@@ -3010,7 +2822,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_ParCSRGMRESSetKDim(solver, gmres_restart);
     HYPRE_ParCSRGMRESSetMaxIter(solver, maxiter);
     HYPRE_ParCSRGMRESSetTol(solver, reltol);
-    //HYPRE_ParCSRGMRESSetLogging(solver, 1);
 
     HYPRE_BoomerAMGCreate(&precond);
     HYPRE_BoomerAMGSetMaxIter(precond, 1);
@@ -3031,7 +2842,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
       HYPRE_BoomerAMGSetNumPaths(precond, num_paths);
     }
     HYPRE_BoomerAMGSetPrintLevel(precond, print_level);
-    //HYPRE_BoomerAMGSetLogging(precond, 2);
     HYPRE_ParCSRGMRESSetPrecond(solver,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSolve,
                                 (HYPRE_PtrToParSolverFcn) HYPRE_BoomerAMGSetup,
@@ -3040,7 +2850,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_ParCSRGMRESSetup(solver, par_A, par_b, par_x);
   }
   else if (solver_choice == 106) {
-    // split solver
     ParmParse pp("hmabec");
     int struct_solve_iters = 1; pp.query("struct_solve_iters", struct_solve_iters);
 #if (AMREX_SPACEDIM == 1)
@@ -3070,8 +2879,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructSplitSetStructIterLimit(solver_handle, struct_solve_iters);
 #endif
     HYPRE_SStructSplitSetTol(solver_handle, reltol);
-    //HYPRE_SStructSplitSetZeroGuess(solver_handle);
-    //HYPRE_SStructSplitSetLogging(solver_handle, 1);
     if (struct_method_id == 0) {
       HYPRE_SStructSplitSetStructSolver(solver_handle, HYPRE_SMG);
     }
@@ -3087,7 +2894,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructSplitSetup(solver_handle, A, b, x);
   }
   else if (solver_choice == 107) {
-    // split solver as preconditioner to GMRES
     ParmParse pp("hmabec");
     int gmres_restart = 5; pp.query("gmres_restart", gmres_restart);
     int split_precond_iters  = 1; pp.query("split_precond_iters",  split_precond_iters);
@@ -3126,10 +2932,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructSplitSetStructIterLimit(split_preconditioner, struct_solve_iters);
 #endif
     HYPRE_SStructSplitSetTol(split_preconditioner, 0.0);
-    //HYPRE_SStructSplitSetMaxIter(split_preconditioner, 1);
-    //HYPRE_SStructSplitSetTol(split_preconditioner, reltol);
-    //HYPRE_SStructSplitSetLogging(split_preconditioner, 1);
-    //HYPRE_SStructSplitSetZeroGuess(split_preconditioner);
     if (struct_method_id == 0) {
       HYPRE_SStructSplitSetStructSolver(split_preconditioner, HYPRE_SMG);
     }
@@ -3149,7 +2951,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructGMRESSetup(solver_handle, A, b, x);
   }
   else if (solver_choice == 108) {
-    // SMG or PFMG (one level only)
     HYPRE_StructMatrix s_A;
     HYPRE_StructVector s_b;
     HYPRE_StructVector s_x;
@@ -3189,7 +2990,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
         std::cout << "hmabec.pfmg_smoother_type = " << pfmg_smoother_type << std::endl;
       }
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &struct_solve_handle);
-      //HYPRE_StructPFMGSetMemoryUse(struct_solve_handle, 0);
       HYPRE_StructPFMGSetSkipRelax(struct_solve_handle, 0);
       HYPRE_StructPFMGSetMaxIter(struct_solve_handle, maxiter);
       HYPRE_StructPFMGSetRelChange(struct_solve_handle, 0);
@@ -3202,7 +3002,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     }
   }
   else if (solver_choice == 109) {
-    // SMG or PFMG as preconditioner to GMRES (one level only)
     HYPRE_StructMatrix s_A;
     HYPRE_StructVector s_b;
     HYPRE_StructVector s_x;
@@ -3222,7 +3021,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     pp.query("struct_method_id", struct_method_id);
 
     HYPRE_StructGMRESCreate(MPI_COMM_WORLD, &struct_solve_handle);
-    //HYPRE_StructGMRESSetKDim(struct_solve_handle, gmres_restart);
     HYPRE_GMRESSetKDim((HYPRE_Solver) struct_solve_handle, gmres_restart);
     HYPRE_StructGMRESSetMaxIter(struct_solve_handle, maxiter);
     HYPRE_StructGMRESSetTol(struct_solve_handle, reltol);
@@ -3260,7 +3058,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
         std::cout << "hmabec.pfmg_post_smooth = " << pfmg_post_smooth << std::endl;
       }
       HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &struct_pc_handle);
-      //HYPRE_StructPFMGSetMemoryUse(struct_pc_handle, 0);
       HYPRE_StructPFMGSetSkipRelax(struct_pc_handle, 0);
       HYPRE_StructPFMGSetMaxIter(struct_pc_handle, 1);
       HYPRE_StructPFMGSetRelChange(struct_pc_handle, 0);
@@ -3278,8 +3075,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_StructGMRESSetup(struct_solve_handle, s_A, s_b, s_x);
   }
 
-  // The next one is AMG again with Barry's different settings.
-  // The three after that added by Barry, appear to be for symmetric matrices.
 
   else if (solver_choice == 150) {
     HYPRE_ParCSRMatrix par_A;
@@ -3297,29 +3092,18 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
-    //HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetTol(solver, reltol);
 #if 1
-    // Barry used these four settings, at least for level solves:
     HYPRE_BoomerAMGSetInterpType(solver, 6);
     HYPRE_BoomerAMGSetCoarsenType(solver, 8);
     HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
     HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
 #endif
-    //HYPRE_BoomerAMGSetPrintLevel(solver, 2);
-    //HYPRE_BoomerAMGSetTruncFactor(solver, 0.5);
-    //HYPRE_BoomerAMGSetCoarsenType(solver, 6);
-    //HYPRE_BoomerAMGSetLogging(solver, 2);
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
 #if 0
-    // The default num_sweeps seems to work best.  Note that changing
-    // the default can't be done with a temp array on the stack, as the
-    // array will not be copied.  The following code will leak since
-    // num_sweeps is never deleted, but at least it will work:
     int num_sweeps[4] = {2,2,2,1};
     HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
 #endif
-    //HYPRE_BoomerAMGSetIOutDat(solver, 2);
   }
   else if (solver_choice == 151 || solver_choice == 153) {
     HYPRE_ParCSRMatrix par_A;
@@ -3551,11 +3335,7 @@ void MultiLevelEllipticSolver::solve()
     HYPRE_SStructMatrixGetObject(A, (void**) &par_A);
     HYPRE_SStructVectorGetObject(b, (void**) &par_b);
     HYPRE_SStructVectorGetObject(x, (void**) &par_x);
-    //std::cout << "MultiLevelEllipticSolver: starting solver..." << std::endl;
     HYPRE_BoomerAMGSolve(solver, par_A, par_b, par_x);
-    //std::cout << "                                  done." << std::endl;
-    //HYPRE_SStructVectorPrint("Xamg", x, 0);
-    //HYPRE_SStructVectorPrint("Bamg", b, 0);
   }
   else if (solver_choice == 101) {
     HYPRE_SStructFACSolve3(solver_handle, A, b, x);
@@ -3643,7 +3423,6 @@ void MultiLevelEllipticSolver::solve()
     HYPRE_SStructMatrixGetObject(A, (void**) &par_A);
     HYPRE_SStructVectorGetObject(b, (void**) &par_b);
     HYPRE_SStructVectorGetObject(x, (void**) &par_x);
-    //std::cout << "MultiLevelEllipticSolver: starting solver..." << std::endl;
     HYPRE_BoomerAMGSolve(solver, par_A, par_b, par_x);
     HYPRE_SStructVectorGather(x);
 
@@ -3655,9 +3434,6 @@ void MultiLevelEllipticSolver::solve()
        std::cout << num_iterations << " Hypre Multigrid Iterations_inside, Relative Residual "
             << res << std::endl;
     }
-    //std::cout << "                                  done." << std::endl;
-    //HYPRE_SStructVectorPrint("Xamg", x, 0);
-    //HYPRE_SStructVectorPrint("Bamg", b, 0);
   }
   else if (solver_choice == 151 || solver_choice == 153) {
     int num_iterations, myid;
@@ -3798,7 +3574,7 @@ void MultiLevelEllipticSolver::getSolution(int level, MultiFab& dest, int icomp)
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) { // need a temporary if dest is the wrong size
+    if (dest.nGrow() == 0) {
       f = &dest[mfi];
       fcomp = icomp;
     }
@@ -3926,10 +3702,6 @@ void MultiLevelEllipticSolver::faceFluxAtBoundary(int level,
                         bc_type_arr = tf.array();
                         bctype = -1;
                     }
-                    // In normal code operation only the fluxes at internal
-                    // Dirichlet boundaries are used.  Some diagnostics use the
-                    // fluxes computed at domain boundaries but these do not
-                    // influence the evolution of the interior solution.
                     Array4<Real const> bc_alpha_arr;
                     if (SPa[level]) {
                         bc_alpha_arr = (*SPa[level])[mfi].array();

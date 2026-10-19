@@ -1,5 +1,3 @@
-# Define the location of the HYDROSIM top directory,
-# if not already defined by an environment variable.
 
 HYDROSIM_HOME ?= ../../..
 

@@ -13,8 +13,6 @@ void user_initialize_state_data (int i, int j, int k,
     const Real* dx = geomdata.CellSize();
     const Real* problo = geomdata.ProbLo();
 
-    // Provides the simulation to be run in the x,y,or z direction
-    // where length direction is the length side in a square prism
 
     Real length_cell{};
     if (problem::idir == 1) {
@@ -32,7 +30,6 @@ void user_initialize_state_data (int i, int j, int k,
     if (length_cell < 0.e0_rt) {
         state(i,j,k,URHO) = problem::rho0;
 
-        // set the composition to be all in the first species
 
         for (int n = 0; n < NumSpec; ++n) {
             state(i,j,k,UFS+n) = 0.0_rt;
@@ -59,7 +56,6 @@ void user_initialize_state_data (int i, int j, int k,
     } else {
          state(i,j,k,URHO) = problem::rho1;
 
-         //  set the composition to be all in the first species
 
          for (int n = 0; n < NumSpec; ++n) {
              state(i,j,k,UFS+n) = 0.0_rt;

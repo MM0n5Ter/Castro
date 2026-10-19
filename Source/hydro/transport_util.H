@@ -30,7 +30,6 @@ void source_to_primitive(int i, int j, int k, const Real dt,
       prim_source(i,j,k,n) = 0.0_rt;
     }
 
-    // the conserved source may have a predictor that time-centers it
 
     Real sourceTerms[NUM_SOURCE] = {0.0_rt};
 
@@ -51,7 +50,6 @@ void source_to_primitive(int i, int j, int k, const Real dt,
 
     Real rhoinv = 1.0_rt / prim_arr(i,j,k,QRHO);
 
-    // get the needed derivatives
     eos_rep_t eos_state;
     eos_state.T = prim_arr(i,j,k,QTEMP);
     eos_state.rho = prim_arr(i,j,k,QRHO);
@@ -78,22 +76,6 @@ void source_to_primitive(int i, int j, int k, const Real dt,
 
 }
 
-///
-/// Convert conservative variables to primitive variables. The method is
-/// templated so that q/qthermo can either be either Array4 or Array1D.
-///
-/// @param i         x index
-/// @param j         y index
-/// @param k         z index
-/// @param uin       input conserved state
-/// @param Bx        x-component of magnetic field (if USE_MHD=TRUE)
-/// @param By        y-component of magnetic field (if USE_MHD=TRUE)
-/// @param Bz        z-component of magnetic field (if USE_MHD=TRUE)
-/// @param RadEnergyIn      radiation energy (if USE_RAD=TRUE)
-/// @param lam       radiation flux limiter (if USE_RAD=TRUE)
-/// @param q         output primitive state
-/// @param qthermo      output auxiliary quantities
-///
 
 template<class T, class U>
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -137,13 +119,6 @@ void cell_to_primitive(int i, int j, int k,
     q(QBFIELDZ) = 0.5_rt * (Bz(i,j,k+1) + Bz(i,j,k));
 #endif
 
-    // Get the internal energy, which we'll use for
-    // determining the pressure.  We use a dual energy
-    // formalism. If (E - K) < rest_frac and rest_frac is suitably
-    // small, then we risk serious numerical truncation error
-    // in the internal energy.  Therefore we'll use the result
-    // of the separately updated internal energy equation.
-    // Otherwise, we'll set e = E - K.
 
     Real kineng = 0.5_rt * q(QRHO) * (q(QU) * q(QU) + q(QV) * q(QV) + q(QW) * q(QW));
 
@@ -161,7 +136,6 @@ void cell_to_primitive(int i, int j, int k,
 #endif
 
     if (include_passives) {
-        // Load passively advected quantities into q
         for (int passive_index = 0; passive_index < npassive; passive_index++) {
             int n  = passive_cons_index(passive_index);
             int iq = passive_prim_index(passive_index);
@@ -169,7 +143,6 @@ void cell_to_primitive(int i, int j, int k,
         }
     }
 
-    // get gamma1_cell, p, T, c, csml using q state
     eos_rep_t eos_state;
     eos_state.T = q(QTEMP);
     eos_state.rho = q(QRHO);

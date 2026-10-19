@@ -8,8 +8,6 @@
 AMREX_INLINE
 void user_initialize ()
 {
-    // Set the center (where the star will start) to be along the
-    // x-axis, halfway to the left edge.
 
     const Geometry& default_geom = DefaultGeometry();
 
@@ -20,7 +18,6 @@ void user_initialize ()
     problem::center[1] = 0.0_rt;
     problem::center[2] = 0.0_rt;
 
-    // Arbitrarily set the composition of the star to 50/50 C/O.
 
     Real core_comp[NumSpec] = {0.0_rt};
     core_comp[Species::C12-1] = 0.5_rt;
@@ -34,7 +31,6 @@ void user_initialize ()
 
     Real initial_model_dx = 1.0e6_rt;
 
-    // Generate the WD model.
 
     problem::wd_mass *= C::M_solar;
 
@@ -51,7 +47,6 @@ void user_initialize ()
                    << " g cm**-3, and radius " << std::setprecision(3) << std::scientific << problem::wd_radius << " cm."
                    << std::endl << std::endl;
 
-    // Safety check: make sure the star is actually inside the computational domain.
 
     if ((0.5_rt * (probhi[0] - problo[0]) < problem::wd_radius) ||
         (0.5_rt * (probhi[1] - problo[1]) < problem::wd_radius) ||
@@ -60,7 +55,6 @@ void user_initialize ()
         amrex::Error("WD does not fit inside the domain.");
     }
 
-    // Set ambient state composition.
 
     for (int n = 0; n < NumSpec; ++n) {
         ambient::ambient_reference_state[UFS+n] = ambient::ambient_reference_state[URHO] * envelope_comp[n];

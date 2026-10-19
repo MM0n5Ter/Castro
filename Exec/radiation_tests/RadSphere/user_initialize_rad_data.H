@@ -21,8 +21,6 @@ void user_initialize_rad_data (int i, int j, int k,
 
         Real xx = C::hplanck * freq_center[rad_group_idx] / (C::k_B * problem::T_0);
         if (xx > 708.e0_rt) {
-            // exp(708+eps) will give 1.e308 -- the limits of IEEE floating point,
-            // and generate an overflow exception
             rad(i,j,k,rad_group_idx) = 0.0_rt;
         } else {
             rad(i,j,k,rad_group_idx) =

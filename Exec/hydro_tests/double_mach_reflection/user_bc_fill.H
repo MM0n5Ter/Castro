@@ -14,9 +14,6 @@ void user_bc_fill(int i, int j, int k,
     const Real* problo = geomdata.ProbLo();
     const Real* dx = geomdata.CellSize();
 
-    //-------------------------------------------------------------------------
-    // x boundaries
-    //-------------------------------------------------------------------------
 
     if ((bcs(URHO).lo(0) == amrex::BCType::ext_dir || bcs(URHO).lo(0) == amrex::BCType::foextrap) && i < domlo[0]) {
         state(i,j,k,URHO) = problem::rho_l;
@@ -35,17 +32,12 @@ void user_bc_fill(int i, int j, int k,
     }
 
 #if AMREX_SPACEDIM >= 2
-    //-------------------------------------------------------------------------
-    // y boundaries
-    //-------------------------------------------------------------------------
 
     Real x = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5e0_rt);
     Real y = problo[1] + dx[1] * (static_cast<Real>(j) + 0.5e0_rt);
 
-    // YLO
     if ((bcs(URHO).lo(1) == amrex::BCType::ext_dir || bcs(URHO).lo(1) == amrex::BCType::foextrap) && j < domlo[1]) {
         if (x < 1.e0_rt / 6.e0_rt) {
-            // ICs
             state(i,j,k,URHO) = problem::rho_l;
             state(i,j,k,UMX) = problem::rho_l * problem::u_l;
             state(i,j,k,UMY) = problem::rho_l * problem::v_l;
@@ -55,7 +47,6 @@ void user_bc_fill(int i, int j, int k,
             state(i,j,k,UEINT) = problem::rhoe_l;
             state(i,j,k,UTEMP) = problem::T_l;
         } else {
-            // reflect
             state(i,j,k,URHO) = state(i,domlo[1],k,URHO);
             state(i,j,k,UMX)  = state(i,domlo[1],k,UMX);
             state(i,j,k,UMY)  = -1.e0_rt * state(i,domlo[1],k,UMY);
@@ -70,7 +61,6 @@ void user_bc_fill(int i, int j, int k,
         state(i,j,k,UFS) = state(i,j,k,URHO);
     }
 
-    // YHI
     if ((bcs(URHO).hi(2) == amrex::BCType::ext_dir || bcs(URHO).hi(2) == amrex::BCType::foextrap) && j > domhi[1]) {
         state(i,j,k,URHO ) = 0.e0_rt;
         state(i,j,k,UMX  ) = 0.e0_rt;
@@ -96,7 +86,6 @@ void user_bc_fill(int i, int j, int k,
                 Real x_loc = x + 0.5_rt * dx[0] * (ii / std::sqrt(3.0_rt));
 
                 if (x_loc < shockfront) {
-                    // Post shock ICs
                     state(i,j,k,URHO ) = state(i,j,k,URHO ) + (1.0_rt / 4.0_rt) * problem::rho_l;
                     state(i,j,k,UMX  ) = state(i,j,k,UMX  ) + (1.0_rt / 4.0_rt) * problem::rho_l * problem::u_l;
                     state(i,j,k,UMY  ) = state(i,j,k,UMY  ) + (1.0_rt / 4.0_rt) * problem::rho_l * problem::v_l;
@@ -107,7 +96,6 @@ void user_bc_fill(int i, int j, int k,
                     state(i,j,k,UEINT) = state(i,j,k,UEINT) + (1.0_rt / 4.0_rt) * problem::rhoe_l;
                     state(i,j,k,UTEMP) = state(i,j,k,UTEMP) + (1.0_rt / 4.0_rt) * problem::T_l;
                 } else {
-                    // Pre Shock ICs
                     state(i,j,k,URHO ) = state(i,j,k,URHO ) + (1.0_rt / 4.0_rt) * problem::rho_r;
                     state(i,j,k,UMX  ) = state(i,j,k,UMX  ) + (1.0_rt / 4.0_rt) * problem::rho_r * problem::u_r;
                     state(i,j,k,UMY  ) = state(i,j,k,UMY  ) + (1.0_rt / 4.0_rt) * problem::rho_r * problem::v_r;

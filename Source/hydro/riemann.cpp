@@ -25,22 +25,10 @@ HydroSim::compute_godunov_flux(const Box& bx,
                             Array4<Real const> const& shk,
                             const int idir, const bool keep_full_state) {
 
-    // note: bx is not necessarily the limits of the valid (no ghost
-    // cells) domain, but could be hi+1 in some dimensions.  We rely on
-    // the caller to specify the interfaces over which to solve the
-    // Riemann problems
-
-    // Solve Riemann problem to get the fluxes
-
-    // keep_full_state determines what is put into godunov_state.  if
-    // keep_full_state is True, we put all NQ variables into the
-    // godunov_state.  if keep_full_state is False, we only store the NGDSTATE
-    // needed elsewhere in the algorithm.
 
 
-    // Note: because the NQ variables do not include lambda and the
-    // NGDSTATE do, we only support keep_full_state = false for
-    // Radiation
+
+
 
 #ifdef RADIATION
     if (keep_full_state == true) {
@@ -51,7 +39,6 @@ HydroSim::compute_godunov_flux(const Box& bx,
     const int* lo_bc = phys_bc.lo();
     const int* hi_bc = phys_bc.hi();
 
-    // do we want to force the flux to zero at the boundary?
     const bool lo_no_flux_wall = (lo_bc[idir] == amrex::PhysBCType::symmetry ||
                                  lo_bc[idir] == amrex::PhysBCType::slipwall ||
                                  lo_bc[idir] == amrex::PhysBCType::noslipwall);
@@ -75,9 +62,7 @@ HydroSim::compute_godunov_flux(const Box& bx,
 
 
         if (riemann_method == 0 || riemann_method == 1) {
-            // approximate state Riemann solvers
 
-            // first find the interface state on the current interface
 
             InterfaceState interface_state{};
 
@@ -88,7 +73,6 @@ HydroSim::compute_godunov_flux(const Box& bx,
                           domlo, domhi,
                           use_parabolic_temp_fix, temperature_guess);
 
-            // now use the interface state to compute and store the flux
 
             flux_from_interface_state(i, j, k, idir,
                            geomdata,
@@ -98,10 +82,7 @@ HydroSim::compute_godunov_flux(const Box& bx,
 #endif
                            godunov_state, keep_full_state);
 
-            // now do the passives -- we didn't include them in interface_state, godunov_state, or flux above
 
-            // the passives are always just upwinded, so we do that here
-            // regardless of the solver
 
             Real sgnm = std::copysign(1.0_rt, interface_state.un);
             if (interface_state.un == 0.0_rt) {
@@ -125,7 +106,6 @@ HydroSim::compute_godunov_flux(const Box& bx,
             }
 
         } else if (riemann_method == 2) {
-            // CONTACT_FLUX
             HLL::CONTACT_FLUX(i, j, k, idir,
                       qm, qp,
                       qthermo_arr,
@@ -142,8 +122,6 @@ HydroSim::compute_godunov_flux(const Box& bx,
         }
 
         if (shock_flux_switch == 1) {
-            // correct the fluxes using an HLL scheme if we are in a shock
-            // and doing the hybrid approach
 
             int shock_count = 0;
 
@@ -179,9 +157,6 @@ HydroSim::compute_godunov_flux(const Box& bx,
                     zone_right_state[n] = qp(i,j,k,n);
                 }
 
-                // pass in the current flux -- the
-                // HLL solver will overwrite this
-                // if necessary
                 for (int n = 0; n < NUM_STATE; n++) {
                     zone_flux_vec[n] = flx(i,j,k,n);
                 }

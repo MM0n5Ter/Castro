@@ -1,9 +1,4 @@
-//
-// Process a sedov problem to produce rho, u, and p as a
-// function of r, for comparison to the analytic solution.
-//
 #include <iostream>
-// #include <stringstream>
 #include <regex>
 #include <string>
 #include <AMReX_PlotFileUtil.H>
@@ -14,9 +9,6 @@ using namespace amrex;
 
 std::string inputs_name = "";
 
-//
-// Prototypes
-//
 void GetInputArgs (const int argc, char** argv,
                    std::string& pltfile, std::string& slcfile,
                    bool& sphr);
@@ -34,7 +26,6 @@ std::pair<Real, Real> get_coord_info(const Array<Real, AMREX_SPACEDIM>& p,
                                      const int coord, const bool sphr) {
 
 
-    // compute radial coord and index
 
     Real r_zone{0.0_rt};
     Real vol = std::numeric_limits<Real>::quiet_NaN();
@@ -45,11 +36,9 @@ std::pair<Real, Real> get_coord_info(const Array<Real, AMREX_SPACEDIM>& p,
     r_zone = p[0] - center[0];
 
     if (coord == 1) {
-        //1-d cylindrical geometry / cylindrical Sedov explosion
 
         vol = 2.0_rt * M_PI * dx_level[0] * p[0];
     } else if (coord == 2) {
-        // 1-d spherical geometry / spherical Sedov explosion
 
         Real r_r = p[0] + 0.5_rt * dx_level[0];
         Real r_l = p[0] - 0.5_rt * dx_level[0];
@@ -58,23 +47,13 @@ std::pair<Real, Real> get_coord_info(const Array<Real, AMREX_SPACEDIM>& p,
     }
 #elif AMREX_SPACEDIM == 2
     if (coord == 1) {
-        // 2-d axisymmetry RZ geometry / spherical Sedov explosion
 
-        // axisymmetric V = pi (r_r**2 - r_l**2) * dz
-        //                = pi dr * dz * (r_r + r_l)
-        //                = 2 pi r dr dz
 
         r_zone = std::sqrt((p[0] - center[0]) * (p[0] - center[0]) +
                            (p[1] - center[1]) * (p[1] - center[1]));
         vol = 2.0_rt * M_PI * p[0] * dx_level[0] * dx_level[1];
     } else if (coord == 2) {
-        // 2-d axisymmetric Rθ geometry / spherical Sedov explosion
 
-        // Convert to distance away from blast center:
-        // dist2 = r^2 + r_0^2 - 2 r r_0 cos(θ - θ_0)
-        // Volume of the cell in spherical 2D:
-        // V = 2/3 pi (cos(θ_l) - cos(θ_r)) (r_r**3 - r_l**3)
-        //   = 2/3 pi (cos(θ_l) - cos(θ_r)) dr (r_r**2 + r_r*r_l + r_l**2)
 
         r_zone = std::sqrt(p[0]*p[0] + center[0] * center[0] -
                            2.0_rt * p[0] * center[0] *
@@ -87,7 +66,6 @@ std::pair<Real, Real> get_coord_info(const Array<Real, AMREX_SPACEDIM>& p,
                        (std::cos(theta_l) - std::cos(theta_r)) * dx_level[0] *
                        (r_r * r_r + r_r * r_l + r_l * r_l));
     } else {
-        // 2-d Cartesian geometry / cylindrical Sedov explosion
 
         AMREX_ASSERT(coord == 0);
 
@@ -103,7 +81,6 @@ std::pair<Real, Real> get_coord_info(const Array<Real, AMREX_SPACEDIM>& p,
 
     vol = dx_level[0] * dx_level[1] * dx_level[2];
 
-    // 3-d Cartesian geometry / spherical Sedov explosion
 
     r_zone = std::sqrt((p[0] - center[0]) * (p[0] - center[0]) +
                        (p[1] - center[1]) * (p[1] - center[1]) +
@@ -120,10 +97,8 @@ int main(int argc, char* argv[])
 
     amrex::Initialize(argc, argv, false);
 
-    // timer for profiling
     BL_PROFILE_VAR("main()", pmain);
 
-    // Input arguments
     std::string pltfile, slcfile;
     bool sphr = false;
 
@@ -139,15 +114,12 @@ int main(int argc, char* argv[])
     int fine_level = pf.finestLevel();
     const int dim = pf.spaceDim();
 
-    // get the index bounds and dx.
     Box domain = pf.probDomain(fine_level);
     auto dx = pf.cellSize(fine_level);
     auto problo = pf.probLo();
     auto probhi = pf.probHi();
     int coord = pf.coordSys();
 
-    // compute the size of the radially-binned array -- we'll do it to
-    // the furtherest corner of the domain
 
 #if (AMREX_SPACEDIM == 1)
     double maxdist = std::abs(probhi[0] - problo[0]);
@@ -160,8 +132,6 @@ int main(int argc, char* argv[])
     double maxdist = std::sqrt(x_maxdist*x_maxdist +
                                y_maxdist*y_maxdist);
 
-    // For spherical 2D, the max distance away from blast center
-    // always happens at max(θ - θ_0) for 0 < θ < π.
     if (coord == 2) {
         Real theta_maxdist = amrex::max(std::abs(problo[1] - yctr),
                                         std::abs(probhi[1] - yctr));
@@ -184,14 +154,12 @@ int main(int argc, char* argv[])
 
     int nbins = int(maxdist / dx_fine);
 
-    // radial coordinate
     Vector<Real> r(nbins);
 
     for (auto i = 0; i < nbins; i++) {
         r[i] = (i + 0.5) * dx_fine;
     }
 
-    // find variable indices
     const Vector<std::string>& var_names_pf = pf.varNames();
 
     int dens_comp = std::distance(var_names_pf.cbegin(),
@@ -212,15 +180,12 @@ int main(int argc, char* argv[])
     int rhoe_comp = std::distance(var_names_pf.cbegin(),
                               std::find(var_names_pf.cbegin(), var_names_pf.cend(), "rho_e"));
 
-    // allocate storage for data
     Vector<Real> dens_bin(nbins, 0.);
     Vector<Real> vel_bin(nbins, 0.);
     Vector<Real> pres_bin(nbins, 0.);
     Vector<Real> e_bin(nbins, 0.);
     Vector<Real> volcount(nbins, 0);
 
-    // we will use a mask that tells us if a zone on the current level
-    // is covered by data on a finer level.
 
     for (int ilev = 0; ilev <= fine_level; ++ilev) {
 
@@ -247,7 +212,7 @@ int main(int argc, char* argv[])
                     for (int k = lo.z; k <= hi.z; ++k) {
                         for (int j = lo.y; j <= hi.y; ++j) {
                             for (int i = lo.x; i <= hi.x; ++i) {
-                                if (m(i,j,k) == 0) { // not covered by fine
+                                if (m(i,j,k) == 0) {
 
                                     Array<Real,AMREX_SPACEDIM> p
                                         = {AMREX_D_DECL(problo[0]+static_cast<Real>(i+0.5)*dx_level[0],
@@ -259,7 +224,6 @@ int main(int argc, char* argv[])
 
                                     int index = static_cast<int>(r_zone / dx_fine);
 
-                                    // add to the bin, weighting by the size
 
                                     if (index < nbins) {
                                         dens_bin[index] += fab(i,j,k,dens_comp) * vol;
@@ -277,18 +241,17 @@ int main(int argc, char* argv[])
                                         volcount[index] += vol;
                                     }
 
-                                } // mask
+                                }
 
                             }
                         }
                     }
 
-                } // bx.ok()
+                }
 
-            } // MFIter
+            }
 
         } else {
-            // this is the finest level
 
             const MultiFab& lev_data_mf = pf.get(ilev);
 
@@ -312,7 +275,6 @@ int main(int argc, char* argv[])
 
                                 int index = static_cast<int>(r_zone / dx_fine);
 
-                                // add to the bin, weighting by the size
 
                                 dens_bin[index] += fab(i,j,k,dens_comp) * vol;
 
@@ -332,17 +294,16 @@ int main(int argc, char* argv[])
                         }
                     }
 
-                } // bx.ok()
+                }
 
-            } // MFIter
+            }
 
 
         }
 
-    } // level loop
+    }
 
 
-    //normalize
     for (int i = 0; i < nbins; i++) {
         if (volcount[i] != 0.0) {
             dens_bin[i] /= volcount[i];
@@ -352,17 +313,14 @@ int main(int argc, char* argv[])
         }
     }
 
-    // now open the slicefile and write out the data
     std::ofstream slicefile;
     slicefile.open(slcfile);
     slicefile.setf(std::ios::scientific);
     slicefile.precision(12);
     const auto w = 24;
 
-    // write the header
     slicefile << "# " << std::setw(w) << "x" << std::setw(w) << "density" << std::setw(w) << "velocity" << std::setw(w) << "pressure" << std::setw(w) << "int. energy" << std::endl;
 
-    // write the data in columns
     const auto SMALL = 1.e-20;
     for (auto i = 0; i < nbins; i++) {
         if (std::abs(dens_bin[i]) < SMALL) dens_bin[i] = 0.0;
@@ -375,21 +333,17 @@ int main(int argc, char* argv[])
 
     slicefile.close();
 
-    // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();
 }
 
-//
-// Parse command line arguments
-//
 void GetInputArgs ( const int argc, char** argv,
                     std::string& pltfile, std::string& slcfile,
                     bool &sphr)
 {
 
-    int i = 1; // skip program name
+    int i = 1;
 
     while ( i < argc)
     {
@@ -409,7 +363,6 @@ void GetInputArgs ( const int argc, char** argv,
             exit ( EXIT_FAILURE );
         }
 
-        // Go to the next parameter name
         ++i;
     }
 
@@ -425,10 +378,6 @@ void GetInputArgs ( const int argc, char** argv,
     Print() << std::endl;
 }
 
-///
-/// Gets the variable ``varname`` from the ``job_info`` file and returns as a
-/// string
-///
 std::string GetVarFromJobInfo (const std::string pltfile, const std::string varname) {
     std::string filename = pltfile + "/job_info";
     std::regex re("(?:[ \\t]*)" + varname + "\\s*:\\s*(.*)\\s*\\n");
@@ -453,11 +402,9 @@ std::string GetVarFromJobInfo (const std::string pltfile, const std::string varn
     return "";
 }
 
-// Get the center from the job info file and return as a Real Vector
 Vector<Real> GetCenter (const std::string pltfile) {
     auto center_str = GetVarFromJobInfo(pltfile, "center");
 
-    // split string
     std::istringstream iss {center_str};
     Vector<Real> center;
 
@@ -468,9 +415,6 @@ Vector<Real> GetCenter (const std::string pltfile) {
     return center;
 }
 
-//
-// Print usage info
-//
 void PrintHelp ()
 {
     Print() << "\nusage: executable_name args"

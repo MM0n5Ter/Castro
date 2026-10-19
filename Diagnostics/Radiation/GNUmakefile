@@ -15,7 +15,6 @@ ALL: radhelp
 radhelp:
 	$(error You need to specify a target, e.g., 'make DIM=1 rad_sphere.ex')
 
-# If NEEDS_f90_SRC=TRUE, look for ${EBASE}_nd.f90
 NEEDS_f90_SRC = FALSE
 
 EOS_DIR := helmholtz
@@ -24,7 +23,6 @@ NETWORK_DIR := aprox13
 
 Bpack   := ./Make.package
 Blocs   := .
-# EXTERN_SEARCH = .
 
 HYDROSIM_HOME ?= ../..
 

@@ -25,7 +25,6 @@ void user_source (int i, int j, int k,
 
     auto rho = state(i,j,k,URHO);
 
-    // source terms
     src(i,j,k,UEDEN) = rho * problem::e_rate * std::exp(-std::pow(dist / problem::thickness, 2.0));
     src(i,j,k,UEINT) = src(i,j,k,UEDEN);
 

@@ -19,7 +19,6 @@ void user_initialize ()
 #endif
 
 
-    // compute the internal energy (erg/cc) for the left and right state
 
     Real xn[NumSpec] = {0.0_rt};
     xn[0] = 1.0_rt;
@@ -41,7 +40,6 @@ void user_initialize ()
 
         eos_state.rho = problem::rho_r;
         eos_state.T = problem::T_r;
-        // same composition as above
 
         eos(eos_input_rt, eos_state);
 
@@ -52,7 +50,7 @@ void user_initialize ()
 
         eos_state.rho = problem::rho_l;
         eos_state.p = problem::p_l;
-        eos_state.T = 10.0_rt;  // initial guess
+        eos_state.T = 10.0_rt;
         for (int n = 0; n < NumSpec; n++) {
             eos_state.xn[n] = xn[n];
         }
@@ -64,8 +62,7 @@ void user_initialize ()
 
         eos_state.rho = problem::rho_r;
         eos_state.p = problem::p_r;
-        eos_state.T = 10.0_rt;  // initial guess
-        // same composition as above
+        eos_state.T = 10.0_rt;
 
         eos(eos_input_rp, eos_state);
 

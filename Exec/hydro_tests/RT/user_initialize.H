@@ -12,7 +12,6 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // set local variable defaults
 
     problem::split[0] = problem::frac * (problo[0] + probhi[0]);
 #if AMREX_SPACEDIM >= 2

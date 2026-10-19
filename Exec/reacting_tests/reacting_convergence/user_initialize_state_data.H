@@ -46,11 +46,10 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // we are isentropic, so find rho
     eos_t eos_state;
     eos_state.p =  p;
-    eos_state.T = 1.e4_rt;  // initial guess
-    eos_state.rho = problem::rho0;  // initial guess
+    eos_state.T = 1.e4_rt;
+    eos_state.rho = problem::rho0;
     eos_state.s = problem::s0;
 
     Real xn[NumSpec] = {network_rp::small_x};

@@ -10,9 +10,9 @@ extern "C"
 {
 #endif
 
-  void derive_total_radiative_energy(const amrex::Box& bx, amrex::FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
-                   const amrex::FArrayBox& datfab, const amrex::Geometry& /*geomdata*/,
-                   amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
+  void derive_total_radiative_energy(const amrex::Box& bx, amrex::FArrayBox& derfab, int  , int  ,
+                   const amrex::FArrayBox& datfab, const amrex::Geometry&  ,
+                   amrex::Real  , const int*  , int  );
 
 
 #ifdef __cplusplus

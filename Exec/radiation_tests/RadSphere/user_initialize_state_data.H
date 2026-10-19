@@ -20,7 +20,6 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UEDEN) = problem::rhoe_0;
     state(i,j,k,UEINT) = problem::rhoe_0;
 
-    // set the composition to be all in the first species
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = 0.0_rt;

@@ -23,13 +23,10 @@ USE_LOWMACH_INIT = FALSE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the Network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := aprox21
 
-# This sets the integrator directory in $(MICROPHYSICS_HOME)/integration
 INTEGRATOR_DIR := VODE
 
 PROBLEM_DIR ?= ./

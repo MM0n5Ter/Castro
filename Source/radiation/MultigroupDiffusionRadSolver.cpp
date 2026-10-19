@@ -1,4 +1,3 @@
-// functions specific for MultiGroupFLDSolver (SolverKind 6)
 
 #include <AMReX_LO_BCTYPES.H>
 
@@ -25,7 +24,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
   int fine_level =  parent->finestLevel();
 
-  // allocation and initialization
   HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
@@ -60,9 +58,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
       for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
         evaluateGradientRatio(level, lambda, kappa_ross_lagged, rad_group_idx, rad_energy_lagged, rad_group_idx, 1, rad_group_idx);
-        // lambda now contains scaled gradient
         computeFluxLimiter(level, lambda, rad_group_idx);
-        // lambda now contains flux limiter
       }
     }
   }
@@ -73,11 +69,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
     }
   }
 
-  // rad_energy_new: work copy
-  // rad_energy_old: the input state of the implicit update
-  // rad_energy_iter: previous inner iteration
-  // rad_energy_star: previous outer iteration
-  //
   MultiFab& rad_energy_new = hydrosim->get_new_data(Radiation_Type);
   {
     MultiFab rhs(grids,dmap,1,0);
@@ -92,15 +83,15 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
   MultiFab::Copy(rad_energy_old, rad_energy_new, 0, 0, rad_energy_new.nComp(), 0);
   MultiFab rad_energy_iter(grids,dmap,nGroups,1);
   MultiFab rad_energy_star(grids, dmap, nGroups, 1);
-  rad_energy_iter.setBndry(-1.0); // later we may use it to compute limiter
-  rad_energy_star.setBndry(-1.0); // later we may use it to compute limiter
+  rad_energy_iter.setBndry(-1.0);
+  rad_energy_star.setBndry(-1.0);
 
   MultiFab rhoe_new(grids,dmap,1,0);
   MultiFab rhoe_old(grids,dmap,1,0);
   MultiFab gas_energy_star(grids,dmap,1,0);
 
   MultiFab rho(grids,dmap,1,1);
-  MultiFab temp_next(grids,dmap,1,1); // ghost cell for kappa_r
+  MultiFab temp_next(grids,dmap,1,1);
   MultiFab temp_iterate(grids,dmap,1,0);
 
 #ifdef _OPENMP
@@ -118,27 +109,22 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       temp_next[mfi].copy<RunOn::Device>(state_new_border[mfi], gbx, UTEMP, gbx, 0, 1);
   }
 
-  // Planck mean and Rosseland
   MultiFab kappa_p(grids,dmap,nGroups,1);
   MultiFab kappa_r(grids,dmap,nGroups,1);
 
-  // emissivity, j_g = \int j_nu dnu
-  // j_nu = 4 pi /c * \eta_0^{th} = \kappa_0 * B_\nu (assuming LTE),
-  // where B_\nu is the usual Planck function \times 4 pi / c
   MultiFab jg(grids,dmap,nGroups,1);
   MultiFab dEmitT(grids,dmap,nGroups,1);
   MultiFab dOpacT(grids,dmap,nGroups,1);
   MultiFab thermal_frac(grids,dmap,1,0);
   MultiFab thermal_frac_z(grids,dmap,1,0);
-  MultiFab rest_frac(grids,dmap,1,0); // rest_frac = 1 - thermal_frac
+  MultiFab rest_frac(grids,dmap,1,0);
 
   MultiFab& group_weight_mf = dEmitT;
 
   MultiFab dedT(grids,dmap,1,0);
 
-  MultiFab couple_source(grids,dmap,1,0); // \sum{\kappa E - j}
+  MultiFab couple_source(grids,dmap,1,0);
 
-  // multigroup boundary object
   MultiGroupBoundary multigroup_boundary(grids,dmap, nGroups, hydrosim->Geom());
   fetchMultigridBndry(multigroup_boundary, rad_energy_new, time, level);
 
@@ -160,7 +146,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
   Real rel_temp, abs_temp;
   Real rel_resid, abs_resid;
 
-  // point to flux_candidate_regs (or NULL) for appropriate levels
   FluxRegister* flux_from_fine = (level < fine_level) ? flux_candidate_regs[level+1].get() : nullptr;
   FluxRegister* flux_to_coarse = (level > 0) ? flux_candidate_regs[level].get() : nullptr;
 
@@ -181,15 +166,12 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       icomp_flux_index = 0;
   }
 
-  // rad_energy_step: starting state of the inner iteration (e.g., ^(2))
-  // There used to be an extra velocity term update
   MultiFab& rad_energy_step = rad_energy_old;
   MultiFab& gas_energy_step = rhoe_old;
 
   Real inner_reltol = relInnerTol;
-  Real pseudo_transient_tau = 0.0;  // not being used
+  Real pseudo_transient_tau = 0.0;
 
-  // nonlinear loop for all groups
   int it = 0;
   bool energy_conserving_mode = false;
   bool outer_tol_met = false;
@@ -200,11 +182,10 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
     if (it == 1) {
       eos_fill_opacity_emission(state_new_border, temp_next,
-                             temp_iterate, // input
+                             temp_iterate,
                              kappa_p, kappa_r, jg,
-                             dEmitT, dOpacT, dedT, // output
+                             dEmitT, dOpacT, dedT,
                              level, it, 1);
-      // It's OK that temp_iterate does not have a valid value for it==1
     }
 
     MultiFab::Copy(gas_energy_star, rhoe_new, 0, 0, 1, 0);
@@ -216,22 +197,17 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
       for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
         evaluateGradientRatio(level, lambda, kappa_r, rad_group_idx, rad_energy_star, rad_group_idx, 1, rad_group_idx);
-        // lambda now contains scaled gradient
         computeFluxLimiter(level, lambda, rad_group_idx);
-        // lambda now contains flux limiter
       }
     }
 
-    // dEmitT is both input and output
     compute_thermal_fraction(thermal_frac, thermal_frac_z,
                  rest_frac, dEmitT,
                  dOpacT, dedT,
                  rad_energy_star, rho,
                  delta_t, pseudo_transient_tau);
 
-    // After this, dEmitT contains group_weight_mf.
 
-    // The inner loops does not update rhoe and T
     int innerIterCount = 0;
     inner_solve_done = false;
     Real relative_inner_resid_prev = 1.e200, absolute_inner_resid_prev = 1.e200;
@@ -247,9 +223,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
           for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
             evaluateGradientRatio(level, lambda, kappa_r, rad_group_idx, rad_energy_iter, rad_group_idx, 1, rad_group_idx);
-            // lambda now contains scaled gradient
             computeFluxLimiter(level, lambda, rad_group_idx);
-            // lambda now contains flux limiter
           }
         }
       }
@@ -260,9 +234,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
         select_active_group(rad_group_idx);
 
-        // setup and solve linear system
 
-        // set boundary condition
         solver->levelBoundary(multigroup_boundary, rad_group_idx);
 
         solver->levelDiagCoeffs(level, kappa_p, delta_t, c, rad_group_idx, pseudo_transient_tau);
@@ -274,7 +246,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
           solver->levelBoundaryScale(level, lambda, rad_group_idx, lo_bc, hi_bc);
         }
 
-        { // src and rhd block
+        {
 
           MultiFab rhs(grids,dmap,1,0);
 
@@ -283,9 +255,8 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
                            rad_energy_step, gas_energy_step, rad_energy_star, gas_energy_star,
                            delta_t, rad_group_idx, it, pseudo_transient_tau);
 
-          // solve Er equation and put solution in rad_energy_new(rad_group_idx)
           solver->levelSolveSystem(level, rad_energy_new, rad_group_idx, rhs, 0.01);
-        } // end src and rhs block
+        }
 
         solver->levelFaceFlux(level, Flux, rad_energy_new, rad_group_idx);
         solver->levelCoarseFineFlux(level, flux_from_fine, flux_to_coarse, Flux, rad_group_idx);
@@ -293,9 +264,8 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
         if (icomp_flux_index >= 0)
             solver->levelFaceToCellFlux(level, Flux, *flux_cell_center, icomp_flux_index+rad_group_idx);
 
-      } // end loop over groups
+      }
 
-      // Check for convergence *before* acceleration step:
       check_rad_convergence(relative_inner_resid, abs_residual_in, rad_energy_error, rad_energy_new, rad_energy_iter,
                            kappa_p, thermal_frac_z, temp_next, delta_t);
 
@@ -355,7 +325,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       std::cout.precision(oldprec);
     }
 
-    // update rhoe and T
     if (matter_update_mode == 0) {
       energy_conserving_mode = true;
     }
@@ -400,9 +369,9 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
                   state_new_border, level, delta_t, pseudo_transient_tau, it, energy_conserving_mode);
 
     eos_fill_opacity_emission(state_new_border, temp_next,
-                           temp_iterate, // input
+                           temp_iterate,
                            kappa_p, kappa_r, jg,
-                           dEmitT, dOpacT, dedT, // output
+                           dEmitT, dOpacT, dedT,
                            level, it+1, 0);
 
     check_matter_convergence(rhoe_new, gas_energy_star, gas_energy_step, rad_energy_new,
@@ -429,7 +398,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
     default:
       relative_outer_resid = rel_temp;
       if (energy_conserving_mode) {
-        //      relative_outer_resid = (relative_outer_resid > rel_gas_energy) ? relative_outer_resid : rel_gas_energy;
         relative_outer_resid = (relative_outer_resid > rel_resid  ) ? relative_outer_resid : rel_resid;
       }
       absolute_outer_resid = abs_temp;
@@ -452,14 +420,12 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       converged = false;
     }
     else if (relative_outer_resid <= reltol || absolute_outer_resid <= abstol) {
-      //      || rel_gas_energy < 1.e-15) {
       converged = true;
     }
     else {
       converged = false;
     }
 
-    //    if (relative_outer_resid <= 10.*reltol) {
     if (relative_outer_resid <= reltol) {
       outer_tol_met = true;
     }
@@ -470,9 +436,9 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
                     state_new_border, grids, level);
 
       eos_fill_opacity_emission(state_new_border, temp_next,
-                             temp_iterate, // input
+                             temp_iterate,
                              kappa_p, kappa_r, jg,
-                             dEmitT, dOpacT, dedT, // output
+                             dEmitT, dOpacT, dedT,
                              level, it+1, 0);
     }
 
@@ -496,7 +462,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       amrex::Abort("Implicit Update Failed to Converge");
   }
 
-  // update flux registers
 
   flux_from_fine = (level < fine_level) ? flux_candidate_regs[level+1].get() : nullptr;
   if (flux_from_fine) {
@@ -518,11 +483,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
   if (level == fine_level && iteration == 1) {
 
-    // We've now advanced the finest level, so we've just passed the
-    // last time we might want to reflux from any existing conservative_register_old
-    // on any level until the next sync.  Setting the stored delta_t
-    // to 0.0 is a hack equivalent to marking each corresponding
-    // register as "not to be used".
 
     for (int flev = level; flev > 0; flev--) {
       dt_previous[flev-1] = 0.0;
@@ -532,7 +492,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
   Real energy_rel_chg = 0.0;
   Real deltaTempRatio = 0.0;
 
-  // update state with new fluid energy and temperature
   update_state_energy(S_new, rhoe_new, temp_next, grids, energy_rel_chg, deltaTempRatio, level);
 
   delta_e_rat_level[level] = energy_rel_chg;
@@ -558,9 +517,6 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       store_lab_energy_plotvar(level, S_new, rad_energy_new, *flux_cell_center, icomp_flux_index);
   }
 
-  // if (plot_moving_flux) {
-  //     already done when calling solver->levelFaceToCellFlux()
-  // }
 
   if (radiation::plot_lab_rad_flux) {
       store_flux_plotvar(level, S_new, lambda, rad_energy_new, *flux_cell_center, icomp_flux_index);

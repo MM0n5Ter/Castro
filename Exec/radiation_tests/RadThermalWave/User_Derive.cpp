@@ -9,9 +9,9 @@
 using namespace amrex;
 
 
-void dertexact(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void dertexact(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                const FArrayBox& datfab, const Geometry& geomdata,
-               Real time, const int* /*bcrec*/, int /*level*/)
+               Real time, const int*  , int  )
 {
 
   const auto dx = geomdata.CellSizeArray();
@@ -66,9 +66,9 @@ void dertexact(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
   });
 }
 
-void derterror(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void derterror(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                const FArrayBox& datfab, const Geometry& geomdata,
-               Real time, const int* /*bcrec*/, int /*level*/)
+               Real time, const int*  , int  )
 
 {
 

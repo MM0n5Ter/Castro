@@ -15,7 +15,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     const Real* dx = geomdata.CellSize();
 
-    // density
 
     Real rho = problem::rho_0;
 
@@ -41,35 +40,29 @@ void user_initialize_state_data (int i, int j, int k,
     Real u = vel_theta_1 * sin_theta_1 + vel_theta_2 * sin_theta_2;
     Real v = -vel_theta_1 * cos_theta_1 - vel_theta_2 * cos_theta_2;
 
-    // single species for all zones
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) = 0.0_rt;
     }
     state(i,j,k,UFS) = 1.0_rt;
 
-    // momentum field
 
     state(i,j,k,UMX) = rho * u;
     state(i,j,k,UMY) = rho * v;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // density
 
     state(i,j,k,URHO) = rho;
 
-    // internal energy
 
     state(i,j,k,UEINT) = problem::ref_pressure / (eos_rp::eos_gamma - 1.0_rt);
 
-    // Total energy
 
     state(i,j,k,UEDEN) = state(i,j,k,UEINT) + 0.5_rt *
         (state(i,j,k,UMX) * state(i,j,k,UMX) +
          state(i,j,k,UMY) * state(i,j,k,UMY) +
          state(i,j,k,UMZ) * state(i,j,k,UMZ)) / state(i,j,k,URHO);
 
-    // Convert mass fractions to conserved quantity
 
     for (int n = 0; n < NumSpec; n++) {
         state(i,j,k,UFS+n) *= rho;

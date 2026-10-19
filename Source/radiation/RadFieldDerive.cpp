@@ -8,9 +8,9 @@
 
 using namespace amrex;
 
-void derive_total_radiative_energy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
-                 const FArrayBox& datfab, const Geometry& /*geomdata*/,
-                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
+void derive_total_radiative_energy(const Box& bx, FArrayBox& derfab, int  , int  ,
+                 const FArrayBox& datfab, const Geometry&  ,
+                 Real  , const int*  , int  )
 {
 
     auto const dat = datfab.array();

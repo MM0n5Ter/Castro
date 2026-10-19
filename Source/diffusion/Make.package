@@ -1,5 +1,3 @@
-# sources used with diffusion
-# included when USE_DIFFUSION=TRUE
 
 CEXE_headers += HydroSim_conduction.H
 

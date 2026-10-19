@@ -111,14 +111,12 @@ void user_initialize_state_data (int i, int j, int k,
                     Real rr2 = xx * xx + yy * yy + zz * zz;
 
                     if (coord_type == 1) {
-                        // we are axisymmetric so weight by the radial coordinate
                         if (rr2 <= problem::rexp * problem::rexp) {
                             vol_pert += xx;
                         } else {
                             vol_ambient += xx;
                         }
                     } else {
-                        //  Cartesian
                         if (rr2 <= problem::rexp * problem::rexp) {
                             vol_pert += 1.0_rt;
                         } else {

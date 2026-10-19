@@ -11,11 +11,10 @@ void user_initialize ()
 
     eos_t eos_state;
 
-    //  compute the internal energy (erg/cc) for the left and right state
 
       eos_state.rho = problem::rho_0;
       eos_state.p = problem::p_0;
-      eos_state.T = 100000.0_rt;  // initial guess
+      eos_state.T = 100000.0_rt;
       for (auto & X : eos_state.xn) {
           X = 0.0_rt;
       }

@@ -21,8 +21,6 @@ void user_initialize ()
         problem::center[idir] = 0.0_rt;
     }
 
-    // we only work in NSE mode, so the mass fractions are not used by
-    // the EOS
 
 #if !defined(NSE_TABLE) && !defined(NSE_NET)
     amrex::Error("Error: this problem requires USE_NSE_NET=TRUE or USE_NSE_TABLE=TRUE");

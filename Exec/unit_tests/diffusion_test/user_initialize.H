@@ -16,9 +16,7 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // set center variable
 
-    // Note problem::center = 0 by default for 2d spherical geometry.
     if ((problem::center[0] == 0.0_rt) && (coord_type == 0)) {
         problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);
     }
@@ -33,12 +31,6 @@ void user_initialize ()
     }
 #endif
 
-    // the conductivity is the physical quantity that appears in the
-    // diffusion term of the energy equation.  It is set in the inputs
-    // file.  For this test problem, we want to set the diffusion
-    // coefficient, D = k/(rho c_v), so the free parameter we have to
-    // play with is rho.  Note that for an ideal gas, c_v does not depend
-    // on rho, so we can call it the EOS with any density.
     Real X[NumSpec] = {0.0_rt};
     X[0] = 1.0_rt;
 
@@ -52,12 +44,8 @@ void user_initialize ()
     eos(eos_input_rt, eos_state);
 
 #ifdef DIFFUSION
-    // get the conductivity
     conductivity(eos_state);
 
-    // diffusion coefficient is D = k/(rho c_v). we are doing an ideal
-    // gas, so c_v is constant, so find the rho that combines with
-    // the conductivity
     problem::rho0 = eos_state.conductivity / (problem::diff_coeff * eos_state.cv);
 #else
     problem::rho0 = 1.0_rt;

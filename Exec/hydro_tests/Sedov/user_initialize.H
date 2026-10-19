@@ -23,8 +23,6 @@ void user_initialize ()
     }
 
 #if AMREX_SPACEDIM == 2
-    // If dealing with spherical 2d,
-    // then reset the center theta to be on the z-axis.
     if (coord_type == 2) {
         problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);
         problem::center[1] = 0.0_rt;
@@ -36,7 +34,6 @@ void user_initialize ()
 
     eos_t eos_state;
 
-    // override the pressure with the temperature
     if (problem::temp_ambient > 0.0_rt) {
 
         eos_state.rho = problem::dens_ambient;
@@ -51,11 +48,10 @@ void user_initialize ()
 
     }
 
-    // Calculate ambient state data
 
     eos_state.rho = problem::dens_ambient;
     eos_state.p   = problem::p_ambient;
-    eos_state.T   = 1.e9_rt; // Initial guess for iterations
+    eos_state.T   = 1.e9_rt;
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn_zone[n];
     }
@@ -65,8 +61,6 @@ void user_initialize ()
     problem::e_ambient = eos_state.e;
     problem::temp_ambient = eos_state.T;
 
-    // set explosion pressure -- we will convert the point-explosion energy into
-    // a corresponding pressure distributed throughout the perturbed volume
 
     Real vctr = 0.0;
 
@@ -78,13 +72,11 @@ void user_initialize ()
 
 #elif AMREX_SPACEDIM == 2
 
-        // Cylindrical problem in Cartesian coordinates
 
         vctr = M_PI * problem::r_init * problem::r_init;
 
 #else
 
-        // Spherical problem in Cartesian coordinates
 
         vctr = (4.0_rt / 3.0_rt) * M_PI * problem::r_init * problem::r_init * problem::r_init;
 
@@ -110,7 +102,6 @@ void user_initialize ()
 
 
 #if AMREX_SPACEDIM <= 2
-        // Must have AMREX_SPACEDIM == 1 or 2 for this coord_type.
 
         vctr = (4.0_rt / 3.0_rt) * M_PI * problem::r_init * problem::r_init * problem::r_init;
 #else

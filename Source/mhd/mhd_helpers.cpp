@@ -12,9 +12,6 @@ HydroSim::cons_update_mhd(const Box& bx, const Real dt,
                    Array4<Real const> const& flux1,
                    Array4<Real const> const& flux2) {
 
-  // do the conservative update.  Note, in contrast to the CTU hydro
-  // case, we don't add the pdivu term to (rho e) here, because we
-  // included that in the hydro source terms.
 
   const auto dx = geom.CellSizeArray();
 
@@ -56,7 +53,6 @@ HydroSim::PrimitiveToConserved(const Box& bx,
                    Array4<Real const> const& prim_arr,
                    Array4<Real> const& state_view) {
 
-  // calculate the conserved variables from the primitive
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -70,7 +66,7 @@ HydroSim::PrimitiveToConserved(const Box& bx,
     eos_t eos_state;
     eos_state.rho = prim_arr(i,j,k,QRHO);
     eos_state.p = prim_arr(i,j,k,QPRES);
-    eos_state.T = 100.0_rt; // dummy initial T.
+    eos_state.T = 100.0_rt;
     for (int n = 0; n < NumSpec; n++) {
       eos_state.xn[n] = prim_arr(i,j,k,QFS+n);
     }
@@ -97,7 +93,6 @@ HydroSim::PrimitiveToConserved(const Box& bx,
     state_view(i,j,k,UBY) = prim_arr(i,j,k,QBFIELDY);
     state_view(i,j,k,UBZ) = prim_arr(i,j,k,QBFIELDZ);
 
-    // species
     for (int n = 0; n < NumSpec; n++) {
       state_view(i,j,k,UFS+n) = prim_arr(i,j,k,QRHO) * prim_arr(i,j,k,QFS+n);
     }
@@ -115,7 +110,6 @@ HydroSim::primitive_half_update(const Box& bx,
                   Array4<Real const> const& flxz,
                   const Real dt) {
 
-  // Find the 2D corrected primitive variables and n+1/2
 
   auto dx = geom.CellSizeArray();
 
@@ -137,7 +131,6 @@ HydroSim::primitive_half_update(const Box& bx,
 #endif
     }
 
-    // that is a flux of conserved variables -- transform it to primitive
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }

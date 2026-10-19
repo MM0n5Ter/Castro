@@ -10,7 +10,6 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // Read initial model
 
     read_model_file(problem::model_file);
 

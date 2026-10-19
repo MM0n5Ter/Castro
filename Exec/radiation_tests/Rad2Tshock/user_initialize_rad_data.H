@@ -18,8 +18,6 @@ void user_initialize_rad_data (int i, int j, int k,
     const Real* dx = geomdata.CellSize();
     const Real* problo = geomdata.ProbLo();
 
-    // Provides the simulation to be run in the x,y,or z direction
-    // where length direction is the length side in a square prism
 
     Real length_cell;
     if (problem::idir == 1) {

@@ -22,28 +22,15 @@ void user_source (int i, int j, int k,
 {
     using namespace problem;
 
-    // First do any relaxation source terms.
 
     if (problem::problem == 1 && relaxation_damping_factor > 0.0_rt) {
 
-        // The relevant dynamical timescale for determining this source term timescale should be
-        // the smaller of the two WD timescales. Generally this should be the primary, but we'll
-        // be careful just in case.
 
         const Real dynamical_timescale = amrex::min(t_ff_P, t_ff_S);
 
-        // The relaxation damping factor should be less than unity, so that the damping
-        // timescale is less than the dynamical timescale. This ensures that the stars
-        // are always responding to the damping with quasistatic motion; if the stars
-        // could respond too quickly, they might expand and make contact too early.
 
         const Real relaxation_damping_timescale = relaxation_damping_factor * dynamical_timescale;
 
-        // Note that we are applying this update implicitly. The implicit and
-        // explicit methods agree in the limit where the damping timescale is
-        // much larger than dt, but the implicit method helps avoid numerical
-        // problems when the damping timescale is shorter than the timestep.
-        // For further information, see Source/sources/sponge_nd.F90.
 
         const auto damping_factor = -(1.0_rt - 1.0_rt / (1.0_rt + dt / relaxation_damping_timescale)) / dt;
 
@@ -74,19 +61,11 @@ void user_source (int i, int j, int k,
         }
 #endif
 
-        // Do the same thing for the kinetic energy update.
         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
             src(i,j,k,UEDEN) += rhoInv * mom[dir] * Sr[dir];
         }
     }
 
-    // This is an inspiral driving force
-    // where a constant drift velocity is applied. Their approach simplifies to
-    // dv/dt = -0.5 * v * (da/dt) / a, so we can achieve a similar effect by choosing as
-    // a parameter the ratio [(da/dt) / a], which should be relatively small. To match their
-    // method, we choose da/dt to be measured with respect to the initial velocity (relative to
-    // the center of mass) so that it is fixed, while the a in the denominator will be the
-    // current distance. We do not apply this force until the relaxation phase has completed.
 
     bool do_radial_damping = false;
 
@@ -101,7 +80,6 @@ void user_source (int i, int j, int k,
     if (do_radial_damping) {
         GpuArray<Real, 3> acceleration = {0.0};
 
-        // Calculate the current stellar distance.
 
         Real a_curr = 0.0_rt;
         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
@@ -109,7 +87,6 @@ void user_source (int i, int j, int k,
         }
         a_curr = std::sqrt(a_curr);
 
-        // Determine the initial orbital velocity of the reduced mass system.
 
         Real v_init = 2.0_rt * M_PI * problem::a / hydrosim::spin_period;
 

@@ -45,7 +45,6 @@ HydroSim::user_diagnostics ()
         std::cout << "TIME= " << time << " MASS  = "   << mass  << '\n';
         std::cout << "TIME= " << time << " RHO*E = "   << rho_E     << '\n';
 
-        // get output files
         std::ostream& primary_data_log = *HydroSim::user_run_logs[0];
 
         if (time == 0.0) {
@@ -56,7 +55,6 @@ HydroSim::user_diagnostics ()
            primary_data_log << std::endl;
         }
 
-        // Write the quantities at this time
         primary_data_log << std::setw(14) <<  time;
         primary_data_log << std::setw(14) <<  std::setprecision(6) << Tmax;
         primary_data_log << std::setw(14) <<  std::setprecision(6) << MachMax;

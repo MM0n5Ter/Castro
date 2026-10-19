@@ -30,7 +30,6 @@ void user_initialize_state_data (int i, int j, int k,
         }
     }
 
-    // set the composition
 
     Real X[NumSpec] = {0.0_rt};
     X[0] = 1.0_rt;
@@ -41,7 +40,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     state(i,j,k,UTEMP) = temp;
 
-    // compute the internal energy and temperature
 
     eos_t eos_state;
     eos_state.T = temp;

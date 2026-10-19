@@ -36,11 +36,9 @@ void user_initialize_state_data (int i, int j, int k,
     height += problem::model_shift;
 
     state(i,j,k,URHO) = interpolate(height, model::idens);
-    state(i,j,k,UTEMP) = interpolate(height, model::itemp);  // this will be an initial guess
+    state(i,j,k,UTEMP) = interpolate(height, model::itemp);
     Real p_zone = interpolate(height, model::ipres);
 
-    // interpolate species as mass fractions and make sure they sum to
-    // 1.  Later we will convert to densities.
 
     Real sumX{0.0};
     for (int n = 0; n < NumSpec; ++n) {
@@ -72,23 +70,19 @@ void user_initialize_state_data (int i, int j, int k,
     }
 
 
-    // Initial velocities = 0
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    //  Now add the temperature perturbation
 
     if (problem::apply_perturbation) {
 
         if (state(i,j,k,URHO) > problem::pert_density) {
 
-            // mean of 1, std dev of 1.e-3
 
             state(i,j,k,UTEMP) *= amrex::RandomNormal(1.0, 0.001, engine);
             eos_state.T = state(i,j,k,UTEMP);
 
-            // recompute the density with this new temperature
 
             eos(eos_input_tp, eos_state);
 
@@ -97,7 +91,6 @@ void user_initialize_state_data (int i, int j, int k,
             state(i,j,k,UEINT) = eos_state.rho * eos_state.e;
             state(i,j,k,UEDEN) = eos_state.rho * eos_state.e;
 
-            // need to recompute partial densities since we've updated rho
 
             for (int n = 0; n < NumSpec; n++) {
                 state(i,j,k,UFS+n) = state(i,j,k,URHO) * eos_state.xn[n];

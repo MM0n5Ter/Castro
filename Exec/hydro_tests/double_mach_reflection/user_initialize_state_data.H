@@ -47,7 +47,7 @@ void user_initialize_state_data (int i, int j, int k,
             }
             Real x = xcen + 0.5_rt * dx[0] * (static_cast<Real>(ii) / std::sqrt(3.0_rt));
 
-            Real shockfront = std::tan(pi_over_3) * (x - 1.0_rt/6.0_rt); // initial shock front
+            Real shockfront = std::tan(pi_over_3) * (x - 1.0_rt/6.0_rt);
 
             if (y >= shockfront ) {
                 state(i,j,k,URHO) += ff * problem::rho_l;

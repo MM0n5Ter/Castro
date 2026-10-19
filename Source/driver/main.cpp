@@ -33,27 +33,23 @@ std::string inputs_name{};
 
 amrex::LevelBld* getLevelBld ();
 
-// Any parameters we want to override the defaults for in AMReX
 
 void set_amrex_defaults ()
 {
     {
         ParmParse pp("amrex");
-#ifndef RADIATION // Radiation is not yet ready to stop using managed memory
+#ifndef RADIATION
         if (!pp.contains("the_arena_is_managed")) {
-            // Use device memory allocations, not managed memory.
             pp.add("the_arena_is_managed", false);
         }
 #endif
         if (!pp.contains("abort_on_out_of_gpu_memory")) {
-            // Abort if we run out of GPU memory.
             pp.add("abort_on_out_of_gpu_memory", true);
         }
     }
 
     {
         ParmParse pp("amr");
-        // Always check for whether to dump a plotfile or checkpoint.
         if (!pp.contains("message_int")) {
             pp.add("message_int", 1);
         }
@@ -65,7 +61,6 @@ main (int   argc,
       char* argv[])
 {
 
-    // check to see if it contains --describe
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
             if (std::string(argv[i]) == "--describe") {
@@ -75,19 +70,14 @@ main (int   argc,
         }
     }
 
-    //
-    // Make sure to catch new failures.
-    //
     amrex::Initialize(argc, argv, true, MPI_COMM_WORLD, set_amrex_defaults);
     {
 
-    // Refuse to continue if we did not provide an inputs file.
 
     if (argc <= 1) {
         amrex::Abort("Error: no inputs file provided on command line.");
     }
 
-    // Save the inputs file name for later.
 
     if (!strchr(argv[1], '=')) {
         inputs_name = argv[1];
@@ -122,7 +112,6 @@ main (int   argc,
        "Exiting because neither max_step nor stop_time is non-negative.");
     }
 
-    // Print the current date and time.
 
     time_t time_type;
 
@@ -140,24 +129,16 @@ main (int   argc,
                    << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
                    << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
 
-    //
-    // Initialize random seed after we're running in parallel.
-    //
 
     Amr* amr_obj = new Amr(getLevelBld());
     global::amr_instance = amr_obj;
 
     amr_obj->init(strt_time,stop_time);
 
-    // If we set the regrid_on_restart flag and if we are *not* going to take
-    //    a time step then we want to go ahead and regrid here.
     if ( amr_obj->RegridOnRestart() &&
          ( (amr_obj->levelSteps(0) >= max_step) ||
            (amr_obj->cumTime() >= stop_time) ) )
            {
-           //
-           // Regrid only!
-           //
            amr_obj->RegridOnly(amr_obj->cumTime());
            }
 
@@ -168,9 +149,6 @@ main (int   argc,
            (amr_obj->cumTime() < stop_time || stop_time < 0.0) )
 
     {
-        //
-        // Do a timestep.
-        //
         amr_obj->coarseTimeStep(stop_time);
     }
 
@@ -178,7 +156,6 @@ main (int   argc,
     HydroSim::user_post_simulation(amr_obj->getAmrLevels());
 #endif
 
-    // Write final checkpoint and plotfile
 
     if (HydroSim::get_write_on_finish() == 1) {
 
@@ -196,9 +173,6 @@ main (int   argc,
 
     }
 
-    // Start calculating the figure of merit for this run: average number of zones
-    // advanced per microsecond. This must be done before we delete the Amr
-    // object because we need to scale it by the number of zones on the coarse grid.
 
     long coarse_zone_count = amr_obj->getLevel(0).boxArray().numPts();
     Real fom = HydroSim::cells_advanced_total * static_cast<Real>(coarse_zone_count);
@@ -216,9 +190,6 @@ main (int   argc,
                    << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
 
     delete amr_obj;
-    //
-    // This MUST follow the above delete as ~Amr() may dump files to disk.
-    //
     const int IOProc = ParallelDescriptor::IOProcessorNumber();
     const int nprocs = ParallelDescriptor::NProcs();
 
@@ -245,17 +216,7 @@ main (int   argc,
 
     if (auto* arena = dynamic_cast<CArena*>(amrex::The_Arena()))
     {
-        //
-        // A barrier to make sure our output follows that of RunStats.
-        //
         ParallelDescriptor::Barrier();
-        //
-        // We're using a CArena -- output some FAB memory stats.
-        //
-        // This'll output total # of bytes of heap space in the Arena.
-        //
-        // It's actually the high water mark of heap space required by FABs.
-        //
         std::cout << std::format("CPU({}): Heap Space (bytes) used by Coalescing FAB Arena: {}\n",
                                  ParallelDescriptor::MyProc(), arena->heap_space_used());
     }

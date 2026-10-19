@@ -17,7 +17,7 @@ void user_rad_source (int i, int j, int k,
     Real x = loc[0];
 
     if (time <= t0 && std::abs(x) <= x0) {
-        rhs(i,j,k) = rhs(i,j,k) + qn; // (qn / dt) * dt
+        rhs(i,j,k) = rhs(i,j,k) + qn;
     }
 }
 

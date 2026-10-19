@@ -29,7 +29,6 @@ void user_source (int i, int j, int k,
         + 0.01875_rt * std::sin((6*M_PI*x/L_x) + M_PI/3.e0_rt)
         + 0.01250_rt * std::sin((8*M_PI*x/L_x) + M_PI/5.e0_rt));
 
-    // Source terms
     src(i,j,k,UEDEN) = state(i,j,k,URHO) * H * 2.5e16_rt;
     src(i,j,k,UEINT) = src(i,j,k,UEDEN);
 }

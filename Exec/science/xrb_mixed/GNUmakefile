@@ -15,10 +15,8 @@ USE_MODEL_PARSER = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := rprox
 
 PROBLEM_DIR ?= ./

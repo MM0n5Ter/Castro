@@ -25,10 +25,7 @@ void user_initialize ()
     problem::center[2] = 0.5_rt * (problo[2] + probhi[2]);
 #endif
 
-    // first make a 1D initial model for the entire domain
-    // we'll create it ourselves, but hook it into the model_parser
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();
@@ -43,14 +40,12 @@ void user_initialize ()
     for (int n = 0; n < NumSpec; ++n) {
         model_params.xn[n] = 0.0_rt;
     }
-    // only initialize the first species
     model_params.xn[0] = 1.0_rt;
 
     generate_initial_model(nx, problo[AMREX_SPACEDIM-1], probhi[AMREX_SPACEDIM-1],
                            model_params);
 
 
-    // set the ambient state for the upper BC
     ambient::ambient_reference_state[URHO] = model::profile(0).state(model::npts-1, model::idens);
     ambient::ambient_reference_state[UTEMP] = model::profile(0).state(model::npts-1, model::itemp);
     for (int n = 0; n < NumSpec; n++) {
@@ -62,7 +57,6 @@ void user_initialize ()
     ambient::ambient_reference_state[UMY] = 0.0_rt;
     ambient::ambient_reference_state[UMZ] = 0.0_rt;
 
-    // make the ambient state thermodynamically consistent
 
     eos_t eos_state;
     eos_state.rho = ambient::ambient_reference_state[URHO];

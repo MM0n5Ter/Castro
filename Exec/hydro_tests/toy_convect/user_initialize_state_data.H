@@ -54,21 +54,17 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
     }
 
-    // Initial velocities = 0
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    //  Now add the velocity perturbation
     if (problem::apply_vel_field) {
 
         Real ydist = y - problem::velpert_height_loc;
 
         Real upert[3] = {0.0_rt};
 
-        // at the moment this is really just a 2-d perturbation
 
-        // loop over each vortex
 
         for (int vortex = 0; vortex < problem::num_vortices; vortex++) {
 

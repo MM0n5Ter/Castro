@@ -130,7 +130,6 @@ void Radiation::check_matter_convergence(const MultiFab& rhoe_new, const MultiFa
 
           Real dTe = Tmn(i,j,k);
           Real resid_scale = mass_density_arr(i,j,k) * std::abs(deT(i,j,k) * dTe);
-          //Real resid_scale = amrex::max(std::abs(ren(i,j,k) - re2(i,j,k)), std::abs(ren(i,j,k) * 1.e-15_rt))
 
           Real resid_abs_chg = FT;
           Real resid_rel_chg = FT / (resid_scale + 1.e-50_rt);
@@ -393,8 +392,6 @@ void Radiation::eos_fill_opacity_emission(const MultiFab& S_new,
       amrex::ParallelFor(reg,
       [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
       {
-          // Integrate the Planck distribution upward from zero frequency.
-          // This handles both the single-group and multi-group cases.
 
           Real temp_floored = amrex::max(temp_next_arr(i,j,k), 1.e-50_rt);
 
@@ -405,8 +402,6 @@ void Radiation::eos_fill_opacity_emission(const MultiFab& S_new,
 
               Real freq_upper = freq_edges_loc[g+1];
 
-              // For the last group, make sure that we complete
-              // the integral up to "infinity".
 
               if (g == NGROUPS - 1) {
                   freq_upper = amrex::max(freq_upper, 1.e25_rt);
@@ -421,7 +416,6 @@ void Radiation::eos_fill_opacity_emission(const MultiFab& S_new,
               emission_arr(i,j,k,g) = Bg * kappa_planck_arr(i,j,k,g);
               emission_dtemp_arr(i,j,k,g) = kappa_dtemp_arr(i,j,k,g) * Bg + dplanck_group_diff * kappa_planck_arr(i,j,k,g);
 
-              // Allow a problem to override this emissivity.
 
               user_emissivity(i, j, k, g,
                                  group_freq_loc, freq_edges_loc,
@@ -500,18 +494,13 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
     });
   }
 
-  // Extrapolate spectrum out one cell
   for (int indx = 0; indx < nGroups; indx++) {
     extendBorderValues(spec, indx);
   }
-  // Overwrite all extrapolated components with values from
-  // neighboring fine grids where they exist:
   spec.FillBoundary(parent->Geom(level).periodicity());
 
-  // set boundary condition
   solver->levelBoundary(multigroup_boundary,0);
 
-  // A coefficients
   MultiFab acoefs(grids, dmap, 1, 0);
 
 #ifdef _OPENMP
@@ -546,7 +535,6 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
 
   const DistributionMapping& dm = hydrosim->DistributionMap();
 
-  // B & C coefficients
   Array<MultiFab, AMREX_SPACEDIM> bcoefs, cell_coefs, edge_group_coef;
   for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
     const BoxArray& edge_boxes = hydrosim->getEdgeBoxArray(idim);
@@ -566,7 +554,6 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
     for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
       solver->computeFaceCoeffs(edge_group_coef[idim], idim, kappa_r, rad_group_idx,
                             lambda[idim], rad_group_idx, c, geom);
-      // metrics is already in edge_group_coef
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -637,7 +624,6 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
     }
   }
 
-  // rhs
   MultiFab rhs(grids,dmap,1,0);
 
 #ifdef _OPENMP
@@ -666,15 +652,12 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
       });
   }
 
-  // must apply metrics to rhs here
   solver->applyCellMetrics(level, rhs);
 
-  // solve
   MultiFab accel(grids,dmap,1,0);
   accel.setVal(0.0);
   solver->levelSolveSystem(level, accel, 0, rhs, 0.01);
 
-  // update rad_energy_new
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -771,7 +754,6 @@ void Radiation::update_state_energy(MultiFab& state, const MultiFab& rhoe,
       {
           msk[mfi].setVal<RunOn::Device>(1.0);
 
-          // Now mask off finer level also:
           if (level < parent->finestLevel()) {
               std::vector< std::pair<int,Box> > isects = baf.intersections(mfi.validbox());
               for (int ii = 0; ii < isects.size(); ii++) {
@@ -886,7 +868,6 @@ void Radiation::advance_matter(MultiFab& rhoe_new, MultiFab& temp_next,
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                // Get T from rhoe (temp_next comes in with rhoe)
 
                 if (temp_next_view(i,j,k) <= 0.e0_rt)
                 {
@@ -961,14 +942,12 @@ void Radiation::advance_matter(MultiFab& rhoe_new, MultiFab& temp_next,
     }
 }
 
-// ========================================================================
-// for the hyperbolic solver
 
 void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                                 const MultiFab &Sborder,
                                 const MultiFab &RadEnergyGrown,
                                 MultiFab &rad_lambda_grown)
-{ // it works for both single- and multi-group
+{
   int ngrow = rad_lambda_grown.nGrow();
   const DistributionMapping& dmap = rad_lambda_grown.DistributionMap();
 
@@ -1044,11 +1023,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
             {
                 lam(i,j,k,g) = -1.0e50_rt;
 
-                // The radiation energy Er being equal to -1 is our arbitrary
-                // convention that we're on a boundary zone. This is meaningless
-                // from the perspective of computing the limiter, so we skip this
-                // step on all boundary zones. On all zones adjacent to the boundary
-                // we use a one-sided difference.
 
                 if (Er(i,j,k,g) == -1.0_rt) {
                     return;
@@ -1098,7 +1072,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                 lam(i,j,k,g) = LimitedDiffusionLambda(r);
             });
 
-            // filter
 
             int limiter_ilo = limiter_box.loVect3d()[0];
             int limiter_ihi = limiter_box.hiVect3d()[0];
@@ -1115,7 +1088,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
             int region_khi = bx.hiVect3d()[2];
 
             if (filter_limiter_T > 0) {
-                // initialize
 
                 amrex::Loop(bx, [=] (int i, int j, int k) noexcept
                 {
@@ -1128,7 +1100,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
 #endif
                 });
 
-                // filter in the x direction
 
                 int dir = 0;
 
@@ -1148,7 +1119,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                     }
                 });
 
-                // filter in the y direction
 
 #if AMREX_SPACEDIM >= 2
                 dir = 1;
@@ -1170,7 +1140,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                 });
 #endif
 
-                // filter in the z direction
 
 #if AMREX_SPACEDIM == 3
                 dir = 2;
@@ -1192,7 +1161,6 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                 });
 #endif
 
-                // store the final results
 
                 amrex::Loop(bx, [=] (int i, int j, int k) noexcept
                 {
@@ -1204,22 +1172,16 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
                     lam(i,j,k,g) = limiter_filt_z(i,j,k);
 #endif
                 });
-            } // filter_limiter_T
+            }
 
-            // For all zones outside the valid region, do a piecewise constant copy
-            // from the nearest valid edge or corner.
 
             amrex::Loop(limiter_box, [=] (int i, int j, int k) noexcept
             {
-                // Only apply this step if we're outside the valid region.
 
                 if (Er(i,j,k,g) != -1.0_rt) {
                     return;
                 }
 
-                // Assume in each dimension that we're copying from the same index,
-                // then shift to the nearest edge in that dimension if we're outside
-                // the box.
 
                 int ic = i;
                 int jc = j;
@@ -1248,8 +1210,8 @@ void Radiation::build_flux_limiter(int level, const BoxArray& grids,
 
                 lam(i,j,k,g) = lam(ic,jc,kc,g);
             });
-        } // nGroups
-    } // mfiter
+        }
+    }
 
     if (filter_limiter_T) {
         rad_lambda_grown.FillBoundary(parent->Geom(level).periodicity());
@@ -1292,8 +1254,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
             compute_rosseland_opacity(kappa_r, state);
         }
 
-        // Calculate offsets for the case where we don't have enough points
-        // to calculate a centered difference. In that case we'll do one-sided.
 
         int im = 1, ip = 1;
         Real xm = 2.0_rt, xp = 2.0_rt;
@@ -1351,9 +1311,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
         {
             rad_gamma_pressure_arr(i,j,k) = 0.0_rt;
 
-            // Determine whether we're strictly in the interior of the box
-            // or on one of the edges. In 2D we'll always have k_inside == true
-            // and in 1D we'll always have j_inside == k_inside == true.
 
             bool i_inside = true, j_inside = true, k_inside = true;
             bool x_at_lo = false, y_at_lo = false, z_at_lo = false;
@@ -1406,7 +1363,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x lo-y lo-z
                 else if (x_at_lo && y_at_lo && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1417,7 +1373,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x lo-y lo-z
                 else if (i_inside && y_at_lo && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1428,7 +1383,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x lo-y lo-z
                 else if (x_at_hi && y_at_lo && z_at_lo) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1439,7 +1393,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x med-y lo-z
                 else if (x_at_lo && j_inside && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1450,7 +1403,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x med-y lo-z
                 else if (i_inside && j_inside && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1461,7 +1413,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x med-y lo-z
                 else if (x_at_hi && j_inside && z_at_lo) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1472,7 +1423,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x hi-y lo-z
                 else if (x_at_lo && y_at_hi && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1483,7 +1433,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x hi-y lo-z
                 else if (i_inside && y_at_hi && z_at_lo) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1494,7 +1443,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x hi-y lo-z
                 else if (x_at_hi && y_at_hi && z_at_lo) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1505,7 +1453,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x lo-y med-z
                 else if (x_at_lo && y_at_lo && k_inside) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1516,7 +1463,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x lo-y med-z
                 else if (i_inside && y_at_lo && k_inside) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1527,7 +1473,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x lo-y med-z
                 else if (x_at_hi && y_at_lo && k_inside) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1538,7 +1483,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x med-y med-z
                 else if (x_at_lo && j_inside && k_inside) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1549,7 +1493,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x med-y med-z
                 else if (x_at_hi && j_inside && k_inside) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1560,7 +1503,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x hi-y med-z
                 else if (x_at_lo && y_at_hi && k_inside) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1571,7 +1513,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x hi-y med-z
                 else if (i_inside && y_at_hi && k_inside) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1582,7 +1523,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x hi-y med-z
                 else if (x_at_hi && y_at_hi && k_inside) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1593,7 +1533,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x lo-y hi-z
                 else if (x_at_lo && y_at_lo && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1604,7 +1543,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x lo-y hi-z
                 else if (i_inside && y_at_lo && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1615,7 +1553,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x lo-y hi-z
                 else if (x_at_hi && y_at_lo && z_at_hi) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1626,7 +1563,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x med-y hi-z
                 else if (x_at_lo && j_inside && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1637,7 +1573,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x med-y hi-z
                 else if (i_inside && j_inside && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1648,7 +1583,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x med-y hi-z
                 else if (x_at_hi && j_inside && z_at_hi) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1659,7 +1593,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // lo-x hi-y hi-z
                 else if (x_at_lo && y_at_hi && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-im,j,k,g)) / (xm * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1670,7 +1603,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // med-x hi-y hi-z
                 else if (i_inside && y_at_hi && z_at_hi) {
                     gE1 = (rad_eden_arr(i+1,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (2.0_rt * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1681,7 +1613,6 @@ void Radiation::estimate_rad_gamma_pressure(const FArrayBox& state, const FArray
 #endif
                 }
 
-                // hi-x hi-y hi-z
                 else if (x_at_hi && y_at_hi && z_at_hi) {
                     gE1 = (rad_eden_arr(i+ip,j,k,g) - rad_eden_arr(i-1,j,k,g)) / (xp * dx0);
 #if AMREX_SPACEDIM >= 2
@@ -1806,7 +1737,6 @@ void Radiation::MultigroupDiffusion_compute_scattering(FArrayBox& kappa_s, const
     auto kps = kappa_s.array();
     auto sta = state.array();
 
-    // scattering is assumed to be independent of nu.
     const Real nu = freq_center[0];
 
     amrex::ParallelFor(kbox,

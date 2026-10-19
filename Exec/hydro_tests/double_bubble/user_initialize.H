@@ -16,7 +16,6 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // set center variable
 
     problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);
 #if AMREX_SPACEDIM >= 2
@@ -26,7 +25,6 @@ void user_initialize ()
     problem::center[2] = 0.5_rt * (problo[2] + probhi[2]);
 #endif
 
-    // set local variable defaults
 
     problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);
 #if AMREX_SPACEDIM >= 2
@@ -36,9 +34,7 @@ void user_initialize ()
     problem::center[2] = 0.5_rt * (problo[2] + probhi[2]);
 #endif
 
-    // we'll generate the initial model at the needed resolution
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();

@@ -8,17 +8,15 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // give value to B
     problem::B_x  = problem::B_0 / std::sqrt(2.0_rt);
     problem::B_y  = problem::B_0 / std::sqrt(2.0_rt);
     problem::B_z  = 0.0_rt;
 
-    // compute the internal energy (erg/cc)
 
     eos_t eos_state;
     eos_state.rho = problem::rho_0;
     eos_state.p = problem::p_0;
-    eos_state.T = 100.0_rt;  // initial guess
+    eos_state.T = 100.0_rt;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = 0.0_rt;
     }

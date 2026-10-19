@@ -16,7 +16,6 @@ std::unique_ptr<AmrTracerParticleContainer> HydroSim::TracerPC;
 
 namespace {
     std::vector<int>  timestamp_component_ids;
-    //
     const std::string tracer_checkpoint_label("Tracer");
 }
 
@@ -29,9 +28,6 @@ HydroSim::load_particle_config ()
     if (ParallelDescriptor::IOProcessor())
         if (!amrex::UtilCreateDirectory(particles::snapshot_dir, 0755))
             amrex::CreateDirectoryFailed(particles::snapshot_dir);
-    //
-    // Force other processors to wait till directory is built.
-    //
     ParallelDescriptor::Barrier();
 }
 
@@ -73,8 +69,6 @@ HydroSim::ParticleOutputFile(const std::string& dir)
 {
     if (level == 0)
     {
-      //  We call TracerPC->Checkpoint instead of TracerPC->WritePlotFile
-      //  so that the particle ids also get written out.
         if (TracerPC)
             TracerPC->Checkpoint(dir, tracer_checkpoint_label);
     }
@@ -92,10 +86,6 @@ HydroSim::ParticleAfterRestart (const std::string& restart_path)
             TracerPC = std::make_unique<AmrTracerParticleContainer>(parent);
 
             TracerPC->SetVerbose(particles::particle_log_level);
-            //
-            // We want to be able to add new particles on a restart.
-            // As well as the ability to write the particles out to an ascii file.
-            //
             if (!particles::restart_chk_no_particles)
             {
                 TracerPC->Restart(parent->theRestartFile(), tracer_checkpoint_label);
@@ -132,9 +122,6 @@ HydroSim::ParticleQuantity(const std::string& name,
   }
   else if (TracerPC && name == "total_particle_count")
   {
-      //
-      // We want the total particle count at this level or higher.
-      //
       auto derived_mf = ParticleQuantity("particle_count",time,ngrow);
 
       IntVect trr(AMREX_D_DECL(1,1,1));
@@ -199,8 +186,6 @@ HydroSim::StampParticles (int ngrow)
     {
         first = false;
 
-        // have to do it here, not in load_particle_config, because Density, ..., are set after
-        // load_particle_config is called.
         if (particles::snapshot_density) {
             timestamp_component_ids.push_back(URHO);
             std::cout << "Density = " << URHO << std::endl;
@@ -232,7 +217,7 @@ HydroSim::StampParticles (int ngrow)
 
             MultiFab& S_new = parent->getLevel(lev).get_new_data(State_Type);
 
-            if (imax >= 0) {  // FillPatchIterator will fail otherwise
+            if (imax >= 0) {
                 int ng = (lev == level) ? ngrow : 1;
                 FillPatchIterator fpi(parent->getLevel(lev), S_new,
                                       ng, time, State_Type, 0, imax+1);
@@ -255,7 +240,7 @@ HydroSim::step_particles(int iteration, Real time, Real dt)
         int ng = iteration;
         Real t = time + 0.5*dt;
 
-        MultiFab Ucc(grids,dmap,AMREX_SPACEDIM,ng); // cell centered velocity
+        MultiFab Ucc(grids,dmap,AMREX_SPACEDIM,ng);
 
         {
             FillPatchIterator fpi(*this, Ucc, ng, t, State_Type, 0, AMREX_SPACEDIM+1);

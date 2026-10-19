@@ -19,13 +19,9 @@ void user_initialize_state_data (int i, int j, int k,
 #ifdef ROTATION
     auto omega = get_angular_velocity(geomdata, j);
 #else
-    // Provide a dummy value so that we can compile without rotation.
     Real omega[3] = {0.0_rt, 0.0_rt, 2.0_rt * M_PI};
 #endif
 
-    // Rotating torus of Papaloizou and Pringle.
-    // rotating tori with constant
-    // specific angular momentum are unstable to non-axisymmetric perturbations.
 
     GpuArray<Real, 3> loc;
     position(i, j, k, geomdata, loc);
@@ -34,21 +30,11 @@ void user_initialize_state_data (int i, int j, int k,
         loc[dir] -= problem::center[dir];
     }
 
-    Real R = std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]);  // Cylindrical radius
-    Real Z = loc[2];  // Cylindrical height
+    Real R = std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
+    Real Z = loc[2];
 
-    // Distance from origin
     Real dist = std::sqrt(loc[0] * loc[0] + loc[1] * loc[1] + loc[2] * loc[2]);
 
-    // rho_s is the scale for the density; it satisfies that at r =
-    // density_maximum_radius, rho == 1.  We guarantee this above by
-    // setting the polytropic K constant to satisfy this condition.
-    // The constant C' can be
-    // solved to give R_0**2 / (2 * R_- * R_+), where R_0 ==
-    // density_maximum_radius, R_- == inner_radius, and R_+ ==
-    // outer_radius.  If the term inside square brackets is negative, that means effectively that we're no longer
-    // inside the torus, so at that point we just use a low ambient
-    // density instead.
 
     Real rho_s = std::pow(C::Gconst * point_mass /
                           ((1.0_rt + polytrope_index) * K_const * problem::density_maximum_radius), polytrope_index);

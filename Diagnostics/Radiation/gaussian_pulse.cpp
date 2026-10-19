@@ -1,6 +1,3 @@
-//
-// Process a 2-d gaussian radiation pulse
-//
 #include <iostream>
 #include <AMReX_DataServices.H>
 #include <Radiation_F.H>
@@ -15,14 +12,11 @@ int main(int argc, char* argv[])
 
     amrex::Initialize(argc, argv, false);
 
-    // timer for profiling
     BL_PROFILE_VAR("main()", pmain);
 
-    // abort if dim != 2
     if (AMREX_SPACEDIM != 2)
         Abort("ERROR: must compile gaussian pulse diagnostic with DIM=2");
 
-    // Input arguments
     string pltfile, slcfile;
     int dir;
 
@@ -36,25 +30,20 @@ int main(int argc, char* argv[])
     Print() << "yctr = " << yctr << std::endl;
     Print() << std::endl;
 
-    // Start dataservices
     DataServices::SetBatchMode();
 
-    // Define the type of file
     Amrvis::FileType fileType(Amrvis::NEWPLT);
     DataServices dataServices (pltfile, fileType);
 
     if (!dataServices.AmrDataOk())
         DataServices::Dispatch(DataServices::ExitRequest, NULL);
 
-    // get data from plot file
     AmrData& data = dataServices.AmrDataRef();
 
     int finestLevel = data.FinestLevel();
 
-    // get variable names
     const Vector<string>& varNames = data.PlotVarNames();
 
-    // get the index bounds and dx.
     Box domain = data.ProbDomain()[finestLevel];
     Vector<Real> dx = data.CellSize(finestLevel);
     const Vector<Real>& problo = data.ProbLo();
@@ -62,8 +51,6 @@ int main(int argc, char* argv[])
 
     Vector<int> rr = data.RefRatio();
 
-    // compute the size of the radially-binned array -- we'll do it to
-    // the furtherest corner of the domain
     double x_maxdist = std::max(std::abs(probhi[0] - xctr), std::abs(problo[0] - xctr));
     double y_maxdist = std::max(std::abs(probhi[1] - yctr), std::abs(problo[1] - yctr));
     double maxdist = std::sqrt(x_maxdist*x_maxdist + y_maxdist*y_maxdist);
@@ -72,41 +59,28 @@ int main(int argc, char* argv[])
 
     int nbins = int(maxdist / dx_fine);
 
-    // radial coordinate
     Vector<Real> r(nbins);
     for (auto i = 0; i < nbins; i++)
         r[i] = (i + 0.5) * dx_fine;
 
-    // find variable indices
     Vector<std::string> slcvarNames = {"rad"};
     const auto nvars = slcvarNames.size();
 
     auto varComps = GetComponents(data, slcvarNames);
     auto rad_comp = varComps[0];
 
-    // allocate storage for data
     Vector<Real> rad_bin(nbins, 0.);
     Vector<int> ncount(nbins, 0);
 
-    // r1 is the factor between the current level grid spacing and the
-    // FINEST level
     auto r1 = 1.0;
 
-    // fill a multifab with the data
     Vector<int> fill_comps(data.NComp());
     for (auto i = 0; i < data.NComp(); i++)
         fill_comps[i] = i;
 
-    // imask will be set to false if we've already output the data.
-    // Note, imask is defined in terms of the finest level.  As we loop
-    // over levels, we will compare to the finest level index space to
-    // determine if we've already output here
     int mask_size = domain.length().max();
     Vector<int> imask(std::pow(mask_size, AMREX_SPACEDIM), 1);
 
-    // loop over the data, starting at the finest grid, and if we haven't
-    // already stored data in that grid location (according to imask),
-    // store it.
     for (int l = finestLevel; l >= 0; l--) {
 
         Vector<Real> level_dx = data.DxLevel()[l];
@@ -131,22 +105,18 @@ int main(int argc, char* argv[])
 
         }
 
-        // adjust r1 for the next lowest level
         if (l != 0) r1 *= rr[l-1];
     }
 
-    // normalize
     for (int i = 0; i < nbins; i++)
         if (ncount[i] != 0)
             rad_bin[i] /= ncount[i];
 
-    // write data to slicefile
     Vector<Vector<Real> > vars(nvars);
     vars[0] = rad_bin;
 
     WriteSlicefile(nbins, r, slcvarNames, vars, slcfile);
 
-    // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();

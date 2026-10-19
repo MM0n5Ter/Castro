@@ -14,7 +14,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real xx = problo[0] + dx[0] * (static_cast<Real>(i) + 0.5_rt);
 
-    // compute the integer location of the center of the domain
     int center_i = static_cast<int>(problem::center[0] / dx[0]);
 
     int center_j = 0;
@@ -34,7 +33,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     state(i,j,k,URHO) = dens;
 
-    // velocity perturbation
 
     Real xvel = 0.0;
     if (xx < problem::center[0]) {
@@ -47,14 +45,12 @@ void user_initialize_state_data (int i, int j, int k,
     state(i,j,k,UMY) = 0.0_rt;
     state(i,j,k,UMZ) = 0.0_rt;
 
-    // set the composition
     Real X[NumSpec] = {0.0};
     X[0] = 1.0_rt;
 
-    // compute the internal energy and temperature
 
     eos_t eos_state;
-    eos_state.T = 1.0_rt;  // initial guess
+    eos_state.T = 1.0_rt;
     eos_state.rho = dens;
     eos_state.p = problem::p_ambient;
     for (int n = 0; n < NumSpec; n++) {

@@ -34,15 +34,10 @@ void user_initialize ()
     }
     model_params.xn[ihe4] = 1.0_rt - (NumSpec - 1) * 100 * network_rp::small_x;
 
-    // we add some buffer to the model so we can use it to fill ghost
-    // cells in the boundary conditions
 
     int nbuf = 8;
 
-    // generate the initial model -- it will be stored in the model
-    // parser global data
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();

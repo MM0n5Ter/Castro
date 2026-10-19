@@ -44,15 +44,6 @@ source_trace_needed(amrex::Array4<amrex::Real const> const& prim_source, const i
 
 
 
-///
-/// Compute the coefficients of a parabolic reconstruction of the data in a zone.
-/// This uses the standard PPM limiters
-///
-/// @param s      Real[nslp] the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
-/// @param flatten_factor  The flattening coefficient
-/// @param sm     The value of the parabola on the left edge of the zone
-/// @param sp     The value of the parabola on the right edge of the zone
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 parabolic_reconstruct(const amrex::Real* s,
@@ -61,7 +52,6 @@ parabolic_reconstruct(const amrex::Real* s,
 
     if (ppm_parabola_clip) {
 
-        // Compute van Leer slopes
 
         amrex::Real dsl = 2.0_rt * (s[im1] - s[im2]);
         amrex::Real dsr = 2.0_rt * (s[i0] - s[im1]);
@@ -81,15 +71,12 @@ parabolic_reconstruct(const amrex::Real* s,
           van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl),std::abs(dsr));
         }
 
-        // Interpolate s to edges
 
         sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
-        // Make sure sedge lies in between adjacent cell-centered values
 
         sm = amrex::Clamp(sm, std::min(s[i0], s[im1]), std::max(s[i0], s[im1]));
 
-        // Compute van Leer slopes
 
         dsl = 2.0_rt * (s[i0] - s[im1]);
         dsr = 2.0_rt * (s[ip1] - s[i0]);
@@ -109,21 +96,17 @@ parabolic_reconstruct(const amrex::Real* s,
             van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
         }
 
-        // Interpolate s to edges
 
         sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
-        // Make sure sedge lies in between adjacent cell-centered values
 
         sp = amrex::Clamp(sp, std::min(s[ip1], s[i0]), std::max(s[ip1], s[i0]));
 
 
-        // Flatten the parabola
 
         sm = flatten_factor * sm + (1.0_rt - flatten_factor) * s[i0];
         sp = flatten_factor * sp + (1.0_rt - flatten_factor) * s[i0];
 
-        // Modify using quadratic limiters
 
         if ((sp - s[i0]) * (s[i0] - sm) <= 0.0_rt) {
           sp = s[i0];
@@ -138,7 +121,6 @@ parabolic_reconstruct(const amrex::Real* s,
 
     } else {
 
-        // unlimited PPM reconstruction
 
         sm = (7.0_rt/12.0_rt) * (s[i0] + s[im1]) - (1.0_rt/12.0_rt) * (s[im2] + s[ip1]);
         sp = (7.0_rt/12.0_rt) * (s[ip1] + s[i0]) - (1.0_rt/12.0_rt) * (s[im1] + s[ip2]);
@@ -148,25 +130,6 @@ parabolic_reconstruct(const amrex::Real* s,
 }
 
 
-///
-/// Compute the coefficients of a parabolic reconstruction of the pressure by
-/// first subtracting off the hydrostatic pressure.  This should better balance
-/// the gravitational force by only limiting on the wave-generating pressure.
-/// This uses the standard PPM limiters
-///
-/// @param rho         Real[nslp] giving the density in zones i-2, i-1, i, i+1, i+2
-/// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
-/// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
-///                    i-2, i-1, i, i+1, i+2
-/// @param flatten_factor       flattening coefficient
-/// @param at_lo_symmetry  true if a physical boundary is just to the left of this zone
-/// @param at_hi_symmetry  true if a physical boundary is just to the right of this zone
-///
-/// @param sm     The value of the parabola on the left edge of the zone
-/// @param sp     The value of the parabola on the right edge of the zone
-///
-/// @return a bool indicating whether HSE correction was done
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
 reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatten_factor,
@@ -175,7 +138,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     amrex::Real tp[nslp];
 
-    // compute the hydrostatic pressure in each zone center starting with i0
 
     amrex::Real p0_hydrostatic = p[i0];
 
@@ -185,12 +147,10 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
     amrex::Real pm1_hydrostatic = p0_hydrostatic - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
     amrex::Real pm2_hydrostatic = pm1_hydrostatic - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
 
-    // compute hydrostatic pressure at the interface
 
     amrex::Real p_plus_hydrostatic = p0_hydrostatic + 0.5_rt*dx * rho[i0] * src[i0];
     amrex::Real p_minus_hydrostatic = p0_hydrostatic - 0.5_rt*dx * rho[i0] * src[i0];
 
-    // this only makes sense if the pressures are positive
     bool ptest =  p0_hydrostatic < 0.0 ||
                  pp1_hydrostatic < 0.0 ||
                  pp2_hydrostatic < 0.0 ||
@@ -204,7 +164,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     if (use_hydrostatic_edges) {
 
-        // subtract off the hydrostatic pressure
 
         tp[i0] = p[i0] - p0_hydrostatic;
 
@@ -216,7 +175,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     } else {
 
-        // don't subtract off HSE
 
         tp[im2] = p[im2];
         tp[im1] = p[im1];
@@ -228,10 +186,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
     parabolic_reconstruct(tp, flatten_factor, sm, sp);
 
 
-    // now correct sm and sp to be back to the full pressure by
-    // adding in the hydrostatic pressure at the interface
-    // if we are doing the full well-balanced method, then we
-    // don't do this until after the characteristic tracing
 
     if (use_hydrostatic_edges && !hydrosim::ppm_equil_recon) {
         sp += p_plus_hydrostatic;
@@ -243,44 +197,20 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 }
 
 
-///
-/// Integrate under the parabola using from the left and right edges
-/// with the wave speeds u-c, u, u+c
-///
-/// @param sm    The parabola value on the left edge of the zone
-/// @param sp    The parabola value on the right edge of the zone
-/// @param sc    The state value at the zone center
-/// @param u     The fluid velocity
-/// @param c     The sound speed
-/// @param dtdx  dt/dx (timestep / cell width)
-/// @param Ip    Real[3], the integrals under the parabola over
-///              the 3 waves from the right zone edge
-/// @param Im    Real[3], the integrals under the parabola over
-///              the 3 waves from the left zone edge
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
                 const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
                 amrex::Real* Ip, amrex::Real* Im) {
 
-  // Integrate the parabolic profile to the edge of the cell.
 
-  // compute x-component of Ip and Im
 
   Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
 
-  // Ip/m is the integral under the parabola for the extent
-  // that a wave can travel over a timestep
-  //
-  // Ip integrates to the right edge of a cell
-  // Im integrates to the left edge of a cell
 
-  // u-c wave
   Real speed = u - c;
   Real sigma = std::abs(speed) * dtdx;
 
-  // if speed == ZERO, then either branch is the same
   if (speed <= 0.0_rt) {
     Ip[0] = sp;
     Im[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
@@ -289,7 +219,6 @@ integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const am
     Im[0] = sm;
   }
 
-  // u wave
   speed = u;
   sigma = std::abs(speed) * dtdx;
 
@@ -301,7 +230,6 @@ integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const am
     Im[1] = sm;
   }
 
-  // u+c wave
   speed = u + c;
   sigma = std::abs(speed) * dtdx;
 
@@ -315,35 +243,15 @@ integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const am
 
 }
 
-///
-/// Integrate under the parabola from the left and right edges for a
-/// single wave speed
-///
-/// @param sm    The parabola value on the left edge of the zone
-/// @param sp    The parabola value on the right edge of the zone
-/// @param sc    The state value at the zone center
-/// @param lam   The wave speed
-/// @param dtdx  dt/dx (timestep / cell width)
-/// @param Ip    integral under the parabola from the right zone edge
-/// @param Im    integral under the parabola from the left zone edge
-///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
                        const Real lam, const Real dtdx,
                        Real& Ip, Real& Im) {
 
-  // Integrate the parabolic profile to the edge of the cell.
-  // This is the MHD version.  We come in already with the eigenvalues.
 
-  // compute x-component of Ip and Im
   Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
 
-  // Ip/m is the integral under the parabola for the extent
-  // that a wave can travel over a timestep
-  //
-  // Ip integrates to the right edge of a cell
-  // Im integrates to the left edge of a cell
 
   Real sigma = std::abs(lam) * dtdx;
 

@@ -8,23 +8,6 @@ void do_sdc_correct(int m_start, int m_end, amrex::Real dt);
 #endif
 
 #ifdef REACTIONS
-/// Take an input conserved state cell_cons, evaluate the instantaneous
-/// reaction rates, and store the result in React_source/
-///
-/// Special consideration is needed for order4_scheme accuracy:
-///
-///  * If we come in with cell_cons representing an average
-///    (input_is_mean = true), then, for order4_scheme, we will
-///    convert cell_cons to cell-centers (consuming one ghost cell),
-///    burn on the cell-centers (including one ghost cell) and then
-///    average back to cell-centers (consuming another ghosst cell).
-///    This requires >= 2 ghost cells for cell_cons, which we assume
-///    are valid.
-///
-///  * If we come in with cell_cons representing cell centers
-///    (input_is_mean = false), then we just return React_source
-///    at the cell-centers.
-///
 void assemble_old_react_source(amrex::MultiFab& cell_cons,
                                 amrex::MultiFab& React_source,
                                 const bool input_is_mean);

@@ -38,11 +38,8 @@ HydroSim::centralmass_update(Real time, Real dt)
             reduce_op.eval(bx, reduce_data,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
             {
-                // This is just a small number to keep precision issues from making
-                // center_i, center_j, center_k one cell too low.
                 const Real eps = 1.e-8_rt;
 
-                // This should be the cell whose lower left corner is at center
                 int center_i = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
 #if AMREX_SPACEDIM >= 2
                 int center_j = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
@@ -51,7 +48,6 @@ HydroSim::centralmass_update(Real time, Real dt)
                 int center_k = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
 #endif
 
-                // Make sure we only count contributions from this grid
 
                 const int box_size = 2;
 
@@ -116,12 +112,9 @@ HydroSim::centralmass_update(Real time, Real dt)
                 amrex::ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
-                    // This is just a small number to keep precision issues from making
-                    // center_i, center_j, center_k one cell too low.
 
                     const Real eps = 1.e-8_rt;
 
-                    // This should be the cell whose lower left corner is at center
                     int center_i = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
 #if AMREX_SPACEDIM >= 2
                     int center_j = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
@@ -130,7 +123,6 @@ HydroSim::centralmass_update(Real time, Real dt)
                     int center_k = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
 #endif
 
-                    // Make sure we only count contributions from this grid
 
                     const int box_size = 2;
 

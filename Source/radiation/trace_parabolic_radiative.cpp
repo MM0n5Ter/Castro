@@ -28,25 +28,7 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
                       const Box& vbx,
                       const Real dt) {
 
-  // These routines do the characteristic tracing under the parabolic
-  // profiles in each zone to the edge / half-time.
 
-  // To allow for easy integration of radiation, we adopt the
-  // following conventions:
-  //
-  // rho : mass density
-  // u, v, w : velocities
-  // p : gas (hydro) pressure
-  // total_pressure : total pressure (note for pure hydro, this is
-  //        just the gas pressure)
-  // energy_density_gas : gas specific internal energy
-  // cgas : sound speed for just the gas contribution
-  // cc : total sound speed (including radiation)
-  // h_g : gas specific enthalpy / cc**2
-  // gas_adiabatic_index : the gas Gamma_1
-  //
-  // for pure hydro, we will only consider:
-  //   rho, u, v, w, total_pressure, energy_density_gas, cc, h_g
 
   const auto dx = geom.CellSizeArray();
 
@@ -61,11 +43,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
 
 #ifndef AMREX_USE_GPU
 
-  // if we're on the CPU, we preprocess the sources over the whole
-  // tile up front -- we don't want to trace under a source that is
-  // empty. This check only needs to be done over the tile we're
-  // working on, since the PPM reconstruction and integration done
-  // here is only local to this tile.
 
   GpuArray<int, NQSOURCE> trace_source_flags;
 
@@ -88,26 +65,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
   }
 #endif
 
-  // This does the characteristic tracing to build the interface
-  // states using the normal predictor only (no transverse terms).
-  //
-  // For each zone, we construct Im and Ip arrays -- these are the averages
-  // of the various primitive state variables under the parabolic
-  // interpolant over the region swept out by one of the 3 different
-  // characteristic waves.
-  //
-  // Im is integrating to the left interface of the current zone
-  // (which will be used to build the right ("p") state at that interface)
-  // and Ip is integrating to the right interface of the current zone
-  // (which will be used to build the left ("m") state at that interface).
-  //
-  //
-  // The choice of reference state is designed to minimize the
-  // effects of the characteristic projection.  We subtract the I's
-  // off of the reference state, project the quantity such that it is
-  // in terms of the characteristic variables, and then add all the
-  // jumps that are moving toward the interface to the reference
-  // state to get the full state on that interface.
 
   int QUN, QUT, QTRANSV2;
 
@@ -128,7 +85,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
   Real ldensity_floor = small_dens;
   Real local_pressure_floor = pressure_cutoff;
 
-  // Trace to left and right edges using upwind PPM
   AMREX_PARALLEL_FOR_3D(bx, i, j, k,
   {
 
@@ -144,8 +100,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
 
     Real rho = prim_arr(i,j,k,QRHO);
 
-    // gas_sound_speed_sq is the gas soundspeed **2
-    // cc is the total soundspeed **2 (gas + radiation)
     Real gas_sound_speed_sq = qthermo_arr(i,j,k,QCG)*qthermo_arr(i,j,k,QCG);
     Real cc = qthermo_arr(i,j,k,QC);
     Real csq = cc*cc;
@@ -167,8 +121,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       hr[g] = (lam0[g] + 1.0_rt)*er[g]/rho;
     }
 
-    // do the parabolic reconstruction and compute the
-    // integrals under the characteristic waves
     Real s[5];
 
     Real flat = 1.0;
@@ -201,7 +153,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
     Real Im[NQ][3];
 
 
-    // do the non-passives first
 
     for (int n = 0; n < NQPRIMBASE; n++) {
       if (n == QTEMP) continue;
@@ -212,7 +163,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
 
     }
 
-    // now the passives
 
     for (int passive_index = 0; passive_index < npassive; ++passive_index) {
 
@@ -226,13 +176,11 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
     }
 
 
-    // source terms
     Real TraceP_src[NQSOURCE][3];
     Real TraceM_src[NQSOURCE][3];
 
     for (int n = 0; n < NQSOURCE; n++) {
 
-      // do we even need to trace (non-zero source?)
 #ifndef AMREX_USE_GPU
       int trace_enabled = trace_source_flags[n];
 #else
@@ -280,32 +228,20 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
     }
 
 
-    // do the passives separately
 
-    // the passive stuff is the same regardless of the tracing
 
     for (int passive_index = 0; passive_index < npassive; passive_index++) {
 
       int n = passive_prim_index(passive_index);
 
-      // Plus state on face i
       if ((idir == 0 && i >= vlo[0]) ||
           (idir == 1 && j >= vlo[1]) ||
           (idir == 2 && k >= vlo[2])) {
 
-        // We have
-        //
-        // q_l = q_ref - Proj{(q_ref - I)}
-        //
-        // and Proj{} represents the characteristic projection.
-        // But for these, there is only 1-wave that matters, the u
-        // wave, so no projection is needed.  Since we are not
-        // projecting, the reference state doesn't matter
 
         qp(i,j,k,n) = Im[n][1];
       }
 
-      // Minus state on face i+1
       if (idir == 0 && i <= vhi[0]) {
         qm(i+1,j,k,n) = Ip[n][1];
       } else if (idir == 1 && j <= vhi[1]) {
@@ -315,14 +251,11 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       }
     }
 
-    // plus state on face i
 
     if ((idir == 0 && i >= vlo[0]) ||
         (idir == 1 && j >= vlo[1]) ||
         (idir == 2 && k >= vlo[2])) {
 
-      // Set the reference state
-      // This will be the fastest moving state to the left
       Real ref_density = Im[QRHO][0];
       Real ref_normal_velocity = Im[QUN][0];
 
@@ -338,13 +271,8 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       ref_density = amrex::max(ref_density, ldensity_floor);
       ref_pressure = amrex::max(ref_pressure, local_pressure_floor);
 
-      // *m are the jumps carried by u-c
-      // *p are the jumps carried by u+c
 
-      // Note: for the transverse velocities, the jump is carried
-      //       only by the u wave (the contact)
 
-      // we also add the sources here so they participate in the tracing
       Real dum = ref_normal_velocity - Im[QUN][0] - hdt*TraceM_src[QUN][0];
       Real pressure_jump_minus = ref_total_pressure - Im[QPTOTAL][0] - hdt*TraceM_src[QPRES][0];
 
@@ -360,11 +288,7 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       Real dup = ref_normal_velocity - Im[QUN][2] - hdt*TraceM_src[QUN][2];
       Real pressure_jump_plus = ref_total_pressure - Im[QPTOTAL][2] - hdt*TraceM_src[QPRES][2];
 
-      // {rho, u, p, (rho e)} eigensystem
 
-      // These are analogous to the beta's from the original PPM
-      // (except we work with rho instead of tau).  This is
-      // simply (l . dq), where dq = qref - I(q)
 
       Real acoustic_amp_minus = 0.5_rt*(pressure_jump_minus/(rho*cc) - dum)*rho/cc;
       Real acoustic_amp_plus = 0.5_rt*(pressure_jump_plus/(rho*cc) + dup)*rho/cc;
@@ -385,9 +309,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
         rad_wave_amplitude[g] = un > 0.0_rt ? 0.0_rt : -rad_wave_amplitude[g];
       }
 
-      // The final interface states are just
-      // q_s = q_ref - sum(l . dq) r
-      // note that the a{mpz}right as defined above have the minus already
       qp(i,j,k,QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
       qp(i,j,k,QUN) = ref_normal_velocity + (acoustic_amp_plus - acoustic_amp_minus)*cc/rho;
       qp(i,j,k,QEINTDENS) = ref_energy_density_gas + (acoustic_amp_plus + acoustic_amp_minus)*h_g*csq + entropy_amp_energy_gas;
@@ -417,26 +338,17 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
         }
       }
 
-      // Transverse velocities -- there's no projection here, so
-      // we don't need a reference state.  We only care about
-      // the state traced under the middle wave
 
-      // Recall that I already takes the limit of the parabola
-      // in the event that the wave is not moving toward the
-      // interface
       qp(i,j,k,QUT) = Im[QUT][1] + hdt*TraceM_src[QUT][1];
       qp(i,j,k,QTRANSV2) = Im[QTRANSV2][1] + hdt*TraceM_src[QTRANSV2][1];
 
     }
 
-    // minus state on face i + 1
 
     if ((idir == 0 && i <= vhi[0]) ||
         (idir == 1 && j <= vhi[1]) ||
         (idir == 2 && k <= vhi[2])) {
 
-      // Set the reference state
-      // This will be the fastest moving state to the right
       Real ref_density = Ip[QRHO][2];
       Real ref_normal_velocity = Ip[QUN][2];
 
@@ -452,8 +364,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       ref_density = amrex::max(ref_density, ldensity_floor);
       ref_pressure = amrex::max(ref_pressure, local_pressure_floor);
 
-      // *m are the jumps carried by u-c
-      // *p are the jumps carried by u+c
 
       Real dum = ref_normal_velocity - Ip[QUN][0] - hdt*TraceP_src[QUN][0];
       Real pressure_jump_minus = ref_total_pressure - Ip[QPTOTAL][0] - hdt*TraceP_src[QPRES][0];
@@ -470,11 +380,7 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       Real dup = ref_normal_velocity - Ip[QUN][2] - hdt*TraceP_src[QUN][2];
       Real pressure_jump_plus = ref_total_pressure - Ip[QPTOTAL][2] - hdt*TraceP_src[QPRES][2];
 
-      // {rho, u, p, (rho e)} eigensystem
 
-      // These are analogous to the beta's from the original PPM
-      // (except we work with rho instead of tau).  This is
-      // simply (l . dq), where dq = qref - I(q)
 
       Real acoustic_amp_minus = 0.5_rt*(pressure_jump_minus/(rho*cc) - dum)*rho/cc;
       Real acoustic_amp_plus = 0.5_rt*(pressure_jump_plus/(rho*cc) + dup)*rho/cc;
@@ -495,9 +401,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
         rad_wave_amplitude[g] = un > 0.0_rt ? -rad_wave_amplitude[g] : 0.0_rt;
       }
 
-      // The final interface states are just
-      // q_s = q_ref - sum (l . dq) r
-      // note that the a{mpz}left as defined above have the minus already
 
       if (idir == 0) {
         qm(i+1,j,k,QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
@@ -528,7 +431,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
           }
         }
 
-        // transverse velocities
         qm(i+1,j,k,QUT) = Ip[QUT][1] + hdt*TraceP_src[QUT][1];
         qm(i+1,j,k,QTRANSV2) = Ip[QTRANSV2][1] + hdt*TraceP_src[QTRANSV2][1];
 
@@ -567,7 +469,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
           }
         }
 
-        // transverse velocities
         qm(i,j+1,k,QUT) = Ip[QUT][1] + hdt*TraceP_src[QUT][1];
         qm(i,j+1,k,QTRANSV2) = Ip[QTRANSV2][1] + hdt*TraceP_src[QTRANSV2][1];
 
@@ -608,7 +509,6 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
           }
         }
 
-        // transverse velocities
         qm(i,j,k+1,QUT) = Ip[QUT][1] + hdt*TraceP_src[QUT][1];
         qm(i,j,k+1,QTRANSV2) = Ip[QTRANSV2][1] + hdt*TraceP_src[QTRANSV2][1];
 
@@ -616,10 +516,8 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
 
     }
 
-    // geometry source terms
 
 #if (AMREX_SPACEDIM < 3)
-    // these only apply for x states (idir = 0)
     if (idir == 0 && dloga(i,j,k) != 0.0_rt) {
       Real courant_local = dt/dx[0]*(cc+std::abs(un));
       Real eta = (1.0_rt - courant_local)/(cc*dt*std::abs(dloga(i,j,k)));

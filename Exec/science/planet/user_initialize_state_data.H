@@ -48,7 +48,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     eos(eos_input_rt, eos_state);
 
-    // switch to conserved quantities
 
     state(i,j,k,UEDEN) = state(i,j,k,URHO) * eos_state.e;
     state(i,j,k,UEINT) = state(i,j,k,URHO) * eos_state.e;
@@ -57,7 +56,6 @@ void user_initialize_state_data (int i, int j, int k,
         state(i,j,k,UFS+n) = state(i,j,k,URHO) * state(i,j,k,UFS+n);
     }
 
-    // Initial velocities
 
     state(i,j,k,UMX) = 0.0_rt;
     state(i,j,k,UMY) = 0.0_rt;
@@ -65,7 +63,6 @@ void user_initialize_state_data (int i, int j, int k,
 
 #if AMREX_SPACEDIM == 3
     if (problem::shear_vel_field) {
-        // First give shear velocity at h >= shear_height_loc - shear_height/2
 
         if (coord[2] > shear_bottom_index &&
             coord[2] <= shear_bottom_index + problem::shear_height) {
@@ -98,7 +95,6 @@ void user_initialize_state_data (int i, int j, int k,
     }
 #endif
 
-    //  Now add the velocity perturbation (update the kinetic energy too)
     if (problem::apply_vel_field) {
 
 #if AMREX_SPACEDIM == 2
@@ -111,7 +107,6 @@ void user_initialize_state_data (int i, int j, int k,
 
         Real upert[3] = {0.0_rt};
 
-        // loop over each vortex
 
         for (int ivortex = 0; ivortex < problem::num_vortices; ivortex++) {
 
@@ -140,7 +135,6 @@ void user_initialize_state_data (int i, int j, int k,
 
         Real upert[3] = {0.0_rt};
 
-        // loop over each vortex
 
         if (problem::velpert_height_loc > 0.0_rt &&
             problem::velpert_scale > 0.0_rt &&

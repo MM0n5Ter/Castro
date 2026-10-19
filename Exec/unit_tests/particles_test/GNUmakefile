@@ -17,12 +17,10 @@ USE_POST_SIM = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := gamma_law
 
 CONDUCTIVITY_DIR = constant
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := general_null
 NETWORK_INPUTS = gammalaw.net
 

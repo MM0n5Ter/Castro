@@ -21,14 +21,11 @@ USE_MODEL_PARSER = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-#This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := gamma_law
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := general_null
 NETWORK_INPUTS := H_He.net
 
-# power-law opacity
 OPACITY_DIR := rad_power_law
 
 PROBLEM_DIR ?= ./

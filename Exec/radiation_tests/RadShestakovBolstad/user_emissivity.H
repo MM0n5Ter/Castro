@@ -10,7 +10,7 @@ void user_emissivity (int i, int j, int k, int g,
                          Real T, Real kg, Real dOpacT,
                          Real& jg, Real& dEmitT)
 {
-    const Real Tf = 1.1604518737857157e6_rt; // 1 (dimensionless)
+    const Real Tf = 1.1604518737857157e6_rt;
 
     Real hoverk = C::hplanck / C::k_B;
     Real cB = 8.0_rt * M_PI * C::k_B / std::pow(C::c_light, 3);

@@ -16,7 +16,6 @@
 #include <hydrosim_params.H>
 #include <params_type.H>
 
-// a global struct to hold the params
 #include <struct_params.H>
 
 int main(int argc, char *argv[]) {
@@ -25,18 +24,15 @@ int main(int argc, char *argv[]) {
 
     std::cout << "starting the exact Riemann solver..." << std::endl;
 
-    // initialize the HydroSim runtime parameters
 
     amrex::ParmParse pp("hydrosim");
 #include <hydrosim_queries.H>
 
-    // initialize the external runtime parameters in C++
 
     init_prob_parameters();
 
     init_extern_parameters();
 
-    // now initialize the C++ Microphysics
 #ifdef REACTIONS
     network_init();
 #endif

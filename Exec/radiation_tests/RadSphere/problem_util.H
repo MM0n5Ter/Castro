@@ -3,27 +3,15 @@
 
 #include "fundamental_constants.H"
 
-// problem parameters
-//
-// we will specify the opacity as kappa = kapp_0 (nu_0 / nu)**3
-// where nu_0 is a reference frequency
-//
-// the "opacity of the material
-// is proportional to 1/E**3".  The output depends critically on the constant.
-// kappa = 1.e13 * (1.5e-6 MeV / E)**3
-//
-// Converting 1.5e-6 MeV to a frequency gives nu_0 = 3.63e14 Hz
 
-constexpr Real nu_0 = 3.6e14_rt; //  ref. freq (Hz)
-constexpr Real kappa_0 = 1.e13_rt; // scattering opacity (1/cm)
+constexpr Real nu_0 = 3.6e14_rt;
+constexpr Real kappa_0 = 1.e13_rt;
 
-// geometry parameters
-constexpr Real R_sphere = 0.02_rt; // sphere radius (cm)
-constexpr Real r_obs = 0.06_rt; // observer location (cm)
+constexpr Real R_sphere = 0.02_rt;
+constexpr Real r_obs = 0.06_rt;
 
-constexpr Real T_sphere = 1500.0_rt * C::ev2erg / C::k_B; // sphere temp (K)
+constexpr Real T_sphere = 1500.0_rt * C::ev2erg / C::k_B;
 
-// to guard against over/underflows, we define some 'safe' functions
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
@@ -41,15 +29,6 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
 planck(const Real nu, const Real T) {
 
-  // the Planck function for a Blackbody (actually, energy density,
-  // B = (4 pi / c) I, where I is the normal Planck function
-  //
-  // nu = frequency (Hz)
-  // T  = temperature (K)
-  //
-  // note that we are working
-  // in Hz here, so we have units of erg / cm^3 / Hz.  As a result, we have one
-  // less factor of hplanck.
 
   Real B = (8.0_rt * M_PI * C::hplanck * nu * nu * nu  / (C::c_light * C::c_light * C::c_light)) /
     (std::exp(C::hplanck * nu / (C::k_B * T)) - 1.0_rt);
@@ -62,11 +41,6 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
 F_radsphere(const Real r, const Real t, const Real nu) {
 
-  // the function F(r,t)
-  //
-  // r      = position
-  // t      = time (s)
-  // nu     = frequency (Hz)
 
 
   Real kappa = kappa_0 * (nu_0 / nu) * (nu_0 / nu) * (nu_0 / nu);

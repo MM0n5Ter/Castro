@@ -16,10 +16,8 @@ USE_RNG_STATE_INIT = TRUE
 
 HYDROSIM_HOME ?= ../../..
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := CNO_extras
 
 PROBLEM_DIR ?= ./

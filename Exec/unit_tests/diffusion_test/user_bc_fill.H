@@ -4,24 +4,12 @@
 #include <prob_util.H>
 #include <eos.H>
 
-///
-/// Problem-specific boundary condition fill
-///
-/// @param i         x-index
-/// @param j         y-index
-/// @param k         z-index
-/// @param state     simulation state (Fab)
-/// @param time      simulation time
-/// @param bcs       boundary conditions
-/// @param geomdata  geometry data
-///
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void user_bc_fill(int i, int j, int k,
                       Array4<Real> const& state,
                       Real time, const Array1D<BCRec, 0, NUM_STATE-1>& bcs,
                       const GeometryData& geomdata) {
 
-    // set Dirchilet boundary condition using analytic solution for diffusion problem.
 
     amrex::ignore_unused(j);
     amrex::ignore_unused(k);
@@ -46,10 +34,6 @@ void user_bc_fill(int i, int j, int k,
         }
     }
 
-    // If we evaluate diffusion within hydrosim, then boundary condition needs to be cell-centered.
-    // If MLMG is used to evaluate diffusion term, then the Dirichlet boundary condition
-    // for MLMG needs to be face-centered. This is done via mlabec.setLevelBC(0, &Temperature)
-    // in Diffusion.cpp. Here add another 0.5 * dx to convert from cell-centered to face-centered.
 
     if (conduction_use_mlmg) {
         if (   ((bcs(UTEMP).lo(0) == amrex::BCType::ext_dir) && (i < domlo[0]))
@@ -88,7 +72,6 @@ void user_bc_fill(int i, int j, int k,
         state(i,j,k,UMZ) = 0.0_rt;
         state(i,j,k,UTEMP) = analytic(r, time, coord);
 
-        // compute internal energy
         eos_t eos_state;
         eos_state.T = state(i,j,k,UTEMP);
         eos_state.rho = state(i,j,k,URHO);

@@ -12,13 +12,8 @@ HydroSim::hs_deferred_update_advection_o2_lobatto(const Box& bx,
                                            Array4<const Real> const& Advect_1_old,
                                            int m_start)
 {
-    // update k_m to k_n via advection -- this is a second-order accurate update
-    // for the Gauss-Lobatto discretization of the time nodes
 
-    // here, substep_dt is the update for this stage, from one time node to the next
-    // dt is the update over the whole timestep, n to n+1
 
-    // Gauss-Lobatto / trapezoid
 
     amrex::ignore_unused(substep_dt);
     amrex::ignore_unused(A_m);
@@ -43,13 +38,8 @@ HydroSim::hs_deferred_update_advection_o2_radau(const Box& bx,
                                          Array4<const Real> const& Advect_2_old,
                                          int m_start)
 {
-    // update k_m to k_n via advection -- this is a second-order accurate update
-    // for the Radau discretization of the time nodes
 
-    // here, substep_dt is the update for this stage, from one time node to the next
-    // dt is the update over the whole timestep, n to n+1
 
-    // Radau
 
     if (m_start == 0)
     {
@@ -84,12 +74,8 @@ HydroSim::hs_deferred_update_advection_o4_lobatto(const Box& bx,
                                            Array4<const Real> const& Advect_2_old,
                                            int m_start)
 {
-    // update k_m to k_n via advection -- this is a fourth order accurate update
 
-    // here, substep_dt is the update for this stage, from one time node to the next
-    // dt is the update over the whole timestep, n to n+1
 
-    // Gauss-Lobatto (Simpsons)
 
     if (m_start == 0)
     {
@@ -129,12 +115,8 @@ HydroSim::hs_deferred_update_advection_o4_radau(const Box& bx,
                                          Array4<const Real> const& Advect_3_old,
                                          int m_start)
 {
-    // update k_m to k_n via advection -- this is a fourth-order accurate update
 
-    // here, substep_dt is the update for this stage, from one time node to the next
-    // dt is the update over the whole timestep, n to n+1
 
-    // Gauss-Lobatto (Simpsons)
 
     if (m_start == 0)
     {
@@ -190,8 +172,6 @@ HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
                                   Array4<Real> const& C,
                                   int m_start)
 {
-    // compute the source term C for the 2nd order Lobatto update
-    // Here, substep_dt is the timestep between time-nodes m and m+1
 
     amrex::ignore_unused(substep_dt);
     amrex::ignore_unused(dt);
@@ -201,15 +181,12 @@ HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
     amrex::ParallelFor(bx, C.nComp(),
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        // construct the source term to the update for 2nd order
-        // Lobatto, there is no advective correction, and we have
-        // C = - R(U^{m+1,k}) + I_m^{m+1}/dt
         C(i,j,k,n) = -React_1_old(i,j,k,n) +
             0.5_rt * (Advect_0_old(i,j,k,n) + Advect_1_old(i,j,k,n)) +
             0.5_rt * (React_0_old(i,j,k,n) + React_1_old(i,j,k,n));
     });
 
-} // end hs_deferred_compute_correction_o2_lobatto
+}
 
 void
 HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
@@ -224,12 +201,8 @@ HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
                                 Array4<Real> const& C,
                                 int m_start)
 {
-    // compute the source term C for the 2nd order Radau update
 
-    // Here, substep_dt is the timestep between time-nodes m and m+1
 
-    // construct the source term to the update for 2nd order
-    // Radau
 
     amrex::ignore_unused(Advect_0_old);
     amrex::ignore_unused(React_0_old);
@@ -258,7 +231,7 @@ HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
                  (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
         });
     }
-} // end hs_deferred_compute_correction_o2_radau
+}
 
 void
 HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
@@ -273,18 +246,14 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
                                   Array4<Real> const& C,
                                   int m_start)
 {
-    // compute the 'C' term for the 4th-order solve with reactions
-    // note: this 'C' is cell-averages
 
     amrex::ignore_unused(A_m);
     amrex::ignore_unused(substep_dt);
     amrex::ignore_unused(dt);
 
-    // Gauss-Lobatto (Simpsons)
 
     if (m_start == 0)
     {
-        // compute the integral from [t_m, t_{m+1}], normalized by substep_dt
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
@@ -297,7 +266,6 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
     }
     else if (m_start == 1)
     {
-        // compute the integral from [t_m, t_{m+1}], normalized by substep_dt
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
@@ -313,7 +281,7 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
         amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
     }
 
-} // end subroutine hs_deferred_compute_correction_o4_lobatto
+}
 
 
 void
@@ -331,16 +299,12 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
                                 Array4<Real> const& C,
                                 int m_start)
 {
-    // compute the 'C' term for the 4th-order solve with reactions
-    // note: this 'C' is cell-averages
 
-    // Radau
 
     amrex::ignore_unused(React_0_old);
 
     if (m_start == 0)
     {
-        // compute the integral from [t_m, t_{m+1}], normalized by substep_dt
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
@@ -354,7 +318,6 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
     }
     else if (m_start == 1)
     {
-        // compute the integral from [t_m, t_{m+1}], normalized by substep_dt
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
@@ -368,7 +331,6 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
     }
     else if (m_start == 2)
     {
-        // compute the integral from [t_m, t_{m+1}], normalized by substep_dt
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
@@ -384,7 +346,7 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
     {
         amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
     }
-} //  end hs_deferred_compute_correction_o4_radau
+}
 
 void
 HydroSim::hs_deferred_conservative_update(const Box& bx, Real const substep_dt,
@@ -393,15 +355,13 @@ HydroSim::hs_deferred_conservative_update(const Box& bx, Real const substep_dt,
                                    Array4<const Real> const& C,
                                    Array4<const Real> const& react_new)
 {
-    // given <U>_old, <R>_new, and <C>, compute <U>_new
 
-    // now consider the reacting system
     amrex::ParallelFor(bx, cons_new.nComp(),
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
         cons_new(i,j,k,n) = Conserved_old(i,j,k,n) + substep_dt * react_new(i,j,k,n) + substep_dt * C(i,j,k,n);
     });
-} // end subroutine hs_deferred_conservative_update
+}
 #endif
 
 
@@ -413,8 +373,6 @@ void HydroSim::hs_deferred_compute_initial_guess(const Box& bx,
                                           Array4<Real> const& State_guess,
                                           Real const substep_dt, int const sdc_iter)
 {
-    // compute the initial guess for the Newton solve
-    // Here substep_dt is the timestep to update from time node m to m+1
 
     if (sdc_iter == 0)
     {
@@ -441,10 +399,7 @@ void HydroSim::hs_store_reaction_state(const Box& bx,
                                      Array4<const Real> const& Reaction_old,
                                      Array4<Real> const& React_store)
 {
-    // copy the data from the last node's reactive source to the state data
 
-    // for React_store we use the indices defined in HydroSim_setup.cpp for
-    // Burning_Type
 
     if (keep_omegadot) {
         amrex::ParallelFor(bx, NumSpec,

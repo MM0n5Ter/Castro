@@ -34,12 +34,9 @@ void user_initialize ()
     }
     model_params.xn[ihe4] = 1.0_rt - (NumSpec - 1) * 100 * network_rp::small_x;
 
-    // we add some buffer to the model so we can use it to fill ghost
-    // cells in the boundary conditions
 
     int nbuf = 8;
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();
@@ -48,8 +45,6 @@ void user_initialize ()
     int nx_model = static_cast<int>((probhi[AMREX_SPACEDIM-1] -
                                      problo[AMREX_SPACEDIM-1] + 1.e-8_rt) / dx_model);
 
-    // generate the initial model -- it will be stored in the model
-    // parser global data
 
     generate_initial_model(nx_model,
                            problo[AMREX_SPACEDIM-1], probhi[AMREX_SPACEDIM-1],

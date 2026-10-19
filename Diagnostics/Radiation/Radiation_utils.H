@@ -24,11 +24,9 @@ Vector<Real> GetCenter (const string pltfile);
 template <typename T>
 Vector<size_t> sort_indexes(const Vector<T> &v) {
 
-    // initialize original index locations
     Vector<size_t> idx(v.size());
     iota(idx.begin(), idx.end(), 0);
 
-    // sort indexes based on comparing values in v
     sort(idx.begin(), idx.end(),
          [&v](size_t i1, size_t i2) {
         return v[i1] < v[i2];
@@ -37,14 +35,11 @@ Vector<size_t> sort_indexes(const Vector<T> &v) {
     return idx;
 }
 
-//
-// Parse command line arguments
-//
 void GetInputArgs ( const int argc, char** argv,
                     string& pltfile, string& slcfile, int& dir)
 {
 
-    int i = 1; // skip program name
+    int i = 1;
 
     while ( i < argc)
     {
@@ -68,7 +63,6 @@ void GetInputArgs ( const int argc, char** argv,
             exit ( EXIT_FAILURE );
         }
 
-        // Go to the next parameter name
         ++i;
     }
 
@@ -83,9 +77,6 @@ void GetInputArgs ( const int argc, char** argv,
     Print() << std::endl;
 }
 
-//
-// Get the indices of the components
-//
 Vector<int> GetComponents(AmrData& data, const Vector<std::string> varNames) {
 
     Vector<int> varComps;
@@ -97,29 +88,23 @@ Vector<int> GetComponents(AmrData& data, const Vector<std::string> varNames) {
 
 }
 
-//
-// Write the slice file
-//
 void WriteSlicefile(const int nbins, const Vector<Real> r,
                     const Vector<std::string> varNames,
                     Vector<Vector<Real> > vars,
                     const std::string slcfile) {
 
-    // now open the slicefile and write out the data
     std::ofstream slicefile;
     slicefile.open(slcfile);
     slicefile.setf(std::ios::scientific);
     slicefile.precision(12);
     const auto w = 24;
 
-    // write the header
     slicefile << std::setw(w) << "x";
     for (auto it=varNames.begin(); it!=varNames.end(); ++it)
         slicefile << std::setw(w) << *it;
 
     slicefile << std::endl;
 
-    // write the data in columns
     const auto SMALL = 1.e-20;
     for (auto i = 0; i < nbins; i++) {
 
@@ -138,9 +123,6 @@ void WriteSlicefile(const int nbins, const Vector<Real> r,
 }
 
 
-//
-// Print usage info
-//
 void PrintHelp ()
 {
     Print() << "\nusage: executable_name args"
@@ -153,10 +135,6 @@ void PrintHelp ()
 
 }
 
-///
-/// Gets the variable ``varname`` from the ``job_info`` file and returns as a
-/// string
-///
 string GetVarFromJobInfo (const string pltfile, const string varname) {
     string filename = pltfile + "/job_info";
     std::regex re("(?:[ \\t]*)" + varname + "\\s*:\\s*(.*)\\s*\\n");
@@ -181,11 +159,9 @@ string GetVarFromJobInfo (const string pltfile, const string varname) {
     return "";
 }
 
-// Get the center from the job info file and return as a Real Vector
 Vector<Real> GetCenter (const string pltfile) {
     auto center_str = GetVarFromJobInfo(pltfile, "center");
 
-    // split string
     std::istringstream iss {center_str};
     Vector<Real> center;
 

@@ -12,7 +12,6 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // get T_0 corresponding to rhoe_0 and rho_0 through the EOS
     Real e_0 = problem::rhoe_0 / problem::rho_0;
 
     eos_t eos_state;
@@ -27,8 +26,6 @@ void user_initialize ()
 
     problem::T_0 = eos_state.T;
 
-    // the 'center' variables are the location of the middle of the
-    // domain -- this is where we put the interface
 
     problem::center[0] = 0.5_rt * (problo[0] + probhi[0]);
 }

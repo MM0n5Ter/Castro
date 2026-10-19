@@ -14,13 +14,10 @@ void user_initialize ()
     const Real* problo = default_geom.ProbLo();
     const Real* probhi = default_geom.ProbHi();
 
-    // set center variable
 
-    // read the initial model
 
     read_model_file(problem::model_name);
 
-    // do the burning
 
     for (int k = 0; k < model::npts; k++) {
 

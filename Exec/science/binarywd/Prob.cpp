@@ -27,30 +27,20 @@ HydroSim::user_post_timestep()
     Real time = state[State_Type].curTime();
     Real dt = parent->dtLevel(0);
 
-    if (time == 0.0) dt = 0.0; // dtLevel returns the next timestep for t = 0, so overwrite
+    if (time == 0.0) dt = 0.0;
 
-    // Update white dwarf masses, positions, velocities, and auxiliary data.
 
     wd_update(time, dt);
 
-    // If we are doing the merger problem with an initial relaxation step,
-    // perform any post-timestep updates to assist with the relaxation, then
-    // determine whether the criterion for terminating the relaxation
-    // has been satisfied.
 
     update_relaxation(time, dt);
 
-    // Compute any integral quantities.
 
     problem_sums();
 }
 
 
 
-//
-// This function updates the WD data, including the masses, center-of-mass locations,
-// and velocities of the center of masses of the primary and secondary white dwarfs.
-//
 
 void
 HydroSim::wd_update (Real time, Real dt)
@@ -60,9 +50,6 @@ HydroSim::wd_update (Real time, Real dt)
     using namespace binarywd;
     using namespace problem;
 
-    // Ensure we are either on the coarse level, or on the finest level
-    // when we are not doing subcycling. The data should be synchronized
-    // in both of these cases.
 
     BL_ASSERT(level == 0 || (!parent->subCycle() && level == parent->finestLevel()));
 
@@ -71,9 +58,7 @@ HydroSim::wd_update (Real time, Real dt)
       com_S[i] += vel_S[i] * dt;
     }
 
-    // Now re-calculate a more accurate result using this as a starting point.
 
-    // Save relevant current data.
 
     Real old_mass_P = mass_P;
     Real old_mass_S = mass_S;
@@ -130,32 +115,15 @@ HydroSim::wd_update (Real time, Real dt)
 
             const Box& box  = mfi.tilebox();
 
-            // Return the mass-weighted center of mass and velocity
-            // for the primary and secondary, for a given FAB.
-            // Note that ultimately what we are doing here is to use
-            // an old guess at the effective potential of the primary
-            // and secondary to generate a new estimate.
 
             reduce_op.eval(box, reduce_data,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
             {
-                // Add to the COM locations and velocities of the primary and secondary
-                // depending on which potential dominates, ignoring unbound material.
-                // Note that in this routine we actually are summing mass-weighted
-                // quantities for the COM and the velocity; we will account for this at
-                // the end of the calculation in post_timestep() by dividing by the mass.
 
-                // Our convention is that the COM locations for the WDs are
-                // absolute positions on the grid, not relative to the center.
 
                 GpuArray<Real, 3> r;
                 position(i, j, k, geomdata, r);
 
-                // We account for symmetric boundaries in this sum as usual,
-                // by adding to the position the locations that would exist
-                // on the opposite side of the symmetric boundary. Note that
-                // in axisymmetric coordinates, some of this work is already
-                // done for us in the definition of the zone volume.
 
                 GpuArray<Real, 3> rSymmetric{r[0], r[1], r[2]};
                 for (int n = 0; n < AMREX_SPACEDIM; ++n) {
@@ -247,7 +215,6 @@ HydroSim::wd_update (Real time, Real dt)
 
     }
 
-    // Compute effective radii of stars at various density cutoffs
 
     bool local_only = true;
 
@@ -255,7 +222,6 @@ HydroSim::wd_update (Real time, Real dt)
         HydroSim::volInBoundary(time, vol_P[i], vol_S[i], std::pow(10.0,i), local_only);
     }
 
-    // Do all of the reductions.
 
     ReduceTuple hv = reduce_data.value();
 
@@ -309,14 +275,12 @@ HydroSim::wd_update (Real time, Real dt)
         vel_S[i] = sum_reduce_buffer[i+25];
     }
 
-    // Compute effective WD radii
 
     for (int i = 0; i <= 6; ++i) {
         rad_P[i] = std::pow(vol_P[i] * 3.0 / 4.0 / M_PI, 1.0/3.0);
         rad_S[i] = std::pow(vol_S[i] * 3.0 / 4.0 / M_PI, 1.0/3.0);
     }
 
-     // Complete calculations for center of mass quantities
 
     for (int i = 0; i < 3; i++) {
         if (mass_P > 0.0) {
@@ -330,7 +294,6 @@ HydroSim::wd_update (Real time, Real dt)
         }
     }
 
-    // For 1D we force the masses to remain constant
 
 #if (AMREX_SPACEDIM == 1)
     mass_P = old_mass_P;
@@ -351,7 +314,6 @@ HydroSim::wd_update (Real time, Real dt)
         mdot_S = 0.0;
     }
 
-    // Free-fall timescale ~ 1 / sqrt(G * rho_avg}
 
     if (mass_P > 0.0 && vol_P[2] > 0.0) {
         rho_avg_P = mass_P / vol_P[2];
@@ -363,18 +325,12 @@ HydroSim::wd_update (Real time, Real dt)
         t_ff_S = std::sqrt(3.0 * M_PI / (32.0 * C::Gconst * rho_avg_S));
     }
 
-    // Compute updated roche Radii
 
     update_roche_radii();
 }
 
 
 
-// This function uses the known center of mass of the two white dwarfs,
-// and given a density cutoff, computes the total volume of all zones
-// whose density is greater or equal to that density cutoff.
-// We also impose a distance requirement so that we only look
-// at zones that are within twice the original radius of the white dwarf.
 
 void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cutoff, bool local)
 {
@@ -420,11 +376,6 @@ void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cuto
 
           const Box& box  = mfi.tilebox();
 
-          // This function uses the known center of mass of the two white dwarfs,
-          // and given a density cutoff, computes the total volume of all zones
-          // whose density is greater or equal to that density cutoff.
-          // We also impose a distance requirement so that we only look
-          // at zones within the Roche lobe of the white dwarf.
 
           reduce_op.eval(box, reduce_data,
           [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -472,7 +423,6 @@ void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cuto
 
 
 
-// Computes standard dot-product of two three-vectors.
 
 Real HydroSim::dot_product(const Real a[], const Real b[]) {
 
@@ -487,7 +437,6 @@ Real HydroSim::dot_product(const Real a[], const Real b[]) {
 
 
 
-// Computes norm of a three-vector.
 
 Real HydroSim::norm(const Real a[]) {
 
@@ -506,10 +455,6 @@ void HydroSim::user_post_init() {
   using namespace binarywd;
   using namespace problem;
 
-  // Execute the post timestep diagnostics here,
-  // so that the results at t = 0 and later are smooth.
-  // This should generally be the last operation
-  // in this function.
 
   user_post_timestep();
 
@@ -522,9 +467,6 @@ void HydroSim::user_post_restart() {
   using namespace binarywd;
   using namespace problem;
 
-  // If we're restarting from a checkpoint at t = 0 but don't yet
-  // have diagnostics, we want to generate the headers and the t = 0
-  // data at this time so that future timestep diagnostics make sense.
 
   Real time = state[State_Type].curTime();
 
@@ -551,7 +493,6 @@ void HydroSim::user_post_restart() {
 
   }
 
-  // Update Roche radii to ensure consistency of initial conditions
 
   update_roche_radii();
 
@@ -579,17 +520,9 @@ HydroSim::update_relaxation(Real time, Real dt) {
     using namespace binarywd;
     using namespace problem;
 
-    // Check to make sure whether we should be doing the relaxation here.
-    // Update the relaxation conditions if we are not stopping.
 
     if (problem::problem != 1 || relaxation_is_done || mass_P <= 0.0 || mass_S <= 0.0 || dt <= 0.0) return;
 
-    // Construct the update to the rotation frequency. We calculate
-    // the gravitational force at the end of the timestep, set the
-    // rotational force to be equal to it, and infer the required
-    // rotation frequency. Then we apply it so that the next timestep
-    // has an updated rotation force that is a better balance against
-    // the gravitational force.
 
     int coarse_level = 0;
     int finest_level = parent->finestLevel();
@@ -609,17 +542,10 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
         MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
 
-        // Store the non-rotation forces. The rotation force is calculated by exactly balancing
-        // against the gravitational and hydrodynamic forces. We will just use the
-        // gravitational force, since the desired equilibrium state is for the hydrodynamic
-        // forces to be zero.
 
-        // We'll use the "old" gravity source constructor, which is really just a first-order
-        // predictor for rho * g, and apply it at the new time.
 
         getLevel(lev).assemble_old_gravity_source(*force[lev], S_new, new_time, ldt);
 
-        // Mask out regions covered by fine grids.
 
         if (lev < parent->finestLevel()) {
             const MultiFab& mask = getLevel(lev+1).make_fine_mask();
@@ -645,7 +571,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     }
 
-    // Construct omega from this.
 
     Real force_P[3] = { 0.0 };
     Real force_S[3] = { 0.0 };
@@ -676,7 +601,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
         for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             const Box& bx = mfi.tilebox();
 
-            // Compute the sum of the hydrodynamic and gravitational forces acting on the WDs.
 
             Array4<Real const> const mass_density_arr   = S_new[mfi].array(URHO);
             Array4<Real const> const force_arr = (*force[lev]).array(mfi);
@@ -690,12 +614,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
                     dF[n] = cell_volume_arr(i,j,k) * force_arr(i,j,k,UMX+n);
                 }
 
-                // In the following we'll account for symmetry boundaries
-                // by assuming they're on the lower boundary if they do exist.
-                // In that case, assume the star's center is on the lower boundary.
-                // Then we need to double the value of the force in the other dimensions,
-                // and cancel out the force in that dimension.
-                // We assume here that only one dimension at most has a symmetry boundary.
 
                 if (coord_type == 0) {
 
@@ -757,11 +675,9 @@ HydroSim::update_relaxation(Real time, Real dt) {
         force_S[2] += amrex::get<5>(hv);
     }
 
-    // Do the reduction over processors.
 
     amrex::ParallelDescriptor::ReduceRealSum({force_P[0], force_P[1], force_P[2], force_S[0], force_S[1], force_S[2]});
 
-    // Divide by the mass of the stars to obtain the acceleration, and then get the new rotation frequency.
 
     Real fp = std::sqrt(std::pow(force_P[0], 2) + std::pow(force_P[1], 2) + std::pow(force_P[2], 2));
     Real fs = std::sqrt(std::pow(force_S[0], 2) + std::pow(force_S[1], 2) + std::pow(force_S[2], 2));
@@ -781,15 +697,8 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     spin_period = period;
 
-    // Check to see whether the relaxation should be turned off.
-    // Note that at present the following check is only done on the
-    // coarse grid but if we wanted more accuracy we could do a loop
-    // over levels as above.
 
-    // For the merger problem, we're going to turn the relaxation off
-    // when we've reached the L1 Lagrange point.
 
-    // First, calculate the location of the L1 Lagrange point.
 
     GpuArray<Real, 3> L1, L2, L3;
     find_equilibrium_points(mass_P, mass_S, com_P, com_S, L1, L2, L3);
@@ -803,8 +712,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
     Real potential;
 
     {
-        // Then, figure out the effective potential corresponding to that
-        // Lagrange point.
 
         ReduceOps<ReduceOpSum> reduce_op;
         ReduceData<Real> reduce_data(reduce_op);
@@ -819,9 +726,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
             Array4<Real const> const phi = phi_new[mfi].array();
 
-            // Determine the critical Roche potential at the Lagrange point L1.
-            // We will use a tri-linear interpolation that gets a contribution
-            // from all the zone centers that bracket the Lagrange point.
 
             reduce_op.eval(bx, reduce_data,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -829,7 +733,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 GpuArray<Real, 3> r;
                 position(i, j, k, geomdata, r);
 
-                // Compute the effective potential.
 
                 auto angular_velocity_vec = get_angular_velocity(geomdata, j);
                 Real phiEff = phi(i,j,k) + centrifugal_potential(r, angular_velocity_vec, coord);
@@ -838,7 +741,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
                     r[n] -= L1[n];
                 }
 
-                // Scale r by dx (in dimensions we're actually simulating).
 
                 for (int n = 0; n < AMREX_SPACEDIM; ++n) {
                     r[n] /= dx[n];
@@ -847,8 +749,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
                     r[n] = 0.0_rt;
                 }
 
-                // We want a contribution from this zone if it is
-                // less than one zone width away from the Lagrange point.
 
                 Real dP = 0.0_rt;
 
@@ -869,8 +769,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
     }
 
     {
-        // Now cycle through the grids and determine if any zones
-        // have crossed the density threshold outside the critical surface.
 
         MultiFab& S_new = get_new_data(State_Type);
 
@@ -888,11 +786,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
             Array4<Real const> const u = S_new.array(mfi);
             Array4<Real const> const phi = phi_new.array(mfi);
 
-            // Check whether we should stop the initial relaxation.
-            // The criterion is that we're outside the critical Roche surface
-            // and the density is greater than a specified threshold.
-            // If so, set do_initial_relaxation to false, which will effectively
-            // turn off the external source terms.
 
             reduce_op.eval(bx, reduce_data,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
@@ -928,8 +821,6 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     }
 
-    // We can also turn off the relaxation if we've passed
-    // a certain number of dynamical timescales.
 
     if (relaxation_cutoff_time > 0.0 && time > relaxation_cutoff_time * std::max(t_ff_P, t_ff_S)) {
         relaxation_is_done = 1;
@@ -957,11 +848,9 @@ HydroSim::problem_sums ()
 
     int timestep = parent->levelSteps(0);
 
-    // Mass transfer rate
 
     Real mdot = 0.5 * (std::abs(mdot_P) + std::abs(mdot_S));
 
-    // Distance between the WDs.
 
     Real wd_dist[3] = { 0.0 };
     Real wd_dist_init[3] = { 0.0 };
@@ -969,7 +858,6 @@ HydroSim::problem_sums ()
     Real separation = 0.0;
     Real angle = 0.0;
 
-    // Stellar centers of mass and velocities.
 
     Real com_P_mag = 0.0;
     Real com_S_mag = 0.0;
@@ -983,11 +871,11 @@ HydroSim::problem_sums ()
     Real vel_P_phi = 0.0;
     Real vel_S_phi = 0.0;
 
-    int dataprecision = 16; // Number of digits after the decimal point, for float data
+    int dataprecision = 16;
 
-    int sci_column_width      = 25; // Floating point data in scientific notation
-    int fixed_column_width      = 25; // Floating point data not in scientific notation
-    int integer_column_width      = 12; // Integer data
+    int sci_column_width      = 25;
+    int fixed_column_width      = 25;
+    int integer_column_width      = 12;
 
     wd_dist_init[problem::axis_1 - 1] = 1.0;
 
@@ -1024,7 +912,6 @@ HydroSim::problem_sums ()
 
     if (mass_P > 0.0 && mass_S > 0.0) {
 
-      // Calculate the distance between the primary and secondary.
 
       for (int i = 0; i < 3; i++) {
           wd_dist[i] = com_S[i] - com_P[i];
@@ -1032,26 +919,19 @@ HydroSim::problem_sums ()
 
       separation = norm(wd_dist);
 
-      // Calculate the angle between the initial stellar axis and
-      // the line currently joining the two stars. Note that this
-      // neglects any motion in the plane perpendicular to the initial orbit.
 
       angle = std::atan2(wd_dist[problem::axis_2 - 1] - wd_dist_init[problem::axis_2 - 1],
                          wd_dist[problem::axis_1 - 1] - wd_dist_init[problem::axis_1 - 1]) * 180.0 / M_PI;
 
-      // Now let's transform from [-180, 180] to [0, 360].
 
       if (angle < 0.0) angle += 360.0;
 
     }
 
-    // Write data out to the log.
 
     if (amrex::ParallelDescriptor::IOProcessor())
     {
 
-      // The data logs are only defined on the IO processor
-      // for parallel runs, so the stream should only be opened inside.
 
       if (parent->NumDataLogs() > 0) {
 
@@ -1061,7 +941,6 @@ HydroSim::problem_sums ()
 
               if (time == 0.0) {
 
-                  // Output the git commit hashes used to build the executable.
 
                   writeGitHashes(log);
 
@@ -1114,7 +993,6 @@ HydroSim::problem_sums ()
           }
       }
 
-      // Primary star
 
       if (parent->NumDataLogs() > 1) {
 
@@ -1124,7 +1002,6 @@ HydroSim::problem_sums ()
 
               if (time == 0.0) {
 
-                  // Output the git commit hashes used to build the executable.
 
                   writeGitHashes(log);
 
@@ -1212,7 +1089,6 @@ HydroSim::problem_sums ()
 
       }
 
-      // Secondary star
 
       if (parent->NumDataLogs() > 2) {
 
@@ -1222,7 +1098,6 @@ HydroSim::problem_sums ()
 
               if (time == 0.0) {
 
-                  // Output the git commit hashes used to build the executable.
 
                   writeGitHashes(log);
 
@@ -1310,7 +1185,6 @@ HydroSim::problem_sums ()
 
       }
 
-      // Rotation period over time
 
       if (parent->NumDataLogs() > 3) {
 
@@ -1320,7 +1194,6 @@ HydroSim::problem_sums ()
 
               if (time == 0.0) {
 
-                  // Output the git commit hashes used to build the executable.
 
                   writeGitHashes(log);
 

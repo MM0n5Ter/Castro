@@ -21,7 +21,6 @@ void user_initialize ()
     problem::refine_cutoff_height = problo[1] + problem::refine_cutoff_frac * (probhi[1] - problo[1]);
 
 
-    // get the species indices
 
     bool species_defined = true;
 
@@ -75,7 +74,6 @@ void user_initialize ()
 
     model_t model_params;
 
-    // set the composition of the underlying star
 
     for (int n = 0; n < NumSpec; n++) {
         model_params.xn_star[n] = problem::smallx;
@@ -88,7 +86,6 @@ void user_initialize ()
         model_params.xn_star[iash3] = problem::ash3_frac;
     }
 
-    // and the composition of the accreted layer
 
     for (int n = 0; n < NumSpec; n++) {
         model_params.xn_base[n] = problem::smallx;
@@ -101,7 +98,6 @@ void user_initialize ()
         model_params.xn_base[ifuel3] = problem::fuel3_frac;
     }
 
-    // check if they sum to 1
 
     Real sumX = 0.0_rt;
     for (int n = 0; n < NumSpec; n++) {
@@ -119,12 +115,7 @@ void user_initialize ()
         amrex::Error("ERROR: fuel mass fractions don't sum to 1");
     }
 
-    // we are going to generate an initial model from problo(2) to
-    // probhi(2) with nx_model zones.  But to allow for a interpolated
-    // lower boundary, we'll add 4 ghostcells to this, so we need to
-    // compute dx
 
-    // we use the fine grid dx for the model resolution
     auto fine_geom = global::amr_instance->Geom(global::amr_instance->maxLevel());
 
     auto dx = fine_geom.CellSizeArray();
@@ -135,7 +126,6 @@ void user_initialize ()
 
     int ng = 4;
 
-    // now generate the initial models
 
     model_params.density_base = problem::density_base;
     model_params.T_star = problem::T_star;
@@ -152,8 +142,6 @@ void user_initialize ()
                            probhi[AMREX_SPACEDIM-1],
                            model_params, 0);
 
-    // now create a perturbed model -- we want the same base conditions
-    // a hotter temperature
 
     model_params.T_hi = model_params.T_hi + problem::dtemp;
 

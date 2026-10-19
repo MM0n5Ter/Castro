@@ -13,11 +13,6 @@ struct model_t {
 
 
 
-///
-/// construct an initial model in HSE.  Note: this does not return
-/// anything, but rather updates the model_parser globals with the
-/// model information.
-///
 AMREX_INLINE
 void
 generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
@@ -30,12 +25,9 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         amrex::Error("Error: model has more than NPTS_MODEL points,  Increase MAX_NPTS_MODEL");
     }
 
-    // compute the pressure scale height (for an isothermal, ideal-gas
-    // atmosphere)
 
     Real H = model_params.p_base / model_params.density_base / std::abs(gravity::uniform_accel);
 
-    // create the grid -- cell centers
 
     Real dx = (xmax - xmin) / npts_model;
 
@@ -43,7 +35,6 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         model::profile(0).r(i) = xmin + (static_cast<Real>(i) + 0.5_rt) * dx;
     }
 
-    // create the constant if we are isentropic
 
     eos_t eos_state;
     eos_state.rho = model_params.density_base;
@@ -52,7 +43,6 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         eos_state.xn[n] = model_params.xn[n];
     }
 
-    // initial guess
 
     eos_state.T = 1000.0_rt;
 
@@ -70,7 +60,6 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
     model::profile(0).r(0) = xmin + 0.5_rt * dx;
 
-    // integrate up from the base
 
     for (int j = 1; j < npts_model; j++) {
 
@@ -99,7 +88,6 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
             eos_state.xn[n] = model_params.xn[n];
         }
 
-        // initial guess
 
         eos_state.T = 1000.0_rt;
 

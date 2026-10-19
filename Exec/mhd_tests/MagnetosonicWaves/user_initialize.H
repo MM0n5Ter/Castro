@@ -8,8 +8,6 @@ AMREX_INLINE
 void user_initialize ()
 {
 
-    // get unitary vectors for k and b
-    // such that b is 45 degrees from k
 
     problem::u_kx = problem::k_x / std::sqrt(problem::k_x * problem::k_x +
                                              problem::k_y * problem::k_y);
@@ -28,11 +26,10 @@ void user_initialize ()
 
     eos_t eos_state;
 
-    // compute sound speed
 
     eos_state.rho = problem::rho_0;
     eos_state.p = problem::p_0;
-    eos_state.T = 100.0_rt;  // initial guess
+    eos_state.T = 100.0_rt;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = xn[n];
     }
@@ -43,10 +40,8 @@ void user_initialize ()
     problem::c_s = problem::c_s * problem::c_s;
 
     if (problem::type_wave == 1 ) {
-        // Fast magnetosonic wave speed
         problem::cw = std::sqrt(0.5_rt * (problem::c_s + 1.0_rt + std::sqrt(1.0_rt + problem::c_s * problem::c_s)));
     } else {
-        // Slow magnetosonic wave speed
         problem::cw = std::sqrt(0.5_rt * (problem::c_s + 1.0_rt - std::sqrt(1.0_rt + problem::c_s * problem::c_s)));
     }
 

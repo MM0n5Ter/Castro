@@ -21,7 +21,6 @@ void user_initialize ()
         problem::center[n] = 0.5_rt * (problo[n] + probhi[n]);
     }
 
-    // get the species indices
 
     bool species_defined = true;
 
@@ -76,7 +75,6 @@ void user_initialize ()
     }
 
     Real xn[NumSpec] = {network_rp::small_x};
-    // xn[0] = 1.0_rt - (NumSpec-1)*small_x;
 
     xn[ispec1] = problem::spec1_frac;
     if (!problem::spec2_name.empty()) {
@@ -95,7 +93,6 @@ void user_initialize ()
         xn[ispec6] = problem::spec6_frac;
     }
 
-    // Normalize species
     auto sumX = 0.0_rt;
     for (auto X : xn) {
         sumX += X;

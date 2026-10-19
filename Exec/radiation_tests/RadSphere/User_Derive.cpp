@@ -12,9 +12,9 @@
 using namespace amrex;
 
 
-void deranalytic(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
+void deranalytic(const Box& bx, FArrayBox& derfab, int dcomp, int  ,
                  const FArrayBox& datfab, const Geometry& geomdata,
-                 Real time, const int* /*bcrec*/, int /*level*/)
+                 Real time, const int*  , int  )
 {
 
   const auto dx = geomdata.CellSizeArray();
@@ -47,7 +47,6 @@ void deranalytic(const Box& bx, FArrayBox& derfab, int dcomp, int /*ncomp*/,
 
     Real r = std::sqrt(loc[0] * loc[0] + loc[1] * loc[1] + loc[2] * loc[2]);
 
-    // compute the analytic radiating sphere solution for each point
     for (int g = 0; g < NGROUPS; g++) {
       Real F = F_radsphere(r, time, freq_center[g]);
       Real E = planck(freq_center[g], problem::T_0) +

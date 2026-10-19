@@ -58,7 +58,6 @@ void user_initialize_rad_data (int i, int j, int k,
 
     T /= vtot;
 
-    // set radiation energy density to a T**4
 
     if (NGROUPS == 1) {
         rad(i,j,k,0) = C::a_rad * std::pow(T, 4);

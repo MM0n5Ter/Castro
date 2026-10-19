@@ -1,5 +1,3 @@
-# sources used with reactions
-# this is included when USE_REACT = TRUE
 
 CEXE_headers += HydroSim_burn.H
 CEXE_headers += sdc_conserved_to_burn.H

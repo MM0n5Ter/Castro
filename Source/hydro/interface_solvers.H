@@ -23,8 +23,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 #endif
                Array4<Real> const& godunov_state, const bool keep_full_state) {
 
-    // given a primitive state, compute the flux in direction idir
-    //
 
     int im1, im2, im3;
 
@@ -47,7 +45,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
         im3 = UMY;
     }
 
-    // Compute fluxes, order as conserved state (not q)
     F(i,j,k,URHO) = interface_state.rho * interface_state.un;
 
     F(i,j,k,im1) = F(i,j,k,URHO) * interface_state.un;
@@ -98,7 +95,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
             rF(i,j,k,g) = (1.0_rt + f1) * interface_state.er[g] * interface_state.un;
         }
     } else {
-        // type 2
         for (int g = 0; g < NGROUPS; g++) {
             rF(i,j,k,g) = interface_state.er[g] * interface_state.un;
         }
@@ -106,7 +102,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 #endif
 
 #ifdef HYBRID_MOMENTUM
-    // the hybrid routine uses the Godunov indices, not the full NQ state
     GpuArray<Real, NGDSTATE> godunov_zone;
     godunov_zone[GDDENSITY] = interface_state.rho;
     if (idir == 0) {
@@ -139,15 +134,10 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
     }
 #endif
 
-    // now we store the interface state in the full 4-d array.  We
-    // either store just the NGDSTATE subset or the whole NQ hydro state,
-    // depending on the value of keep_full_state
 
-    // note: we don't handle the passives here
 
     if (keep_full_state) {
 
-        // this is the primitive variable state on the interface
 
         godunov_state(i,j,k,QRHO) = interface_state.rho;
         if (idir == 0) {
@@ -181,8 +171,6 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 
     } else {
 
-        // this is the reduced "Godunov" state on the interface,
-        // with NGDSTATE components
 
 #ifdef HYBRID_MOMENTUM
         godunov_state(i,j,k,GDDENSITY) = interface_state.rho;
@@ -227,30 +215,16 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
               GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi,
               const bool use_parabolic_temp_fix, const Real temperature_guess) {
 
-  // just compute the hydrodynamic state on the interfaces
-  // don't compute the fluxes
 
-  // note: bx is not necessarily the limits of the valid (no ghost
-  // cells) domain, but could be hi+1 in some dimensions.  We rely on
-  // the caller to specify the interfaces over which to solve the
-  // Riemann problems
 
 
   if (use_parabolic_temp_fix) {
-      // recompute the thermodynamics on the interface to make it
-      // all consistent
 
-      // we want to take the edge states of rho, e, and X, and get
-      // new values for p on the edges that are
-      // thermodynamically consistent.
 
       eos_rep_t eos_state;
 
-      // this is an initial guess for iterations, since we
-      // can't be certain what temp is on interfaces
       eos_state.T = temperature_guess;
 
-      // minus state
       eos_state.rho = qm(i,j,k,QRHO);
       eos_state.e = qm(i,j,k,QEINTDENS)/qm(i,j,k,QRHO);
       for (int n = 0; n < NumSpec; n++) {
@@ -267,7 +241,6 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
       qm(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
       qm(i,j,k,QPRES) = eos_state.p;
 
-      // plus state
       eos_state.rho = qp(i,j,k,QRHO);
       eos_state.e = qp(i,j,k,QEINTDENS)/qp(i,j,k,QRHO);
       for (int n = 0; n < NumSpec; n++) {
@@ -295,7 +268,6 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
                     qm, qp, qthermo_arr,
                     ql, qr, interface_aux);
 
-  // deal with hard walls
   interface_aux.boundary_factor = 1.0_rt;
 
   if (idir == 0) {
@@ -318,14 +290,11 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
   }
 
 
-  // Solve Riemann problem
   if (riemann_method == 0) {
-      // Colella, Glaz, & Ferguson solver
 
       ShockPairSolver::shock_pair_direct(ql, qr, interface_aux, interface_state);
 
   } else if (riemann_method == 1) {
-      // Colella & Glaz solver
 
 #ifndef RADIATION
       ShockPairSolver::shock_pair_iterate(ql, qr, interface_aux, interface_state);

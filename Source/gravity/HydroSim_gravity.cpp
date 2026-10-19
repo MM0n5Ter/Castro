@@ -19,8 +19,6 @@ HydroSim::assemble_old_gravity (Real time)
     MultiFab& gravity_old_mf = get_old_data(Accel_Type);
     MultiFab& phi_old = get_old_data(Potential_Type);
 
-    // Always set phi to zero initially since some gravity modes
-    // don't use it and we want to have valid data.
 
     if (gravity->get_solver_kind() != "PoissonGrav") {
         phi_old.setVal(0.0);
@@ -34,13 +32,6 @@ HydroSim::assemble_old_gravity (Real time)
 
     }
 
-    // Do level solve at beginning of time step in order to compute the
-    // difference between the multilevel and the single level solutions.
-    // Note that we don't need to do this solve for single-level runs,
-    // since the solution at the end of the last timestep won't have changed.
-    // Similarly, we can skip this if we aren't subcycling on this level
-    // or all levels above this level, since the new-time composite solve
-    // at the new time in the last step will still be valid.
 
     bool solve_at_old_time = true;
 
@@ -50,7 +41,6 @@ HydroSim::assemble_old_gravity (Real time)
 
     if (gravity->get_solver_kind() == "PoissonGrav" && solve_at_old_time)
     {
-        // Create a copy of the current (composite) data on this level.
 
         MultiFab comp_phi;
         Vector<std::unique_ptr<MultiFab> > composite_grad_phi(AMREX_SPACEDIM);
@@ -73,9 +63,6 @@ HydroSim::assemble_old_gravity (Real time)
 
         int use_new_state = 0;
 
-        // If we are doing composite solves, then this is a placeholder solve
-        // to get the difference between the composite and level solutions. If
-        // we are only doing level solves, then this is the main result.
 
         gravity->solve_potential_level(level,
                                phi_old,
@@ -84,7 +71,6 @@ HydroSim::assemble_old_gravity (Real time)
 
         if (gravity->CompositeFixEnabled() && level < parent->finestLevel() && level <= gravity->get_solve_level_cap()) {
 
-            // Subtract the level solve from the composite solution.
 
             gravity->build_composite_excess_grad(level,
                                                       comp_phi,
@@ -92,8 +78,6 @@ HydroSim::assemble_old_gravity (Real time)
                                                       composite_minus_level_phi,
                                                       composite_minus_level_grad_phi);
 
-            // Copy the composite data back. This way the forcing
-            // uses the most accurate data we have.
 
             MultiFab::Copy(phi_old, comp_phi, 0, 0, phi_old.nComp(), phi_old.nGrow());
 
@@ -116,7 +100,6 @@ HydroSim::assemble_old_gravity (Real time)
 
     }
 
-    // Define the old gravity vector.
 
     gravity->read_old_gravity_field(level, gravity_old_mf, time);
 
@@ -149,8 +132,6 @@ HydroSim::assemble_new_gravity (Real time)
     MultiFab& gravity_new = get_new_data(Accel_Type);
     MultiFab& phi_new = get_new_data(Potential_Type);
 
-    // Always set phi to zero initially since some gravity modes
-    // don't use it and we want to have valid data.
 
     if (gravity->get_solver_kind() != "PoissonGrav") {
         phi_new.setVal(0.0);
@@ -164,7 +145,6 @@ HydroSim::assemble_new_gravity (Real time)
 
     }
 
-    // If we're doing Poisson gravity, do the new-time level or composite solve here.
 
     if (gravity->get_solver_kind() == "PoissonGrav")
     {
@@ -173,7 +153,6 @@ HydroSim::assemble_new_gravity (Real time)
                 amrex::Print() << "\n... new-time composite Poisson gravity solve from level " << level << " to level " << parent->finestLevel() << std::endl << std::endl;
             }
 
-            // Use the "old" phi from the current time step as a guess for this solve.
 
             for (int lev = level; lev <= parent->finestLevel(); ++lev) {
                 MultiFab& level_phi_old = getLevel(lev).get_old_data(Potential_Type);
@@ -185,14 +164,11 @@ HydroSim::assemble_new_gravity (Real time)
             gravity->multilevel_potential_solve(level, parent->finestLevel());
         }
         else if (parent->subcyclingMode() != "None") {
-            // Use the "old" phi from the current time step as a guess for this solve.
 
             MultiFab& phi_old = get_old_data(Potential_Type);
 
             MultiFab::Copy(phi_new, phi_old, 0, 0, 1, phi_new.nGrow());
 
-            // Subtract off the (composite - level) contribution for the purposes
-            // of the level solve. We'll add it back later.
 
             if (gravity->CompositeFixEnabled() && level < parent->finestLevel() && level <= gravity->get_solve_level_cap()) {
                 phi_new.minus(composite_minus_level_phi, 0, 1, 0);
@@ -222,10 +198,6 @@ HydroSim::assemble_new_gravity (Real time)
 
                 }
 
-                // Add back the (composite - level) contribution. This ensures that
-                // if we are not doing a sync solve, then we still get the difference
-                // between the composite and level solves added to the force we
-                // calculate, so it is slightly more accurate than it would have been.
 
                 phi_new.plus(composite_minus_level_phi, 0, 1, 0);
                 for (int n = 0; n < AMREX_SPACEDIM; ++n) {
@@ -247,7 +219,6 @@ HydroSim::assemble_new_gravity (Real time)
         }
     }
 
-    // Define new gravity vector.
 
     gravity->get_new_gravity_vector(level, gravity_new, time);
 
@@ -255,9 +226,6 @@ HydroSim::assemble_new_gravity (Real time)
 
         if (gravity->CompositeFixEnabled() == 1 && level < parent->finestLevel()) {
 
-            // Now that we have calculated the force, if we are going to do a sync
-            // solve then subtract off the (composite - level) contribution, as it
-            // interferes with the sync solve.
 
             if (gravity->NoSync() == 0) {
 
@@ -269,7 +237,6 @@ HydroSim::assemble_new_gravity (Real time)
 
             }
 
-            // In any event we can now clear this memory, as we no longer need it.
 
             composite_minus_level_phi.clear();
             composite_minus_level_grad_phi.clear();
@@ -312,7 +279,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
         return;
     }
 
-    // Gravitational source term for the time-level n data.
 
 #ifdef HYBRID_MOMENTUM
     GeometryData geomdata = geom.data();
@@ -334,26 +300,18 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            // Temporary array for seeing what the new state would be if the update were applied here.
 
             GpuArray<Real, NUM_STATE> snew;
             for (int n = 0; n < NUM_STATE; ++n) {
                 snew[n] = 0.0_rt;
             }
 
-            // Temporary array for holding the update to the state.
 
             GpuArray<Real, NUM_SOURCE> src;
             for (int n = 0; n < NUM_SOURCE; ++n) {
                 src[n] = 0.0_rt;
             }
 
-            // Gravitational source options for how to add the work to (rho E):
-            // gravity_source_mode =
-            // 1: Original version ("does work")
-            // 2: Modification of type 1 that updates the momentum before constructing the energy corrector
-            // 3: Puts all gravitational work into KE, not (rho e)
-            // 4: Conservative energy formulation
 
             Real rho    = uold(i,j,k,URHO);
             Real rhoInv = 1.0_rt / rho;
@@ -392,9 +350,8 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             Real SrE{};
 
-            if (hydrosim::gravity_source_mode == 1 || hydrosim::gravity_source_mode == 2) {  // NOLINT(bugprone-branch-clone)
+            if (hydrosim::gravity_source_mode == 1 || hydrosim::gravity_source_mode == 2) {
 
-                // Src = rho u dot g, evaluated with all quantities at t^n
 
                 SrE = (uold(i,j,k,UMX) * Sr[0] + uold(i,j,k,UMY) * Sr[1] + uold(i,j,k,UMZ) * Sr[2]) * rhoInv;
 
@@ -405,14 +362,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             } else if (hydrosim::gravity_source_mode == 4) {
 
-                // The conservative energy formulation does not strictly require
-                // any energy source-term here, because it depends only on the
-                // fluid motions from the hydrodynamical fluxes which we will only
-                // have when we get to the 'corrector' step. Nevertheless we add a
-                // predictor energy source term in the way that the other methods
-                // do, for consistency. We will fully subtract this predictor value
-                // during the corrector step, so that the final result is correct.
-                // Here we use the same approach as gravity_source_mode == 2.
 
                 SrE = (uold(i,j,k,UMX) * Sr[0] + uold(i,j,k,UMY) * Sr[1] + uold(i,j,k,UMZ) * Sr[2]) * rhoInv;
 
@@ -422,7 +371,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             snew[UEDEN] += dt * SrE;
 
-            // Add to the outgoing source array.
 
             for (int n = 0; n < NUM_SOURCE; ++n) {
                 source_view(i,j,k,n) += src[n];
@@ -507,12 +455,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 Real halfInvDt = 0.5_rt / dt;
 
-                // Gravitational source options for how to add the work to (rho E):
-                // gravity_source_mode =
-                // 1: Original version ("does work")
-                // 2: Modification of type 1 that updates the U before constructing energy_source_corr
-                // 3: Puts all gravitational work into KE, not (rho e)
-                // 4: Conservative gravity approach
 
                 Real rho_at_old    = uold(i,j,k,URHO);
                 Real rho_old_inv = 1.0_rt / uold(i,j,k,URHO);
@@ -520,7 +462,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
                 Real rho_at_new    = unew(i,j,k,URHO);
                 Real rho_new_inv = 1.0_rt / unew(i,j,k,URHO);
 
-                // Temporary array for seeing what the new state would be if the update were applied here.
 
                 GpuArray<Real, NUM_STATE> snew{};
                 for (int n = 0; n < NUM_STATE; ++n) {
@@ -529,7 +470,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 Real kinetic_energy_old = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
 
-                // Define old source terms
 
                 GpuArray<Real, 3> vold;
                 for (int n = 0; n < 3; ++n) {
@@ -543,7 +483,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 Real energy_source_old = vold[0] * mom_source_old[0] + vold[1] * mom_source_old[1] + vold[2] * mom_source_old[2];
 
-                // Define new source terms
 
                 GpuArray<Real, 3> velocity_new;
                 for (int n = 0; n < 3; ++n) {
@@ -557,14 +496,12 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 Real energy_source_new = velocity_new[0] * mom_source_new[0] + velocity_new[1] * mom_source_new[1] + velocity_new[2] * mom_source_new[2];
 
-                // Define corrections to source terms
 
                 GpuArray<Real, 3> mom_source_corr;
                 for (int n = 0; n < 3; ++n) {
                     mom_source_corr[n] = 0.5_rt * (mom_source_new[n] - mom_source_old[n]);
                 }
 
-                // Correct momenta
 
                 for (int n = 0; n < 3; ++n) {
                     src[UMX+n] = mom_source_corr[n];
@@ -588,20 +525,16 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
                 }
 #endif
 
-                // Correct energy
 
                 Real energy_source_corr{};
 
                 if (hydrosim::gravity_source_mode == 1) {
 
-                    // If gravity_source_mode == 1, then we calculated energy_source_corr before updating the velocities.
 
                     energy_source_corr = 0.5_rt * (energy_source_new - energy_source_old);
 
                 } else if (hydrosim::gravity_source_mode == 2) {
 
-                    // For this source type, we first update the momenta
-                    // before we calculate the energy source term.
 
                     for (int n = 0; n < 3; ++n) {
                         velocity_new[n] = snew[UMX+n] * rho_new_inv;
@@ -612,26 +545,16 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 } else if (hydrosim::gravity_source_mode == 3) {
 
-                    // Instead of calculating the energy source term explicitly,
-                    // we simply update the kinetic energy.
 
                     Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
                     energy_source_corr = kinetic_energy_updated - kinetic_energy_old;
 
                 } else if (hydrosim::gravity_source_mode == 4) {
 
-                    // First, subtract the predictor step we applied earlier.
 
                     energy_source_corr = - energy_source_old;
 
-                    // The main idea is that we are evaluating the change of the
-                    // potential energy at zone edges and applying that in an equal
-                    // and opposite sense to the gas energy. we are using a version of the formula
-                    // based on the gradient rather than
-                    // the potential because the gradient-version works for all forms
-                    // of gravity we use, some of which do not explicitly calculate phi.
 
-                    // Construct the time-averaged edge-centered gravity.
 
                     GpuArray<Real, 3> g;
                     for (int n = 0; n < 3; ++n) {
@@ -660,7 +583,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
 
                 snew[UEDEN] += dt * energy_source_corr;
 
-                // Add to the outgoing source array.
 
                 for (int n = 0; n < NUM_SOURCE; ++n) {
                     source_view(i,j,k,n) += src[n];

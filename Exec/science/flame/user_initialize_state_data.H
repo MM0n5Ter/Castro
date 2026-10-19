@@ -22,7 +22,6 @@ void user_initialize_state_data (int i, int j, int k,
 
     Real xx = problo[0] + dx[0]* (static_cast<Real>(i) + 0.5_rt);
 
-    // blend the fuel and ash state, keeping the pressure constant
 
     eos_t eos_state;
     eos_state.rho = (problem::rho_ash - problem::rho_fuel) * 0.5_rt *

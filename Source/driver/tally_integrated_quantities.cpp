@@ -25,7 +25,7 @@ HydroSim::tally_integrated_quantities ()
     Real time        = state[State_Type].curTime();
     Real dt          = parent->dtLevel(0);
     if (time == 0.0) {
-        dt = 0.0; // dtLevel returns the next timestep for t = 0, so overwrite
+        dt = 0.0;
     }
     int timestep     = parent->levelSteps(0);
     Real mass        = 0.0;
@@ -50,9 +50,9 @@ HydroSim::tally_integrated_quantities ()
 
     int output_precision = 16;
 
-    int sci_column_width     = 25; // Floating point data in scientific notation
-    int fixed_column_width     = 25; // Floating point data not in scientific notation
-    int integer_column_width     = 12; // Integer data
+    int sci_column_width     = 25;
+    int fixed_column_width     = 25;
+    int integer_column_width     = 12;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
@@ -93,7 +93,6 @@ HydroSim::tally_integrated_quantities ()
         }
 #endif
 
-        // Compute extrema
 
 #ifdef REACTIONS
         auto dx = hs_level.geom.CellSizeArray();
@@ -152,7 +151,6 @@ HydroSim::tally_integrated_quantities ()
 
                     Real rhoInv = 1.0_rt / rho;
 
-                    // Calculate sound speed
                     eos_rep_t eos_state;
                     eos_state.rho = rho;
                     eos_state.T   = T;
@@ -255,8 +253,6 @@ HydroSim::tally_integrated_quantities ()
 #ifdef GRAVITY
             rho_potential    = foo[i++];
 
-            // Total energy is 1/2 * rho * phi + rho * E for self-gravity,
-            // and rho * phi + rho * E for externally-supplied gravity.
             std::string gravity_model_name = gravity->get_solver_kind();
             if (gravity_model_name == "PoissonGrav" || gravity_model_name == "MonopoleGrav") {
                 energy_budget = 0.5 * rho_potential + rho_E;
@@ -274,7 +270,7 @@ HydroSim::tally_integrated_quantities ()
             i = 0;
             T_max     = max_reduce_buffer[i++];
             rho_max   = max_reduce_buffer[i++];
-            timescale_ratio_max = max_reduce_buffer[i++];    // NOLINT(clang-analyzer-deadcode.DeadStores)
+            timescale_ratio_max = max_reduce_buffer[i++];
 
             std::cout << '\n';
             std::cout << "TIME= " << time << " MASS        = "   << mass      << '\n';
@@ -370,7 +366,6 @@ HydroSim::tally_integrated_quantities ()
                    primary_data_log << header.str();
                }
 
-               // Write the quantities at this time
                primary_data_log << std::fixed;
 
                primary_data_log << std::setw(integer_column_width) <<  timestep;
@@ -426,9 +421,7 @@ HydroSim::tally_integrated_quantities ()
     }
 
 #ifdef GRAVITY
-    // Gravity diagnostics
     {
-        // Gravitational wave amplitudes
 
         Real strain_plus_1  = 0.0;
         Real strain_cross_1 = 0.0;
@@ -444,7 +437,6 @@ HydroSim::tally_integrated_quantities ()
             HydroSim& hs_level = getLevel(lev);
 
 #if (AMREX_SPACEDIM > 1)
-            // Gravitational wave signal. This is designed to add to these quantities so we can send them directly.
             hs_level.wave_strain(time, strain_plus_1, strain_cross_1, strain_plus_2, strain_cross_2, strain_plus_3, strain_cross_3, local_only);
 #endif
 
@@ -474,7 +466,6 @@ HydroSim::tally_integrated_quantities ()
 
             std::ostream& log = *HydroSim::run_logs[1];
 
-            // Write header row
 
             if (time == 0.0) {
 
@@ -536,13 +527,11 @@ HydroSim::tally_integrated_quantities ()
     }
 #endif
 
-    // Species
 
     {
         std::vector<Real> per_species_total(NumSpec);
         std::vector<std::string> species_labels(NumSpec);
 
-        // Species names
 
         for (int i = 0; i < NumSpec; i++) {
             species_labels[i] = desc_lst[State_Type].name(UFS+i);
@@ -550,7 +539,6 @@ HydroSim::tally_integrated_quantities ()
             per_species_total[i] = 0.0;
         }
 
-        // Integrated mass of all species on the domain
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             const MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
@@ -629,10 +617,8 @@ HydroSim::tally_integrated_quantities ()
 
     }
 
-    // Information about the AMR driver.
 
     {
-        // Calculate wall time for the step.
 
         Real wall_time = 0.0;
 
@@ -640,7 +626,6 @@ HydroSim::tally_integrated_quantities ()
             wall_time = amrex::ParallelDescriptor::second() - wall_clock_start;
         }
 
-        // Calculate GPU memory consumption.
 
 #ifdef AMREX_USE_GPU
         Long gpu_mem_free_MB = Gpu::Device::freeMemAvailable() / (1024 * 1024);
@@ -650,7 +635,6 @@ HydroSim::tally_integrated_quantities ()
         ParallelDescriptor::ReduceLongMax(gpu_mem_used_MB, ParallelDescriptor::IOProcessorNumber());
 #endif
 
-        // Calculate maximum number of advance subcycles across all levels.
 
         int peak_subcycle_count = 0;
         if (time > 0.0_rt) {
@@ -689,8 +673,8 @@ HydroSim::tally_integrated_quantities ()
                     log << std::setw(fixed_column_width) << i;
                 }
 
-                log << std::setw(integer_column_width) << 4; // Handle the finest lev column
-                log << std::setw(fixed_column_width) << 5; // Handle the subcycle count column
+                log << std::setw(integer_column_width) << 4;
+                log << std::setw(fixed_column_width) << 5;
 
                 for (int i = 6; i <= n; ++i) {
                     log << std::setw(sci_column_width) << i;

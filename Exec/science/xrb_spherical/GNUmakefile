@@ -15,17 +15,14 @@ USE_REACT  = TRUE
 USE_ROTATION  = TRUE
 USE_DIFFUSION = TRUE
 
-# define the location of the HYDROSIM top directory
 HYDROSIM_HOME  ?= ../../..
 
 USE_JACOBIAN_CACHING = TRUE
 USE_MODEL_PARSER = TRUE
 NUM_MODELS := 2
 
-# This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := helmholtz
 
-# This sets the network directory in $(MICROPHYSICS_HOME)/networks
 NETWORK_DIR := he-burn/he-burn-19am
 
 INTEGRATOR_DIR := RKC
