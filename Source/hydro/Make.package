@@ -1,14 +1,12 @@
-
 ifneq ($(USE_MHD),TRUE)
-  CEXE_sources += HydroSim_hydro.cpp
+  CEXE_sources += primitive_state.cpp
   CEXE_sources += HydroSim_corner_upwind_hydro.cpp
 endif
 
-CEXE_sources += HydroSim_corner_upwind.cpp
-CEXE_sources += HydroSim_lines.cpp
+CEXE_sources += face_states.cpp
+CEXE_sources += flux_update.cpp
 CEXE_headers += transport_util.H
 CEXE_sources += transport_util.cpp
-CEXE_headers += flatten.H
 
 ifeq ($(USE_TRUE_SDC),TRUE)
   CEXE_sources += HydroSim_lines_hydro.cpp
@@ -19,32 +17,22 @@ ifeq ($(USE_HYBRID_MOMENTUM), TRUE)
   CEXE_sources += HydroSim_hybrid.cpp
 endif
 
-ifeq ($(USE_RAD), TRUE)
-  CEXE_sources += HydroSim_corner_rad.cpp
-endif
-
 CEXE_headers += ppm.H
 CEXE_sources += riemann.cpp
 CEXE_headers += two_wave_solvers.H
-CEXE_headers += interface_solvers.H
 CEXE_headers += shock_pair_solvers.H
 CEXE_headers += solver_constants.H
 CEXE_headers += solver_types.H
-CEXE_headers += slope.H
+CEXE_headers += limiters.H
 CEXE_headers += reconstruction.H
-CEXE_sources += trace_piecewise_linear.cpp
-CEXE_sources += trace_piecewise_parabolic.cpp
+CEXE_sources += edge_tracing.cpp
 
 ifeq ($(USE_TRUE_SDC),TRUE)
-  CEXE_sources += order4_scheme.cpp
-  CEXE_sources += fourth_order_center.cpp
+  CEXE_sources += fourth_order_states.cpp
+  CEXE_sources += fourth_order_ops.cpp
   CEXE_headers += fourth_order_center.H
 endif
 
 ifneq ($(DIM), 1)
   CEXE_sources += trans.cpp
-endif
-
-ifneq ($(USE_MHD),TRUE)
-CEXE_sources += edge_helpers.cpp
 endif

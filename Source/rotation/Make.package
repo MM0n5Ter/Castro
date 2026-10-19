@@ -1,7 +1,5 @@
-
 CEXE_headers += HydroSim_rotation.H
 CEXE_headers += Rotation.H
+CEXE_headers += angular_velocity.H
 
-CEXE_sources += spin_source_terms.cpp
-CEXE_sources += HydroSim_rotation.cpp
-CEXE_sources += Rotation.cpp
+CEXE_sources += rotating_frame.cpp

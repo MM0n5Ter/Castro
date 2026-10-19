@@ -9,7 +9,7 @@
 #include <Rotation.H>
 #endif
 #include <binarywd_util.H>
-#include <binarywd_data.H>
+#include <binarywd_util.H>
 
 using namespace amrex;
 

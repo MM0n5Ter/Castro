@@ -1,8 +1,5 @@
-
 CEXE_headers += HydroSim_forcing.H
 
 CEXE_sources += HydroSim_forcing.cpp
-CEXE_sources += HydroSim_damping.cpp
-CEXE_sources += HydroSim_thermodynamics.cpp
+CEXE_sources += pointwise_sources.cpp
 CEXE_sources += HydroSim_geometry.cpp
-

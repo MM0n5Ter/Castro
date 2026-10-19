@@ -7,47 +7,7 @@
 #include <HydroSim_math.H>
 #include <HydroSim_helpers.H>
 #include <hydrosim_params.H>
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real get_angular_speed()
-{
-    Real omega = 0.0_rt;
-
-
-    if (hydrosim::spin_period > 0.0_rt) {
-        omega = 2.0_rt * std::numbers::pi / hydrosim::spin_period;
-    }
-
-    return omega;
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-GpuArray<Real, 3> get_angular_velocity(const GeometryData& geomdata,
-                                const int j)
-{
-    GpuArray<Real, 3> angular_velocity_vec = {0.0_rt};
-
-    const auto coord = geomdata.Coord();
-    const auto problo = geomdata.ProbLo(1);
-    const auto theta_cell_width = geomdata.CellSize(1);
-
-    auto omega = get_angular_speed();
-
-    if (coord == 2) {
-        Real theta;
-        if (hydrosim::fixed_latitude_angle >= 0.0_rt) {
-            theta = hydrosim::fixed_latitude_angle;
-        } else {
-            theta = problo + (static_cast<Real>(j) + 0.5_rt) * theta_cell_width;
-        }
-        angular_velocity_vec[0] = std::cos(theta) * omega;
-        angular_velocity_vec[1] = -std::sin(theta) * omega;
-    } else {
-        angular_velocity_vec[hydrosim::spin_axis - 1] = omega;
-    }
-
-    return angular_velocity_vec;
-}
+#include <angular_velocity.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
@@ -55,11 +15,9 @@ fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
                         const GpuArray<Real, 3>& omega, const int coord,
                         const bool with_coriolis, Real* Sr) {
 
-
   Sr[0] = 0.0;
   Sr[1] = 0.0;
   Sr[2] = 0.0;
-
 
   bool c1 = (hydrosim::rotation_centrifugal_on == 1) ? true : false;
 
@@ -99,7 +57,6 @@ Real
 centrifugal_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega,
                      const int coord) {
 
-
   Real phi = 0.0_rt;
   auto r_vec = r;
 
@@ -131,8 +88,6 @@ inertial_to_frame_velocity (const int i, const int j, const int k,
 
   amrex::ignore_unused(time);
 
-
-
   GpuArray<Real, 3> loc;
 
   position(i, j, k, geomdata, loc);
@@ -162,8 +117,6 @@ frame_to_inertial_velocity (const int i, const int j, const int k,
 
   amrex::ignore_unused(time);
 
-
-
   GpuArray<Real, 3> loc;
 
   position(i, j, k, geomdata, loc);
@@ -185,7 +138,6 @@ frame_to_inertial_velocity (const int i, const int j, const int k,
 
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
                                     const GpuArray<Real, 3>& omega, Real time)
@@ -200,7 +152,6 @@ GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
             theta(n) = omega[n] * time;
         }
     }
-
 
     frame_rotation_matrix(0,0) =  cos(theta(1)) * cos(theta(2));
     frame_rotation_matrix(0,1) = -cos(theta(1)) * sin(theta(2));
@@ -221,14 +172,12 @@ GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
     return inertial_vec;
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void fill_omega_times_dt_matrix(const Real dt, const GpuArray<Real, 3>& omega,
                           Array2D<Real, 0, 2, 0, 2>& omega_times_dt_matrix)
 {
 
     Real omega_times_dt[3];
-
 
     if (hydrosim::rotation_coriolis_on == 1) {
 

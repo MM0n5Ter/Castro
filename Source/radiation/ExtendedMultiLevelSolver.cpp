@@ -1,5 +1,5 @@
 
-#include <ExtendedMultiLevelSolver.H>
+#include <HypreSolvers.H>
 #include <ELLIPTIC_OPS.H>
 #include <AMReX_LO_BCTYPES.H>
 

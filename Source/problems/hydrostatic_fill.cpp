@@ -1,12 +1,20 @@
 #include <AMReX_BLFort.H>
 #include <HydroSim.H>
 #include <runtime_parameters.H>
-#include <external_bc_codes.H>
 
 using namespace amrex;
 
 
 
+
+namespace hse
+{
+    constexpr int MAX_ITER = 250;
+    constexpr Real TOL = 1.e-8_rt;
+}
+
+constexpr int EXTERNAL_UNDEFINED = -1;
+constexpr int EXTERNAL_HYDROSTATIC = 1;
 
 void
 hydrostatic_fill(const Box& bx, Array4<Real> const& adv,

@@ -1,4 +1,3 @@
-
 CEXE_sources += Prob.cpp
 CEXE_headers += Problem.H
 CEXE_headers += User_Derives.H
@@ -22,11 +21,8 @@ ifeq ($(USE_MHD),TRUE)
   CEXE_headers += user_initialize_mhd_data.H
 endif
 
-CEXE_headers += HydroSim_bc_fill_nd.H
-CEXE_sources += HydroSim_bc_fill_nd.cpp
-CEXE_sources += ambient_region_fill.cpp
+CEXE_headers += boundary_fill.H
+CEXE_sources += boundary_fill.cpp
 
 CEXE_headers += ambient.H
 CEXE_sources += ambient.cpp
-
-CEXE_sources += HydroSim_user_source.cpp

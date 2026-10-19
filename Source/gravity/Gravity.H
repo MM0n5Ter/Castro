@@ -8,26 +8,6 @@
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
-namespace multipole {
-    const int max_moment_order = 30;
-
-    extern AMREX_GPU_MANAGED amrex::Real volumeScale;
-    extern AMREX_GPU_MANAGED amrex::Real parityScale;
-
-    extern AMREX_GPU_MANAGED amrex::Real rmax;
-
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddLo;
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddHi;
-    extern AMREX_GPU_MANAGED bool doFoldedAdd;
-
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doMirrorLo;
-    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doMirrorHi;
-
-    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, max_moment_order, 0, max_moment_order> factorialTable;
-    extern AMREX_GPU_MANAGED amrex::Array1D<amrex::Real, 0, max_moment_order> axis_parity_table;
-    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, max_moment_order, 0, max_moment_order> azimuth_parity_table;
-}
-
 class Gravity {
 
 public:
@@ -43,9 +23,7 @@ public:
 
   void read_params ();
 
-
   static void report_run_settings(std::ostream& jobInfoFile);
-
 
   void set_grid_points_gravity(int numpts);
 
@@ -64,19 +42,15 @@ public:
 
   static int get_self_check_flag ();
 
-
   void set_mass_shift(amrex::Real time, bool span_all_levels=true) const;
 
   amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_potential_gradient_prev(int level);
 
   amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_potential_gradient_curr(int level);
 
-
   amrex::MultiFab* read_prev_grad_comp(int level,int comp);
 
-
   void accumulate_grad_phi_now(int level, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& addend);
-
 
   void swapTimeLevels (int level);
 
@@ -96,13 +70,11 @@ public:
   void synchronize_gravity_levels (int crse_level, int fine_level,
                      const amrex::Vector<amrex::MultiFab*>& drho, const amrex::Vector<amrex::MultiFab*>& dphi);
 
-
   void multilevel_potential_solve (int level, int finest_level);
 
   void run_multilevel_solve      (int level, int finest_level,
                                      const amrex::Vector<amrex::Vector<amrex::MultiFab*> >& phi_gradient,
                                      int use_new_state);
-
 
   void build_composite_excess_grad(int level,
                                         amrex::MultiFab& comp_phi,
@@ -110,16 +82,13 @@ public:
                                         amrex::MultiFab& composite_minus_level_phi,
                                         amrex::Vector<std::unique_ptr<amrex::MultiFab> >& composite_minus_level_grad_phi);
 
-
   void FetchCoarsePotential(int level,
                   amrex::MultiFab& coarse_potential,
                   amrex::Real time);
 
-
   void read_old_gravity_field(int level, amrex::MultiFab& gravity_field_out, amrex::Real time);
 
   void get_new_gravity_vector(int level, amrex::MultiFab& gravity_field_out, amrex::Real time);
-
 
   static void check_residual (const amrex::Box& bx,
                       amrex::Array4<amrex::Real> const& rhs,
@@ -140,9 +109,7 @@ public:
 
   void check_composite_potential(int level);
 
-
   void average_fine_edges_to_coarse(int level, int use_new_state);
-
 
   void build_radial_field(int level, amrex::Real time, RealVector& radial_field);
 
@@ -173,7 +140,6 @@ public:
 
   amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > phi_gradient_new;
   amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > phi_gradient_old;
-
 
   const amrex::Vector<amrex::BoxArray>& grids;
   const amrex::Vector<amrex::DistributionMapping>& dmap;
@@ -221,7 +187,6 @@ public:
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab> > fetch_poisson_rhs (int crse_level, int nlevs, int use_new_state);
 
-
     void sanity_check (int level);
 
     amrex::Real invoke_mlmg_solver (int crse_level, int fine_level,
@@ -231,7 +196,6 @@ public:
                                         const amrex::Vector<amrex::MultiFab*>& res,
                                         const amrex::MultiFab* const crse_bcdata,
                                         amrex::Real rel_tolerance, amrex::Real abs_tolerance) const;
-
 
     amrex::Real solve_potential_mlmg (int crse_level, int fine_level,
                                      const amrex::Vector<amrex::MultiFab*>& phi,
@@ -243,6 +207,5 @@ public:
 };
 
 using PotentialGradBCFunct = amrex::PhysBCFunctNoOp;
-
 
 #endif

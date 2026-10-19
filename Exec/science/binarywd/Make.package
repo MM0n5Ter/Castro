@@ -1,4 +1,4 @@
 CEXE_headers += binarywd_util.H
-CEXE_headers += binarywd_data.H
-CEXE_sources += binarywd_data.cpp
+CEXE_sources += star_tracking.cpp
 CEXE_sources += binarywd_util.cpp
+CEXE_sources += potential_derives.cpp

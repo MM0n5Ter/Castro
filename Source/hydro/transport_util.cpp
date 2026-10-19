@@ -21,7 +21,6 @@
 
 using namespace amrex;
 
-
 void
 HydroSim::ctoprim(const Box& bx,
                 const Real time,
@@ -57,13 +56,11 @@ HydroSim::ctoprim(const Box& bx,
   });
 }
 
-
 void
 HydroSim::shock(const Box& bx,
               Array4<Real const> const& prim_arr,
               Array4<Real const> const& U_source_arr,
               Array4<Real> const& shk) {
-
 
   const auto dx = geom.CellSizeArray();
   const auto problo = geom.ProbLoArray();
@@ -133,7 +130,6 @@ HydroSim::shock(const Box& bx,
 #endif
     }
 
-
     Real pressure_diff_x = 0.5_rt * (prim_arr(i+1,j,k,QPRES) - prim_arr(i-1,j,k,QPRES));
     if (shock_sensor_subtract_src == 1) {
         pressure_diff_x += -0.25_rt * dx[0] * (U_source_arr(i+1,j,k,UMX) + 2.0_rt * U_source_arr(i,j,k,UMX) + U_source_arr(i-1,j,k,UMX));
@@ -178,7 +174,6 @@ HydroSim::shock(const Box& bx,
   });
 
 }
-
 
 void
 HydroSim::divu(const Box& bx,
@@ -237,12 +232,10 @@ HydroSim::divu(const Box& bx,
 
     if (coord_type == 0) {
 
-
         ux = 0.5_rt * (prim_arr(i,j,k,QU) - prim_arr(i-1,j,k,QU) + prim_arr(i,j-1,k,QU) - prim_arr(i-1,j-1,k,QU)) * dxinv;
         vy = 0.5_rt * (prim_arr(i,j,k,QV) - prim_arr(i,j-1,k,QV) + prim_arr(i-1,j,k,QV) - prim_arr(i-1,j-1,k,QV)) * dyinv;
 
     } else if (coord_type == 1) {
-
 
         if (i == 0) {
             ux = 0.0_rt;
@@ -263,7 +256,6 @@ HydroSim::divu(const Box& bx,
         vy = (vt - vb) * dyinv;
 
     } else {
-
 
         Real rl = (i - 0.5_rt) * dx[0] + problo[0];
         Real rr = (i + 0.5_rt) * dx[0] + problo[0];
@@ -313,7 +305,6 @@ HydroSim::divu(const Box& bx,
   });
 
 }
-
 
 void
 HydroSim::apply_viscosity(const Box& bx,
@@ -382,7 +373,6 @@ HydroSim::apply_viscosity(const Box& bx,
   });
 }
 
-
 #ifdef RADIATION
 void
 HydroSim::apply_viscosity_radiative(const Box& bx,
@@ -432,137 +422,6 @@ HydroSim::apply_viscosity_radiative(const Box& bx,
   });
 }
 #endif
-
-
-void
-HydroSim::balance_species_flux(const Box& bx,
-                                 Array4<Real> const& flux) {
-
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-    Real sum = 0.0_rt;
-
-    for (int n = UFS; n < UFS+NumSpec; n++) {
-      sum += flux(i,j,k,n);
-    }
-
-    Real fac = 1.0_rt;
-
-
-    if (std::abs(sum) > std::numeric_limits<Real>::epsilon() * std::abs(flux(i,j,k,URHO))) {
-      fac = flux(i,j,k,URHO) / sum;
-    }
-
-    for (int n = UFS; n < UFS+NumSpec; n++) {
-      flux(i,j,k,n) = flux(i,j,k,n) * fac;
-    }
-  });
-}
-
-
-void
-HydroSim::scale_flux_by_area(const Box& bx,
-                   Array4<Real> const& flux,
-                   Array4<Real const> const& face_area_arr,
-                   const Real dt) {
-
-  amrex::ParallelFor(bx, NUM_STATE,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-  {
-    flux(i,j,k,n) = dt * flux(i,j,k,n) * face_area_arr(i,j,k);
-  });
-}
-
-
-#ifdef RADIATION
-void
-HydroSim::scale_radiative_flux(const Box& bx,
-                       Array4<Real> const& scaled_radiative_flux,
-                       Array4<Real const> const& face_area_arr,
-                       const Real dt) {
-
-  amrex::ParallelFor(bx, Radiation::nGroups,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int g) noexcept
-  {
-    scaled_radiative_flux(i,j,k,g) = dt * scaled_radiative_flux(i,j,k,g) * face_area_arr(i,j,k);
-  });
-}
-#endif
-
-
-#ifndef MHD
-void
-HydroSim::clip_fluxes_at_density_floor(const Box& bx,
-                                         int idir,
-                                         Array4<Real const> const& u,
-                                         Array4<Real const> const& vol,
-                                         Array4<Real> const& flux,
-                                         Array4<Real const> const& face_area_arr,
-                                         Real dt,
-                                         bool scale_by_area_dt)
-{
-
-    const Real floor_margin = 1.1_rt;
-
-
-    Real floor_density = small_dens * floor_margin;
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-
-        Real right_density = u(i,j,k,URHO);
-        Real right_volume = vol(i,j,k);
-
-        Real left_density, left_volume;
-
-        if (idir == 0) {
-            left_density = u(i-1,j,k,URHO);
-            left_volume = vol(i-1,j,k);
-        }
-        else if (idir == 1) {
-            left_density = u(i,j-1,k,URHO);
-            left_volume = vol(i,j-1,k);
-        }
-        else {
-            left_density = u(i,j,k-1,URHO);
-            left_volume = vol(i,j,k-1);
-        }
-
-
-        Real right_flux_scale = 1.0_rt / right_volume;
-        Real left_flux_scale = 1.0_rt / left_volume;
-
-        if (scale_by_area_dt) {
-            right_flux_scale *= dt * face_area_arr(i,j,k);
-            left_flux_scale *= dt * face_area_arr(i,j,k);
-        }
-
-
-        Real right_density_change = right_flux_scale * flux(i,j,k,URHO);
-        Real left_density_change = left_flux_scale * flux(i,j,k,URHO);
-
-
-        if (right_density >= floor_density && std::abs(right_density_change) > 0.0_rt && right_density + 2 * AMREX_SPACEDIM * right_density_change < floor_density) {
-            Real floor_scale = std::abs((floor_density - right_density) / (2 * AMREX_SPACEDIM * right_density_change));
-            for (int n = 0; n < NUM_STATE; ++n) {
-                flux(i,j,k,n) = flux(i,j,k,n) * floor_scale;
-            }
-        }
-        else if (left_density >= floor_density && std::abs(left_density_change) > 0.0_rt && left_density - 2 * AMREX_SPACEDIM * left_density_change < floor_density) {
-            Real floor_scale = std::abs((floor_density - left_density) / (2 * AMREX_SPACEDIM * left_density_change));
-            for (int n = 0; n < NUM_STATE; ++n) {
-                flux(i,j,k,n) = flux(i,j,k,n) * floor_scale;
-            }
-        }
-
-    });
-}
-#endif
-
 
 void
 HydroSim::clamp_state_density(const Box& bx,
@@ -658,7 +517,6 @@ HydroSim::clamp_state_density(const Box& bx,
   });
 }
 
-
 void
 HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
                                Array4<Real> const& qm,
@@ -674,7 +532,6 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
     bool at_hi_symmetry = hi_bc[idir] == amrex::PhysBCType::symmetry;
 
     const int QUN = QU + idir;
-
 
     if (at_lo_symmetry) {
 

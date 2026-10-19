@@ -1,6 +1,21 @@
 #ifndef MULTIPOLE_KERNELS_H
 #define MULTIPOLE_KERNELS_H
 
+namespace multipole {
+    const int max_moment_order = 30;
+    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, max_moment_order, 0, max_moment_order> factorialTable;
+    extern AMREX_GPU_MANAGED amrex::Array1D<amrex::Real, 0, max_moment_order> axis_parity_table;
+    extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, max_moment_order, 0, max_moment_order> azimuth_parity_table;
+    extern AMREX_GPU_MANAGED amrex::Real volumeScale;
+    extern AMREX_GPU_MANAGED amrex::Real parityScale;
+    extern AMREX_GPU_MANAGED amrex::Real rmax;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doMirrorLo;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doMirrorHi;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddLo;
+    extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddHi;
+    extern AMREX_GPU_MANAGED bool doFoldedAdd;
+}
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real factorial (int n)
 {

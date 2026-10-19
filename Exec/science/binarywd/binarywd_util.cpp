@@ -1,5 +1,4 @@
 #include <binarywd_util.H>
-#include <binary.H>
 #include <network.H>
 #include <ambient.H>
 #include <model_parser.H>

@@ -4,14 +4,15 @@
 #include <AMReX_AmrLevel.H>
 
 #include <HydroSim.H>
-#include <RadComponents.H>
-#include <RadiativeBoundary.H>
-#include <MultiGroupBoundary.H>
+#include <rad_boundary_values.H>
+#include <rad_boundary_values.H>
 #include <RadTransportSolver.H>
 #include <AMReX_FluxRegister.H>
 #include <AMReX_Array.H>
 
 #include <radiation_params.H>
+
+enum RadComponentIds  { Rad  = 0 };
 
 class Radiation {
 

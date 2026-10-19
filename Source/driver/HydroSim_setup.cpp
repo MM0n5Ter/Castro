@@ -6,10 +6,10 @@
 #include <AMReX_LevelBld.H>
 #include <AMReX_ParmParse.H>
 #include <HydroSim.H>
-#include <HydroSim_bc_fill_nd.H>
-#include <HydroSim_generic_fill.H>
+#include <boundary_fill.H>
 #include <Derive.H>
 #include <runtime_parameters.H>
+#include <state_bc_tables.H>
 #ifdef RADIATION
 #include <Radiation.H>
 #include <RadFieldDerive.H>
@@ -23,152 +23,11 @@
 using std::string;
 using namespace amrex;
 
-using BndryFunc = StateDescriptor::BndryFunc;
-
-namespace {
-
-    Box the_same_box (const Box& b) { return b; }
-    Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
-
-    constexpr std::array<int, 6> scalar_bc{
-        amrex::BCType::int_dir,
-        amrex::BCType::ext_dir,
-        amrex::BCType::foextrap,
-        amrex::BCType::reflect_even,
-        amrex::BCType::reflect_even,
-        amrex::BCType::reflect_even
-    };
-
-    constexpr std::array<int, 6> norm_vel_bc{
-        amrex::BCType::int_dir,
-        amrex::BCType::ext_dir,
-        amrex::BCType::foextrap,
-        amrex::BCType::reflect_odd,
-        amrex::BCType::reflect_odd,
-        amrex::BCType::reflect_odd
-    };
-
-    constexpr std::array<int, 6> tang_vel_bc{
-        amrex::BCType::int_dir,
-        amrex::BCType::ext_dir,
-        amrex::BCType::foextrap,
-        amrex::BCType::reflect_even,
-        amrex::BCType::reflect_even,
-        amrex::BCType::reflect_even
-    };
-
-#ifdef MHD
-    constexpr std::array<int, 6> bfield_bc{
-        amrex::BCType::int_dir,
-        amrex::BCType::ext_dir,
-        amrex::BCType::foextrap,
-        amrex::BCType::reflect_even,
-        amrex::BCType::foextrap,
-        amrex::BCType::hoextrap
-    };
-#endif
-
-    void
-    set_scalar_bc (BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        for (int i = 0; i < AMREX_SPACEDIM; i++)
-        {
-            bc.setLo(i,scalar_bc[lo_bc[i]]);
-            bc.setHi(i,scalar_bc[hi_bc[i]]);
-        }
-    }
-
-    void
-    set_x_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,norm_vel_bc[lo_bc[0]]);
-        bc.setHi(0,norm_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-    void
-    set_y_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,norm_vel_bc[lo_bc[1]]);
-        bc.setHi(1,norm_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-    void
-    set_z_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,norm_vel_bc[lo_bc[2]]);
-        bc.setHi(2,norm_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-#ifdef MHD
-    void
-    set_bfield_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        for (int i = 0; i < AMREX_SPACEDIM; i++)
-        {
-            bc.setLo(i, bfield_bc[lo_bc[i]]);
-            bc.setHi(i, bfield_bc[hi_bc[i]]);
-        }
-    }
-#endif
-
-
-    void
-    swap_inflow_bc (BCRec& bc)
-    {
-        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-            if (bc.lo(dir) == amrex::BCType::ext_dir) {
-                bc.setLo(dir, amrex::BCType::foextrap);
-            }
-            if (bc.hi(dir) == amrex::BCType::ext_dir) {
-                bc.setHi(dir, amrex::BCType::foextrap);
-            }
-        }
-    }
-}
-
 void
 HydroSim::variableSetUp ()
 {
 
-
-
   startCpuSeconds = ParallelDescriptor::second();
-
-
 
   if (ParallelDescriptor::IOProcessor()) {
 
@@ -197,7 +56,6 @@ HydroSim::variableSetUp ()
   BL_ASSERT(desc_lst.size() == 0);
 
   read_params();
-
 
   init_prob_parameters();
 
@@ -229,7 +87,6 @@ HydroSim::variableSetUp ()
   opacity_init();
 #endif
 
-
   Real temp_floor_next = std::max(small_temp, EOSData::mintemp);
   small_temp = temp_floor_next;
   EOSData::mintemp = temp_floor_next;
@@ -237,7 +94,6 @@ HydroSim::variableSetUp ()
   Real dens_floor_next = std::max(small_dens, EOSData::mindens);
   small_dens = dens_floor_next;
   EOSData::mindens = dens_floor_next;
-
 
   eos_t eos_state;
 
@@ -263,7 +119,6 @@ HydroSim::variableSetUp ()
   }
 #endif
 #endif
-
 
   for (Real & s : ambient::ambient_reference_state) {
       s = 0.0;
@@ -337,7 +192,6 @@ HydroSim::variableSetUp ()
                          interp,state_data_extrap,store_in_checkpoint);
 #endif
 
-
   store_in_checkpoint = true;
   int forcing_ng = 0;
   if (time_scheme == CornerTrace ||
@@ -360,7 +214,6 @@ HydroSim::variableSetUp ()
                          StateDescriptor::Point, forcing_ng, NUM_SOURCE,
                          interp, state_data_extrap, store_in_checkpoint);
 
-
 #ifdef REACTIONS
   store_in_checkpoint = false;
 
@@ -378,7 +231,6 @@ HydroSim::variableSetUp ()
 #endif
 
 #ifdef REACTIONS
-
 
   if (time_scheme == SimplifiedIterCorrection) {
 
@@ -442,7 +294,6 @@ HydroSim::variableSetUp ()
       bcs[UFA+i] = bc;
       name[UFA+i] = std::format("adv_{}", i);
     }
-
 
   if ( ParallelDescriptor::IOProcessor())
     {
@@ -513,8 +364,6 @@ HydroSim::variableSetUp ()
   desc_lst.setComponent(Bfield_Type_z, 0, "b_z", bc, genericBoundaryFunc);
 #endif
 
-
-
 #ifdef GRAVITY
   set_scalar_bc(bc,phys_bc);
   swap_inflow_bc(bc);
@@ -529,7 +378,6 @@ HydroSim::variableSetUp ()
   swap_inflow_bc(bc);
   desc_lst.setComponent(Accel_Type,2,"grav_z",bc,genericBoundaryFunc);
 #endif
-
 
   Vector<BCRec> forcing_bcs(NUM_SOURCE);
   Vector<std::string> state_type_forcing_names(NUM_SOURCE);
@@ -633,7 +481,6 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-
 #ifdef REACTIONS
   if (time_scheme == IterativeCorrection && sdc_accuracy_order == 4) {
 
@@ -685,9 +532,6 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
 #endif
 
-#ifdef GRAVITY
-#endif
-
   derive_lst.add("entropy",IndexType::TheCellType(),1,derive_entropy,the_same_box);
   derive_lst.addComponent("entropy",desc_lst,State_Type,URHO,NUM_STATE);
 
@@ -696,14 +540,11 @@ HydroSim::variableSetUp ()
     derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derive_conductivity,the_same_box);
     derive_lst.addComponent("thermal_cond",desc_lst,State_Type,URHO,NUM_STATE);
 
-
     derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derive_diffusivity,the_same_box);
     derive_lst.addComponent("diff_coeff",desc_lst,State_Type,URHO,NUM_STATE);
 
-
     derive_lst.add("diffusion_term",IndexType::TheCellType(),1,derive_diffusion_term,grow_box_by_one);
     derive_lst.addComponent("diffusion_term",desc_lst,State_Type,URHO,NUM_STATE);
-
 
   }
 #endif
@@ -835,7 +676,6 @@ HydroSim::variableSetUp ()
 
 #endif
 
-
 #if NAUX_NET > 0
   for (int i = 0; i < NumAux; i++)  {
     derive_lst.add(short_aux_names_cxx[i], IndexType::TheCellType(), 1, derive_mass_fraction, the_same_box);
@@ -883,12 +723,9 @@ HydroSim::variableSetUp ()
   }
 #endif
 
-
   num_tag_fields_default = static_cast<int>(tag_field_names.size());
 
-
   forcing_names.resize(num_forcing);
-
 
   for (int n = 0; n < num_forcing; ++n) {
     forcing_names[n] = "";
@@ -915,8 +752,6 @@ HydroSim::variableSetUp ()
 #ifdef ROTATION
   forcing_names[rotation_src] = "rotation";
 #endif
-
-
 
 #ifdef TRUE_SDC
   if (sdc_quadrature == 0) {

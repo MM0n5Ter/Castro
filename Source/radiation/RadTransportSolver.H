@@ -5,12 +5,12 @@
 
 #include <AMReX_FluxRegister.H>
 
-#include <RadiativeBoundary.H>
-#include <MultiGroupBoundary.H>
+#include <rad_boundary_values.H>
+#include <rad_boundary_values.H>
 
-#include <AlphaBetaSolver.H>
-#include <MultiLevelEllipticSolver.H>
-#include <ExtendedMultiLevelSolver.H>
+#include <HypreSolvers.H>
+#include <HypreSolvers.H>
+#include <HypreSolvers.H>
 
 #include <radiation_solve_params.H>
 

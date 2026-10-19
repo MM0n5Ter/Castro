@@ -1,6 +1,6 @@
 
 CA_BASE=EXE
 
-C$(CA_BASE)_sources += RadInterpBoundaryData.cpp RadBoundaryData.cpp
+C$(CA_BASE)_sources += RadInterpBoundaryData.cpp
 
-C$(CA_BASE)_headers += RadInterpBoundaryData.H RadBoundaryData.H RadBoundaryCondition.H
+C$(CA_BASE)_headers += RadInterpBoundaryData.H

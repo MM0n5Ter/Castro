@@ -7,9 +7,9 @@
 #include <rhs.H>
 #endif
 #include <deferred_react_util.H>
-#include <deferred_newton_solve.H>
-#include <deferred_stiff_solve.H>
-#include <deferred_dogleg_solve.H>
+#include <implicit_burn_solvers.H>
+#include <implicit_burn_solvers.H>
+#include <implicit_burn_solvers.H>
 #endif
 
 namespace deferred_solvers {
