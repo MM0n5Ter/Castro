@@ -2,15 +2,15 @@
 
 #include <AMReX_REAL.H>
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 void
-Castro::det_peak_properties (amrex::Real time,
+HydroSim::det_peak_properties (amrex::Real time,
                              amrex::Real& rho_enuc_max, amrex::Real& peak_x)
 {
-    BL_PROFILE("Castro::det_peak_properties()");
+    BL_PROFILE("HydroSim::det_peak_properties()");
 
     const auto dx = geom.CellSizeArray();
     const auto prob_lo = geom.ProbLoArray();

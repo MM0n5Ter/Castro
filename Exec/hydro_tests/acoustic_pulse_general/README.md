@@ -8,7 +8,7 @@ and use a constant entropy via the EOS to find the density.
 Here we detail the procedure used for convergence testing at NERSC and
 processing the results for the pretty table.
 
-  in `Castro/Exec/hydro_tests/acoustic_pulse_general`
+  in `HydroSim/Exec/hydro_tests/acoustic_pulse_general`
     ```
     make COMP=intel -j 4
     ```
@@ -17,17 +17,17 @@ processing the results for the pretty table.
     ```
     mkdir acoustic_pulse_general
     cd acoustic_pulse_general
-    cp ~/Castro/Exec/hydro_tests/acoustic_pulse_general/Castro2d.intel.haswell.MPI.ex .
-    cp ~/Castro/Exec/hydro_tests/acoustic_pulse_general/inputs.2d.* .
-    cp ~/Castro/Exec/hydro_tests/acoustic_pulse_general/helm_table.dat .
-    cp ~/Castro/Exec/hydro_tests/acoustic_pulse_general/job_scripts/cori.acoustic_pulse_convergence.slurm .
+    cp ~/HydroSim/Exec/hydro_tests/acoustic_pulse_general/HydroSim2d.intel.haswell.MPI.ex .
+    cp ~/HydroSim/Exec/hydro_tests/acoustic_pulse_general/inputs.2d.* .
+    cp ~/HydroSim/Exec/hydro_tests/acoustic_pulse_general/helm_table.dat .
+    cp ~/HydroSim/Exec/hydro_tests/acoustic_pulse_general/job_scripts/cori.acoustic_pulse_convergence.slurm .
     sbatch cori.acoustic_pulse_convergence.slurm
     ```
 
   to do the analysis, in the output directory:
     ```
-    cp ~/Castro//Exec/hydro_tests/acoustic_pulse_general/job_scripts/check_convergence.sh .
-    cp ~/Castro//Exec/hydro_tests/acoustic_pulse_general/job_scripts/create_pretty_tables.py .
+    cp ~/HydroSim//Exec/hydro_tests/acoustic_pulse_general/job_scripts/check_convergence.sh .
+    cp ~/HydroSim//Exec/hydro_tests/acoustic_pulse_general/job_scripts/create_pretty_tables.py .
 
   you may need to edit `check_convergence.sh` to use bash and have a
   different executable name.  Then

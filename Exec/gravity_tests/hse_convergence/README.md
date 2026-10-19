@@ -25,7 +25,7 @@ Build this simply as `make`, and run the suite via:
 
 This explores
 
-  * the default HSE BCs and `use_pslope` -- results are in
+  * the default HSE BCs and `use_pressure_slope` -- results are in
     `plm.converge.out`
 
     The maximum velocity for different zoning is:
@@ -39,7 +39,7 @@ This explores
 
     This looks first-order.
 
-  * the HSE BCs with reflection and `use_pslope` -- results are in
+  * the HSE BCs with reflection and `use_pressure_slope` -- results are in
     `plm-hsereflect.converge.out`
 
     The maximum velocity for different zoning is:
@@ -53,7 +53,7 @@ This explores
 
     This looks second-order.
 
-  * reflecting BCs (instead of HSE BCs) without `use_pslope` --
+  * reflecting BCs (instead of HSE BCs) without `use_pressure_slope` --
     results are in `plm-reflect-nopslope.converge.out`
 
     The maximum velocity for different zoning is:
@@ -67,8 +67,8 @@ This explores
 
     This looks first-order.
 
-  * reflect BCs with `use_pslope` -- results are in
-    `plm-reflect-pslope.converge.out`
+  * reflect BCs with `use_pressure_slope` -- results are in
+    `plm-reflect-pressure_slope.converge.out`
 
     The maximum velocity for different zoning is:
 
@@ -82,7 +82,7 @@ This explores
     This looks second-order.
 
 These tests show that the best results (by far) come from
-`use_pslope=1` and reflecting BCs
+`use_pressure_slope=1` and reflecting BCs
 
 ## CTU + PPM
 
@@ -94,7 +94,7 @@ Again, build simply as `make` and run the suite via:
 
 This explores a similar set of conditions as the PLM:
 
-  * the default HSE BCs (no pslope) -- results are in
+  * the default HSE BCs (no pressure_slope) -- results are in
     `ppm.converge.out`
 
     The maximum velocity for different zoning is:
@@ -136,8 +136,8 @@ This explores a similar set of conditions as the PLM:
 
     This looks first-order.
 
-  * reflecting BCs + `use_pslope` -- results are in
-    `ppm-reflect-pslope.converge.out`
+  * reflecting BCs + `use_pressure_slope` -- results are in
+    `ppm-reflect-pressure_slope.converge.out`
 
     The maximum velocity for different zoning is:
 
@@ -150,7 +150,7 @@ This explores a similar set of conditions as the PLM:
 
     This looks second-order.
 
-  * reflecting BCs + `ppm_well_balanced` -- results are in
+  * reflecting BCs + `ppm_equil_recon` -- results are in
     `ppm-reflect-wellbalanced.converge.out`
 
     The maximum velocity for different zoning is:
@@ -165,7 +165,7 @@ This explores a similar set of conditions as the PLM:
     This looks better than second-order.
 
 These tests show that the best results (by far) come from reflecting
-BCs with `ppm_well_balanced=1`.  There is no equivalent for this in
+BCs with `ppm_equil_recon=1`.  There is no equivalent for this in
 the PLM solver.
 
 ## SDC
@@ -187,7 +187,7 @@ run the suite as:
 
 The following variations are explored:
 
-  * SDC-2 + PLM with `use_pslope` and reflecting BCs -- results are in
+  * SDC-2 + PLM with `use_pressure_slope` and reflecting BCs -- results are in
     `sdc2-reflect.converge.out`
 
     The maximum velocity for different zoning is:
@@ -216,7 +216,7 @@ The following variations are explored:
 
     This looks first-order.
 
-  * SDC-2 + PLM with `use_pslope` and HSE BCs -- results are in
+  * SDC-2 + PLM with `use_pressure_slope` and HSE BCs -- results are in
     `sdc2.converge.out`
 
     The maximum velocity for different zoning is:
@@ -260,5 +260,5 @@ The following variations are explored:
 
 
 These tests show that the PLM + reflect (which uses the well-balanced
-`use_pslope`) and the SDC-4 + reflect give the lowest errors and
+`use_pressure_slope`) and the SDC-4 + reflect give the lowest errors and
 expected (or better) convergence.

@@ -7,21 +7,21 @@ Currently supports two different Embiggen modes:
    (old level 0 -> new level 1, old level 1 -> new level 2, ...).
    A new level 0 is created and initialized during restart
    where the extended regions at level 0 are initialized according to
-   problem_initialize_state_data() and the regions overlapping
+   user_initialize_state_data() and the regions overlapping
    the original coarse level, or the new level 1 is initialized
    by averaging down the data from the new level 1 grids.
 
    Required parameters:
        ref_ratio
-       grown_factor
-       star_at_center
+       restart_grow_factor
+       body_at_center
 
 2. theta_extend
 
    Extend the existing level 0 domain in the theta direction
    without adding a new AMR level. Existing data are preserved
    and copied into the enlarged domain. Newly added cells are
-   initialized during restart via problem_initialize_state_data().
+   initialized during restart via user_initialize_state_data().
    This is designed for 2D Spherical Geometry specifically.
    It needs the new theta upper boundary in radian and the
    blocking factor used for running the simulation
@@ -65,16 +65,16 @@ This will make an executable from the Embiggen.cpp code.
 
 2) Run the embiggening code as follows:
 
-Embiggen2d.Linux.Intel.Intel.ex checkin=chk00100 checkout=newchk00050 ref_ratio=2 grown_factor=8
+Embiggen2d.Linux.Intel.Intel.ex checkin=chk00100 checkout=newchk00050 ref_ratio=2 restart_grow_factor=8
 
 This will create a new checkpoint directory, called newchk00050, that represents a simulation
 with *one* additional level of refinement *coarser* than the previous level 0 grids by
-a factor of "ref_ratio" (in this case, 2).   The new domain will be a factor of "grown_factor" (in this case, 8)
+a factor of "ref_ratio" (in this case, 2).   The new domain will be a factor of "restart_grow_factor" (in this case, 8)
 
 Note that ref_ratio must be 2 or 4, because those are the only cromulent
-values in CASTRO.
+values in HYDROSIM.
 
-grown_factor can be any reasonable integer; I've only tested 2, 3, 4 and 8.  It does not need
+restart_grow_factor can be any reasonable integer; I've only tested 2, 3, 4 and 8.  It does not need
 to be a multiple of 2.
 
 (You no longer set num_new_levels, that is now hard-wired to one.  You can only add one new level at a time.)
@@ -98,7 +98,7 @@ to be a multiple of 2.
     geometry.prob_lo =  0  0
     geometry.prob_hi = 8P 8P
 
-    castro.grown_factor = 8
+    hydrosim.restart_grow_factor = 8
 
     amr.ref_ratio = 2 4 4 4 4
 
@@ -111,17 +111,17 @@ IMPORTANT:
 2) Set amr.regrid_on_restart = 1 to make sure that the gridding is as you want it
 before you take any timesteps.  The first plotfile generated will show the new grids.
 
-2) You must set amr.n_cell = (grown_factor / ref_ratio) times the previous n_cell.
+2) You must set amr.n_cell = (restart_grow_factor / ref_ratio) times the previous n_cell.
 In this case amr.n_cell = (8/2)*D = 4D.
 
-3) You must set prob_hi to be a factor of grown_factor greater than the previous prob_hi.
+3) You must set prob_hi to be a factor of restart_grow_factor greater than the previous prob_hi.
 
 4) You must insert the value of "ref_ratio" used in the Embiggen call as the first
 value in the list of ref_ratio, since that will now be the ref_ratio between the new level 0
 and the new level 1.
 
-5) You must set castro.grown_factor in your inputs file to be the same grown_factor you used
-when you called Embiggen*ex so that the CASTRO code knows how big the original domain
+5) You must set hydrosim.restart_grow_factor in your inputs file to be the same restart_grow_factor you used
+when you called Embiggen*ex so that the HYDROSIM code knows how big the original domain
 was.
 
 6) Note that if you have run 100 steps at the original level 0, that would be equivalent
@@ -143,11 +143,11 @@ Now let's suppose that:
 2) you want to grow the domain by a factor of 2,  and
 3) you want to cover that new larger domain with a level that is a factor of 2 coarser than the existing level 0 grids.
 
-Then you must modify your call to Embiggen by setting star_at_center = 1 (it defaults to 0), i.e., do
+Then you must modify your call to Embiggen by setting body_at_center = 1 (it defaults to 0), i.e., do
 
-Embiggen2d.Linux.Intel.Intel.ex checkin=chk00100 checkout=newchk00050 ref_ratio=2 grown_factor=2 star_at_center=1
+Embiggen2d.Linux.Intel.Intel.ex checkin=chk00100 checkout=newchk00050 ref_ratio=2 restart_grow_factor=2 body_at_center=1
 
-In this case grown_factor can be either 2 or 3.
+In this case restart_grow_factor can be either 2 or 3.
 
   Note that your inputs file now should look something like:
 
@@ -164,17 +164,17 @@ In this case grown_factor can be either 2 or 3.
     geometry.prob_lo = -P/2 -P/2
     geometry.prob_hi = 3P/2 3P/2
 
-    castro.grown_factor = 2
+    hydrosim.restart_grow_factor = 2
 
-    castro.star_at_center = 1
+    hydrosim.body_at_center = 1
 
     amr.ref_ratio = 2 4 4 4 4
 
 ****************************************************
 
-NOTE: don't forget to set castro.star_at_center in your inputs file when you restart.
+NOTE: don't forget to set hydrosim.body_at_center in your inputs file when you restart.
 
-NOTE: when star_at_center = 1, MAKE SURE that you have defined the center of the star
+NOTE: when body_at_center = 1, MAKE SURE that you have defined the center of the star
 in your subroutine PROBINIT to be
 
      center(1) = problo(1) + 0.5d0 * (probhi(1)-problo(1))
@@ -260,13 +260,13 @@ Then you need to:
    geometry.prob_lo = 0.5 0
    geometry.prob_hi = 1.0 0.306
 
-   castro.old_theta_ncell = 240
+   hydrosim.prev_theta_cells = 240
 
 ****************************************************
 
-Note that you should only set `castro.old_theta_ncell = 240`
-once after you restart. This parameter tells castro that it needs
+Note that you should only set `hydrosim.prev_theta_cells = 240`
+once after you restart. This parameter tells hydrosim that it needs
 to initialize new zones that are larger than this based on
-`problem_initialize_state_data()`.
+`user_initialize_state_data()`.
 
 ----------------------------------------------------

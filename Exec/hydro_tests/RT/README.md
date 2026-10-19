@@ -22,5 +22,5 @@ assign particles according to the ``particle_file`` locations.
 These particles are moved with the fluid velocity each time step, and
 if they leave the domain then they just "disappear."
 
-This test is primarily designed to test the ability of Castro to
+This test is primarily designed to test the ability of HydroSim to
 handle particles.

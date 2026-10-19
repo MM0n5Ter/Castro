@@ -15,7 +15,7 @@ RES_INFO = [("24.0km", "48", "0"),
 INPUTS_TEMPLATE = "inputs-shock-burn.template"
 
 COMMON_FILES = ["helm_table.dat",
-                "Castro1d.gnu.MPI.SMPLSDC.ex"]
+                "HydroSim1d.gnu.MPI.SMPLSDC.ex"]
 
 shock_flag = "1"
 shock_thresh = "0.666"

@@ -22,8 +22,8 @@
 
 #include <ctime>
 
-#include <Castro.H>
-#include <Castro_io.H>
+#include <HydroSim.H>
+#include <HydroSim_io.H>
 
 #include <global.H>
 
@@ -35,7 +35,7 @@ amrex::LevelBld* getLevelBld ();
 
 // Any parameters we want to override the defaults for in AMReX
 
-void override_parameters ()
+void set_amrex_defaults ()
 {
     {
         ParmParse pp("amrex");
@@ -69,7 +69,7 @@ main (int   argc,
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
             if (std::string(argv[i]) == "--describe") {
-                Castro::writeBuildInfo();
+                HydroSim::writeBuildRecord();
                 return 0;
             }
         }
@@ -78,7 +78,7 @@ main (int   argc,
     //
     // Make sure to catch new failures.
     //
-    amrex::Initialize(argc, argv, true, MPI_COMM_WORLD, override_parameters);
+    amrex::Initialize(argc, argv, true, MPI_COMM_WORLD, set_amrex_defaults);
     {
 
     // Refuse to continue if we did not provide an inputs file.
@@ -126,72 +126,72 @@ main (int   argc,
 
     time_t time_type;
 
-    const struct tm* time_pointer = nullptr;
+    const struct tm* wall_tm_ptr = nullptr;
 
     time(&time_type);
 
-    time_pointer = gmtime(&time_type);
+    wall_tm_ptr = gmtime(&time_type);
 
     amrex::Print() << std::setfill('0') << "\nStarting run at "
-                   << std::setw(2) << time_pointer->tm_hour << ":"
-                   << std::setw(2) << time_pointer->tm_min << ":"
-                   << std::setw(2) << time_pointer->tm_sec << " UTC on "
-                   << time_pointer->tm_year + 1900 << "-"
-                   << std::setw(2) << time_pointer->tm_mon + 1 << "-"
-                   << std::setw(2) << time_pointer->tm_mday << "." << std::endl;
+                   << std::setw(2) << wall_tm_ptr->tm_hour << ":"
+                   << std::setw(2) << wall_tm_ptr->tm_min << ":"
+                   << std::setw(2) << wall_tm_ptr->tm_sec << " UTC on "
+                   << wall_tm_ptr->tm_year + 1900 << "-"
+                   << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
+                   << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
 
     //
     // Initialize random seed after we're running in parallel.
     //
 
-    Amr* amrptr = new Amr(getLevelBld());
-    global::the_amr_ptr = amrptr;
+    Amr* amr_obj = new Amr(getLevelBld());
+    global::amr_instance = amr_obj;
 
-    amrptr->init(strt_time,stop_time);
+    amr_obj->init(strt_time,stop_time);
 
     // If we set the regrid_on_restart flag and if we are *not* going to take
     //    a time step then we want to go ahead and regrid here.
-    if ( amrptr->RegridOnRestart() &&
-         ( (amrptr->levelSteps(0) >= max_step) ||
-           (amrptr->cumTime() >= stop_time) ) )
+    if ( amr_obj->RegridOnRestart() &&
+         ( (amr_obj->levelSteps(0) >= max_step) ||
+           (amr_obj->cumTime() >= stop_time) ) )
            {
            //
            // Regrid only!
            //
-           amrptr->RegridOnly(amrptr->cumTime());
+           amr_obj->RegridOnly(amr_obj->cumTime());
            }
 
     double dRunTime2 = ParallelDescriptor::second();
 
-    while ( amrptr->okToContinue()                            &&
-           (amrptr->levelSteps(0) < max_step || max_step < 0) &&
-           (amrptr->cumTime() < stop_time || stop_time < 0.0) )
+    while ( amr_obj->okToContinue()                            &&
+           (amr_obj->levelSteps(0) < max_step || max_step < 0) &&
+           (amr_obj->cumTime() < stop_time || stop_time < 0.0) )
 
     {
         //
         // Do a timestep.
         //
-        amrptr->coarseTimeStep(stop_time);
+        amr_obj->coarseTimeStep(stop_time);
     }
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-    Castro::problem_post_simulation(amrptr->getAmrLevels());
+    HydroSim::user_post_simulation(amr_obj->getAmrLevels());
 #endif
 
     // Write final checkpoint and plotfile
 
-    if (Castro::get_output_at_completion() == 1) {
+    if (HydroSim::get_write_on_finish() == 1) {
 
-        if (amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0)) {
-            amrptr->checkPoint();
+        if (amr_obj->stepOfLastCheckPoint() < amr_obj->levelSteps(0)) {
+            amr_obj->checkPoint();
         }
 
-        if (amrptr->stepOfLastPlotFile() < amrptr->levelSteps(0)) {
-            amrptr->writePlotFile();
+        if (amr_obj->stepOfLastPlotFile() < amr_obj->levelSteps(0)) {
+            amr_obj->writePlotFile();
         }
 
-        if (amrptr->stepOfLastSmallPlotFile() < amrptr->levelSteps(0)) {
-            amrptr->writeSmallPlotFile();
+        if (amr_obj->stepOfLastSmallPlotFile() < amr_obj->levelSteps(0)) {
+            amr_obj->writeSmallPlotFile();
         }
 
     }
@@ -200,42 +200,42 @@ main (int   argc,
     // advanced per microsecond. This must be done before we delete the Amr
     // object because we need to scale it by the number of zones on the coarse grid.
 
-    long numPtsCoarseGrid = amrptr->getLevel(0).boxArray().numPts();
-    Real fom = Castro::num_zones_advanced * static_cast<Real>(numPtsCoarseGrid);
+    long coarse_zone_count = amr_obj->getLevel(0).boxArray().numPts();
+    Real fom = HydroSim::cells_advanced_total * static_cast<Real>(coarse_zone_count);
 
     time(&time_type);
 
-    time_pointer = gmtime(&time_type);
+    wall_tm_ptr = gmtime(&time_type);
 
     amrex::Print() << std::setfill('0') << "\nEnding run at "
-                   << std::setw(2) << time_pointer->tm_hour << ":"
-                   << std::setw(2) << time_pointer->tm_min << ":"
-                   << std::setw(2) << time_pointer->tm_sec << " UTC on "
-                   << time_pointer->tm_year + 1900 << "-"
-                   << std::setw(2) << time_pointer->tm_mon + 1 << "-"
-                   << std::setw(2) << time_pointer->tm_mday << "." << std::endl;
+                   << std::setw(2) << wall_tm_ptr->tm_hour << ":"
+                   << std::setw(2) << wall_tm_ptr->tm_min << ":"
+                   << std::setw(2) << wall_tm_ptr->tm_sec << " UTC on "
+                   << wall_tm_ptr->tm_year + 1900 << "-"
+                   << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
+                   << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
 
-    delete amrptr;
+    delete amr_obj;
     //
     // This MUST follow the above delete as ~Amr() may dump files to disk.
     //
     const int IOProc = ParallelDescriptor::IOProcessorNumber();
     const int nprocs = ParallelDescriptor::NProcs();
 
-    double dRunTime3 = ParallelDescriptor::second();
+    double end_wall_time = ParallelDescriptor::second();
 
-    Real runtime_total = static_cast<Real>(dRunTime3 - dRunTime1);
-    Real runtime_timestep = static_cast<Real>(dRunTime3 - dRunTime2);
+    Real wall_time_total = static_cast<Real>(end_wall_time - dRunTime1);
+    Real wall_time_solve = static_cast<Real>(end_wall_time - dRunTime2);
 
-    ParallelDescriptor::ReduceRealMax(runtime_total,IOProc);
-    ParallelDescriptor::ReduceRealMax(runtime_timestep,IOProc);
+    ParallelDescriptor::ReduceRealMax(wall_time_total,IOProc);
+    ParallelDescriptor::ReduceRealMax(wall_time_solve,IOProc);
 
     if (ParallelDescriptor::IOProcessor())
     {
-        std::cout << "Run time = " << runtime_total << std::endl;
-        std::cout << "Run time without initialization = " << runtime_timestep << std::endl;
+        std::cout << "Run time = " << wall_time_total << std::endl;
+        std::cout << "Run time without initialization = " << wall_time_solve << std::endl;
 
-        fom = fom / runtime_timestep / 1.e6;
+        fom = fom / wall_time_solve / 1.e6;
 
         std::cout << "\n";
         std::cout << "  Average number of zones advanced per microsecond: " << std::fixed << std::setprecision(3) << fom << "\n";

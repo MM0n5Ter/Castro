@@ -1,12 +1,12 @@
-"""Helper functions for working with Castro diagnostic files (*_diag.out)
+"""Helper functions for working with HydroSim diagnostic files (*_diag.out)
 
 To use these in a standalone script, you can do one of the following:
 
-* append $CASTRO_HOME/Util/scripts to sys.path at the top of your script:
-    sys.path.append("<path to Castro>/Util/scripts")
+* append $HYDROSIM_HOME/Util/scripts to sys.path at the top of your script:
+    sys.path.append("<path to HydroSim>/Util/scripts")
 
 * add a symlink to this file in the same directory as your script:
-    $ ln -s "$CASTRO_HOME/Util/scripts/diag_parser.py" .
+    $ ln -s "$HYDROSIM_HOME/Util/scripts/diag_parser.py" .
 
 * copy this file into the same directory as your script
 
@@ -18,44 +18,44 @@ from pathlib import Path
 import numpy as np
 
 """ Format notes
-files are opened in Castro.cpp, data is written in sum_integrated_quantities.cpp
+files are opened in HydroSim.cpp, data is written in tally_integrated_quantities.cpp
 
-data_logs[0]: grid_diag.out
-intwidth, fixwidth, datwidth*
+run_logs[0]: grid_diag.out
+integer_column_width, fixed_column_width, sci_column_width*
 
-data_logs[1]: gravity_diag.out
+run_logs[1]: gravity_diag.out
 - this was previously missing the last column number (8), which we handle for
   backwards compatibility
-intwidth, fixwidth, datwidth, datwidth, datwidth, datwidth, datwidth, datwidth
+integer_column_width, fixed_column_width, sci_column_width, sci_column_width, sci_column_width, sci_column_width, sci_column_width, sci_column_width
 
-data_logs[2]: species_diag.out
-intwidth, fixwidth, datwidth*
+run_logs[2]: species_diag.out
+integer_column_width, fixed_column_width, sci_column_width*
 
-data_logs[3]: amr_diag.out
+run_logs[3]: amr_diag.out
 - if compiled with GPU support, this will have two additional integer fields at
-  the end with size `datwidth` for the GPU memory usage
+  the end with size `sci_column_width` for the GPU memory usage
 - column 5 (max number of subcycles) is an integer
-intwidth, fixwidth, fixwidth, intwidth, fixwidth, datwidth
+integer_column_width, fixed_column_width, fixed_column_width, integer_column_width, fixed_column_width, sci_column_width
 """
 
-datwidth = 25  # Floating point data in scientific notation
-fixwidth = 25  # Floating point data not in scientific notation
-intwidth = 12  # Integer data
+sci_column_width = 25  # Floating point data in scientific notation
+fixed_column_width = 25  # Floating point data not in scientific notation
+integer_column_width = 12  # Integer data
 
 # Any additional columns after these are assumed to be floating point values in
 # scientific notation (amr_diag.out gets special handling)
 FIELD_WIDTHS = {
-    "grid_diag.out": [intwidth, fixwidth],
-    "gravity_diag.out": [intwidth, fixwidth] + [datwidth] * 6,
-    "species_diag.out": [intwidth, fixwidth],
-    "amr_diag.out": [intwidth, fixwidth, fixwidth, intwidth, fixwidth, datwidth],
+    "grid_diag.out": [integer_column_width, fixed_column_width],
+    "gravity_diag.out": [integer_column_width, fixed_column_width] + [sci_column_width] * 6,
+    "species_diag.out": [integer_column_width, fixed_column_width],
+    "amr_diag.out": [integer_column_width, fixed_column_width, fixed_column_width, integer_column_width, fixed_column_width, sci_column_width],
 }
 
 
 def read_diag_file(file_path):
-    """Reads a Castro diagnostic file into a numpy structured array.
+    """Reads a HydroSim diagnostic file into a numpy structured array.
 
-    Currently only supports the default files that Castro generates.
+    Currently only supports the default files that HydroSim generates.
     """
     if not isinstance(file_path, Path):
         file_path = Path(file_path)
@@ -73,9 +73,9 @@ def read_diag_file(file_path):
         else:
             num_columns = int(first_line.split()[-1])
         # pad out the widths list on the right if necessary
-        widths.extend([datwidth] * (num_columns - len(widths)))
+        widths.extend([sci_column_width] * (num_columns - len(widths)))
         # infer datatypes from the widths
-        dtypes = [int if w == intwidth else float for w in widths]
+        dtypes = [int if w == integer_column_width else float for w in widths]
         # amr_diag.out has several integer columns with long names
         if filetype == "amr_diag.out":
             dtypes[4] = int  # max number of subcycles

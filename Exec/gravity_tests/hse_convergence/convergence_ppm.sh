@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-EXEC=./Castro1d.gnu.MPI.ex
+EXEC=./HydroSim1d.gnu.MPI.ex
 
 ## ppm
 
@@ -29,8 +29,8 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=ppm-hsereflect.converge.out
 
 RUNPARAMS="
-castro.hse_interp_temp=1
-castro.hse_reflect_vels=1
+hydrosim.hse_temp_extrap=1
+hydrosim.hse_mirror_vel=1
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -55,8 +55,8 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=ppm-reflect.converge.out
 
 RUNPARAMS="
-castro.lo_bc=3
-castro.hi_bc=3
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -76,14 +76,14 @@ pfile=`ls -t | grep -i hse_512_plt | head -1`
 fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 
 
-## ppm + reflect + pslope
+## ppm + reflect + pressure_slope
 
-ofile=ppm-reflect-pslope.converge.out
+ofile=ppm-reflect-pressure_slope.converge.out
 
 RUNPARAMS="
-castro.lo_bc=3
-castro.hi_bc=3
-castro.use_pslope=1
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
+hydrosim.use_pressure_slope=1
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out
@@ -108,9 +108,9 @@ fextrema.gnu.ex -v magvel ${pfile} | grep -i magvel >> ${ofile}
 ofile=ppm-reflect-wellbalanced.converge.out
 
 RUNPARAMS="
-castro.lo_bc=3
-castro.hi_bc=3
-castro.ppm_well_balanced=1
+hydrosim.lo_bc=3
+hydrosim.hi_bc=3
+hydrosim.ppm_equil_recon=1
 """
 
 ${EXEC} inputs.ppm.64 ${RUNPARAMS} >& 64.out

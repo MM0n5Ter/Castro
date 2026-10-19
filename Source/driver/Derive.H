@@ -1,5 +1,5 @@
-#ifndef CASTRO_DERIVE_H
-#define CASTRO_DERIVE_H
+#ifndef HYDROSIM_DERIVE_H
+#define HYDROSIM_DERIVE_H
 
 #include <AMReX_BLFort.H>
 #include <AMReX_FArrayBox.H>
@@ -10,130 +10,130 @@ extern "C"
 {
 #endif
 
-  void ca_derpres
+  void derive_pressure
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dereint1
+  void derive_internal_from_total
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dereint2
+  void derive_internal_from_stored
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derlogden
+  void derive_log_density
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_deruplusc
+  void derive_u_plus_c
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_deruminusc
+  void derive_u_minus_c
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dersoundspeed
+  void derive_sound_speed
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dergamma1
+  void derive_adiabatic_index
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermachnumber
+  void derive_mach_ratio
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derentropy
+  void derive_entropy
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
 #ifdef DIFFUSION
-  void ca_dercond
+  void derive_conductivity
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derdiffcoeff
+  void derive_diffusivity
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derdiffterm
+  void derive_diffusion_term
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 #endif
 
-  void ca_derenuc
+  void derive_energy_generation
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derenuctimescale
+  void derive_timescale_ratio
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dervel
+  void derive_velocity_component
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermagvel
+  void derive_speed
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermaggrav
+  void derive_gravity_magnitude
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derradialvel
+  void derive_radial_velocity
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dercircvel
+  void derive_circular_speed
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermagmom
+  void derive_momentum_magnitude
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derangmomx (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+  void derive_ang_momentum_x (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
                       const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
                       amrex::Real time, const int* bcrec, int level);
 
-  void ca_derangmomy (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+  void derive_ang_momentum_y (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
                       const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
                       amrex::Real time, const int* bcrec, int level);
 
-  void ca_derangmomz (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+  void derive_ang_momentum_z (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
                       const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
                       amrex::Real time, const int* bcrec, int level);
 
-  void ca_derkineng (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
+  void derive_kinetic_energy (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int ncomp,
                      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
                      amrex::Real time, const int* bcrec, int level);
 
-  void ca_dernull
+  void derive_noop
     (BL_FORT_FAB_ARG_3D(der),const int* nvar,
      const BL_FORT_FAB_ARG_3D(data),const int* ncomp,
      const int* lo, const int* hi,
@@ -142,53 +142,53 @@ extern "C"
      const amrex::Real* time, const amrex::Real* dt, const int* bcrec,
      const int* level, const int* grid_no);
 
-  void ca_derspec
+  void derive_mass_fraction
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derabar
+  void derive_atomic_mass
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derye
+  void derive_elec_frac
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermagvort
+  void derive_vorticity
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derdivu
+  void derive_flow_divergence
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derstate
+  void derive_state_error
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
 #ifdef MHD
-  void ca_dermagcenx
+  void derive_cell_bfield_x
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermagceny
+  void derive_cell_bfield_y
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_dermagcenz
+  void derive_cell_bfield_z
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
 
-  void ca_derdivb
+  void derive_b_divergence
     (const amrex::Box& bx, amrex::FArrayBox& derfab, int dcomp, int /*ncomp*/,
      const amrex::FArrayBox& datfab, const amrex::Geometry& geom,
      amrex::Real /*time*/, const int* /*bcrec*/, int /*level*/);
@@ -200,6 +200,6 @@ extern "C"
 #endif
 
 /* problem-specific includes */
-#include <Problem_Derive.H>
+#include <User_Derive.H>
 
 #endif

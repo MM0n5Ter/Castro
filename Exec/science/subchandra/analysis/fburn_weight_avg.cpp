@@ -44,12 +44,12 @@ void main_main()
 
         const Vector<std::string>& var_names_pf = pf.varNames();
 
-        // find all of the variables that begin with burn_weights
+        // find all of the variables that begin with burn_split_data
 
         Vector<std::string> var_names;
 
         for (auto e : var_names_pf) {
-            if (e.find("burn_weights") != std::string::npos) {
+            if (e.find("burn_split_data") != std::string::npos) {
                 var_names.push_back(e);
             }
         }

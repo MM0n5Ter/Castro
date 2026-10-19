@@ -17,52 +17,52 @@ amr.n_cell           =  64   64   64
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.lo_bc       =  5 5 5
-castro.hi_bc       =  5 5 5
+hydrosim.lo_bc       =  5 5 5
+hydrosim.hi_bc       =  5 5 5
 
 # HYDRO
 
-castro.do_hydro      = 1
-castro.small_temp    = 1.e-10
-castro.small_dens    = 1.e-10
+hydrosim.do_hydro      = 1
+hydrosim.small_temp    = 1.e-10
+hydrosim.small_dens    = 1.e-10
 
-castro.hybrid_hydro = 1
+hydrosim.split_momentum_hydro = 1
 
-castro.limit_fluxes_on_small_dens = 1
+hydrosim.clip_small_rho_flux = 1
 
-castro.use_retry = 1
+hydrosim.allow_step_retry = 1
 
-castro.grav_source_type = 4
-castro.rot_source_type = 4
+hydrosim.gravity_source_mode = 4
+hydrosim.rotation_source_mode = 4
 
 # THERMODYNAMICS
 
-castro.dual_energy_eta1 = 1.0e-3
-castro.dual_energy_eta2 = 1.0e-4
+hydrosim.dual_energy_switch_hi = 1.0e-3
+hydrosim.dual_energy_switch = 1.0e-4
 
 # GRAVITY
 
-castro.do_grav           = 1
-gravity.gravity_type     = ConstantGrav
-gravity.const_grav       = 0.0
-castro.use_point_mass    = 1
-castro.point_mass        = 6.0e8
-castro.point_mass_fix_solution = 0
+hydrosim.do_gravity_flag           = 1
+gravity.gravity_model_name     = ConstantGrav
+gravity.uniform_accel       = 0.0
+hydrosim.use_central_mass    = 1
+hydrosim.point_mass        = 6.0e8
+hydrosim.point_mass_correct_solution = 0
 
 # ROTATION
 
-castro.do_rotation       = 0
-castro.rotational_period = 1.0
+hydrosim.do_frame_spin       = 0
+hydrosim.spin_period = 1.0
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.05    # scale back initial timestep
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.05    # scale back initial timestep
 
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
@@ -87,7 +87,7 @@ amr.derive_plot_vars = NONE
 problem.inner_radius = 0.75
 problem.outer_radius = 1.50
 
-problem.ambient_density = 1.0e-8
+problem.background_density = 1.0e-8
 
 # Microphysics
 

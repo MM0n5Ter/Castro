@@ -9,7 +9,7 @@
 
 cd $LS_SUBCWD
 
-Castro_ex=./Castro3d.gnu.MPI.CUDA.ex
+HydroSim_ex=./HydroSim3d.gnu.MPI.CUDA.ex
 inputs_file=inputs.He.25cm.static.1000Hz
 
 n_mpi=1152 # ~ nodes * 6 gpu per node
@@ -23,5 +23,5 @@ export OMP_NUM_THREADS=$n_omp
 module load gcc/10.2.0
 module load cuda/11.4.0
 
-jsrun -n $n_mpi -c $n_cores -a 1 -g $n_gpu $Castro_ex $inputs_file max_step=25
+jsrun -n $n_mpi -c $n_cores -a 1 -g $n_gpu $HydroSim_ex $inputs_file max_step=25
 

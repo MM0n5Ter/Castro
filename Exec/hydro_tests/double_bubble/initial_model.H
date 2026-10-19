@@ -6,7 +6,7 @@
 #include <eos.H>
 
 struct model_t {
-    Real dens_base = -1;
+    Real density_base = -1;
     Real p_base = -1;
     Real xn[NumSpec] = {0.0};
 };
@@ -33,7 +33,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
     // compute the pressure scale height (for an isothermal, ideal-gas
     // atmosphere)
 
-    Real H = model_params.p_base / model_params.dens_base / std::abs(gravity::const_grav);
+    Real H = model_params.p_base / model_params.density_base / std::abs(gravity::uniform_accel);
 
     // create the grid -- cell centers
 
@@ -46,7 +46,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
     // create the constant if we are isentropic
 
     eos_t eos_state;
-    eos_state.rho = model_params.dens_base;
+    eos_state.rho = model_params.density_base;
     eos_state.p = model_params.p_base;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = model_params.xn[n];
@@ -58,9 +58,9 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
     eos(eos_input_rp, eos_state);
 
-    Real gamma_const = model_params.p_base/(model_params.dens_base * eos_state.e) + 1.0_rt;
+    Real gamma_const = model_params.p_base/(model_params.density_base * eos_state.e) + 1.0_rt;
 
-    model::profile(0).state(0, model::idens) = model_params.dens_base;
+    model::profile(0).state(0, model::idens) = model_params.density_base;
     model::profile(0).state(0, model::ipres) = model_params.p_base;
     model::profile(0).state(0, model::itemp) = eos_state.T;
 
@@ -77,18 +77,18 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         model::profile(0).r(j) = xmin + (static_cast<Real>(j) + 0.5_rt) * dx;
 
         if (problem::do_isentropic == 1) {
-            model::profile(0).state(j, model::idens) = model_params.dens_base *
-                std::pow(gravity::const_grav * model_params.dens_base * (gamma_const - 1.0) *
+            model::profile(0).state(j, model::idens) = model_params.density_base *
+                std::pow(gravity::uniform_accel * model_params.density_base * (gamma_const - 1.0) *
                          (model::profile(0).r(j) - model::profile(0).r(0)) /
                          (gamma_const * model_params.p_base) + 1.0_rt, 1.0_rt/(gamma_const - 1.e0_rt));
         } else {
-            model::profile(0).state(j, model::idens) = model_params.dens_base *
+            model::profile(0).state(j, model::idens) = model_params.density_base *
                 std::exp(-(model::profile(0).r(j) - model::profile(0).r(0)) / H);
         }
 
         model::profile(0).state(j, model::ipres) = model::profile(0).state(j-1, model::ipres) -
             dx * 0.5_rt * (model::profile(0).state(j, model::idens) + model::profile(0).state(j-1, model::idens)) *
-            std::abs(gravity::const_grav);
+            std::abs(gravity::uniform_accel);
 
 
         eos_t eos_state;

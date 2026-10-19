@@ -14,24 +14,24 @@ amr.n_cell           = 400 400 400         # number of cells
 # 1 = Inflow            4 = SlipWall
 # 2 = Outflow           5 = NoSlipWall
 # >>>>>>>>>>>> BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc         = 0  0  0
-castro.hi_bc         = 0  0  0
+hydrosim.lo_bc         = 0  0  0
+hydrosim.hi_bc         = 0  0  0
 
 #WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
 
 #TIME STEP CONTROL
 
-castro.cfl           = 0.6
-castro.init_shrink   = 1.0
-castro.change_max     = 1.1
-#castro.fixed_dt      = 
+hydrosim.cfl           = 0.6
+hydrosim.init_dt_shrink   = 1.0
+hydrosim.change_max     = 1.1
+#hydrosim.constant_dt      = 
 
 
 #DIAGNOSTIC & VERBOSITY
-castro.sum_interval = 1
-castro.v            = 1
+hydrosim.sum_step_period = 1
+hydrosim.v            = 1
 amr.v               = 1
 
 
@@ -42,7 +42,7 @@ amr.regrid_int      = 2             # how often to regrid
 amr.blocking_factor = 8             # block factor in grid generation
 amr.max_grid_size   = 256           # maximum default value
 
-amr.refinement_indicators = presserr pressgrad
+amr.refine_criteria = presserr pressgrad
 
 amr.refine.presserr.value_greater = 2.3
 amr.refine.presserr.field_name = pressure

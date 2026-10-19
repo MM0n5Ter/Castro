@@ -169,8 +169,8 @@ def track_front(ds, threshold=1e-5, percent=1e-2):
     ash_r_idx = np.argmin(np.abs(abar_1d - abar_threshold))
     ash_velocity = cg["boxlib", "y_velocity"][ash_r_idx, ash_theta_idx, 0].to_ndarray()
 
-    # Find coriolis parameter
-    omega = 2.0 * np.pi / ds.parameters.get("castro.rotational_period")
+    # Find with_coriolis parameter
+    omega = 2.0 * np.pi / ds.parameters.get("hydrosim.spin_period")
     coriolis_param = 2.0*omega*np.cos(flame_theta)
 
     # Find burning timescale and diffusion coefficient.
@@ -200,7 +200,7 @@ def track_front(ds, threshold=1e-5, percent=1e-2):
     # 7) averaged ocean height in [cm]
     # 8) characteristic burning timescale
     # 9) characteristic diffusion coefficient
-    # 10) coriolis parameter at flame front theta
+    # 10) with_coriolis parameter at flame front theta
 
     tracking_data = {"fname":str(ds),
                      "time[ms]": float(time),

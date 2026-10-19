@@ -1,0 +1,240 @@
+#ifndef HYDROSIM_DEFERRED_UTIL_H
+#define HYDROSIM_DEFERRED_UTIL_H
+
+#include <HydroSim.H>
+#ifdef REACTIONS
+#ifdef NEW_NETWORK_IMPLEMENTATION
+#include <rhs.H>
+#endif
+#include <deferred_react_util.H>
+#include <deferred_newton_solve.H>
+#include <deferred_stiff_solve.H>
+#include <deferred_dogleg_solve.H>
+#endif
+
+namespace deferred_solvers {
+    enum solver : std::uint8_t {
+        newton = 1,
+        vode = 2,
+        stiff_and_newton = 3,
+        hybrid_dogleg = 4
+    };
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+normalize_species_deferred(const int i, const int j, const int k,
+                      Array4<Real> const& u) {
+
+    GpuArray<Real, NumSpec> partial_densities;
+
+    Real partial_density_sum = 0.0_rt;
+
+    for (int n = 0; n < NumSpec; ++n) {
+        partial_densities[n] = u(i,j,k,UFS+n);
+        partial_densities[n] = amrex::Clamp(partial_densities[n], network_rp::small_x * u(i,j,k,URHO), u(i,j,k,URHO));
+        partial_density_sum += partial_densities[n];
+    }
+
+    for (int n = 0; n < NumSpec; ++n) {
+        partial_densities[n] *= u(i,j,k,URHO) / partial_density_sum;
+        u(i,j,k,UFS+n) = partial_densities[n];
+    }
+}
+
+#ifdef REACTIONS
+
+
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+deferred_solve(const Real substep_dt,
+          GpuArray<Real, NUM_STATE> const& Conserved_old,
+          GpuArray<Real, NUM_STATE>& cons_new,
+          GpuArray<Real, NUM_STATE> const& C,
+          const int correction_iter) {
+
+    int ierr;
+    Real err_out;
+
+    if (sdc_nonlin_method == deferred_solvers::newton) {
+        // We are going to assume we already have a good guess
+        // for the solve in cons_new and just pass the solve onto
+        // the main Newton solve
+        newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out, ierr);
+
+        // failing?
+        if (ierr != newton_outcome::success) {
+            amrex::Abort("Newton subcycling failed in deferred_solve");
+        }
+    } else if (sdc_nonlin_method == deferred_solvers::vode) {
+        // Use VODE to do the solution
+        deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+
+    } else if (sdc_nonlin_method == deferred_solvers::stiff_and_newton) {
+        // If it is the first iteration, we will use VODE to
+        // predict the solution. Otherwise, we will use Newton.
+        if (correction_iter == 0) {
+            deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+        }
+
+        // Now cons_new is the update that VODE predicts, so we
+        // will use that as the initial guess to the Newton solve
+        newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out, ierr);
+
+        // Failing?
+        if (ierr != newton_outcome::success) {
+            amrex::Abort("Newton failure in deferred_solve");
+        }
+
+    } else if (sdc_nonlin_method == deferred_solvers::hybrid_dogleg) {
+        powell::deferred_dogleg_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+
+    } else {
+        amrex::Abort("invalid sdc_nonlin_method value");
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+deferred_solve(const int i, const int j, const int k,
+          const Real substep_dt,
+          Array4<const Real> const& Conserved_old,
+          Array4<Real> const& cons_new,
+          Array4<const Real> const& C,
+          const int correction_iter) {
+    // wrapper for the zone-by-zone version
+
+    GpuArray<Real, NUM_STATE> State_old_zone;
+    GpuArray<Real, NUM_STATE> State_new_zone;
+    GpuArray<Real, NUM_STATE> Correction_zone;
+
+    for (int n = 0; n < NUM_STATE; ++n) {
+        State_old_zone[n] = Conserved_old(i,j,k,n);
+        State_new_zone[n] = cons_new(i,j,k,n);
+        Correction_zone[n] = C(i,j,k,n);
+    }
+
+    deferred_solve(substep_dt, State_old_zone, State_new_zone, Correction_zone, correction_iter);
+
+    for (int n = 0; n < NUM_STATE; ++n) {
+        cons_new(i,j,k,n) = State_new_zone[n];
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+deferred_update_o2(const int i, const int j, const int k,
+              Array4<const Real> const& k_m,
+              Array4<Real> const& k_n,
+              Array4<const Real> const& A_m,
+              Array4<const Real> const& React_m_old,
+              Array4<const Real> const& C,
+              const Real substep_dt,
+              const int correction_iter, const int m_start) {
+    // update k_m to k_n via advection -- this is a second-order accurate update
+
+    amrex::ignore_unused(m_start);
+
+    // Here, substep_dt is the timestep between time-nodes m and m+1
+
+    GpuArray<Real, NUM_STATE> Conserved_old;
+    GpuArray<Real, NUM_STATE> cons_new;
+    GpuArray<Real, NUM_STATE> React_full;
+    GpuArray<Real, NUM_STATE> Correction_zone;
+
+    for (int n = 0; n < NUM_STATE; ++n) {
+        Conserved_old[n] = k_m(i,j,k,n);
+        Correction_zone[n] = C(i,j,k,n);
+    }
+
+    // Only burn if we are within the temperature and density
+    // limits for burning
+    if (!burning_permitted(Conserved_old)) {
+        for (int n = 0; n < NUM_STATE; ++n) {
+            React_full[n] = 0.0_rt;
+        }
+    } else {
+
+        // This is the full state -- this will be updated as we
+        // solve the nonlinear system.  We want to start with a
+        // good initial guess.  For later iterations, we should
+        // begin with the result from the previous iteration.  For
+        // the first iteration, let's try to extrapolate forward
+        // in time.
+        if (correction_iter == 0) {
+            for (int n = 0; n < NUM_STATE; ++n) {
+                cons_new[n] = Conserved_old[n] + substep_dt * A_m(i,j,k,n) + substep_dt * React_m_old(i,j,k,n);
+            }
+        } else {
+            for (int n = 0; n < NUM_STATE; ++n) {
+                cons_new[n] = k_n(i,j,k,n);
+            }
+        }
+
+        deferred_solve(substep_dt, Conserved_old, cons_new, Correction_zone, correction_iter);
+
+        // we solved our system to some tolerance, but let's be sure
+        // we are conservative by reevaluating the reactions and
+        // doing the full step update
+        burn_t burn_state;
+
+        fill_burn_type_from_conserved(cons_new, burn_state);
+        zone_react_source(burn_state, React_full);
+    }
+
+    for (int n = 0; n < NUM_STATE; ++n) {
+        cons_new[n] = Conserved_old[n] + substep_dt * React_full[n] + substep_dt * Correction_zone[n];
+
+        // copy back to k_n
+        k_n(i,j,k,n) = cons_new[n];
+    }
+}
+
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+deferred_update_centers_o4(const int i, const int j, const int k,
+                      Array4<const Real> const& Conserved_old,
+                      Array4<Real> const& cons_new,
+                      Array4<const Real> const& C,
+                      const Real substep_dt,
+                      const int correction_iter) {
+    // Update Conserved_old to cons_new on cell-centers.  This is an implicit
+    // solve because of reactions.  Here Conserved_old corresponds to time node
+    // m and cons_new is node m+1.  substep_dt is the timestep between m and
+    // m+1
+
+    // We come in with cons_new being a guess for the updated solution
+    if (burning_permitted(i, j, k, Conserved_old)) {
+        deferred_solve(i, j, k, substep_dt, Conserved_old, cons_new, C, correction_iter);
+    } else {
+        // no reactions, so it is a straightforward update
+        for (int n = 0; n < NUM_STATE; ++n) {
+            cons_new(i,j,k,n) = Conserved_old(i,j,k,n) + substep_dt * C(i,j,k,n);
+        }
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+instant_reaction_rate(const int i, const int j, const int k,
+                    Array4<const Real> const& state,
+                    Array4<Real> const& React_source) {
+
+    // convert from cons to prim -- show this be here or in C++-land?
+    // or should I do things like we do in burn_state and convert it manually?
+    // (in that case, I am not sure if I can assume UTEMP is defined)
+
+    if (burning_permitted(i, j, k, state)) {
+        zone_react_source(i, j, k, state, React_source);
+    } else {
+        for (int n = 0; n < NUM_STATE; ++n) {
+            React_source(i, j, k, n) = 0.0_rt;
+        }
+    }
+}
+
+#endif
+
+#endif

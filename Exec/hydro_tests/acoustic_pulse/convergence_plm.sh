@@ -4,9 +4,9 @@
 set -x
 
 DIM=3
-EXEC=./Castro${DIM}d.gnu.MPI.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.ex
 
-RUNPARAMS="castro.ppm_type=0 castro.time_integration_method=0"
+RUNPARAMS="hydrosim.ppm_recon_kind=0 hydrosim.time_scheme=0"
 
 mpiexec -n 8 ${EXEC} inputs.64 ${RUNPARAMS} amr.plot_file=acoustic_pulse_64_plm_plt &> 64.out
 mpiexec -n 8 ${EXEC} inputs.128 ${RUNPARAMS} amr.plot_file=acoustic_pulse_128_plm_plt &> 128.out

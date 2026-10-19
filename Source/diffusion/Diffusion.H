@@ -1,5 +1,5 @@
-#ifndef DIFFUSION_H
-#define DIFFUSION_H
+#ifndef CONDUCTION_H
+#define CONDUCTION_H
 
 #include <AMReX_AmrLevel.H>
 #include <AMReX_MLLinOp.H>
@@ -17,9 +17,9 @@ public:
 
 ///
 /// @param Parent
-/// @param _phys_bc
+/// @param _boundary_rec
 ///
-  Diffusion(amrex::Amr* Parent, amrex::BCRec* _phys_bc);
+  Diffusion(amrex::Amr* Parent, amrex::BCRec* _boundary_rec);
   ~Diffusion () = default;
 
 ///
@@ -36,17 +36,17 @@ public:
 ///
 /// @param jobInfoFile
 ///
-  static void output_job_info_params(std::ostream& jobInfoFile);
+  static void report_run_settings(std::ostream& jobInfoFile);
 
 
 ///
 /// @param level
-/// @param level_data
+/// @param amr_level_ptr
 /// @param volume
 /// @param area
 ///
-  void install_level (int                   level,
-                      amrex::AmrLevel*             level_data,
+  void attach_level (int                   level,
+                      amrex::AmrLevel*             amr_level_ptr,
                       amrex::MultiFab&             volume,
                       amrex::MultiFab*             area);
 
@@ -54,14 +54,14 @@ public:
 ///
 /// @param level
 /// @param Temperature
-/// @param CrseTemp
-/// @param DiffTerm
-/// @param temp_cond_coef
+/// @param CoarseTemperature
+/// @param ConductionTerm
+/// @param conductivity_fields
 ///
-  void applyop(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-               amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
+  void apply_stencil(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CoarseTemperature,
+               amrex::MultiFab& ConductionTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& conductivity_fields);
 
-  void make_mg_bc();
+  void build_solver_bc();
 
 protected:
 
@@ -69,7 +69,7 @@ protected:
 /// Pointers to amr,amrlevel.
 ///
   amrex::Amr*             parent;
-  amrex::Vector<amrex::AmrLevel*> LevelData;
+  amrex::Vector<amrex::AmrLevel*> LevelTable;
 
 
 ///
@@ -92,12 +92,12 @@ protected:
 ///
 /// @param level
 /// @param Temperature
-/// @param CrseTemp
-/// @param DiffTerm
-/// @param temp_cond_coef
+/// @param CoarseTemperature
+/// @param ConductionTerm
+/// @param conductivity_fields
 ///
-  void applyop_mlmg(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CrseTemp,
-                    amrex::MultiFab& DiffTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& temp_cond_coef);
+  void apply_stencil_multigrid(int level,amrex::MultiFab& Temperature,amrex::MultiFab& CoarseTemperature,
+                    amrex::MultiFab& ConductionTerm, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& conductivity_fields);
 
 };
 #endif

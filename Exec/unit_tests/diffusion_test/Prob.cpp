@@ -1,11 +1,11 @@
 /* Implementations of functions in Problem.H go here */
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 #ifdef DO_PROBLEM_POST_SIMULATION
-void Castro::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
+void HydroSim::user_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_level) {
 
   // compute the norm of the solution vs. the analytic solution
 
@@ -16,22 +16,22 @@ void Castro::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_lev
 
   for (int n = 0; n < nlevels; ++n) {
 
-    // the Castro object for this level
-    auto& castro = dynamic_cast<Castro&>(*amr_level[n]);
-    Real time = castro.get_state_data(State_Type).curTime();
+    // the HydroSim object for this level
+    auto& hydrosim = dynamic_cast<HydroSim&>(*amr_level[n]);
+    Real time = hydrosim.get_state_data(State_Type).curTime();
 
     // the state data
-    MultiFab& S = castro.get_new_data(State_Type);
+    MultiFab& S = hydrosim.get_new_data(State_Type);
 
     // derive the analytic solution
     const int ngrow = 1;
-    auto analytic = castro.derive("analytic", time, ngrow);
+    auto analytic = hydrosim.derive("analytic", time, ngrow);
 
 #ifdef TRUE_SDC
     // if we are fourth-order, we need to convert to averages
-    if (sdc_order == 4) {
-        auto domain_lo = castro.geom.Domain().loVect3d();
-        auto domain_hi = castro.geom.Domain().hiVect3d();
+    if (sdc_accuracy_order == 4) {
+        auto domain_lo = hydrosim.geom.Domain().loVect3d();
+        auto domain_hi = hydrosim.geom.Domain().hiVect3d();
 
         FArrayBox tmp;
 
@@ -41,7 +41,7 @@ void Castro::problem_post_simulation(Vector<std::unique_ptr<AmrLevel> >& amr_lev
             tmp.resize(bx, 1);
             auto tmp_arr = tmp.array();
 
-            castro.make_fourth_in_place(bx,
+            hydrosim.build_fourth_in_place(bx,
                                         analytic->array(mfi),
                                         tmp_arr,
                                         domain_lo, domain_hi);

@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
     int zmom_comp = std::distance(var_names_pf.cbegin(),
                               std::find(var_names_pf.cbegin(), var_names_pf.cend(), "zmom"));
 
-    int pres_comp = std::distance(var_names_pf.cbegin(),
+    int pressure_index = std::distance(var_names_pf.cbegin(),
                               std::find(var_names_pf.cbegin(), var_names_pf.cend(), "pressure"));
 
     int rhoe_comp = std::distance(var_names_pf.cbegin(),
@@ -270,7 +270,7 @@ int main(int argc, char* argv[])
                                                       std::pow(fab(i,j,k,zmom_comp), 2)) /
                                             fab(i,j,k,dens_comp) * vol;
 
-                                        pres_bin[index] += fab(i,j,k,pres_comp) * vol;
+                                        pres_bin[index] += fab(i,j,k,pressure_index) * vol;
 
                                         e_bin[index] += (fab(i,j,k,rhoe_comp) / fab(i,j,k,dens_comp)) * vol;
 
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
                                               std::pow(fab(i,j,k,zmom_comp), 2)) /
                                     fab(i,j,k,dens_comp) * vol;
 
-                                pres_bin[index] += fab(i,j,k,pres_comp) * vol;
+                                pres_bin[index] += fab(i,j,k,pressure_index) * vol;
 
                                 e_bin[index] += (fab(i,j,k,rhoe_comp) / fab(i,j,k,dens_comp)) * vol;
 

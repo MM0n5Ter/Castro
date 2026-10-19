@@ -14,47 +14,47 @@ amr.n_cell           = @@NZONES@@
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3   4   4
-castro.hi_bc       =  2   4   4
+hydrosim.lo_bc       =  3   4   4
+hydrosim.hi_bc       =  2   4   4
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
 
-castro.ppm_type = 0
-castro.ppm_temp_fix = 0
+hydrosim.ppm_recon_kind = 0
+hydrosim.ppm_temp_mode = 0
 
-castro.transverse_reset_density = 1
+hydrosim.transverse_revert_density = 1
 
-castro.use_flattening = 1
+hydrosim.use_shock_flatten = 1
 
-castro.small_temp     = 1.e7
+hydrosim.small_temp     = 1.e7
 
-castro.riemann_solver = 0
+hydrosim.riemann_method = 0
 
-castro.time_integration_method = @@method@@
-castro.sdc_order = @@SDC_ORDER@@
-castro.sdc_quadrature = @@SDC_QUADRATURE@@
+hydrosim.time_scheme = @@method@@
+hydrosim.sdc_accuracy_order = @@SDC_ORDER@@
+hydrosim.sdc_quadrature = @@SDC_QUADRATURE@@
 
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
-castro.sdc_solver=2
+hydrosim.clamp_fourth_order=1
+hydrosim.use_recon_gamma1=1
+hydrosim.sdc_nonlin_method=2
 
 
 # TIME STEP CONTROL
-castro.cfl            = @@CFL@@     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.05    # scale back initial timestep
+hydrosim.cfl            = @@CFL@@     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.05    # scale back initial timestep
 
-castro.dtnuc_e = @@DTNUC_E@@
-castro.use_retry = 1
-castro.max_subcycles = 32
+hydrosim.burn_dt_energy = @@DTNUC_E@@
+hydrosim.allow_step_retry = 1
+hydrosim.subcycle_cap = 32
 
-castro.plot_per_is_exact = 1
+hydrosim.plot_interval_exact = 1
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 #amr.grid_log        = grdlog  # name of grid logging file
 
@@ -92,7 +92,7 @@ problem.center_T = 0.3
 
 # refinement
 
-amr.refinement_indicators = temperr tempgrad
+amr.refine_criteria = temperr tempgrad
 
 amr.refine.temperr.max_level = 5
 amr.refine.temperr.value_greater = 4.e9

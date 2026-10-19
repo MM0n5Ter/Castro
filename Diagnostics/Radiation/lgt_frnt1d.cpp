@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     auto varComps = GetComponents(data, compVarNames);
     auto dens_comp = varComps[0];
     auto xmom_comp = varComps[1];
-    auto pres_comp = varComps[2];
+    auto pressure_index = varComps[2];
     auto rad_comp = varComps[3];
 
     // allocate storage for data
@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
                         nbins, dens_bin.dataPtr(), vel_bin.dataPtr(),
                         pres_bin.dataPtr(), rad_bin.dataPtr(),
                         imask.dataPtr(), mask_size, r1,
-                        dens_comp, xmom_comp, pres_comp, rad_comp,
+                        dens_comp, xmom_comp, pressure_index, rad_comp,
                         AMREX_ZFILL(dx), dx_fine);
         }
 

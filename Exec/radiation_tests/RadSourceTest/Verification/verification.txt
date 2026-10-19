@@ -1,16 +1,16 @@
-1. run Castro for both heating and cooling tests:
+1. run HydroSim for both heating and cooling tests:
 
-   ./Castro1d.Linux.Intel.Intel.DEBUG.MPI.ex inputs-heating
+   ./HydroSim1d.Linux.Intel.Intel.DEBUG.MPI.ex inputs-heating
 
-   ./Castro1d.Linux.Intel.Intel.DEBUG.MPI.ex inputs-cooling
+   ./HydroSim1d.Linux.Intel.Intel.DEBUG.MPI.ex inputs-cooling
 
 
 
 2. process the output using fradsource from fParallel/data_processing/
 
-   ./fradsource.Linux.Intel.debug.exe plt_heating_* > castro_heating.out
+   ./fradsource.Linux.Intel.debug.exe plt_heating_* > hydrosim_heating.out
 
-   ./fradsource.Linux.Intel.debug.exe plt_cooling_* > castro_cooling.out
+   ./fradsource.Linux.Intel.debug.exe plt_cooling_* > hydrosim_cooling.out
 
    This will output the gas energy density (rho_e in the plotfile) in
    the first zone of the first patch on the finest level (along with
@@ -30,7 +30,7 @@
    ./analytic > analytic_cooling.out
 
 
-4. plot the Castro results over the analytic solution using gnuplot:
+4. plot the HydroSim results over the analytic solution using gnuplot:
 
    at the gnuplot prompt:
 
@@ -43,9 +43,9 @@
      set yrange [30:3.e9]
 
      plot 'analytic_heating.out' using 1:2 title 'analytic heating solution' w l, \
-          'castro_heating.out' using 1:2 title 'Castro heating solution', \
+          'hydrosim_heating.out' using 1:2 title 'HydroSim heating solution', \
           'analytic_cooling.out' using 1:2 title 'analytic cooling solution' w l, \
-          'castro_cooling.out' using 1:2 title 'Castro cooling solution'
+          'hydrosim_cooling.out' using 1:2 title 'HydroSim cooling solution'
 
 
 5. reference plot is thermal_relax.ps

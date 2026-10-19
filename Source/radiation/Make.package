@@ -1,39 +1,39 @@
 # sources used with radiation
 # this is included if USE_RAD = TRUE
 
-CEXE_sources += HypreExtMultiABec.cpp
-CEXE_sources += HypreMultiABec.cpp
-CEXE_sources += HypreABec.cpp
+CEXE_sources += ExtendedMultiLevelSolver.cpp
+CEXE_sources += MultiLevelEllipticSolver.cpp
+CEXE_sources += AlphaBetaSolver.cpp
 CEXE_sources += Radiation.cpp
-CEXE_sources += RadSolve.cpp
-CEXE_sources += RadBndry.cpp
-CEXE_sources += RadMultiGroup.cpp
-CEXE_sources += MGRadBndry.cpp
-CEXE_sources += SGRadSolver.cpp
-CEXE_sources += RadPlotvar.cpp
-CEXE_sources += MGFLD.cpp
-CEXE_sources += MGFLDRadSolver.cpp
-CEXE_sources += Castro_radiation.cpp
-CEXE_sources += energy_diagnostics.cpp
+CEXE_sources += RadTransportSolver.cpp
+CEXE_sources += RadiativeBoundary.cpp
+CEXE_sources += RadiativeMultiGroup.cpp
+CEXE_sources += MultiGroupBoundary.cpp
+CEXE_sources += SingleGroupRadSolver.cpp
+CEXE_sources += RadiativePlotvar.cpp
+CEXE_sources += MultigroupDiffusion.cpp
+CEXE_sources += MultigroupDiffusionRadSolver.cpp
+CEXE_sources += HydroSim_radiation.cpp
+CEXE_sources += energy_ledger.cpp
 
-CEXE_headers += HypreExtMultiABec.H
-CEXE_headers += HypreMultiABec.H
-CEXE_headers += HypreABec.H
+CEXE_headers += ExtendedMultiLevelSolver.H
+CEXE_headers += MultiLevelEllipticSolver.H
+CEXE_headers += AlphaBetaSolver.H
 CEXE_headers += Radiation.H
-CEXE_headers += RadSolve.H
-CEXE_headers += RadBndry.H
-CEXE_headers += RadTypes.H
-CEXE_headers += MGRadBndry.H
-CEXE_headers += HABEC.H
+CEXE_headers += RadTransportSolver.H
+CEXE_headers += RadiativeBoundary.H
+CEXE_headers += RadComponents.H
+CEXE_headers += MultiGroupBoundary.H
+CEXE_headers += ELLIPTIC_OPS.H
 CEXE_headers += filter.H
-CEXE_headers += filt_prim.H
+CEXE_headers += primitive_filter_cell.H
 
-CEXE_sources += trace_ppm_rad.cpp
+CEXE_sources += trace_parabolic_radiative.cpp
 
-CEXE_headers += fluxlimiter.H
-CEXE_headers += RadHydro.H
+CEXE_headers += flux_limiter.H
+CEXE_headers += RadiativeHydro.H
 
-CEXE_sources += RadDerive.cpp
-CEXE_headers += RadDerive.H
-CEXE_headers += rad_util.H
-CEXE_headers += blackbody.H
+CEXE_sources += RadFieldDerive.cpp
+CEXE_headers += RadFieldDerive.H
+CEXE_headers += radiation_helpers.H
+CEXE_headers += planck_integrals.H

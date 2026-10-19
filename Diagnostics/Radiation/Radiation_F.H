@@ -24,7 +24,7 @@ void flgt_frnt1d(const int* lo, const int* hi,
                  amrex::Real* dens_bin, amrex::Real* vel_bin,
                  amrex::Real* pres_bin, amrex::Real* rad_bin,
                  int* imask, const int mask_size, const int r1,
-                 const int dens_comp, const int xmom_comp, const int pres_comp,
+                 const int dens_comp, const int xmom_comp, const int pressure_index,
                  const int rad_comp, const amrex::Real* dx,
                  const amrex::Real dx_fine);
 
@@ -52,7 +52,7 @@ void frhdshocktube(const int* lo, const int* hi,
                    const int nbins,
                    amrex::Real* dens_bin, amrex::Real* vel_bin,
                    amrex::Real* pres_bin, amrex::Real* rad_bin,
-                   const int dens_comp, const int xmom_comp, const int pres_comp,
+                   const int dens_comp, const int xmom_comp, const int pressure_index,
                    const int rad_comp, const int ngroups);
 
 #ifdef __cplusplus

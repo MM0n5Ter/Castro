@@ -84,9 +84,9 @@ def extract_info(ds,
 
     r = [rl, r_center, rr]
 
-    thetar = ds.domain_right_edge[1]
-    thetal = ds.domain_left_edge[1]
-    theta_center = 0.5 * (thetar + thetal)
+    polar_hi = ds.domain_right_edge[1]
+    polar_lo = ds.domain_left_edge[1]
+    theta_center = 0.5 * (polar_hi + polar_lo)
 
     # Domain width of the slice plot
     width = widthScale * dr
@@ -96,19 +96,19 @@ def extract_info(ds,
     if show_full_star:
         # If we want to show the full domain in the background.
         # Change box_widths and center to full star
-        if thetar < 0.5 * np.pi:
-            box_widths = (r[2]*np.sin(thetar), r[2]*np.cos(thetal))
+        if polar_hi < 0.5 * np.pi:
+            box_widths = (r[2]*np.sin(polar_hi), r[2]*np.cos(polar_lo))
             center = [0.5*box_widths[0], 0.5*box_widths[1]]
         else:
-            box_widths = ( r[2], r[2]*(np.abs(np.cos(thetar)) + np.cos(thetal)) )
+            box_widths = ( r[2], r[2]*(np.abs(np.cos(polar_hi)) + np.cos(polar_lo)) )
             center = [r[1]*np.sin(theta_center), r[1]*np.cos(theta_center)]
 
     elif theta is None:
         # Preset centers for the Top, Mid and Bot panels
         # Centers will be physical coordinates in Cylindrical, i.e. R-Z
-        centers = {"top":(r[1]*np.sin(thetal)+0.5*width, r[1]*np.cos(thetal)),
+        centers = {"top":(r[1]*np.sin(polar_lo)+0.5*width, r[1]*np.cos(polar_lo)),
                    "mid":(r[1]*np.sin(theta_center), r[1]*np.cos(theta_center)),
-                   "bot":(r[1]*np.sin(thetar)+0.5*width, r[1]*np.cos(thetar))}
+                   "bot":(r[1]*np.sin(polar_hi)+0.5*width, r[1]*np.cos(polar_hi))}
 
         center = centers[loc]
     else:
@@ -117,16 +117,16 @@ def extract_info(ds,
             # This is helpful when tracking the flame front.
             # This keeps the front at ~0.7 of the plotting width.
 
-            # Determine dtheta that displaces from center to ~0.7 of the plotting domain
+            # Determine theta_cell_width that displaces from center to ~0.7 of the plotting domain
             oSevenTheta = np.arcsin(0.7 * width / r[1])
             halfTheta = np.arcsin(0.5 * width / r[1])
-            dtheta = oSevenTheta - halfTheta
+            theta_cell_width = oSevenTheta - halfTheta
         else:
-            dtheta = 0
+            theta_cell_width = 0
 
-        # Determine center using theta but also displace it by dtheta
-        R = r[1]*np.sin(theta - dtheta)
-        Z = r[1]*np.cos(theta - dtheta)
+        # Determine center using theta but also displace it by theta_cell_width
+        R = r[1]*np.sin(theta - theta_cell_width)
+        Z = r[1]*np.cos(theta - theta_cell_width)
         if R < 0.5 * width:
             R = 0.5 * width
         center = [R, Z]
@@ -147,8 +147,8 @@ def annotate_latitude_lines(sp, center, box_widths, r,
     """
 
     # Start from the theta center [deg] of the slice plot frame.
-    thetac = round(math.degrees(np.arccos(center[1] / r[1])))
-    latitude_thetas = [thetac]
+    polar_center = round(math.degrees(np.arccos(center[1] / r[1])))
+    latitude_thetas = [polar_center]
 
     # Determine the upper and lower bound of the frame
     lobnd_r = center[0] - 0.5 * box_widths[0]
@@ -169,8 +169,8 @@ def annotate_latitude_lines(sp, center, box_widths, r,
 
     for theta_increment in range(start, end, step):
         # This is actually in theta-coordinate.
-        latitude_thetar = thetac + theta_increment
-        latitude_thetal = thetac - theta_increment
+        latitude_thetar = polar_center + theta_increment
+        latitude_thetal = polar_center - theta_increment
 
         # Now find the RZ position of different latitude thetas
         # and see if they're out of the frame.

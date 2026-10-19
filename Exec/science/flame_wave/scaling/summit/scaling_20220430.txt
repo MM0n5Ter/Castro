@@ -5,7 +5,7 @@
 # NETWORK: Microphysics/networks/iso7
 # CONDUCTIVITY: Microphysics/conductivity/stellar
 #
-# Castro       git describe: 22.04-48-g910da6ab7
+# HydroSim       git describe: 22.04-48-g910da6ab7
 # AMReX        git describe: 22.04-39-g50466d11e
 # Microphysics git describe: 22.04-3-g3c498521
 #

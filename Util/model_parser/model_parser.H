@@ -10,7 +10,7 @@
 #include <network.H>
 #include <model_parser_data.H>
 #include <AMReX_Print.H>
-#include <castro_params.H>
+#include <hydrosim_params.H>
 #include <eos.H>
 #include <ambient.H>
 
@@ -139,11 +139,11 @@ interpolate(const Real r, const int var_index, const int model_index=0) {
     // safety check to make sure interp lies within the bounding points.  We don't
     // do this at the lower boundary, which usually corresponds to the center of the star.
     if (r >= model::profile(model_index).r(0)) {
-        Real minvar = std::min(model::profile(model_index).state(id+1, var_index),
+        Real stencil_min = std::min(model::profile(model_index).state(id+1, var_index),
                                model::profile(model_index).state(id, var_index));
-        Real maxvar = std::max(model::profile(model_index).state(id+1, var_index),
+        Real stencil_max = std::max(model::profile(model_index).state(id+1, var_index),
                                model::profile(model_index).state(id, var_index));
-        interp = amrex::Clamp(interp, minvar, maxvar);
+        interp = amrex::Clamp(interp, stencil_min, stencil_max);
     }
 
     return interp;
@@ -252,7 +252,7 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
     // Check to make sure the initial temperature makes sense.
 
-    if (temperature < castro::small_temp) {
+    if (temperature < hydrosim::small_temp) {
         amrex::Error("Error: WD central temperature is less than small_temp. Aborting.");
     }
 
@@ -348,13 +348,13 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
 
             // Start off the Newton loop by assuming that the zone has not converged.
 
-            bool converged_hse = false;
+            bool hydrostatic_converged = false;
 
             for (int hse_iter = 1; hse_iter <= max_hse_iter; ++hse_iter) {
 
                 if (fluff) {
-                    model.state(i, model::idens) = ambient::ambient_state[URHO];
-                    eos_state.rho = ambient::ambient_state[URHO];
+                    model.state(i, model::idens) = ambient::ambient_reference_state[URHO];
+                    eos_state.rho = ambient::ambient_reference_state[URHO];
                     break;
                 }
 
@@ -376,19 +376,19 @@ void establish_hse (Real& mass_want, Real& central_density_want, Real& radius,
                                                                 1.1_rt * model.state(i, model::idens)));
                 eos_state.rho = model.state(i, model::idens);
 
-                if (model.state(i, model::idens) < ambient::ambient_state[URHO]) {
+                if (model.state(i, model::idens) < ambient::ambient_reference_state[URHO]) {
                     icutoff = i;
                     fluff = true;
                 }
 
                 if (std::abs(drho) < model::hse_tol * model.state(i, model::idens)) {
-                    converged_hse = true;
+                    hydrostatic_converged = true;
                     break;
                 }
 
             }
 
-            if (!converged_hse && (!fluff)) {
+            if (!hydrostatic_converged && (!fluff)) {
 
                 std::cout << "Error: zone " <<  i << " did not converge in init_hse()" << std::endl;
                 std::cout << " rho = " << model.state(i, model::idens)

@@ -1,5 +1,5 @@
-#ifndef filter_H
-#define filter_H
+#ifndef smoothing_H
+#define smoothing_H
 
 namespace filter
 {
@@ -20,7 +20,7 @@ namespace filter
 
     // For boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff1b (int i)
+    Real edge_weight_1 (int i)
     {
         if (i == 0) {
             return 0.75_rt;
@@ -63,7 +63,7 @@ namespace filter
 
     // For first boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff2b0 (int i)
+    Real edge_weight_2_0 (int i)
     {
         if (i == 0) {
             return 17.0_rt / 16.0_rt;
@@ -81,7 +81,7 @@ namespace filter
 
     // For second boundary cell
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff2b1 (int i)
+    Real edge_weight_2_1 (int i)
     {
         if (i == -1) {
             return -2.0_rt / 16.0_rt;
@@ -148,7 +148,7 @@ namespace filter
 
     // For boundary cells
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff3b0 (int i)
+    Real edge_weight_3_0 (int i)
     {
         if (i == 0) {
             return 63.0_rt / 64.0_rt;
@@ -168,7 +168,7 @@ namespace filter
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff3b1 (int i)
+    Real edge_weight_3_1 (int i)
     {
         if (i == -1) {
             return 3.0_rt / 64.0_rt;
@@ -191,7 +191,7 @@ namespace filter
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff3b2 (int i)
+    Real edge_weight_3_2 (int i)
     {
         if (i == -2) {
             return -3.0_rt / 64.0_rt;
@@ -288,7 +288,7 @@ namespace filter
 
     // For boundary cells
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff4b0 (int i)
+    Real edge_weight_4_0 (int i)
     {
         if (i == 0) {
             return 257.0_rt / 256.0_rt;
@@ -311,7 +311,7 @@ namespace filter
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff4b1 (int i)
+    Real edge_weight_4_1 (int i)
     {
         if (i == -1) {
             return -4.0_rt / 256.0_rt;
@@ -337,7 +337,7 @@ namespace filter
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff4b2 (int i)
+    Real edge_weight_4_2 (int i)
     {
         if (i == -2) {
             return 6.0_rt / 256.0_rt;
@@ -366,7 +366,7 @@ namespace filter
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    Real ff4b3 (int i)
+    Real edge_weight_4_3 (int i)
     {
         if (i == -3) {
             return -4.0_rt / 256.0_rt;
@@ -399,7 +399,7 @@ namespace filter
 
     template<int width>
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void load_filter_stencil(Array4<Real const> const input,
+    void load_smoothing_stencil(Array4<Real const> const input,
                              Array1D<Real, -width, width>& stencil,
                              int dir, int i, int j, int k, int g)
     {
@@ -472,7 +472,7 @@ namespace filter
                        Array4<Real const> const lam,
                        int dir, int S, int i, int j, int k, int g)
     {
-        Real lamfil;
+        Real smoothed_limiter;
 
         // In whatever direction we're filtering, retrieve a stencil for both
         // lambda and the radiation energy, Er. The energy does not directly
@@ -488,185 +488,185 @@ namespace filter
         // don't bother actually examining the contents of those zones (and
         // the analogous assumption holds on the right edge of the grid).
 
-        Array1D<Real, -width, width> Er_stencil, lam_stencil;
+        Array1D<Real, -width, width> Rad_energy_stencil, limiter_stencil;
 
-        load_filter_stencil<width>(Er, Er_stencil, dir, i, j, k, g);
-        load_filter_stencil<width>(lam, lam_stencil, dir, i, j, k, g);
+        load_smoothing_stencil<width>(Er, Rad_energy_stencil, dir, i, j, k, g);
+        load_smoothing_stencil<width>(lam, limiter_stencil, dir, i, j, k, g);
 
         if constexpr (width == 1) {
-            if (Er_stencil(-1) == -1.0_rt) {
-                lamfil = ff1b(0) * lam_stencil(0) +
-                         ff1b(1) * lam_stencil(1);
+            if (Rad_energy_stencil(-1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_1(0) * limiter_stencil(0) +
+                         edge_weight_1(1) * limiter_stencil(1);
             }
-            else if (Er_stencil(1) == -1.0_rt) {
-                lamfil = ff1b(1) * lam_stencil(-1) +
-                         ff1b(0) * lam_stencil( 0);
+            else if (Rad_energy_stencil(1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_1(1) * limiter_stencil(-1) +
+                         edge_weight_1(0) * limiter_stencil( 0);
             }
             else {
-                lamfil = ff1(0) * lam_stencil(0) +
-                         ff1(1) * (lam_stencil(-1) + lam_stencil(1));
+                smoothed_limiter = ff1(0) * limiter_stencil(0) +
+                         ff1(1) * (limiter_stencil(-1) + limiter_stencil(1));
             }
         }
         else if constexpr (width == 2) {
-            if (Er_stencil(-1) == -1.0_rt) {
-                lamfil = ff2b0(0) * lam_stencil(0) +
-                         ff2b0(1) * lam_stencil(1) +
-                         ff2b0(2) * lam_stencil(2);
+            if (Rad_energy_stencil(-1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_2_0(0) * limiter_stencil(0) +
+                         edge_weight_2_0(1) * limiter_stencil(1) +
+                         edge_weight_2_0(2) * limiter_stencil(2);
             }
-            else if (Er_stencil(-2) == -1.0_rt) {
-                lamfil = ff2b1(-1) * lam_stencil(-1) +
-                         ff2b1( 0) * lam_stencil( 0) +
-                         ff2b1( 1) * lam_stencil( 1) +
-                         ff2b1( 2) * lam_stencil( 2);
+            else if (Rad_energy_stencil(-2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_2_1(-1) * limiter_stencil(-1) +
+                         edge_weight_2_1( 0) * limiter_stencil( 0) +
+                         edge_weight_2_1( 1) * limiter_stencil( 1) +
+                         edge_weight_2_1( 2) * limiter_stencil( 2);
             }
-            else if (Er_stencil(1) == -1.0_rt) {
-                lamfil = ff2b0(2) * lam_stencil(-2) +
-                         ff2b0(1) * lam_stencil(-1) +
-                         ff2b0(0) * lam_stencil( 0);
+            else if (Rad_energy_stencil(1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_2_0(2) * limiter_stencil(-2) +
+                         edge_weight_2_0(1) * limiter_stencil(-1) +
+                         edge_weight_2_0(0) * limiter_stencil( 0);
             }
-            else if (Er_stencil(2) == -1.0_rt) {
-                lamfil = ff2b1( 2) * lam_stencil(-2) +
-                         ff2b1( 1) * lam_stencil(-1) +
-                         ff2b1( 0) * lam_stencil( 0) +
-                         ff2b1(-1) * lam_stencil( 1);
+            else if (Rad_energy_stencil(2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_2_1( 2) * limiter_stencil(-2) +
+                         edge_weight_2_1( 1) * limiter_stencil(-1) +
+                         edge_weight_2_1( 0) * limiter_stencil( 0) +
+                         edge_weight_2_1(-1) * limiter_stencil( 1);
             }
             else {
-                lamfil = ff2(0,S) * lam_stencil(0) +
-                         ff2(1,S) * (lam_stencil(-1) + lam_stencil(1)) +
-                         ff2(2,S) * (lam_stencil(-2) + lam_stencil(2));
+                smoothed_limiter = ff2(0,S) * limiter_stencil(0) +
+                         ff2(1,S) * (limiter_stencil(-1) + limiter_stencil(1)) +
+                         ff2(2,S) * (limiter_stencil(-2) + limiter_stencil(2));
             }
         }
         else if constexpr (width == 3) {
-            if (Er_stencil(-1) == -1.0_rt) {
-                lamfil = ff3b0(0) * lam_stencil(0) +
-                         ff3b0(1) * lam_stencil(1) +
-                         ff3b0(2) * lam_stencil(2) +
-                         ff3b0(3) * lam_stencil(3);
+            if (Rad_energy_stencil(-1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_0(0) * limiter_stencil(0) +
+                         edge_weight_3_0(1) * limiter_stencil(1) +
+                         edge_weight_3_0(2) * limiter_stencil(2) +
+                         edge_weight_3_0(3) * limiter_stencil(3);
             }
-            else if (Er_stencil(-2) == -1.0_rt) {
-                lamfil = ff3b1(-1) * lam_stencil(-1) +
-                         ff3b1( 0) * lam_stencil( 0) +
-                         ff3b1( 1) * lam_stencil( 1) +
-                         ff3b1( 2) * lam_stencil( 2) +
-                         ff3b1( 3) * lam_stencil( 3);
+            else if (Rad_energy_stencil(-2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_1(-1) * limiter_stencil(-1) +
+                         edge_weight_3_1( 0) * limiter_stencil( 0) +
+                         edge_weight_3_1( 1) * limiter_stencil( 1) +
+                         edge_weight_3_1( 2) * limiter_stencil( 2) +
+                         edge_weight_3_1( 3) * limiter_stencil( 3);
             }
-            else if (Er_stencil(-3) == -1.0_rt) {
-                lamfil = ff3b2(-2) * lam_stencil(-2) +
-                         ff3b2(-1) * lam_stencil(-1) +
-                         ff3b2( 0) * lam_stencil( 0) +
-                         ff3b2( 1) * lam_stencil( 1) +
-                         ff3b2( 2) * lam_stencil( 2) +
-                         ff3b2( 3) * lam_stencil( 3);
+            else if (Rad_energy_stencil(-3) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_2(-2) * limiter_stencil(-2) +
+                         edge_weight_3_2(-1) * limiter_stencil(-1) +
+                         edge_weight_3_2( 0) * limiter_stencil( 0) +
+                         edge_weight_3_2( 1) * limiter_stencil( 1) +
+                         edge_weight_3_2( 2) * limiter_stencil( 2) +
+                         edge_weight_3_2( 3) * limiter_stencil( 3);
             }
-            else if (Er_stencil(1) == -1.0_rt) {
-                lamfil = ff3b0(3) * lam_stencil(-3) +
-                         ff3b0(2) * lam_stencil(-2) +
-                         ff3b0(1) * lam_stencil(-1) +
-                         ff3b0(0) * lam_stencil( 0);
+            else if (Rad_energy_stencil(1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_0(3) * limiter_stencil(-3) +
+                         edge_weight_3_0(2) * limiter_stencil(-2) +
+                         edge_weight_3_0(1) * limiter_stencil(-1) +
+                         edge_weight_3_0(0) * limiter_stencil( 0);
             }
-            else if (Er_stencil(2) == -1.0_rt) {
-                lamfil = ff3b1( 3) * lam_stencil(-3) +
-                         ff3b1( 2) * lam_stencil(-2) +
-                         ff3b1( 1) * lam_stencil(-1) +
-                         ff3b1( 0) * lam_stencil( 0) +
-                         ff3b1(-1) * lam_stencil( 1);
+            else if (Rad_energy_stencil(2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_1( 3) * limiter_stencil(-3) +
+                         edge_weight_3_1( 2) * limiter_stencil(-2) +
+                         edge_weight_3_1( 1) * limiter_stencil(-1) +
+                         edge_weight_3_1( 0) * limiter_stencil( 0) +
+                         edge_weight_3_1(-1) * limiter_stencil( 1);
             }
-            else if (Er_stencil(3) == -1.0_rt) {
-                lamfil = ff3b2( 3) * lam_stencil(-3) +
-                         ff3b2( 2) * lam_stencil(-2) +
-                         ff3b2( 1) * lam_stencil(-1) +
-                         ff3b2( 0) * lam_stencil( 0) +
-                         ff3b2(-1) * lam_stencil( 1) +
-                         ff3b2(-2) * lam_stencil( 2);
+            else if (Rad_energy_stencil(3) == -1.0_rt) {
+                smoothed_limiter = edge_weight_3_2( 3) * limiter_stencil(-3) +
+                         edge_weight_3_2( 2) * limiter_stencil(-2) +
+                         edge_weight_3_2( 1) * limiter_stencil(-1) +
+                         edge_weight_3_2( 0) * limiter_stencil( 0) +
+                         edge_weight_3_2(-1) * limiter_stencil( 1) +
+                         edge_weight_3_2(-2) * limiter_stencil( 2);
             }
             else {
-                lamfil = ff3(0,S) * lam_stencil(0) +
-                         ff3(1,S) * (lam_stencil(-1) + lam_stencil(1)) +
-                         ff3(2,S) * (lam_stencil(-2) + lam_stencil(2)) +
-                         ff3(3,S) * (lam_stencil(-3) + lam_stencil(3));
+                smoothed_limiter = ff3(0,S) * limiter_stencil(0) +
+                         ff3(1,S) * (limiter_stencil(-1) + limiter_stencil(1)) +
+                         ff3(2,S) * (limiter_stencil(-2) + limiter_stencil(2)) +
+                         ff3(3,S) * (limiter_stencil(-3) + limiter_stencil(3));
             }
         }
         else if constexpr (width == 4) {
-            if (Er_stencil(-1) == -1.0_rt) {
-                lamfil = ff4b0(0) * lam_stencil(0) +
-                         ff4b0(1) * lam_stencil(1) +
-                         ff4b0(2) * lam_stencil(2) +
-                         ff4b0(3) * lam_stencil(3) +
-                         ff4b0(4) * lam_stencil(4);
+            if (Rad_energy_stencil(-1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_0(0) * limiter_stencil(0) +
+                         edge_weight_4_0(1) * limiter_stencil(1) +
+                         edge_weight_4_0(2) * limiter_stencil(2) +
+                         edge_weight_4_0(3) * limiter_stencil(3) +
+                         edge_weight_4_0(4) * limiter_stencil(4);
             }
-            else if (Er_stencil(-2) == -1.0_rt) {
-                lamfil = ff4b1(-1) * lam_stencil(-1) +
-                         ff4b1( 0) * lam_stencil( 0) +
-                         ff4b1( 1) * lam_stencil( 1) +
-                         ff4b1( 2) * lam_stencil( 2) +
-                         ff4b1( 3) * lam_stencil( 3) +
-                         ff4b1( 4) * lam_stencil( 4);
+            else if (Rad_energy_stencil(-2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_1(-1) * limiter_stencil(-1) +
+                         edge_weight_4_1( 0) * limiter_stencil( 0) +
+                         edge_weight_4_1( 1) * limiter_stencil( 1) +
+                         edge_weight_4_1( 2) * limiter_stencil( 2) +
+                         edge_weight_4_1( 3) * limiter_stencil( 3) +
+                         edge_weight_4_1( 4) * limiter_stencil( 4);
             }
-            else if (Er_stencil(-3) == -1.0_rt) {
-                lamfil = ff4b2(-2) * lam_stencil(-2) +
-                         ff4b2(-1) * lam_stencil(-1) +
-                         ff4b2( 0) * lam_stencil( 0) +
-                         ff4b2( 1) * lam_stencil( 1) +
-                         ff4b2( 2) * lam_stencil( 2) +
-                         ff4b2( 3) * lam_stencil( 3) +
-                         ff4b2( 4) * lam_stencil( 4);
+            else if (Rad_energy_stencil(-3) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_2(-2) * limiter_stencil(-2) +
+                         edge_weight_4_2(-1) * limiter_stencil(-1) +
+                         edge_weight_4_2( 0) * limiter_stencil( 0) +
+                         edge_weight_4_2( 1) * limiter_stencil( 1) +
+                         edge_weight_4_2( 2) * limiter_stencil( 2) +
+                         edge_weight_4_2( 3) * limiter_stencil( 3) +
+                         edge_weight_4_2( 4) * limiter_stencil( 4);
             }
-            else if (Er_stencil(-4) == -1.0_rt) {
-                lamfil = ff4b3(-3) * lam_stencil(-3) +
-                         ff4b3(-2) * lam_stencil(-2) +
-                         ff4b3(-1) * lam_stencil(-1) +
-                         ff4b3( 0) * lam_stencil( 0) +
-                         ff4b3( 1) * lam_stencil( 1) +
-                         ff4b3( 2) * lam_stencil( 2) +
-                         ff4b3( 3) * lam_stencil( 3) +
-                         ff4b3( 4) * lam_stencil( 4);
+            else if (Rad_energy_stencil(-4) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_3(-3) * limiter_stencil(-3) +
+                         edge_weight_4_3(-2) * limiter_stencil(-2) +
+                         edge_weight_4_3(-1) * limiter_stencil(-1) +
+                         edge_weight_4_3( 0) * limiter_stencil( 0) +
+                         edge_weight_4_3( 1) * limiter_stencil( 1) +
+                         edge_weight_4_3( 2) * limiter_stencil( 2) +
+                         edge_weight_4_3( 3) * limiter_stencil( 3) +
+                         edge_weight_4_3( 4) * limiter_stencil( 4);
             }
-            else if (Er_stencil(1) == -1.0_rt) {
-                lamfil = ff4b0(4) * lam_stencil(-4) +
-                         ff4b0(3) * lam_stencil(-3) +
-                         ff4b0(2) * lam_stencil(-2) +
-                         ff4b0(1) * lam_stencil(-1) +
-                         ff4b0(0) * lam_stencil( 0);
+            else if (Rad_energy_stencil(1) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_0(4) * limiter_stencil(-4) +
+                         edge_weight_4_0(3) * limiter_stencil(-3) +
+                         edge_weight_4_0(2) * limiter_stencil(-2) +
+                         edge_weight_4_0(1) * limiter_stencil(-1) +
+                         edge_weight_4_0(0) * limiter_stencil( 0);
             }
-            else if (Er_stencil(2) == -1.0_rt) {
-                lamfil = ff4b1( 4) * lam_stencil(-4) +
-                         ff4b1( 3) * lam_stencil(-3) +
-                         ff4b1( 2) * lam_stencil(-2) +
-                         ff4b1( 1) * lam_stencil(-1) +
-                         ff4b1( 0) * lam_stencil( 0) +
-                         ff4b1(-1) * lam_stencil( 1);
+            else if (Rad_energy_stencil(2) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_1( 4) * limiter_stencil(-4) +
+                         edge_weight_4_1( 3) * limiter_stencil(-3) +
+                         edge_weight_4_1( 2) * limiter_stencil(-2) +
+                         edge_weight_4_1( 1) * limiter_stencil(-1) +
+                         edge_weight_4_1( 0) * limiter_stencil( 0) +
+                         edge_weight_4_1(-1) * limiter_stencil( 1);
             }
-            else if (Er_stencil(3) == -1.0_rt) {
-                lamfil = ff4b2( 4) * lam_stencil(-4) +
-                         ff4b2( 3) * lam_stencil(-3) +
-                         ff4b2( 2) * lam_stencil(-2) +
-                         ff4b2( 1) * lam_stencil(-1) +
-                         ff4b2( 0) * lam_stencil( 0) +
-                         ff4b2(-1) * lam_stencil( 1) +
-                         ff4b2(-2) * lam_stencil( 2);
+            else if (Rad_energy_stencil(3) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_2( 4) * limiter_stencil(-4) +
+                         edge_weight_4_2( 3) * limiter_stencil(-3) +
+                         edge_weight_4_2( 2) * limiter_stencil(-2) +
+                         edge_weight_4_2( 1) * limiter_stencil(-1) +
+                         edge_weight_4_2( 0) * limiter_stencil( 0) +
+                         edge_weight_4_2(-1) * limiter_stencil( 1) +
+                         edge_weight_4_2(-2) * limiter_stencil( 2);
             }
-            else if (Er_stencil(4) == -1.0_rt) {
-                lamfil = ff4b3( 4) * lam_stencil(-4) +
-                         ff4b3( 3) * lam_stencil(-3) +
-                         ff4b3( 2) * lam_stencil(-2) +
-                         ff4b3( 1) * lam_stencil(-1) +
-                         ff4b3( 0) * lam_stencil( 0) +
-                         ff4b3(-1) * lam_stencil( 1) +
-                         ff4b3(-2) * lam_stencil( 2) +
-                         ff4b3(-3) * lam_stencil( 3);
+            else if (Rad_energy_stencil(4) == -1.0_rt) {
+                smoothed_limiter = edge_weight_4_3( 4) * limiter_stencil(-4) +
+                         edge_weight_4_3( 3) * limiter_stencil(-3) +
+                         edge_weight_4_3( 2) * limiter_stencil(-2) +
+                         edge_weight_4_3( 1) * limiter_stencil(-1) +
+                         edge_weight_4_3( 0) * limiter_stencil( 0) +
+                         edge_weight_4_3(-1) * limiter_stencil( 1) +
+                         edge_weight_4_3(-2) * limiter_stencil( 2) +
+                         edge_weight_4_3(-3) * limiter_stencil( 3);
             }
             else {
-                lamfil = ff4(0,S) * lam_stencil(0) +
-                         ff4(1,S) * (lam_stencil(-1) + lam_stencil(1)) +
-                         ff4(2,S) * (lam_stencil(-2) + lam_stencil(2)) +
-                         ff4(3,S) * (lam_stencil(-3) + lam_stencil(3)) +
-                         ff4(4,S) * (lam_stencil(-4) + lam_stencil(4));
+                smoothed_limiter = ff4(0,S) * limiter_stencil(0) +
+                         ff4(1,S) * (limiter_stencil(-1) + limiter_stencil(1)) +
+                         ff4(2,S) * (limiter_stencil(-2) + limiter_stencil(2)) +
+                         ff4(3,S) * (limiter_stencil(-3) + limiter_stencil(3)) +
+                         ff4(4,S) * (limiter_stencil(-4) + limiter_stencil(4));
             }
         }
 
-        lamfil = std::min(1.0_rt / 3.0_rt, std::max(1.0e-25_rt, lamfil));
+        smoothed_limiter = std::min(1.0_rt / 3.0_rt, std::max(1.0e-25_rt, smoothed_limiter));
 
-        return lamfil;
+        return smoothed_limiter;
     }
 }
 

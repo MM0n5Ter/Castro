@@ -84,7 +84,7 @@ This setup can also be used just to test HSE convergence.
 The results were run on Cori, using
 the file in `job_scripts/`.
 
-* in `Castro/Exec/reacting_tests/bubble_convergence`
+* in `HydroSim/Exec/reacting_tests/bubble_convergence`
     ```
     make USE_TRUE_SDC=TRUE COMP=intel -j 4
     ```
@@ -93,11 +93,11 @@ the file in `job_scripts/`.
     ```
     mkdir bubble_convergence
     cd bubble_convergence
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/Castro2d.intel.haswell.MPI.ex .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/helm_table.dat .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/inputs_2d.* .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/probin.* .
-    cp ~/Castro/Exec/reacting_tests/bubble_convergence/job_scripts/cori.bubble_convergence.slurm .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/HydroSim2d.intel.haswell.MPI.ex .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/helm_table.dat .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/inputs_2d.* .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/probin.* .
+    cp ~/HydroSim/Exec/reacting_tests/bubble_convergence/job_scripts/cori.bubble_convergence.slurm .
     sbatch cori.bubble_convergence.slurm
     ```
 
@@ -105,8 +105,8 @@ the file in `job_scripts/`.
 
   in the `bubble_convergence` output directory:
     ```
-    cp ~/development/Castro//Exec/reacting_tests/bubble_convergence/job_scripts/check_convergence.sh .
-    cp ~/development/Castro//Exec/reacting_tests/bubble_convergence/job_scripts/create_pretty_tables.py .
+    cp ~/development/HydroSim//Exec/reacting_tests/bubble_convergence/job_scripts/check_convergence.sh .
+    cp ~/development/HydroSim//Exec/reacting_tests/bubble_convergence/job_scripts/create_pretty_tables.py .
     ```
 
   edit it to use bash and give the proper executable name.  Then:

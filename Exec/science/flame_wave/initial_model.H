@@ -31,9 +31,9 @@
 //
 //                   ^
 //                   |
-//                   +-- dens_base
+//                   +-- density_base
 //
-//  dens_base is the density at a height H_star -- just below the rise
+//  density_base is the density at a height H_star -- just below the rise
 //  in T up to the peak T_hi.  The composition is "ash" in the lower
 //  isothermal region and "fuel" in the isentropic and upper
 //  isothermal regions.  In the transition region, we apply the same
@@ -64,7 +64,7 @@ struct model_t {
     Real xn_star[NumSpec];
     Real xn_perturb[NumSpec];
 
-    Real dens_base;
+    Real density_base;
     Real T_star;
     Real T_hi;
     Real T_lo;
@@ -147,7 +147,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
     eos_t eos_state;
     eos_state.T = model_params.T_star;
-    eos_state.rho = model_params.dens_base;
+    eos_state.rho = model_params.density_base;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = model_params.xn_star[n];
     }
@@ -199,7 +199,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         // the density and pressure will be determined via HSE,
         // for now, set them to the base conditions
 
-        model::profile(model_num).state(i, model::idens) = model_params.dens_base;
+        model::profile(model_num).state(i, model::idens) = model_params.density_base;
         model::profile(model_num).state(i, model::ipres) = pres_base;
 
     }
@@ -276,12 +276,12 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
        // start off the Newton loop by saying that the zone has not converged
 
-       Real pres_zone;
+       Real pressure_zone;
        Real entropy;
 
        if (!fluff) {
 
-           bool converged_hse = false;
+           bool hydrostatic_converged = false;
 
            Real p_want;
            Real drho;
@@ -302,7 +302,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
                // HSE differencing
 
                p_want = model::profile(model_num).state(i-1, model::ipres) +
-                   dx * 0.5_rt * (dens_zone + model::profile(model_num).state(i-1, model::idens)) * gravity::const_grav;
+                   dx * 0.5_rt * (dens_zone + model::profile(model_num).state(i-1, model::idens)) * gravity::uniform_accel;
 
                if (isentropic) {
 
@@ -327,20 +327,20 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
                    eos(eos_input_rt, eos_state);
 
                    entropy = eos_state.s;
-                   pres_zone = eos_state.p;
+                   pressure_zone = eos_state.p;
 
                    Real dpt = eos_state.dpdT;
                    Real dpd = eos_state.dpdr;
                    Real dst = eos_state.dsdT;
                    Real dsd = eos_state.dsdr;
 
-                   Real A = p_want - pres_zone;
+                   Real A = p_want - pressure_zone;
                    Real B = entropy_base - entropy;
 
-                   dtemp = ((dsd / (dpd - 0.5_rt * dx * gravity::const_grav)) * A - B) /
-                       (dsd * dpt / (dpd - 0.5_rt * dx * gravity::const_grav) - dst);
+                   dtemp = ((dsd / (dpd - 0.5_rt * dx * gravity::uniform_accel)) * A - B) /
+                       (dsd * dpt / (dpd - 0.5_rt * dx * gravity::uniform_accel) - dst);
 
-                   drho = (A - dpt * dtemp) / (dpd - 0.5_rt * dx * gravity::const_grav);
+                   drho = (A - dpt * dtemp) / (dpd - 0.5_rt * dx * gravity::uniform_accel);
 
                    dens_zone = amrex::max(0.9_rt * dens_zone,
                                           amrex::min(dens_zone + drho, 1.1_rt * dens_zone));
@@ -355,14 +355,14 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
                        dens_zone = model_params.low_density_cutoff;
                        temp_zone = model_params.T_lo;
-                       converged_hse = true;
+                       hydrostatic_converged = true;
                        fluff = true;
                        break;
                    }
 
                    // if (A < TOL .and. B < ETOL) then
                    if (std::abs(drho) < fw::TOL * dens_zone && std::abs(dtemp) < fw::TOL * temp_zone) {
-                       converged_hse = true;
+                       hydrostatic_converged = true;
                        break;
                    }
 
@@ -385,24 +385,24 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
                    eos(eos_input_rt, eos_state);
 
                    entropy = eos_state.s;
-                   pres_zone = eos_state.p;
+                   pressure_zone = eos_state.p;
 
                    Real dpd = eos_state.dpdr;
 
-                   drho = (p_want - pres_zone) / (dpd - 0.5_rt * dx * gravity::const_grav);
+                   drho = (p_want - pressure_zone) / (dpd - 0.5_rt * dx * gravity::uniform_accel);
 
                    dens_zone = amrex::max(0.9_rt * dens_zone,
                                           amrex::min(dens_zone + drho, 1.1_rt * dens_zone));
 
                    if (std::abs(drho) < fw::TOL * dens_zone) {
-                       converged_hse = true;
+                       hydrostatic_converged = true;
                        break;
                    }
 
                    if (dens_zone < model_params.low_density_cutoff) {
                        dens_zone = model_params.low_density_cutoff;
                        temp_zone = model_params.T_lo;
-                       converged_hse = true;
+                       hydrostatic_converged = true;
                        fluff = true;
                        break;
                    }
@@ -416,7 +416,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
            }
 
-           if (!converged_hse) {
+           if (!hydrostatic_converged) {
                std::cout << "Error zone " << i << " did not converge in init_1d" << std::endl;
                std::cout << "integrate up" << std::endl;
                std::cout << dens_zone << " " << temp_zone << std::endl;
@@ -444,13 +444,13 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
        eos(eos_input_rt, eos_state);
 
-       pres_zone = eos_state.p;
+       pressure_zone = eos_state.p;
 
        // update the thermodynamics in this zone
 
        model::profile(model_num).state(i, model::idens) = dens_zone;
        model::profile(model_num).state(i, model::itemp) = temp_zone;
-       model::profile(model_num).state(i, model::ipres) = pres_zone;
+       model::profile(model_num).state(i, model::ipres) = pressure_zone;
 
        // to make this process converge faster, set the density in the
        // next zone to the density in this zone
@@ -483,9 +483,9 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
         // start off the Newton loop by saying that the zone has not converged
 
-        bool converged_hse = false;
+        bool hydrostatic_converged = false;
 
-        Real pres_zone;
+        Real pressure_zone;
         Real p_want;
         Real drho;
 
@@ -500,7 +500,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
             // HSE differencing
 
             p_want = model::profile(model_num).state(i+1, model::ipres) -
-                dx * 0.5_rt * (dens_zone + model::profile(model_num).state(i+1, model::idens)) * gravity::const_grav;
+                dx * 0.5_rt * (dens_zone + model::profile(model_num).state(i+1, model::idens)) * gravity::uniform_accel;
 
             // we will take the temperature already defined in gen_model_state
             // so we only need to zero:
@@ -515,25 +515,25 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
             eos(eos_input_rt, eos_state);
 
-            pres_zone = eos_state.p;
+            pressure_zone = eos_state.p;
 
             Real dpd = eos_state.dpdr;
 
-            Real A = p_want - pres_zone;
+            Real A = p_want - pressure_zone;
 
-            drho = A / (dpd + 0.5_rt * dx * gravity::const_grav);
+            drho = A / (dpd + 0.5_rt * dx * gravity::uniform_accel);
 
             dens_zone = amrex::max(0.9_rt * dens_zone,
                                    amrex::min(dens_zone + drho, 1.1_rt * dens_zone));
 
             if (std::abs(drho) < fw::TOL * dens_zone) {
-                converged_hse = true;
+                hydrostatic_converged = true;
                 break;
             }
 
         }
 
-        if (!converged_hse) {
+        if (!hydrostatic_converged) {
             std::cout << "Error zone " << i << " did not converge in init_1d" << std::endl;
             std::cout << "integrate down" << std::endl;
             std::cout << dens_zone << " " << temp_zone << std::endl;
@@ -554,13 +554,13 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
         eos(eos_input_rt, eos_state);
 
-        pres_zone = eos_state.p;
+        pressure_zone = eos_state.p;
 
         // update the thermodynamics in this zone
 
         model::profile(model_num).state(i, model::idens) = dens_zone;
         model::profile(model_num).state(i, model::itemp) = temp_zone;
-        model::profile(model_num).state(i, model::ipres) = pres_zone;
+        model::profile(model_num).state(i, model::ipres) = pressure_zone;
 
     }
 }

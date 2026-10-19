@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
 #include <Gravity.H>
 
@@ -12,7 +12,7 @@
 
 using namespace amrex;
 
-void Castro::problem_post_init()
+void HydroSim::user_post_init()
 {
     BL_ASSERT(level == 0);
 
@@ -21,11 +21,11 @@ void Castro::problem_post_init()
 
     Real actual_mass = 0.0;
 
-    bool local_flag = true;
+    bool local_only = true;
     Real time = state[State_Type].curTime();
 
     for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, local_flag);
+        actual_mass += getLevel(lev).volWeightedTotal("density", time, local_only);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
@@ -97,7 +97,7 @@ void Castro::problem_post_init()
     actual_mass = 0.0;
 
     for (int lev = 0; lev <= parent->finestLevel(); lev++) {
-        actual_mass += getLevel(lev).volWgtSum("density", time, local_flag);
+        actual_mass += getLevel(lev).volWeightedTotal("density", time, local_only);
     }
 
     ParallelDescriptor::ReduceRealSum(actual_mass);
@@ -110,7 +110,7 @@ void Castro::problem_post_init()
         amrex::Abort("Sphere does not have the right amount of mass.");
     }
 
-    gravity->multilevel_solve_for_new_phi(0, parent->finestLevel());
+    gravity->multilevel_potential_solve(0, parent->finestLevel());
 
     const int norm_power = 2;
 
@@ -129,7 +129,7 @@ void Castro::problem_post_init()
 
         if (lev < parent->finestLevel())
         {
-            const MultiFab& mask = getLevel(lev+1).build_fine_mask();
+            const MultiFab& mask = getLevel(lev+1).make_fine_mask();
             MultiFab::Multiply(*phiGrav, mask, 0, 0, 1, 0);
         }
 

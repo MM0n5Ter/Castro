@@ -4,9 +4,9 @@
 set -x
 
 DIM=2
-EXEC=./Castro${DIM}d.gnu.MPI.TRUESDC.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.TRUESDC.ex
 
-RUNPARAMS="castro.sdc_order=4 castro.time_integration_method=2 castro.lo_bc=2 2 castro.hi_bc=2 2 geometry.is_periodic=0 0 castro.limit_fourth_order=1"
+RUNPARAMS="hydrosim.sdc_accuracy_order=4 hydrosim.time_scheme=2 hydrosim.lo_bc=2 2 hydrosim.hi_bc=2 2 geometry.is_periodic=0 0 hydrosim.clamp_fourth_order=1"
 
 mpiexec -n 4 ${EXEC} inputs.64 ${RUNPARAMS} amr.plot_file=acoustic_pulse_64_sdc4_plt &> 64.out
 mpiexec -n 4 ${EXEC} inputs.128 ${RUNPARAMS} amr.plot_file=acoustic_pulse_128_sdc4_plt &> 128.out

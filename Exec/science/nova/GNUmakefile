@@ -13,7 +13,7 @@ USE_REACT        = TRUE
 USE_DIFFUSION    = FALSE
 USE_GRAV         = TRUE
 
-CASTRO_HOME := ../../..
+HYDROSIM_HOME := ../../..
 
 USE_MODEL_PARSER = TRUE
 MAX_NPTS_MODEL = 20000
@@ -33,4 +33,4 @@ INTEGRATOR_DIR := RKC
 Bpack   := ./Make.package
 Blocs   := .
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

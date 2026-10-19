@@ -1,13 +1,13 @@
 /* Implementations of functions in Problem.H go here */
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 void
-Castro::flame_width_properties (Real time, Real& T_max, Real& T_min, Real& grad_T_max)
+HydroSim::flame_width_properties (Real time, Real& T_max, Real& T_min, Real& grad_T_max)
 {
-    BL_PROFILE("Castro::flame_width_properties()");
+    BL_PROFILE("HydroSim::flame_width_properties()");
 
     const auto dx = geom.CellSizeArray();
 
@@ -57,9 +57,9 @@ Castro::flame_width_properties (Real time, Real& T_max, Real& T_min, Real& grad_
 
 
 void
-Castro::flame_speed_properties (Real time, Real& rho_fuel_dot)
+HydroSim::flame_speed_properties (Real time, Real& rho_fuel_dot)
 {
-    BL_PROFILE("Castro::flame_speed_properties()");
+    BL_PROFILE("HydroSim::flame_speed_properties()");
 
     const auto dx = geom.CellSizeArray();
 

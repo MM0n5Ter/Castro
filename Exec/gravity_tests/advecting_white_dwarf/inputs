@@ -1,5 +1,5 @@
 
-############################## CASTRO INPUTS ###############################################
+############################## HYDROSIM INPUTS ###############################################
 
 ############################################################################################
 # Geometry
@@ -25,10 +25,10 @@ geometry.prob_hi =  2.56e9  1.28e9  1.28e9
 ############################################################################################
 
 # Boundary conditions on lo x, y, and z edges
-castro.lo_bc = 2 2 2
+hydrosim.lo_bc = 2 2 2
 
 # Boundary conditions on hi x, y, and z edges
-castro.hi_bc = 2 2 2
+hydrosim.hi_bc = 2 2 2
 
 ############################################################################################ 
 # Timestepping
@@ -42,13 +42,13 @@ max_step = 10000000
 stop_time = 25.6
 
 # CFL number for hyperbolic system
-castro.cfl = 0.8
+hydrosim.cfl = 0.8
 
 # Scale back initial timestep by this factor
-castro.init_shrink = 0.01
+hydrosim.init_dt_shrink = 0.01
 
 # Factor by which dt is allowed to change each timestep
-castro.change_max = 1.25
+hydrosim.change_max = 1.25
 
 # If we regrid on Level 0, compute a new timestep afterward
 amr.compute_new_dt_on_regrid = 1
@@ -79,7 +79,7 @@ amr.max_grid_size = 64
 amr.blocking_factor = 16
 
 # Add refinement indicators
-amr.refinement_indicators = density
+amr.refine_criteria = density
 
 # Density refinement criterion
 amr.refine.density.value_greater = 1.0e3
@@ -91,48 +91,48 @@ amr.refine.density.max_level = 14
 ############################################################################################
 
 # Whether or not to do hydrodynamics
-castro.do_hydro = 1
+hydrosim.do_hydro = 1
 
 # Whether or not to do gravity
-castro.do_grav = 1
+hydrosim.do_gravity_flag = 1
 
 # Whether or not to apply the sponge
-castro.do_sponge = 1
+hydrosim.do_damping_zone = 1
 
 ############################################################################################
 # PPM/Hydro options
 ############################################################################################
 
 # Use a lagged predictor estimate of the source terms in the hydro
-castro.source_term_predictor = 1
+hydrosim.source_half_step = 1
 
 # Reset (rho*e) if it goes negative in the transverse terms
-castro.transverse_reset_rhoe = 1
+hydrosim.transverse_rebuild_rhoe = 1
 
 # Reset rho if it goes negative in the transverse terms
-castro.transverse_reset_density = 1
+hydrosim.transverse_revert_density = 1
 
 # Explicitly limit fluxes to avoid hitting a negative density
-castro.limit_fluxes_on_small_dens = 1
+hydrosim.clip_small_rho_flux = 1
 
 ############################################################################################
 # Thermodynamics
 ############################################################################################
 
 # Minimum allowable temperature (K)
-castro.small_temp = 1.e5
+hydrosim.small_temp = 1.e5
 
 # Minimum allowable density (g / cm**3)
-castro.small_dens = 1.e-5
+hydrosim.small_dens = 1.e-5
 
 # Ambient temperature (K)
-castro.ambient_temp = 1.0e7
+hydrosim.background_temp = 1.0e7
 
 # Ambient density (g / cm**3)
-castro.ambient_density = 1.0e-4
+hydrosim.background_density = 1.0e-4
 
 # Clamp temperature in ambient zones to its initial value
-castro.clamp_ambient_temp = 1
+hydrosim.clamp_ambient_temperature = 1
 
 # Smallest allowable mass fraction
 network.small_x = 1.0e-12
@@ -142,10 +142,10 @@ network.small_x = 1.0e-12
 ############################################################################################
 
 # Full self-gravity with the Poisson equation
-gravity.gravity_type = PoissonGrav
+gravity.gravity_model_name = PoissonGrav
 
-# Multipole expansion includes terms up to r**(-max_multipole_order)
-gravity.max_multipole_order = 6
+# Multipole expansion includes terms up to r**(-multipole_order_cap)
+gravity.multipole_order_cap = 6
 
 # Tolerance for multigrid solver for phi solves
 gravity.abs_tol = 1.e-10
@@ -154,32 +154,32 @@ gravity.abs_tol = 1.e-10
 gravity.no_sync = 0
 
 # Disable the use of the lagged composite correction for the potential
-gravity.do_composite_phi_correction = 0
+gravity.composite_phi_fixup = 0
 
 # Track the moving center of the problem
-castro.moving_center = 1
+hydrosim.track_center = 1
 
 ############################################################################################
 # Sponge
 ############################################################################################
 
-castro.sponge_lower_density = 1.0e0
-castro.sponge_upper_density = 1.0e0
-castro.sponge_timescale     = 0.01e0
+hydrosim.damping_lower_density = 1.0e0
+hydrosim.damping_upper_density = 1.0e0
+hydrosim.damping_timescale     = 0.01e0
 
 ############################################################################################
 # Diagnostics and I/O
 ############################################################################################
 
 # Name the job
-castro.job_name = advecting_white_dwarf
+hydrosim.job_label = advecting_white_dwarf
 
 # Verbosity
 amr.v = 1
-castro.v = 1
+hydrosim.v = 1
 
 # Sum interval
-castro.sum_interval = 1
+hydrosim.sum_step_period = 1
 
 # Whether or not to output plotfiles
 amr.plot_files_output = 1

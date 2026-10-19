@@ -1,9 +1,9 @@
-#ifndef RUNTIME_PARAMETERS_H
-#define RUNTIME_PARAMETERS_H
+#ifndef PARAM_LOAD_H
+#define PARAM_LOAD_H
 
 #include <AMReX_Print.H>
 #include <AMReX_ParmParse.H>
-#include <castro_limits.H>
+#include <hydrosim_limits.H>
 
 #ifdef DIFFUSION
 #include <diffusion_params.H>
@@ -12,7 +12,7 @@
 #include <gravity_params.H>
 #endif
 #ifdef RADIATION
-#include <radsolve_params.H>
+#include <radiation_solve_params.H>
 #include <radiation_params.H>
 #endif
 
@@ -22,12 +22,12 @@
 ///
 AMREX_INLINE
 void
-initialize_cpp_runparams()
+load_compiled_params()
 {
 
     {
-        amrex::ParmParse pp("castro");
-#include <castro_queries.H>
+        amrex::ParmParse pp("hydrosim");
+#include <hydrosim_queries.H>
     }
 
 #ifdef AMREX_PARTICLES
@@ -68,41 +68,41 @@ initialize_cpp_runparams()
 ///
 AMREX_INLINE
 void
-validate_runparams()
+check_runparams()
 {
 
-    amrex::Vector<std::string> check_namespaces = {"castro", "problem"};
+    amrex::Vector<std::string> valid_namespaces = {"hydrosim", "problem"};
 #ifdef AMREX_PARTICLES
-    check_namespaces.push_back("particles");
+    valid_namespaces.push_back("particles");
 #endif
 #ifdef DIFFUSION
-    check_namespaces.push_back("diffusion");
+    valid_namespaces.push_back("diffusion");
 #endif
 #ifdef GRAVITY
-    check_namespaces.push_back("gravity");
+    valid_namespaces.push_back("gravity");
 #endif
 #ifdef RADIATION
-    //check_namespaces.push_back("radiation");  // this doesn't yet work because RadBndry isn't setup yet
-    check_namespaces.push_back("radsolve");
+    //valid_namespaces.push_back("radiation");  // this doesn't yet work because RadiativeBoundary isn't setup yet
+    valid_namespaces.push_back("radiation_solve");
 #endif
 
     // now Microphysics
 
-    check_namespaces.push_back("eos");
+    valid_namespaces.push_back("eos");
 #ifdef REACTIONS
-    check_namespaces.push_back("network");
-    check_namespaces.push_back("integrator");
+    valid_namespaces.push_back("network");
+    valid_namespaces.push_back("integrator");
 #endif
 #ifdef RADIATION
-    check_namespaces.push_back("opacity");
+    valid_namespaces.push_back("opacity");
 #endif
 #ifdef DIFFUSION
-    check_namespaces.push_back("conductivity");
+    valid_namespaces.push_back("conductivity");
 #endif
 
-    for (const auto& nm: check_namespaces)
+    for (const auto& nm: valid_namespaces)
     {
-        // "castro"
+        // "hydrosim"
         if (amrex::ParmParse::hasUnusedInputs(nm)) {
             amrex::Print() << Font::Bold << FGColor::Yellow
                            << "[WARNING] the following " + nm + ".* parameters are ignored\n";
@@ -111,7 +111,7 @@ validate_runparams()
                 amrex::Print() << p << "\n";
             }
             amrex::Print() << ResetDisplay << std::endl;
-            if (castro::abort_on_invalid_params) {
+            if (hydrosim::stop_on_bad_params) {
                 amrex::Error("Error: invalid parameters");
             }
         }

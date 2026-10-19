@@ -1,5 +1,5 @@
 ! Print out the radiation quantities at a specified distance from the
-! origin, for a 1-d CASTRO run.  This is geared toward the radiating
+! origin, for a 1-d HYDROSIM run.  This is geared toward the radiating
 ! sphere problem.
 
 program fradsphere
@@ -31,7 +31,7 @@ program fradsphere
   integer :: dim
 
   character(len=256) :: pltfile
-  character(len=256) :: groupfile
+  character(len=256) :: energy_group_file
   integer :: indslsh
   integer :: iloc, jloc, kloc
   integer :: narg, farg
@@ -54,7 +54,7 @@ program fradsphere
   unit = unit_new()
   ung =  unit_new()
 
-  groupfile = "group_structure.dat"
+  energy_group_file = "group_structure.dat"
   radius = 0.06e0_rt
 
   narg = command_argument_count()
@@ -65,9 +65,9 @@ program fradsphere
 
      select case (fname)
 
-     case ('-g', '--groupfile')
+     case ('-g', '--energy_group_file')
         farg = farg + 1
-        call get_command_argument(farg, value = groupfile)
+        call get_command_argument(farg, value = energy_group_file)
 
      case ('-r', '--radius')
         farg = farg + 1
@@ -86,10 +86,10 @@ program fradsphere
      print *, "Print out the radiation quantities at a specified distance from"
      print *, "the origin.  This is written for the 1-d radiating sphere problem."
      print *, " "
-     print *, "./fradsphere [-r radius -g groupfile] plotfile"
+     print *, "./fradsphere [-r radius -g energy_group_file] plotfile"
      print *, " "
-     print *, "Here groupfile is the file containing the group structure information"
-     print *, "as output by Castro (usually group_structure.dat)."
+     print *, "Here energy_group_file is the file containing the group structure information"
+     print *, "as output by HydroSim (usually group_structure.dat)."
      stop
   end if
 
@@ -136,8 +136,8 @@ program fradsphere
   if (dim /= 1) call bl_error("ERROR: fradsphere only works for dim = 1")
 
   ! get the index bounds for the finest level
-  flo = lwb(plotfile_get_pd_box(pf, pf%flevel))
-  fhi = upb(plotfile_get_pd_box(pf, pf%flevel))
+  flo = lwb(plotfile_get_pd_box(pf, pf%fine_lvl))
+  fhi = upb(plotfile_get_pd_box(pf, pf%fine_lvl))
 
   cnt = 0
 
@@ -169,7 +169,7 @@ program fradsphere
   ! FINEST level
   r1  = 1
 
-  do i = pf%flevel, 1, -1
+  do i = pf%fine_lvl, 1, -1
 
      ! rr is the factor between the COARSEST level grid spacing and
      ! the current level
@@ -211,7 +211,7 @@ program fradsphere
 
 
   ! open up the group file and read in the group information
-  open(unit=ung,file=groupfile)
+  open(unit=ung,file=energy_group_file)
 
   ! read in the number of groups
   read(ung,fmt='(a256)') header_line

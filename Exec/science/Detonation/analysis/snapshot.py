@@ -41,7 +41,7 @@ def nuc_list_filter(nuc):
 
 def get_Te_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()
@@ -56,7 +56,7 @@ def get_Te_profile(plotfile):
 
 def get_nuc_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()

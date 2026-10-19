@@ -1,7 +1,7 @@
 Test the implementation of the source terms in the gray radiation
 solver.  This does the "relaxation to thermal equilibrium" test.
 
-The gas energy equation as solved in Castro takes the form:
+The gas energy equation as solved in HydroSim takes the form:
 
 d(rho E)/dt + div . (rho U E + U p) = - kappa_p c (E_r - a T^4)
 

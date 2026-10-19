@@ -64,43 +64,43 @@ amr.grid_log        = grdlog   # name of grid logging file
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2    4    4
-castro.hi_bc       =  2    4    4
+hydrosim.lo_bc       =  2    4    4
+hydrosim.hi_bc       =  2    4    4
 
 # WHICH PHYSICS
-castro.do_grav        = 0
-castro.do_hydro       = 0
-castro.do_radiation   = 1
-castro.do_reflux      = 1        # 1 => do refluxing
-castro.do_react       = 0        # reactions?
+hydrosim.do_gravity_flag        = 0
+hydrosim.do_hydro       = 0
+hydrosim.do_radiative_transfer   = 1
+hydrosim.do_reflux      = 1        # 1 => do refluxing
+hydrosim.do_react       = 0        # reactions?
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
-castro.init_shrink    = 1.0     # scale back initial timestep
-#castro.initial_dt     = 1.e-12
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 1.0     # scale back initial timestep
+#hydrosim.first_step_dt     = 1.e-12
 
-castro.fixed_dt  =  4.5339149910673475e-08   # 1/256
+hydrosim.constant_dt  =  4.5339149910673475e-08   # 1/256
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v = 1
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v = 1
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
-##### SolverType #####
+##### SolverKind #####
 # 0: single group diffusion w/o coupling to hydro
-# 5: SGFLD       6: MGFLD
-radiation.SolverType = 6
+# 5: SGFLD       6: MultigroupDiffusion
+radiation.SolverKind = 6
 
 radiation.accelerate = 0
 
 radiation.nGroups = 64
 radiation.lowestGroupHz = 0.0
-radiation.groupGrowFactor = 1.1
-radiation.firstGroupWidthHz = 1.2089946159439433e13   # = 5.e-4 (dimensionless)
+radiation.groupGrowthRatio = 1.1
+radiation.initialGroupWidthHz = 1.2089946159439433e13   # = 5.e-4 (dimensionless)
 
 radiation.do_fspace_advection = 0
-radiation.Er_Lorentz_term = 0
+radiation.lorentz_energy_term = 0
 
 # RADIATION TOLERANCES
 radiation.reltol  = 1.e-6 # relative tolerance for implicit update loop
@@ -108,7 +108,7 @@ radiation.abstol  = 0.0
 radiation.maxiter = 50    # return after numiter iterations if not converged
 
 # 0: both,  1: rhoe,   2: residue of rhoe equation,   3: T
-radiation.convergence_check_type = 0
+radiation.convergence_check_mode = 0
 
 # RADIATION LIMITER
 radiation.limiter = 0     # 0 = no limiter
@@ -130,10 +130,10 @@ radiation.hi_bc     = 104 101 101
 # or use a Fortran function FORT_RADBNDRY to specify values that vary
 # in space and time.
 
-# If bcflag is 0 then bcval is used, otherwise FORT_RADBNDRY used:
+# If bc_kind is 0 then bcval is used, otherwise FORT_RADBNDRY used:
 
-radiation.lo_bcflag = 0 0 0
-radiation.hi_bcflag = 0 0 0
+radiation.lo_bc_kind = 0 0 0
+radiation.hi_bc_kind = 0 0 0
 
 # bcval is interpreted differently depending on the boundary condition
 # 101 = LO_DIRICHLET           bcval is Dirichlet value of rad energy density
@@ -141,17 +141,17 @@ radiation.hi_bcflag = 0 0 0
 # 104 = LO_MARSHAK             bcval is incident flux
 # 105 = LO_SANCHEZ_POMRANING   bcval is incident flux
 
-#radiation.lo_bcval = 0.0 0.0 0.0
-#radiation.hi_bcval = 0.0 0.0 0.0
+#radiation.lo_bc_value = 0.0 0.0 0.0
+#radiation.hi_bc_value = 0.0 0.0 0.0
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use AlphaBetaSolver, support symmetric matrices only
+# solver flag values >= 100 use MultiLevelEllipticSolver, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
-# For MGFLD with accelerate = 2, must use >=100.
+# For MultigroupDiffusion with accelerate = 2, must use >=100.
 #
 # 0     SMG
 # 1     PFMG  (>= 2D only)
@@ -164,16 +164,16 @@ radiation.hi_bcflag = 0 0 0
 # 1002  PCG   using ParCSR ObjectType
 # 1003  PCG   using SStruct ObjectType
 
-radsolve.level_solver_flag = 104   # can be any supported hypre solver flag
+radiation_solve.level_solver_kind = 104   # can be any supported hypre solver flag
 
-radsolve.reltol     = 1.0e-11 # relative tolerance
-radsolve.abstol     = 0.0     # absolute tolerance (often not necessary)
-radsolve.maxiter    = 200     # linear solver iteration limit
+radiation_solve.reltol     = 1.0e-11 # relative tolerance
+radiation_solve.abstol     = 0.0     # absolute tolerance (often not necessary)
+radiation_solve.maxiter    = 200     # linear solver iteration limit
 
-radsolve.v = 1      # verbosity
+radiation_solve.v = 1      # verbosity
 
-hmabec.verbose = 1  # verbosity for HypreMultiABec solvers
-habec.verbose  = 1  # verbosity for HypreABec solvers
+hmabec.verbose = 1  # verbosity for MultiLevelEllipticSolver solvers
+habec.verbose  = 1  # verbosity for AlphaBetaSolver solvers
 
 #
 # The default strategy is SFC.

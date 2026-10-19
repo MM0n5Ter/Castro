@@ -9,9 +9,9 @@ import yt
 
 
 def doit(outfile="hse.png"):
-    low = yt.load("flame_wave_128_plt01600", hint="castro")
-    med = yt.load("flame_wave_256_plt03200", hint="castro")
-    high = yt.load("flame_wave_512_plt06400", hint="castro")
+    low = yt.load("flame_wave_128_plt01600", hint="hydrosim")
+    med = yt.load("flame_wave_256_plt03200", hint="hydrosim")
+    high = yt.load("flame_wave_512_plt06400", hint="hydrosim")
 
     fig, ax = plt.subplots(1,1)
 

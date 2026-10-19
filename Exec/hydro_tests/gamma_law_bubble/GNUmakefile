@@ -1,4 +1,4 @@
-CASTRO_HOME ?= ../../..
+HYDROSIM_HOME ?= ../../..
 
 PRECISION  = DOUBLE
 PROFILE    = FALSE
@@ -14,7 +14,7 @@ USE_GRAV   = TRUE
 
 USE_MODEL_PARSER = TRUE
 
-USE_MAESTRO_INIT = FALSE
+USE_LOWMACH_INIT = FALSE
 
 # This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := gamma_law
@@ -28,4 +28,4 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

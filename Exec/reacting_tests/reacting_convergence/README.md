@@ -5,7 +5,7 @@ built from the acoustic_pulse_general test.
 
 # convergence testing
 
-* in `Castro/Exec/reacting_tests/reacting_convergence`:
+* in `HydroSim/Exec/reacting_tests/reacting_convergence`:
     ```
     make COMP=intel -j 4
     ```
@@ -14,18 +14,18 @@ built from the acoustic_pulse_general test.
     ```
     mkdir reacting_convergence
     cd reacting_convergence
-    cp ~/Castro/Exec/reacting_tests/reacting_convergence/Castro2d.intel.haswell.MPI.ex .
-    cp ~/Castro/Exec/reacting_tests/reacting_convergence/inputs.* .
-    cp ~/Castro/Exec/reacting_tests/reacting_convergence/probin .
-    cp ~/Castro/Exec/reacting_tests/reacting_convergence/helm_table.dat .
-    cp ~/Castro/Exec/reacting_tests/reacting_convergence/job_scripts/cori.reacting_convergence.slurm .
+    cp ~/HydroSim/Exec/reacting_tests/reacting_convergence/HydroSim2d.intel.haswell.MPI.ex .
+    cp ~/HydroSim/Exec/reacting_tests/reacting_convergence/inputs.* .
+    cp ~/HydroSim/Exec/reacting_tests/reacting_convergence/probin .
+    cp ~/HydroSim/Exec/reacting_tests/reacting_convergence/helm_table.dat .
+    cp ~/HydroSim/Exec/reacting_tests/reacting_convergence/job_scripts/cori.reacting_convergence.slurm .
     sbatch cori.reacting_convergence.slurm
     ```
 
 * to do the analysis, in the output directory:
     ```
-    cp ~/development/Castro//Exec/reacting_tests/reacting_convergence/analysis/check_convergence.sh .
-    cp ~/development/Castro//Exec/reacting_tests/reacting_convergence/analysis/create_pretty_tables.py .
+    cp ~/development/HydroSim//Exec/reacting_tests/reacting_convergence/analysis/check_convergence.sh .
+    cp ~/development/HydroSim//Exec/reacting_tests/reacting_convergence/analysis/create_pretty_tables.py .
     ```
 
   edit it to use bash and give the proper executable name.  Then:

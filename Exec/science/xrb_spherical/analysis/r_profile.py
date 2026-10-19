@@ -31,9 +31,9 @@ fields = ["Temp", "density", "x_velocity", "y_velocity"]
 nice_names = [r"$T$ (K)", r"$\rho$ (g/${cm}^3$)", r"$u$ (cm/s)", r"$v$ (cm/s)"]
 
 # 4 rays at different theta values
-thetal = ds.domain_left_edge[1]
-thetar = ds.domain_right_edge[1]
-thetas = [thetal, 0.25*thetar, 0.5*thetar, 0.75*thetar]
+polar_lo = ds.domain_left_edge[1]
+polar_hi = ds.domain_right_edge[1]
+thetas = [polar_lo, 0.25*polar_hi, 0.5*polar_hi, 0.75*polar_hi]
 
 for i, f in enumerate(fields):
 

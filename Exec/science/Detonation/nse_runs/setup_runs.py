@@ -30,13 +30,13 @@ DO_TRUE_SDC_RUNS = 0
 
 COMMON_FILES = ["helm_table.dat"] #, "nse19.tbl"]
 
-STRANG_EXEC = "./Castro1d.gnu.ex"
+STRANG_EXEC = "./HydroSim1d.gnu.ex"
 NEEDED_STRANG_FILES = [STRANG_EXEC] + COMMON_FILES
 
-SIMPLE_SDC_EXEC = "./Castro1d.gnu.SMPLSDC.ex"
+SIMPLE_SDC_EXEC = "./HydroSim1d.gnu.SMPLSDC.ex"
 NEEDED_SIMPLE_SDC_FILES = [SIMPLE_SDC_EXEC] + COMMON_FILES
 
-TRUE_SDC_EXEC = "./Castro1d.gnu.TRUESDC.ex"
+TRUE_SDC_EXEC = "./HydroSim1d.gnu.TRUESDC.ex"
 NEEDED_TRUE_SDC_FILES = [TRUE_SDC_EXEC] + COMMON_FILES
 
 def setup_runs():
@@ -65,7 +65,7 @@ def setup_runs():
         meta.write(f"cfl = {REFERENCE_CFL}\n")
         meta.write(f"nzones = {REFERENCE_NZONES}\n")
         meta.write("integrator = reference\n")
-        meta.write(f"dtnuc_e = {REFERENCE_DTNUC_E}\n")
+        meta.write(f"burn_dt_energy = {REFERENCE_DTNUC_E}\n")
 
     # write the inputs file
     with open(f"{odir}/inputs", "w") as inpf:
@@ -98,7 +98,7 @@ def setup_runs():
                         meta.write(f"cfl = {c}\n")
                         meta.write(f"nzones = {nz}\n")
                         meta.write("integrator = Strang\n")
-                        meta.write(f"dtnuc_e = {dtn}\n")
+                        meta.write(f"burn_dt_energy = {dtn}\n")
 
                     # write the inputs file
                     with open(f"{odir}/inputs", "w") as inpf:
@@ -132,7 +132,7 @@ def setup_runs():
                             meta.write(f"nzones = {nz}\n")
                             meta.write("integrator = simplified-SDC\n")
                             meta.write(f"niters = {niter}\n")
-                            meta.write(f"dtnuc_e = {dtn}\n")
+                            meta.write(f"burn_dt_energy = {dtn}\n")
 
                         # write the inputs file
                         with open(f"{odir}/inputs", "w") as inpf:
@@ -168,7 +168,7 @@ def setup_runs():
                                 meta.write("integrator = true-SDC\n")
                                 meta.write(f"quadrature = {quad}\n")
                                 meta.write(f"order = {order}\n")
-                                meta.write(f"dtnuc_e = {dtn}\n")
+                                meta.write(f"burn_dt_energy = {dtn}\n")
 
                             # write the inputs file
                             with open(f"{odir}/inputs", "w") as inpf:

@@ -60,8 +60,8 @@ using namespace amrex;
 //
 //    Required parameters:
 //        ref_ratio
-//        grown_factor
-//        star_at_center
+//        restart_grow_factor
+//        body_at_center
 //
 // 2. theta_extend
 
@@ -85,8 +85,8 @@ int nFiles(64);
 bool verbose(true);
 int num_new_levels(1);
 int      ref_ratio(1);
-int   grown_factor(1);
-int star_at_center(-1);
+int   restart_grow_factor(1);
+int body_at_center(-1);
 Real theta_new_hi;
 int   max_grid_size(4096);
 int blocking_factor(16);
@@ -168,26 +168,26 @@ static void ScanArguments() {
             pp.get("ref_ratio", ref_ratio);
         }
 
-        if(pp.contains("grown_factor")) {
-            pp.get("grown_factor", grown_factor);
+        if(pp.contains("restart_grow_factor")) {
+            pp.get("restart_grow_factor", restart_grow_factor);
         }
 
-        pp.get("star_at_center", star_at_center);
+        pp.get("body_at_center", body_at_center);
 
-        if (star_at_center != 0 && star_at_center != 1) {
-            amrex::Abort("star_at_center must be 0 or 1");
+        if (body_at_center != 0 && body_at_center != 1) {
+            amrex::Abort("body_at_center must be 0 or 1");
         }
 
         if (ref_ratio != 2 && ref_ratio != 4) {
             amrex::Abort("ref_ratio must be 2 or 4");
         }
 
-        if (grown_factor <= 1) {
-            amrex::Abort("must have grown_factor > 1");
+        if (restart_grow_factor <= 1) {
+            amrex::Abort("must have restart_grow_factor > 1");
         }
 
-        if (star_at_center == 1 && grown_factor != 2 && grown_factor != 3) {
-                amrex::Abort("must have grown_factor = 2 or 3 for star at center");
+        if (body_at_center == 1 && restart_grow_factor != 2 && restart_grow_factor != 3) {
+                amrex::Abort("must have restart_grow_factor = 2 or 3 for star at center");
         }
 
     } else if (mode == "theta_extend") {
@@ -211,8 +211,8 @@ static void PrintUsage(char* progName)
          << "checkin=filename "
          << "checkout=outfilename "
          << "ref_ratio=2|4 "
-         << "grown_factor=integer "
-         << "star_at_center=0|1 "
+         << "restart_grow_factor=integer "
+         << "body_at_center=0|1 "
          << "[nfiles=nfilesout] "
          << "[verbose=true|false]" << endl;
 
@@ -339,8 +339,8 @@ static void ReadCheckpointFile(const std::string& fileName) {
                     amrex::Abort("must have domain divisible by 2*ref_ratio");
             }
 
-        if (grown_factor <= 1)
-            amrex::Abort("must have grown_factor > 1");
+        if (restart_grow_factor <= 1)
+            amrex::Abort("must have restart_grow_factor > 1");
     }
 
     for (i = n; i <  mx_lev; i++) {
@@ -594,24 +594,24 @@ static void WriteCheckpointFile(const std::string& inFileName, const std::string
 
     if (ParallelDescriptor::IOProcessor()) {
 
-      std::ifstream oldCastroHeaderFile;
+      std::ifstream oldHydroSimHeaderFile;
 
-      std::string oldCastroHeaderName = inFileName + "/CastroHeader";
-      oldCastroHeaderFile.open(oldCastroHeaderName.c_str(), std::ios::binary);
+      std::string oldHydroSimHeaderName = inFileName + "/CastroHeader";
+      oldHydroSimHeaderFile.open(oldHydroSimHeaderName.c_str(), std::ios::binary);
 
-      if (oldCastroHeaderFile.good()) {
+      if (oldHydroSimHeaderFile.good()) {
 
-        std::ofstream newCastroHeaderFile;
+        std::ofstream newHydroSimHeaderFile;
 
-        std::string newCastroHeaderName = outFileName + "/CastroHeader";
-        newCastroHeaderFile.open(newCastroHeaderName.c_str(), std::ios::binary);
+        std::string newHydroSimHeaderName = outFileName + "/CastroHeader";
+        newHydroSimHeaderFile.open(newHydroSimHeaderName.c_str(), std::ios::binary);
 
-        if (newCastroHeaderFile.good()) {
-          newCastroHeaderFile << oldCastroHeaderFile.rdbuf();
-          newCastroHeaderFile.close();
+        if (newHydroSimHeaderFile.good()) {
+          newHydroSimHeaderFile << oldHydroSimHeaderFile.rdbuf();
+          newHydroSimHeaderFile.close();
         }
 
-        oldCastroHeaderFile.close();
+        oldHydroSimHeaderFile.close();
 
       }
 
@@ -822,10 +822,10 @@ static void ConvertData() {
 
    // We treat the r-z case with the star in the middle specially
 #if (AMREX_SPACEDIM == 2)
-   if (coord == 1 && star_at_center == 1)
+   if (coord == 1 && body_at_center == 1)
    {
-     for (int jy = 0; jy < grown_factor; jy++)
-      for (int jx = 0; jx < grown_factor; jx++)
+     for (int jy = 0; jy < restart_grow_factor; jy++)
+      for (int jx = 0; jx < restart_grow_factor; jx++)
         for (int n = 0; n < falRef0.grids.size(); n++)
         {
           int shiftx(jx*dlenx);
@@ -838,7 +838,7 @@ static void ConvertData() {
         }
 
       Box new_domain(fakeAmr.geom[0].Domain());
-      new_domain.refine(grown_factor);
+      new_domain.refine(restart_grow_factor);
       newgrid_list.intersect(new_domain);
 
       newgrid_list.maxSize(dlenx);
@@ -846,7 +846,7 @@ static void ConvertData() {
    } else {
 #endif
 
-   if (star_at_center == 1 && grown_factor == 2)
+   if (body_at_center == 1 && restart_grow_factor == 2)
    {
    // Here we tile the domain with tiles smaller than the original domain --
    //   we first tile with domain-sized pieces, then intersect with the new domain
@@ -874,19 +874,19 @@ static void ConvertData() {
       }
 
       Box new_domain(fakeAmr.geom[0].Domain());
-      new_domain.refine(grown_factor);
+      new_domain.refine(restart_grow_factor);
       newgrid_list.intersect(new_domain);
 
    } else {
    // Here we tile the domain with tiles the size of the original domain
 
 #if (AMREX_SPACEDIM == 3)
-   for (int jz = 0; jz < grown_factor; jz++)
+   for (int jz = 0; jz < restart_grow_factor; jz++)
 #endif
 #if (AMREX_SPACEDIM >= 2)
-   for (int jy = 0; jy < grown_factor; jy++)
+   for (int jy = 0; jy < restart_grow_factor; jy++)
 #endif
-    for (int jx = 0; jx < grown_factor; jx++)
+    for (int jx = 0; jx < restart_grow_factor; jx++)
       for (int n = 0; n < falRef0.grids.size(); n++)
       {
         int shiftx(jx*dlenx);
@@ -903,7 +903,7 @@ static void ConvertData() {
         newgrid_list.push_back(bx);
       }
 
-   }  // end of star_at_center test
+   }  // end of body_at_center test
 
 #if (AMREX_SPACEDIM == 2)
    }  // end of r-z test
@@ -923,12 +923,12 @@ static void ConvertData() {
    RealBox rb(fakeAmr.geom[0].ProbDomain());
 
    // If this is an octant then we always grow only in the high directions
-   if (star_at_center == 0)
+   if (body_at_center == 0)
    {
       // Here we grow only prob_hi, extending the domain in one direction.
       // This works when the star's center is at the origin
       for (int dm = 0; dm < AMREX_SPACEDIM; dm++)
-         rb.setHi(dm,grown_factor*rb.hi(dm));
+         rb.setHi(dm,restart_grow_factor*rb.hi(dm));
    }
 
    // We treat the r-z case with the star in the middle specially
@@ -938,19 +938,19 @@ static void ConvertData() {
       // Here we grow only prob_hi in the r-direction, but both prob_hi
       //   and prob_lo in the z-direction.
      int dm = 0;
-     rb.setHi(dm,grown_factor*rb.hi(dm));
+     rb.setHi(dm,restart_grow_factor*rb.hi(dm));
 
      dm = 1;
      Real dist   = 0.5 * (rb.hi(dm)-rb.lo(dm));
      Real center = 0.5 * (rb.hi(dm)+rb.lo(dm));
-     Real newlo = center - grown_factor * dist;
-     Real newhi = center + grown_factor * dist;
+     Real newlo = center - restart_grow_factor * dist;
+     Real newhi = center + restart_grow_factor * dist;
      rb.setLo(dm,newlo);
      rb.setHi(dm,newhi);
    }
 #endif
 
-   // This has star_at_center = 0
+   // This has body_at_center = 0
    else
    {
       // Here we grow prob_lo and prob_hi, extending the domain in all directions.
@@ -959,8 +959,8 @@ static void ConvertData() {
       {
          Real dist   = 0.5 * (rb.hi(dm)-rb.lo(dm));
          Real center = 0.5 * (rb.hi(dm)+rb.lo(dm));
-         Real newlo = center - grown_factor * dist;
-         Real newhi = center + grown_factor * dist;
+         Real newlo = center - restart_grow_factor * dist;
+         Real newhi = center + restart_grow_factor * dist;
          rb.setLo(dm,newlo);
          rb.setHi(dm,newhi);
       }
@@ -983,14 +983,14 @@ static void ConvertData() {
    IntVect shift_iv[max_level+1];
 
    // Define the shift IntVect for later
-   if (star_at_center == 1)
+   if (body_at_center == 1)
    {
       if (coord == 1) // r-z
       {
          for (int i = 0; i <= max_level; i++)
          {
             Box domain(fakeAmr.geom[i].Domain());
-            // We only handle grown_factor = 2
+            // We only handle restart_grow_factor = 2
             shift_iv[i][0] = 0;
             shift_iv[i][1] = domain.size()[1] / 2;
          }
@@ -998,9 +998,9 @@ static void ConvertData() {
          for (int i = 0; i <= max_level; i++)
          {
             Box domain(fakeAmr.geom[i].Domain());
-            if (grown_factor == 3) {
+            if (restart_grow_factor == 3) {
                shift_iv[i] = domain.size();
-            } else if (grown_factor == 2) {
+            } else if (restart_grow_factor == 2) {
                shift_iv[i] = domain.size() / 2;
             }
          }
@@ -1011,7 +1011,7 @@ static void ConvertData() {
    for (int i = 0; i <= max_level; i++)
    {
       Box domain(fakeAmr.geom[i].Domain());
-      domain.refine(grown_factor);
+      domain.refine(restart_grow_factor);
       fakeAmr.geom[i].Domain(domain);
 
       FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[i];
@@ -1023,7 +1023,7 @@ static void ConvertData() {
    {
       FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[i];
       for (int n = 0; n < nstatetypes; n++)
-         falRef.state[n].domain.refine(grown_factor);
+         falRef.state[n].domain.refine(restart_grow_factor);
    }
 
    DistributionMapping newdm {newgrids};
@@ -1037,7 +1037,7 @@ static void ConvertData() {
 
          newNewData->setVal(0.);
 
-         if (star_at_center == 1)
+         if (body_at_center == 1)
             (falRef0.state[n].new_data)->shift(shift_iv[0]);
 
          falRef0.state[n].new_data = newNewData;
@@ -1054,7 +1054,7 @@ static void ConvertData() {
          MultiFab * newOldData = new MultiFab(newgrids,newdm,ncomps,1);
          newOldData->setVal(0.);
 
-         if (star_at_center == 1)
+         if (body_at_center == 1)
             (falRef0.state[n].old_data)->shift(shift_iv[0]);
 
          falRef0.state[n].old_data = newOldData;
@@ -1064,7 +1064,7 @@ static void ConvertData() {
    }
 
    // Now shift the data at the higher levels
-   if (star_at_center == 1) {
+   if (body_at_center == 1) {
       for (int i = 1; i <= max_level; i++)
       {
          FakeAmrLevel &falRef = fakeAmr.fakeAmrLevels[i];
@@ -1092,7 +1092,7 @@ static void ConvertData() {
 static void ExtendThetaDomain() {
     /// Extend level 0 domain only. Finer levels are left untounched.
     /// Except the domain metadata are updated.
-    /// We expect finer levels are handled internally via Castro
+    /// We expect finer levels are handled internally via HydroSim
     /// by regridding them on restart via amr.regrid_on_restart=1
 
     int max_level = fakeAmr.finest_level;
@@ -1106,13 +1106,13 @@ static void ExtendThetaDomain() {
     Real theta_lo = rb0.lo()[1];
     Real theta_hi = rb0.hi()[1];
     int  ncells_old = dom0.size()[1];
-    Real dtheta = (theta_hi - theta_lo) / ncells_old;
+    Real theta_cell_width = (theta_hi - theta_lo) / ncells_old;
 
     // Make sure the request theta generates cells divisible by blocking_factor
-    int theta_cells_requested = (int)std::round((theta_new_hi - theta_lo) / dtheta);
+    int theta_cells_requested = (int)std::round((theta_new_hi - theta_lo) / theta_cell_width);
     int theta_cells_new = blocking_factor *
         (int)std::ceil((Real)theta_cells_requested / blocking_factor);
-    Real theta_snapped = theta_lo + theta_cells_new * dtheta;
+    Real theta_snapped = theta_lo + theta_cells_new * theta_cell_width;
 
     if (ParallelDescriptor::IOProcessor()) {
         cout << "Requested theta_new_hi:    " << theta_new_hi   << " rad ("
@@ -1162,7 +1162,7 @@ static void ExtendThetaDomain() {
 
             // Now change the size so that each Box spans over the entire theta
             // this is convenient so that we have access to data along the old theta boundary
-            // Once castro restart the simulation, it will resize based on amr.max_grid_size
+            // Once hydrosim restart the simulation, it will resize based on amr.max_grid_size
             // new_ba.maxSize(IntVect(max_grid_size, theta_cells_new_lev));
             new_ba.maxSize(IntVect(max_grid_size, max_grid_size));
             DistributionMapping new_dm(new_ba);
@@ -1193,8 +1193,8 @@ static void ExtendThetaDomain() {
                     // and destination component = 0 to ncomp. This only copies data
                     // for regions of intersection.
                     // We keep new cells with initial values equal to 0.
-                    // Once castro restarts with the new checkpoint file
-                    // the new cells with be filled using problem_initialize_state_data
+                    // Once hydrosim restarts with the new checkpoint file
+                    // the new cells with be filled using user_initialize_state_data
 
                     new_mf->ParallelCopy(*old_mf, 0, 0, ncomp);
 
@@ -1272,8 +1272,8 @@ int main(int argc, char *argv[]) {
     // Extend the domain depending on different modes
     if (mode == "full_hierarchy") {
         if (verbose && ParallelDescriptor::IOProcessor()) {
-            if (star_at_center == 0) cout << "Star at corner " << endl;
-            if (star_at_center == 1) cout << "Star at center " << endl;
+            if (body_at_center == 0) cout << "Star at corner " << endl;
+            if (body_at_center == 1) cout << "Star at center " << endl;
             cout << " " << std::endl;
         }
         ConvertData();
@@ -1281,7 +1281,7 @@ int main(int argc, char *argv[]) {
         ExtendThetaDomain();
         if (ParallelDescriptor::IOProcessor()) {
             cout << "Remember to update `amr.n_cell` and `geometry.prob_hi` to the new values "
-                 << " also use `amr.regrid_on_restart=1` and set `castro.old_theta_ncell` to the number of cells "
+                 << " also use `amr.regrid_on_restart=1` and set `hydrosim.prev_theta_cells` to the number of cells "
                  << " along the theta-dir in the original domain when restarting from new chkfile!!" << endl;
         }
     }

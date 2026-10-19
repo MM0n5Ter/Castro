@@ -68,7 +68,7 @@ if __name__ == "__main__":
     cfls = {q.cfl for q in runs}
     for cfl in cfls:
         strang = [q for q in runs if q.integrator == "Strang" and q.cfl == cfl and q.dtnuce == False]
-        # CFL doesn't matter for dtnuc_e
+        # CFL doesn't matter for burn_dt_energy
         strang_limit = [q for q in runs if q.integrator == "Strang" and q.dtnuce == True]
         sdc2 = [q for q in runs if q.integrator == "simplified-SDC" and q.niters == 2 and q.cfl == cfl]
         sdc3 = [q for q in runs if q.integrator == "simplified-SDC" and q.niters == 3 and q.cfl == cfl]
@@ -118,8 +118,8 @@ if __name__ == "__main__":
             ax2 = axs.flatten()[1]
 
             for p in dset:
-                ax1.plot(p.data.x, p.data.T, label=f"CFL = {p.cfl}; dtnuc_e = {p.dtnuce}")
-                ax2.plot(p.data.x, np.abs(p.data.enuc), label=f"CFL = {p.cfl}; dtnuc_e = {p.dtnuce}")
+                ax1.plot(p.data.x, p.data.T, label=f"CFL = {p.cfl}; burn_dt_energy = {p.dtnuce}")
+                ax2.plot(p.data.x, np.abs(p.data.enuc), label=f"CFL = {p.cfl}; burn_dt_energy = {p.dtnuce}")
 
             ax1.legend(frameon=False)
             ax1.set_ylabel("T [K]")

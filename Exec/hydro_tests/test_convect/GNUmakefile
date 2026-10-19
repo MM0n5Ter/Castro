@@ -1,4 +1,4 @@
-CASTRO_HOME ?= ../../..
+HYDROSIM_HOME ?= ../../..
 
 PRECISION        = DOUBLE
 PROFILE          = FALSE
@@ -27,4 +27,4 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

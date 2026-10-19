@@ -1,10 +1,10 @@
 program bc
 
-  use blackbody_module, only : BGroup
+  use blackbody_module, only : PlanckBandIntegral
 
   implicit none
 
-  integer :: ngroups, igroup
+  integer :: ngroups, rad_group_idx
   real(rt)        , allocatable :: xnu(:)
   real(rt)         :: T
 
@@ -27,16 +27,16 @@ program bc
      read(10,fmt='(a256)') line
   end do
 
-  do igroup = 0, ngroups
+  do rad_group_idx = 0, ngroups
      read(10,fmt='(a256)') line
      ipos = index(line, "=") + 1
-     read (line(ipos:),*) xnu(igroup)
+     read (line(ipos:),*) xnu(rad_group_idx)
   enddo
 
   print *, 'T = ?'
   read(*,*) T
 
   print *, "T = ", T
-  print *, ((BGroup(T, xnu(igroup), xnu(igroup+1))), igroup=0,ngroups-1)
+  print *, ((PlanckBandIntegral(T, xnu(rad_group_idx), xnu(rad_group_idx+1))), rad_group_idx=0,ngroups-1)
 
 end program bc

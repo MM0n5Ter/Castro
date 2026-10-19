@@ -90,7 +90,7 @@ def doit(plotfile):
     cam.lens.disparity = ds.domain_width[0] * 2.e-3
 
     sc.render()
-    sc.save("wdmerger_{}_stereo_spherical.png".format(pid), sigma_clip=6.0)
+    sc.save("binarywd_{}_stereo_spherical.png".format(pid), sigma_clip=6.0)
 
 if __name__ == "__main__":
 

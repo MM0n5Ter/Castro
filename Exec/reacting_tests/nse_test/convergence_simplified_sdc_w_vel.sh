@@ -3,7 +3,7 @@
 # echo the commands
 set -x
 
-EXEC=./Castro2d.gnu.MPI.SMPLSDC.ex
+EXEC=./HydroSim2d.gnu.MPI.SMPLSDC.ex
 RUNPARAMS="
 problem.u0=1.e8
 problem.v0=1.e8

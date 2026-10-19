@@ -15,37 +15,37 @@ amr.n_cell           = 32    32
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc =  3 3
-castro.hi_bc =  2 2
+hydrosim.lo_bc =  3 3
+hydrosim.hi_bc =  2 2
 
-castro.do_hydro       = 1
-castro.do_grav        = 1
+hydrosim.do_hydro       = 1
+hydrosim.do_gravity_flag        = 1
 
 # Disable the main gravity and replace with a point mass
-gravity.gravity_type  = ConstantGrav
-gravity.const_grav    = 0.0
-castro.use_point_mass = 1
-castro.point_mass     = 1.0e33
-castro.point_mass_fix_solution = 1
+gravity.gravity_model_name  = ConstantGrav
+gravity.uniform_accel    = 0.0
+hydrosim.use_central_mass = 1
+hydrosim.point_mass     = 1.0e33
+hydrosim.point_mass_correct_solution = 1
 
 # RELEVANT FOR EOS
-castro.small_temp    = 1.e-6
-castro.small_dens    = 1.e-6
+hydrosim.small_temp    = 1.e-6
+hydrosim.small_dens    = 1.e-6
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5
-castro.init_shrink    = 0.01
-#castro.change_max     = 1.0
-castro.limit_fluxes_on_small_dens = 1
+hydrosim.cfl            = 0.5
+hydrosim.init_dt_shrink    = 0.01
+#hydrosim.change_max     = 1.0
+hydrosim.clip_small_rho_flux = 1
 
 # SPONGE
-castro.sponge_lower_density = 1.0e-3
-castro.sponge_upper_density = 1.0e-3
-castro.sponge_timescale = 1.0e-3
+hydrosim.damping_lower_density = 1.0e-3
+hydrosim.damping_upper_density = 1.0e-3
+hydrosim.damping_timescale = 1.0e-3
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1
-castro.v              = 2
+hydrosim.sum_step_period   = 1
+hydrosim.v              = 2
 amr.v                 = 1
 
 # REFINEMENT / REGRIDDING
@@ -56,7 +56,7 @@ amr.blocking_factor = 8       # block factor in grid generation
 amr.max_grid_size   = 32
 amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
 
-amr.refinement_indicators = dengrad_rel
+amr.refine_criteria = dengrad_rel
 
 amr.refine.dengrad_rel.relative_gradient = 0.001
 amr.refine.dengrad_rel.field_name = density

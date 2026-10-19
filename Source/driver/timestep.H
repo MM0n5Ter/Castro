@@ -1,5 +1,5 @@
-#ifndef TIMESTEP_H
-#define TIMESTEP_H
+#ifndef DTLIMIT_H
+#define DTLIMIT_H
 
 #include <AMReX_Geometry.H>
 #include <AMReX_IntVect.H>
@@ -14,7 +14,7 @@
 #endif
 
 #ifdef MHD
-#include <mhd_util.H>
+#include <mhd_helpers.H>
 #endif
 
 #ifdef ROTATION
@@ -33,7 +33,7 @@
 
 namespace timestep {
 
-    enum estdt_type : std::uint8_t { hydro = 0,
+    enum dtlimit_type : std::uint8_t { hydro = 0,
                                      mhd,
                                      burning,
                                      radiation,
@@ -42,33 +42,33 @@ namespace timestep {
 
     // Estimate timestep given various constraints
 
-    template <estdt_type T, typename... MFs>
+    template <dtlimit_type T, typename... MFs>
     AMREX_INLINE
     amrex::ValLocPair<amrex::Real, amrex::IntVect>
     estdt (const amrex::GeometryData& geomdata,
-           const amrex::MultiFab& maskMF,
-           const amrex::MultiFab& stateMF,
+           const amrex::MultiFab& coverMask,
+           const amrex::MultiFab& activeState,
            const MFs&... mfs)
     {
-        amrex::ignore_unused(maskMF, mfs...);
+        amrex::ignore_unused(coverMask, mfs...);
 
-        constexpr std::size_t N_mfs = sizeof...(MFs);
+        constexpr std::size_t count_multifabs = sizeof...(MFs);
 
-        auto const& ua = stateMF.const_arrays();
+        auto const& ua = activeState.const_arrays();
 
-        bool mask_covered_zones = maskMF.isDefined();
+        bool exclude_covered_zones = coverMask.isDefined();
 
-        MultiArray4<Real const> empty_arr{};
-        const auto& ma = mask_covered_zones ? maskMF.const_arrays() : empty_arr;
+        MultiArray4<Real const> null_view{};
+        const auto& ma = exclude_covered_zones ? coverMask.const_arrays() : null_view;
 
         if constexpr (T == hydro) {
 
             // Validate we don't have any extra MultiFabs.
-            static_assert(N_mfs == 0);
+            static_assert(count_multifabs == 0);
 
             // Courant-condition limited timestep
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
             {
                 Array4<Real const> const& u = ua[box_no];
@@ -116,7 +116,7 @@ namespace timestep {
 #if AMREX_SPACEDIM >= 2
                 dt2 = dx[1]/(c + std::abs(uy));
                 if (coord == 2) {
-                    // dx[1] in Spherical2D is just dtheta, need rdtheta for physical length
+                    // dx[1] in Spherical2D is just theta_cell_width, need rdtheta for physical length
                     // so just multiply by the smallest r
                     dt2 *= problo[0] + 0.5_rt * dx[0];
                 }
@@ -134,7 +134,7 @@ namespace timestep {
                 // The CTU method has a less restrictive timestep than MOL-based
                 // schemes (including the true SDC).  Since the simplified SDC
                 // solver is based on CTU, we can use its timestep.
-                if (castro::time_integration_method == 0 || castro::time_integration_method == 3) {
+                if (hydrosim::time_scheme == 0 || hydrosim::time_scheme == 3) {
                     Real dt = amrex::min(dt1, dt2, dt3);
                     return {ValLocPair<Real, IntVect>{dt, idx}};
 
@@ -162,7 +162,7 @@ namespace timestep {
 
             // Validate we have three extra MultiFabs (Bx, By, and Bz).
 
-            static_assert(N_mfs == 3);
+            static_assert(count_multifabs == 3);
 
             auto const& [bx, by, bz] = std::tie(mfs...);
 
@@ -170,11 +170,11 @@ namespace timestep {
             auto const& bya = by.const_arrays();
             auto const& bza = bz.const_arrays();
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
             {
 
-                Array4<Real const> const& u_arr = ua[box_no];
+                Array4<Real const> const& state_view = ua[box_no];
 
                 Array4<Real const> const& bx_arr = bxa[box_no];
                 Array4<Real const> const& by_arr = bya[box_no];
@@ -188,31 +188,31 @@ namespace timestep {
                 const auto coord = geomdata.Coord();
 #endif
 
-                Real rhoInv = 1.0_rt / u_arr(i,j,k,URHO);
+                Real rhoInv = 1.0_rt / state_view(i,j,k,URHO);
                 Real bcx = 0.5_rt * (bx_arr(i+1,j,k) + bx_arr(i,j,k));
                 Real bcy = 0.5_rt * (by_arr(i,j+1,k) + by_arr(i,j,k));
                 Real bcz = 0.5_rt * (bz_arr(i,j,k+1) + bz_arr(i,j,k));
 
-                Real ux = u_arr(i,j,k,UMX) * rhoInv;
-                Real uy = u_arr(i,j,k,UMY) * rhoInv;
-                Real uz = u_arr(i,j,k,UMZ) * rhoInv;
+                Real ux = state_view(i,j,k,UMX) * rhoInv;
+                Real uy = state_view(i,j,k,UMY) * rhoInv;
+                Real uz = state_view(i,j,k,UMZ) * rhoInv;
 
                 eos_rep_t eos_state;
-                eos_state.rho = u_arr(i,j,k,URHO);
-                eos_state.e = u_arr(i,j,k,UEINT) * rhoInv;
-                eos_state.T = u_arr(i,j,k,UTEMP);
+                eos_state.rho = state_view(i,j,k,URHO);
+                eos_state.e = state_view(i,j,k,UEINT) * rhoInv;
+                eos_state.T = state_view(i,j,k,UTEMP);
                 for (int n = 0; n < NumSpec; n++) {
-                  eos_state.xn[n] = u_arr(i,j,k,UFS+n) * rhoInv;
+                  eos_state.xn[n] = state_view(i,j,k,UFS+n) * rhoInv;
                 }
 #if NAUX_NET > 0
                 for (int n = 0; n < NumAux; n++) {
-                  eos_state.aux[n] = u_arr(i,j,k,UFX+n) * rhoInv;
+                  eos_state.aux[n] = state_view(i,j,k,UFX+n) * rhoInv;
                 }
 #endif
 
                 eos(eos_input_re, eos_state);
 
-                Real e  = u_arr(i,j,k,UEINT) * rhoInv;
+                Real e  = state_view(i,j,k,UEINT) * rhoInv;
 
                 Real as = eos_state.gam1 * eos_state.p * rhoInv;
                 Real ca = (bcx*bcx + bcy*bcy + bcz*bcz) * rhoInv;
@@ -223,13 +223,13 @@ namespace timestep {
 
                 if (e > 0_rt) {
                   Real cad = bcx*bcx * rhoInv;
-                  eos_soundspeed_mhd(cx, as, ca, cad);
+                  fast_magnetosonic_speed(cx, as, ca, cad);
 
                   cad = bcy*bcy * rhoInv;
-                  eos_soundspeed_mhd(cy, as, ca, cad);
+                  fast_magnetosonic_speed(cy, as, ca, cad);
 
                   cad = bcz*bcz * rhoInv;
-                  eos_soundspeed_mhd(cz, as, ca, cad);
+                  fast_magnetosonic_speed(cz, as, ca, cad);
 
                 } else {
                   cx = 0.0_rt;
@@ -272,14 +272,14 @@ namespace timestep {
             // dt < 0.5 dx**2 / D
             // where D = k/(rho c_v), and k is the conductivity
 
-            const Real ldiffuse_cutoff_density = castro::diffuse_cutoff_density;
-            const Real lmax_dt = castro::max_dt;
-            const Real lcfl = castro::cfl;
+            const Real diffusion_min_density = hydrosim::conduction_cutoff_density;
+            const Real timestep_ceiling = hydrosim::max_dt;
+            const Real cfl_limit = hydrosim::cfl;
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
             {
-                Array4<Real const> const& ustate = ua[box_no];
+                Array4<Real const> const& state_fab_view = ua[box_no];
 
                 IntVect idx(AMREX_D_DECL(i,j,k));
 
@@ -289,22 +289,22 @@ namespace timestep {
                 const auto coord = geomdata.Coord();
 #endif
 
-                if (ustate(i,j,k,URHO) > ldiffuse_cutoff_density) {
+                if (state_fab_view(i,j,k,URHO) > diffusion_min_density) {
 
-                    Real rho_inv = 1.0_rt/ustate(i,j,k,URHO);
+                    Real rho_inv = 1.0_rt/state_fab_view(i,j,k,URHO);
 
                     // we need cv
                     eos_t eos_state;
 
-                    eos_state.rho = ustate(i,j,k,URHO);
-                    eos_state.T = ustate(i,j,k,UTEMP);
-                    eos_state.e = ustate(i,j,k,UEINT) * rho_inv;
+                    eos_state.rho = state_fab_view(i,j,k,URHO);
+                    eos_state.T = state_fab_view(i,j,k,UTEMP);
+                    eos_state.e = state_fab_view(i,j,k,UEINT) * rho_inv;
                     for (int n = 0; n < NumSpec; n++) {
-                        eos_state.xn[n]  = ustate(i,j,k,UFS+n) * rho_inv;
+                        eos_state.xn[n]  = state_fab_view(i,j,k,UFS+n) * rho_inv;
                     }
 #if NAUX_NET > 0
                     for (int n = 0; n < NumAux; n++) {
-                        eos_state.aux[n] = ustate(i,j,k,UFX+n) * rho_inv;
+                        eos_state.aux[n] = state_fab_view(i,j,k,UFX+n) * rho_inv;
                     }
 #endif
 
@@ -339,7 +339,7 @@ namespace timestep {
                     return {ValLocPair<Real, IntVect>{amrex::min(dt1, dt2, dt3), idx}};
 
                 } else {
-                    return {ValLocPair<Real, IntVect>{lmax_dt/lcfl, idx}};
+                    return {ValLocPair<Real, IntVect>{timestep_ceiling/cfl_limit, idx}};
                 }
             });
 
@@ -350,12 +350,12 @@ namespace timestep {
 #ifdef REACTIONS
         else if constexpr (T == burning) {
 
-            if (castro::dtnuc_e > 1.e199_rt && castro::dtnuc_X > 1.e199_rt) {
+            if (hydrosim::burn_dt_energy > 1.e199_rt && hydrosim::burn_dt_massfrac > 1.e199_rt) {
                 IntVect idx(AMREX_D_DECL(0,0,0));
                 return {ValLocPair<Real, IntVect>{1.e200_rt, idx}};
             }
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, stateMF,
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
             {
                 Real dt_tmp = 1.e200_rt;
@@ -373,7 +373,7 @@ namespace timestep {
 
                 // Don't consider zones that are masked out.
 
-                if (mask_covered_zones && mask.contains(i,j,k)) {
+                if (exclude_covered_zones && mask.contains(i,j,k)) {
                     if (mask(i,j,k) == 0.0_rt) {
                         return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                     }
@@ -382,10 +382,10 @@ namespace timestep {
                 // Set a floor on the minimum size of a derivative. This floor
                 // is small enough such that it will result in no timestep limiting.
 
-                const Real derivative_floor = 1.e-50_rt;
+                const Real derivative_min_magnitude = 1.e-50_rt;
 
                 // We want to limit the timestep so that it is not larger than
-                // dtnuc_e * (e / (de/dt)).  If the timestep factor dtnuc is
+                // burn_dt_energy * (e / (de/dt)).  If the timestep factor dtnuc is
                 // equal to 1, this says that we don't want the
                 // internal energy to change by any more than its current
                 // magnitude in the next timestep.
@@ -396,7 +396,7 @@ namespace timestep {
                 // of the energy release is representative of the full timestep.
                 //
                 // We also do the same thing for the species, using a timestep
-                // limiter dtnuc_X * (X_k / (dX_k/dt)). To prevent changes
+                // limiter burn_dt_massfrac * (X_k / (dX_k/dt)). To prevent changes
                 // due to trace isotopes that we probably are not interested in,
                 // only apply the limiter to species with an abundance greater
                 // than a user-specified threshold.
@@ -437,15 +437,15 @@ namespace timestep {
 
                 // Don't consider zones that are outside our burning criteria.
 
-                if (burn_state.T < castro::react_T_min || burn_state.T > castro::react_T_max ||
-                    burn_state.rho < castro::react_rho_min || burn_state.rho > castro::react_rho_max) {
+                if (burn_state.T < hydrosim::burn_temp_min || burn_state.T > hydrosim::burn_temp_max ||
+                    burn_state.rho < hydrosim::burn_rho_min || burn_state.rho > hydrosim::burn_rho_max) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                 }
 
                 // Don't consider zones with shocks if we disabled
                 // burning in shocks
 #ifdef SHOCK_VAR
-                if (S(i,j,k,USHK) > 0.0_rt && castro::disable_shock_burning == 1) {
+                if (S(i,j,k,UFLAG_SHOCK) > 0.0_rt && hydrosim::skip_burning_in_shocks == 1) {
                     return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
                 }
 #endif
@@ -473,13 +473,13 @@ namespace timestep {
                 // that the implied timestep will be very large, and thus
                 // ignored compared to other limiters.
 
-                dedt = amrex::max(std::abs(dedt), derivative_floor);
+                dedt = amrex::max(std::abs(dedt), derivative_min_magnitude);
 
                 for (int n = 0; n < NumSpec; ++n) {
-                    if (X[n] >= castro::dtnuc_X_threshold) {
-                        dXdt[n] = amrex::max(std::abs(dXdt[n]), derivative_floor);
+                    if (X[n] >= hydrosim::nuc_dt_abund_floor) {
+                        dXdt[n] = amrex::max(std::abs(dXdt[n]), derivative_min_magnitude);
                     } else {
-                        dXdt[n] = derivative_floor;
+                        dXdt[n] = derivative_min_magnitude;
                     }
                 }
 
@@ -498,18 +498,18 @@ namespace timestep {
 #endif // SIMPLIFIED_SDC
 
 #ifdef NSE_NET
-                burn_state.mu_p = S(i,j,k,UMUP);
-                burn_state.mu_n = S(i,j,k,UMUN);
+                burn_state.mu_p = S(i,j,k,UPROTON_MU);
+                burn_state.mu_n = S(i,j,k,UNEUTRON_MU);
 #endif
 
                 if (!in_nse(burn_state)) {
 #endif // NSE
-                    dt_tmp = castro::dtnuc_e * e / dedt;
+                    dt_tmp = hydrosim::burn_dt_energy * e / dedt;
 #ifdef NSE
                 }
 #endif // NSE
                 for (int n = 0; n < NumSpec; ++n) {
-                    dt_tmp = amrex::min(dt_tmp, castro::dtnuc_X * (X[n] / dXdt[n]));
+                    dt_tmp = amrex::min(dt_tmp, hydrosim::burn_dt_massfrac * (X[n] / dXdt[n]));
                 }
 
                 return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
@@ -526,10 +526,10 @@ namespace timestep {
     ///
     /// Radiation hydro timestep
     ///
-    amrex::Real estdt_rad (const amrex::MultiFab& stateMF, const amrex::MultiFab& radMF,
+    amrex::Real dtlimit_rad (const amrex::MultiFab& activeState, const amrex::MultiFab& radiationField,
                            const amrex::GeometryData& geomdata);
 #endif
 
 } // namespace timestep
 
-#endif // TIMESTEP_H
+#endif // DTLIMIT_H

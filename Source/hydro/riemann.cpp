@@ -1,7 +1,7 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
-#include <riemann_solvers.H>
-#include <HLL_solvers.H>
+#include <interface_solvers.H>
+#include <two_wave_solvers.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -13,17 +13,17 @@
 using namespace amrex;
 
 void
-Castro::cmpflx_plus_godunov(const Box& bx,
+HydroSim::compute_godunov_flux(const Box& bx,
                             Array4<Real> const& qm,
                             Array4<Real> const& qp,
                             Array4<Real> const& flx,
 #ifdef RADIATION
-                            Array4<Real> const& rflx,
+                            Array4<Real> const& radiative_flux_out,
 #endif
-                            Array4<Real> const& qgdnv,
-                            Array4<Real const> const& qaux_arr,
+                            Array4<Real> const& godunov_state,
+                            Array4<Real const> const& qthermo_arr,
                             Array4<Real const> const& shk,
-                            const int idir, const bool store_full_state) {
+                            const int idir, const bool keep_full_state) {
 
     // note: bx is not necessarily the limits of the valid (no ghost
     // cells) domain, but could be hi+1 in some dimensions.  We rely on
@@ -32,18 +32,18 @@ Castro::cmpflx_plus_godunov(const Box& bx,
 
     // Solve Riemann problem to get the fluxes
 
-    // store_full_state determines what is put into qgdnv.  if
-    // store_full_state is True, we put all NQ variables into the
-    // qgdnv.  if store_full_state is False, we only store the NGDNV
+    // keep_full_state determines what is put into godunov_state.  if
+    // keep_full_state is True, we put all NQ variables into the
+    // godunov_state.  if keep_full_state is False, we only store the NGDSTATE
     // needed elsewhere in the algorithm.
 
 
     // Note: because the NQ variables do not include lambda and the
-    // NGDNV do, we only support store_full_state = false for
+    // NGDSTATE do, we only support keep_full_state = false for
     // Radiation
 
 #ifdef RADIATION
-    if (store_full_state == true) {
+    if (keep_full_state == true) {
         amrex::Error("cannot store full interface state with radiation");
     }
 #endif
@@ -52,10 +52,10 @@ Castro::cmpflx_plus_godunov(const Box& bx,
     const int* hi_bc = phys_bc.hi();
 
     // do we want to force the flux to zero at the boundary?
-    const bool special_bnd_lo = (lo_bc[idir] == amrex::PhysBCType::symmetry ||
+    const bool lo_no_flux_wall = (lo_bc[idir] == amrex::PhysBCType::symmetry ||
                                  lo_bc[idir] == amrex::PhysBCType::slipwall ||
                                  lo_bc[idir] == amrex::PhysBCType::noslipwall);
-    const bool special_bnd_hi = (hi_bc[idir] == amrex::PhysBCType::symmetry ||
+    const bool hi_no_flux_wall = (hi_bc[idir] == amrex::PhysBCType::symmetry ||
                                  hi_bc[idir] == amrex::PhysBCType::slipwall ||
                                  hi_bc[idir] == amrex::PhysBCType::noslipwall);
 
@@ -66,132 +66,132 @@ Castro::cmpflx_plus_godunov(const Box& bx,
     const auto domlo = geom.Domain().loVect3d();
     const auto domhi = geom.Domain().hiVect3d();
 
-    const bool do_ppm_temp_fix = ppm_temp_fix == 2;
-    const Real temp_guess = T_guess;
+    const bool use_parabolic_temp_fix = ppm_temp_mode == 2;
+    const Real temperature_guess = eos_temp_guess;
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
 
-        if (riemann_solver == 0 || riemann_solver == 1) {
+        if (riemann_method == 0 || riemann_method == 1) {
             // approximate state Riemann solvers
 
             // first find the interface state on the current interface
 
-            RiemannState qint{};
+            InterfaceState interface_state{};
 
-            riemann_state(i, j, k, idir,
-                          qm, qp, qaux_arr,
-                          qint,
-                          special_bnd_lo, special_bnd_hi,
+            solve_interface_state(i, j, k, idir,
+                          qm, qp, qthermo_arr,
+                          interface_state,
+                          lo_no_flux_wall, hi_no_flux_wall,
                           domlo, domhi,
-                          do_ppm_temp_fix, temp_guess);
+                          use_parabolic_temp_fix, temperature_guess);
 
             // now use the interface state to compute and store the flux
 
-            compute_flux_q(i, j, k, idir,
+            flux_from_interface_state(i, j, k, idir,
                            geomdata,
-                           qint, flx,
+                           interface_state, flx,
 #ifdef RADIATION
-                           rflx,
+                           radiative_flux_out,
 #endif
-                           qgdnv, store_full_state);
+                           godunov_state, keep_full_state);
 
-            // now do the passives -- we didn't include them in qint, qgdnv, or flux above
+            // now do the passives -- we didn't include them in interface_state, godunov_state, or flux above
 
             // the passives are always just upwinded, so we do that here
             // regardless of the solver
 
-            Real sgnm = std::copysign(1.0_rt, qint.un);
-            if (qint.un == 0.0_rt) {
+            Real sgnm = std::copysign(1.0_rt, interface_state.un);
+            if (interface_state.un == 0.0_rt) {
                 sgnm = 0.0_rt;
             }
 
             Real fp = 0.5_rt*(1.0_rt + sgnm);
             Real fm = 0.5_rt*(1.0_rt - sgnm);
 
-            for (int ipassive = 0; ipassive < npassive; ipassive++) {
-                int nqp = qpassmap(ipassive);
-                int n  = upassmap(ipassive);
+            for (int passive_index = 0; passive_index < npassive; passive_index++) {
+                int nqp = passive_prim_index(passive_index);
+                int n  = passive_cons_index(passive_index);
 
-                Real X_int = fp * qm(i,j,k,nqp) + fm * qp(i,j,k,nqp);
+                Real passive_interface_value = fp * qm(i,j,k,nqp) + fm * qp(i,j,k,nqp);
 
-                flx(i,j,k,n) = flx(i,j,k,URHO) * X_int;
+                flx(i,j,k,n) = flx(i,j,k,URHO) * passive_interface_value;
 
-                if (store_full_state) {
-                    qgdnv(i,j,k,nqp) = X_int;
+                if (keep_full_state) {
+                    godunov_state(i,j,k,nqp) = passive_interface_value;
                 }
             }
 
-        } else if (riemann_solver == 2) {
-            // HLLC
-            HLL::HLLC(i, j, k, idir,
+        } else if (riemann_method == 2) {
+            // CONTACT_FLUX
+            HLL::CONTACT_FLUX(i, j, k, idir,
                       qm, qp,
-                      qaux_arr,
+                      qthermo_arr,
                       flx,
-                      qgdnv, store_full_state,
+                      godunov_state, keep_full_state,
                       geomdata,
-                      special_bnd_lo, special_bnd_hi,
+                      lo_no_flux_wall, hi_no_flux_wall,
                       domlo, domhi);
 
 #ifndef AMREX_USE_GPU
         } else {
-            amrex::Error("ERROR: invalid value of riemann_solver");
+            amrex::Error("ERROR: invalid value of riemann_method");
 #endif
         }
 
-        if (hybrid_riemann == 1) {
+        if (shock_flux_switch == 1) {
             // correct the fluxes using an HLL scheme if we are in a shock
             // and doing the hybrid approach
 
-            int is_shock = 0;
+            int shock_count = 0;
 
             if (idir == 0) {
-                is_shock = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
+                shock_count = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
             } else if (idir == 1) {
-                is_shock = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
+                shock_count = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
             } else {
-                is_shock = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
+                shock_count = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
             }
 
-            if (is_shock >= 1) {
+            if (shock_count >= 1) {
 
                 Real cl;
                 Real cr;
                 if (idir == 0) {
-                    cl = qaux_arr(i-1,j,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
+                    cl = qthermo_arr(i-1,j,k,QC);
+                    cr = qthermo_arr(i,j,k,QC);
                 } else if (idir == 1) {
-                    cl = qaux_arr(i,j-1,k,QC);
-                    cr = qaux_arr(i,j,k,QC);
+                    cl = qthermo_arr(i,j-1,k,QC);
+                    cr = qthermo_arr(i,j,k,QC);
                 } else {
-                    cl = qaux_arr(i,j,k-1,QC);
-                    cr = qaux_arr(i,j,k,QC);
+                    cl = qthermo_arr(i,j,k-1,QC);
+                    cr = qthermo_arr(i,j,k,QC);
                 }
 
-                Real ql_zone[NQ];
-                Real qr_zone[NQ];
-                Real flx_zone[NUM_STATE];
+                Real zone_left_state[NQ];
+                Real zone_right_state[NQ];
+                Real zone_flux_vec[NUM_STATE];
 
                 for (int n = 0; n < NQ; n++) {
-                    ql_zone[n] = qm(i,j,k,n);
-                    qr_zone[n] = qp(i,j,k,n);
+                    zone_left_state[n] = qm(i,j,k,n);
+                    zone_right_state[n] = qp(i,j,k,n);
                 }
 
                 // pass in the current flux -- the
                 // HLL solver will overwrite this
                 // if necessary
                 for (int n = 0; n < NUM_STATE; n++) {
-                    flx_zone[n] = flx(i,j,k,n);
+                    zone_flux_vec[n] = flx(i,j,k,n);
                 }
 
-                HLL::HLL(ql_zone, qr_zone, cl, cr,
+                HLL::HLL(zone_left_state, zone_right_state, cl, cr,
                          idir, coord,
-                         flx_zone);
+                         zone_flux_vec);
 
                 for (int n = 0; n < NUM_STATE; n++) {
-                    flx(i,j,k,n) = flx_zone[n];
+                    flx(i,j,k,n) = zone_flux_vec[n];
                 }
             }
         }

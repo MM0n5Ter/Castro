@@ -66,7 +66,7 @@ oddeven:
 
   A grid-aligned shock hitting a very small density perturbation.
   This demonstrates the odd-even decoupling problem that the
-  hybrid_riemann option prevents.
+  shock_flux_switch option prevents.
 
 
 reacting_bubble:
@@ -121,7 +121,7 @@ toy_convect:
 
   A simple nova-like convection problem with an external heating
   source.  This problem shows how to use the model parser to
-  initialize a 1-d atmosphere on the Castro grid, incorporate a custom
+  initialize a 1-d atmosphere on the HydroSim grid, incorporate a custom
   tagging routine, and write a custom diagnostics routine.
 
 

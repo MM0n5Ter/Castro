@@ -1,14 +1,14 @@
-CEXE_headers += Castro_sdc.H
+CEXE_headers += HydroSim_deferred.H
 
-CEXE_sources += sdc_util.cpp
+CEXE_sources += deferred_util.cpp
 
 ifneq ($(USE_GPU), TRUE)
-  CEXE_sources += Castro_sdc.cpp
-  CEXE_headers += Castro_sdc_util.H
+  CEXE_sources += HydroSim_deferred.cpp
+  CEXE_headers += HydroSim_deferred_util.H
 ifeq ($(USE_REACT), TRUE)
-  CEXE_headers += sdc_react_util.H
-  CEXE_headers += sdc_newton_solve.H
-  CEXE_headers += sdc_powell_solve.H
-  CEXE_headers += sdc_vode_solve.H
+  CEXE_headers += deferred_react_util.H
+  CEXE_headers += deferred_newton_solve.H
+  CEXE_headers += deferred_dogleg_solve.H
+  CEXE_headers += deferred_stiff_solve.H
 endif
 endif

@@ -1,4 +1,4 @@
-#include <Castro.H>
+#include <HydroSim.H>
 #include <global.H>
 #include <timestep.H>
 
@@ -7,7 +7,7 @@
 #endif
 
 #ifdef MHD
-#include <mhd_util.H>
+#include <mhd_helpers.H>
 #endif
 
 #ifdef ROTATION
@@ -31,7 +31,7 @@ using namespace amrex;
 
 #ifdef RADIATION
 Real
-timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const GeometryData& geomdata)
+timestep::dtlimit_rad (const MultiFab& activeState, const MultiFab& radiationField, const GeometryData& geomdata)
 {
     // Compute radiation + hydro limited timestep.
 
@@ -42,19 +42,19 @@ timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const Geome
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(stateMF, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(activeState, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& tbox = mfi.tilebox();
         const Box& vbox = mfi.validbox();
 
         FArrayBox gPr;
         gPr.resize(tbox);
-        global::the_radiation_ptr->estimate_gamrPr(stateMF[mfi], radMF[mfi], gPr, geomdata.CellSize(), vbox);
+        global::radiation_instance->estimate_rad_gamma_pressure(activeState[mfi], radiationField[mfi], gPr, geomdata.CellSize(), vbox);
 
-        auto u = stateMF[mfi].array();
-        auto gPr_arr = gPr.array();
+        auto u = activeState[mfi].array();
+        auto rad_gamma_pressure_arr = gPr.array();
 
-        // Note that we synchronize in the call to estimate_gamrPr. Ideally
+        // Note that we synchronize in the call to estimate_rad_gamma_pressure. Ideally
         // we would merge these into one loop later (probably by making that
         // call occur on a zone-by-zone basis) so that we can simplify.
 
@@ -85,7 +85,7 @@ timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const Geome
             eos(eos_input_re, eos_state);
 
             Real c = eos_state.cs;
-            c = std::sqrt(c * c + gPr_arr(i,j,k) * rhoInv);
+            c = std::sqrt(c * c + rad_gamma_pressure_arr(i,j,k) * rhoInv);
 
             Real ux = u(i,j,k,UMX) * rhoInv;
             Real uy = u(i,j,k,UMY) * rhoInv;
@@ -116,7 +116,7 @@ timestep::estdt_rad (const MultiFab& stateMF, const MultiFab& radMF, const Geome
 
     ReduceTuple hv = reduce_data.value();
     Real estdt = amrex::get<0>(hv);
-    estdt = std::min(estdt, max_dt / castro::cfl);
+    estdt = std::min(estdt, max_dt / hydrosim::cfl);
 
     return estdt;
 }

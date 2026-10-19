@@ -16,10 +16,10 @@ void Print_Help() {
     Print() << "\nPrint out the radiation quantities at a specified distance from"
             << "\nthe origin.  This is written for the 1-d radiating sphere problem."
             << "\n"
-            << "\n./fradsphere -p plotfile -r radius -g groupfile -v variable"
+            << "\n./fradsphere -p plotfile -r radius -g energy_group_file -v variable"
             << "\n"
-            << "\nHere groupfile is the file containing the group structure information"
-            << "\nas output by Castro (usually group_structure.dat)."
+            << "\nHere energy_group_file is the file containing the group structure information"
+            << "\nas output by HydroSim (usually group_structure.dat)."
             << "\nvariable should be either rad or rad_analytic_ (to obtain the numerical"
             << "\nand analytic data, respectively.)"
             << "\n\n" << std::endl;
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
         Abort("ERROR: rad_sphere diagnostic only works for DIM=1");
 
     // Input arguments
-    string pltfile, groupfile, variable;
+    string pltfile, energy_group_file, variable;
     Real radius = 0.;
     int j = 1;         // skip program name
 
@@ -47,9 +47,9 @@ int main(int argc, char* argv[])
         {
             pltfile = argv[++j];
         }
-        else if ( !strcmp(argv[j], "-g") || !strcmp(argv[j],"--groupfile") )
+        else if ( !strcmp(argv[j], "-g") || !strcmp(argv[j],"--energy_group_file") )
         {
-            groupfile = argv[++j];
+            energy_group_file = argv[++j];
         }
         else if ( !strcmp(argv[j], "-r") || !strcmp(argv[j],"--radius") )
         {
@@ -70,14 +70,14 @@ int main(int argc, char* argv[])
         ++j;
     }
 
-    if (pltfile.empty() || groupfile.empty())
+    if (pltfile.empty() || energy_group_file.empty())
     {
         Print_Help();
         Abort("Missing input file(s)");
     }
 
     Print() << "\nplotfile  = \"" << pltfile << "\"" << std::endl;
-    Print() << "groupfile = \"" << groupfile << "\"" << std::endl;
+    Print() << "energy_group_file = \"" << energy_group_file << "\"" << std::endl;
     Print() << "radius = " << radius << std::endl;
     Print() << "variable = " << variable << std::endl;
     Print() << std::endl;
@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
 
     // open the group file and read in the group information
     std::ifstream group_file;
-    group_file.open(groupfile);
+    group_file.open(energy_group_file);
 
     string header_line;
 

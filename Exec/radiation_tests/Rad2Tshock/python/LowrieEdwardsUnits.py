@@ -3,7 +3,7 @@
 import sys, getopt
 import numpy as np
 from phys import c, R
-from phys import a as aRad
+from phys import a as radConstant
 import cPickle as pickle
 
 def LEunits(P0=1.0e-4, gamma=5./3., uL=1.0e5, uT=100.0, mu=1.0, printmessg=0):
@@ -11,7 +11,7 @@ def LEunits(P0=1.0e-4, gamma=5./3., uL=1.0e5, uT=100.0, mu=1.0, printmessg=0):
     L0 = uL
     T0 = uT
     a0 = np.sqrt(gamma*R*T0/mu)
-    rho0 = aRad * T0**4 / (P0 * a0**2)
+    rho0 = radConstant * T0**4 / (P0 * a0**2)
 
     ut = L0/a0
     urho = rho0

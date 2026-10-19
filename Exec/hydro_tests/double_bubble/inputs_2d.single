@@ -14,11 +14,11 @@ geometry.prob_lo     = 0   0
 geometry.prob_hi     = 1.5 1.5
 amr.n_cell           = 256 256
 
-castro.ppm_type = 1
+hydrosim.ppm_recon_kind = 1
 
-castro.riemann_solver = 1
+hydrosim.riemann_method = 1
 
-castro.use_flattening = 1
+hydrosim.use_shock_flatten = 1
 
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
@@ -26,30 +26,30 @@ castro.use_flattening = 1
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   1
-castro.hi_bc       =  0   1
+hydrosim.lo_bc       =  0   1
+hydrosim.hi_bc       =  0   1
 
-castro.yl_ext_bc_type = 1
-castro.yr_ext_bc_type = 1
-castro.hse_interp_temp = 1
+hydrosim.yl_bc_kind = 1
+hydrosim.yr_bc_kind = 1
+hydrosim.hse_temp_extrap = 1
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.do_grav  = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.do_gravity_flag  = 1
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -1.e9
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -1.e9
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING 
@@ -60,7 +60,7 @@ amr.blocking_factor = 64      # block factor in grid generation
 amr.max_grid_size   = 64
 amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
 
-amr.refinement_indicators = dengrad
+amr.refine_criteria = dengrad
 
 amr.refine.dengrad.gradient = 0.01
 amr.refine.dengrad.field_name = density
@@ -72,14 +72,14 @@ amr.check_file      = chk        # root name of checkpoint file
 amr.check_int       = -1         # number of timesteps between checkpoints
 
 # PLOTFILES
-amr.plot_file       = castro_single_plt        # root name of plotfile
+amr.plot_file       = hydrosim_single_plt        # root name of plotfile
 amr.derive_plot_vars = ALL
 
 # PROBLEM PARAMETERS
 problem.boundary_type = 1
 
 problem.pert_factor = 8.1e-3
-problem.dens_base = 1.65e-3
+problem.density_base = 1.65e-3
 problem.pres_base = 1.65e6
 problem.r_pert_center = 0.7e0
 problem.pert_width = 0.04e0

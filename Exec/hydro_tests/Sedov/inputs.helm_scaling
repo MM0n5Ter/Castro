@@ -14,21 +14,21 @@ amr.n_cell           =  128    128    128
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2   2   2
-castro.hi_bc       =  2   2   2
+hydrosim.lo_bc       =  2   2   2
+hydrosim.hi_bc       =  2   2   2
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.ppm_type = 1
-castro.time_integration_method = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.ppm_recon_kind = 1
+hydrosim.time_scheme = 0
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
@@ -38,7 +38,7 @@ amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 32     # block factor in grid generation
 amr.max_grid_size   = 128
 
-amr.refinement_indicators = dengrad_rel
+amr.refine_criteria = dengrad_rel
 
 amr.refine.dengrad_rel.max_level = 14
 amr.refine.dengrad_rel.relative_gradient = 0.25

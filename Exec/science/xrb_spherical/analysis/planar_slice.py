@@ -125,8 +125,8 @@ def _Dvr_Dt(field, data):
     Material derivative of velocity along radial direction
     Dvr/Dt = -1/rho dp/dr + g + 1/r (vt^2 + vp^2) + 2 Omega vp sin(theta)
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
-    grav  = data.ds.parameters.get("gravity.const_grav") * cm / s**2
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.spin_period") / s
+    gravity_view  = data.ds.parameters.get("gravity.uniform_accel") * cm / s**2
     P     = data["boxlib", "pressure"]
     vr    = data["boxlib", "x_velocity"]
     vt    = data["boxlib", "y_velocity"]
@@ -145,14 +145,14 @@ def _Dvr_Dt(field, data):
     F_geom = (vt**2 + vp**2) / r
     F_coriolis = 2 * omega * vp * np.sin(theta)
 
-    return F_P + grav + F_geom + F_coriolis
+    return F_P + gravity_view + F_geom + F_coriolis
 
 def _Dvt_Dt(field, data):
     """
     Material derivative of velocity along theta direction
     Dvt/Dt = -1/rho dp/rdtheta + 1/r (-vr vt + vp^2 cot(theta)) + 2 Omega vp cos(theta)
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.spin_period") / s
     P     = data["boxlib", "pressure"]
     vr    = data["boxlib", "x_velocity"]
     vt    = data["boxlib", "y_velocity"]
@@ -178,7 +178,7 @@ def _Dvp_Dt(field, data):
     Material derivative of velocity along phi direction
     Dvt/Dt = -1/rho dp/rsin(theta)dphi - 1/r (vr vp + vt vp cot(theta)) - 2 Omega (vt cos(theta) + vr sin(theta))
     """
-    omega = 2.0 * np.pi / data.ds.parameters.get("castro.rotational_period") / s
+    omega = 2.0 * np.pi / data.ds.parameters.get("hydrosim.spin_period") / s
     vr    = data["boxlib", "x_velocity"]
     vt    = data["boxlib", "y_velocity"]
     vp    = data["boxlib", "z_velocity"]
@@ -197,11 +197,11 @@ def get_level_bounds(ds, level):
     grids = [g for g in ds.index.grids if g.Level == level]
     if not grids:
         return None
-    r_left   = min(g.LeftEdge[0].value  for g in grids)
-    r_right  = max(g.RightEdge[0].value for g in grids)
+    radius_left   = min(g.LeftEdge[0].value  for g in grids)
+    radius_right  = max(g.RightEdge[0].value for g in grids)
     th_left  = min(g.LeftEdge[1].value  for g in grids)
     th_right = max(g.RightEdge[1].value for g in grids)
-    return r_left, r_right, th_left, th_right
+    return radius_left, radius_right, th_left, th_right
 
 
 def plot_finest_available(ax, ds, field):
@@ -220,9 +220,9 @@ def plot_finest_available(ax, ds, field):
             continue
 
         # restrict covering grid to just the refined region
-        r_left, r_right, th_left, th_right = bounds
-        left_edge  = ds.arr([r_left,  th_left,  ds.domain_left_edge[2].value],  "code_length")
-        #right_edge = ds.arr([r_right, th_right, ds.domain_right_edge[2].value], "code_length")
+        radius_left, radius_right, th_left, th_right = bounds
+        left_edge  = ds.arr([radius_left,  th_left,  ds.domain_left_edge[2].value],  "code_length")
+        #right_edge = ds.arr([radius_right, th_right, ds.domain_right_edge[2].value], "code_length")
 
         dims = ds.domain_dimensions * ds.refine_by**level
         dims[2] = 1
@@ -366,14 +366,14 @@ def planar_slice(fnames:list[str], fields:list[str],
 
             # Get plotting variables
             var    = cg0["boxlib", field][:, :, 0].to_ndarray()
-            r_arr = cg0["index", "r"][:, :, 0].to("km").to_ndarray() # longitudinal distance in km
+            rhs_view_arr = cg0["index", "r"][:, :, 0].to("km").to_ndarray() # longitudinal distance in km
             theta_arr  = cg0["index", "theta"][:, :, 0].to_ndarray()
 
             # Choose different settings based on what field parameter is plotted
             preset = FIELD_PRESETS.get(field, DEFAULT_PRESET)
 
             # Plot level 0 data using pcolormesh
-            pcm = ax.pcolormesh(theta_arr, r_arr, var, shading="auto",
+            pcm = ax.pcolormesh(theta_arr, rhs_view_arr, var, shading="auto",
                                 cmap=preset["cmap"], norm=preset["norm"])
 
             # Overplot finer level data if available
@@ -384,7 +384,7 @@ def planar_slice(fnames:list[str], fields:list[str],
             if contour_field is not None:
                 contour_var = cg0["boxlib", contour_field][:, :, 0].to_ndarray()
                 contour_levels = CONTOUR_LEVEL_PRESETS.get(contour_field, 10)
-                ax.contour(theta_arr, r_arr, contour_var, levels=contour_levels, linewidths=1, colors="k")
+                ax.contour(theta_arr, rhs_view_arr, contour_var, levels=contour_levels, linewidths=1, colors="k")
 
             # Annotate optional velocity or acceleration streamlines
             # note here x-velocity is in radial so its technically vertical
@@ -398,7 +398,7 @@ def planar_slice(fnames:list[str], fields:list[str],
                 mask = (rho < 1e-1) | (rho > 1e6)
                 vt = np.ma.array(vt, mask=mask)
 
-                ax.streamplot(theta_arr, r_arr, vt, vr, color="tab:green", linewidth=2, density=1)
+                ax.streamplot(theta_arr, rhs_view_arr, vt, vr, color="tab:green", linewidth=2, density=1)
 
             if annotate_acceleration_streamlines and ("boxlib", "pressure") in ds.field_list:
                 rho = cg0["boxlib", "density"][:, :, 0].to_ndarray()
@@ -409,7 +409,7 @@ def planar_slice(fnames:list[str], fields:list[str],
                 mask = (rho < 1e-1) | (rho > 1e6)
                 at = np.ma.array(at, mask=mask)
 
-                ax.streamplot(theta_arr, r_arr, at, ar, color="tab:blue", linewidth=2, density=1)
+                ax.streamplot(theta_arr, rhs_view_arr, at, ar, color="tab:blue", linewidth=2, density=1)
 
             # Plot vertical line to indicate flame front and ash front
             if annotate_front:

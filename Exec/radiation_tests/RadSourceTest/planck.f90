@@ -19,7 +19,7 @@ module constants_module
   ! specify the energy groups.  Ultimately we will work in terms of
   ! frequency, but we set the limits in terms of energy.
 
-  ! note: E_min and E_max MUST match the parameters used in CASTRO
+  ! note: E_min and E_max MUST match the parameters used in HYDROSIM
   ! to define the group structure.
   integer, parameter :: ngroups_derive = 128          ! number of groups to compute
   real(rt), parameter :: E_min = 0.5e0_rt*ev2erg ! min group energy (erg)
@@ -112,7 +112,7 @@ program analytic
      ngroups = ngroups_derive
      allocate(nu_groups(ngroups),dnu_groups(ngroups),xnu(ngroups+1))
 
-     ! try to mimic the way the groups are setup in RadMultiGroup.cpp
+     ! try to mimic the way the groups are setup in RadiativeMultiGroup.cpp
 
      ! do geometrically spaced group BOUNDARIES
      xnu(1) = E_min/h_planck

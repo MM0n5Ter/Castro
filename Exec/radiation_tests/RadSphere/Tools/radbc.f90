@@ -1,10 +1,10 @@
 ! write out the group dependent boundary conditions
 !
 ! This routine takes as input the file "group_structures.dat" which is
-! output by RadMultiGroup.cpp.  That file defines the group centers
+! output by RadiativeMultiGroup.cpp.  That file defines the group centers
 ! and weights (widths).
 !
-! NOTE: in CASTRO, for multigroup, the radiation energy is stored with
+! NOTE: in HYDROSIM, for multigroup, the radiation energy is stored with
 ! units of erg / cm^3, so that the total radiation energy can be found
 ! simply by summing over the groups.  This means that we normalize by
 ! multiplying the Planck function in each group by the group's width.
@@ -52,7 +52,7 @@ end function planck
 
 program bc
 
-  ! compute the values of the blackbody function for the different
+  ! compute the values of the planck_integrals function for the different
   ! energy groups.
 
   use constants_module

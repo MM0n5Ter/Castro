@@ -6,7 +6,7 @@
 #include <eos.H>
 
 struct model_t {
-    amrex::Real dens_base = -1;
+    amrex::Real density_base = -1;
     amrex::Real scale_height = -1;
     Real xn[NumSpec] = {0.0};
 };
@@ -33,7 +33,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
     // compute the pressure scale height (for an isothermal, ideal-gas
     // atmosphere)
 
-    amrex::Real pres_base = model_params.scale_height * model_params.dens_base * std::abs(gravity::const_grav);
+    amrex::Real pres_base = model_params.scale_height * model_params.density_base * std::abs(gravity::uniform_accel);
 
     // create the grid -- cell centers
 
@@ -51,7 +51,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
         amrex::Real profile = 1.0 - (eos_rp::eos_gamma - 1.0) / eos_rp::eos_gamma * model::profile(0).r(i) / model_params.scale_height;
 
         if (profile > 0.0) {
-            density = std::max(model_params.dens_base * std::pow(profile, 1.0/(eos_rp::eos_gamma - 1.0)),
+            density = std::max(model_params.density_base * std::pow(profile, 1.0/(eos_rp::eos_gamma - 1.0)),
                                problem::low_density_cutoff);
         } else {
             density = problem::low_density_cutoff;
@@ -63,12 +63,12 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
             pressure = model::profile(0).state(i-1, model::ipres);
         } else {
             pressure = pres_base *
-                std::pow(density / model_params.dens_base, eos_rp::eos_gamma);
+                std::pow(density / model_params.density_base, eos_rp::eos_gamma);
         }
 
         // initial guess
 
-        amrex::Real temp = T_guess;
+        amrex::Real temp = eos_temp_guess;
 
         eos_t eos_state;
         eos_state.p = pressure;

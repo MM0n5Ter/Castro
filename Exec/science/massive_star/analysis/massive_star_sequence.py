@@ -58,10 +58,10 @@ def make_plot(field, pfiles, *,
     ds = CastroDataset(pfiles[0])
 
     t_drive = 0.0
-    if "[*] castro.drive_initial_convection_tmax" in ds.parameters:
-        t_drive = ds.parameters["[*] castro.drive_initial_convection_tmax"]
-    elif "[*] castro.drive_initial_convection_tmax" in ds.parameters:
-        t_drive = ds.parameters["[*] castro.drive_initial_convection_tmax"]
+    if "[*] hydrosim.convect_drive_end_time" in ds.parameters:
+        t_drive = ds.parameters["[*] hydrosim.convect_drive_end_time"]
+    elif "[*] hydrosim.convect_drive_end_time" in ds.parameters:
+        t_drive = ds.parameters["[*] hydrosim.convect_drive_end_time"]
     print(t_drive)
 
     xmin = ds.domain_left_edge[0]

@@ -14,37 +14,37 @@ amr.n_cell           = 128     128
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   3
-castro.hi_bc       =  0   3
+hydrosim.lo_bc       =  0   3
+hydrosim.hi_bc       =  0   3
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
-castro.do_grav = 1
-castro.do_sponge = 0
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
+hydrosim.do_gravity_flag = 1
+hydrosim.do_damping_zone = 0
 
-castro.small_temp = 1.e6
+hydrosim.small_temp = 1.e6
 
-castro.sdc_order=4
-castro.time_integration_method=2
-castro.limit_fourth_order=1
-castro.use_reconstructed_gamma1=1
-castro.sdc_solver=1
+hydrosim.sdc_accuracy_order=4
+hydrosim.time_scheme=2
+hydrosim.clamp_fourth_order=1
+hydrosim.use_recon_gamma1=1
+hydrosim.sdc_nonlin_method=1
 
-castro.grav_source_type = 2
+hydrosim.gravity_source_mode = 2
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -1.e10
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -1.e10
 
 # TIME STEP CONTROL
-castro.cfl            = 0.9     # cfl number for hyperbolic system
-castro.init_shrink    = 1.0     # scale back initial timestep
+hydrosim.cfl            = 0.9     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 1.0     # scale back initial timestep
 
-castro.fixed_dt = 0.75e-4
+hydrosim.constant_dt = 0.75e-4
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 0       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 0       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
@@ -68,14 +68,14 @@ amr.derive_plot_vars = ALL
 
 problem.pert_width = 2.56e5
 
-problem.dens_base = 1.e7
+problem.density_base = 1.e7
 problem.temp_base = 1.0e8
 
 problem.do_pert = 1
 
 # Refinement
 
-amr.refinement_indicators = temperr tempgrad
+amr.refine_criteria = temperr tempgrad
 
 amr.refine.temperr.max_level = 5
 amr.refine.temperr.value_greater = 6.e8

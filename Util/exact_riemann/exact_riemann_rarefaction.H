@@ -183,7 +183,7 @@ rarefaction(const amrex::Real pstar,
     // initial guess at integration step
     amrex::Real dp = (pstar - p_s) / static_cast<amrex::Real>(100);
 
-    amrex::Real T = castro::T_guess;
+    amrex::Real T = hydrosim::eos_temp_guess;
 
     // adaptive RK4 loop
 
@@ -204,7 +204,7 @@ rarefaction(const amrex::Real pstar,
 
         // take a step
 
-        while (rel_error > riemann_constants::riemann_integral_tol) {
+        while (rel_error > solver_constants::integral_tolerance) {
             dp = dp_new;
             if (p + dp < pstar) {
                 dp = pstar - p;
@@ -230,7 +230,7 @@ rarefaction(const amrex::Real pstar,
 
             // adaptive step estimate
 
-            double dp_est = S1 * dp * std::pow(std::abs(riemann_constants::riemann_integral_tol/rel_error), 0.2);
+            double dp_est = S1 * dp * std::pow(std::abs(solver_constants::integral_tolerance/rel_error), 0.2);
             dp_new = dp_est; //std::clamp(S1*dp_est, dp/S2, S2*dp);
 
         }
@@ -251,7 +251,7 @@ rarefaction(const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::eos_temp_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -307,7 +307,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::eos_temp_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -339,7 +339,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
         // take a step
 
-        while (rel_error > riemann_constants::riemann_integral_tol) {
+        while (rel_error > solver_constants::integral_tolerance) {
             du = du_new;
 
             // take 2 half steps
@@ -364,7 +364,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
 
             amrex::Real du_est{};
             if (rel_error > 0) {
-                du_est = S1 * du * std::pow(std::abs(riemann_constants::riemann_integral_tol / rel_error), 0.2);
+                du_est = S1 * du * std::pow(std::abs(solver_constants::integral_tolerance / rel_error), 0.2);
             } else {
                 du_est = 10.0 * du;
             }
@@ -385,7 +385,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
         for (int n = 0; n < NumSpec; ++n) {
             eos_state.xn[n] = xn[n];
         }
-        eos_state.T = castro::T_guess;
+        eos_state.T = hydrosim::eos_temp_guess;
 
         eos(eos_input_rp, eos_state);
 
@@ -413,7 +413,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
             }
         }
 
-        if (std::abs(du_new) < riemann_constants::riemann_u_tol * std::abs(u) + riemann_constants::riemann_u_tol) {
+        if (std::abs(du_new) < solver_constants::velocity_tolerance * std::abs(u) + solver_constants::velocity_tolerance) {
             finished = true;
         }
 

@@ -1,5 +1,5 @@
-#ifndef GLOBAL_H
-#define GLOBAL_H
+#ifndef GLOBAL_PTRS_H
+#define GLOBAL_PTRS_H
 
 #include <AMReX_Amr.H>
 #ifdef RADIATION
@@ -8,9 +8,9 @@
 
 namespace global
 {
-    AMREX_INLINE Amr* the_amr_ptr;
+    AMREX_INLINE Amr* amr_instance;
 #ifdef RADIATION
-    AMREX_INLINE Radiation* the_radiation_ptr;
+    AMREX_INLINE Radiation* radiation_instance;
 #endif
 }
 

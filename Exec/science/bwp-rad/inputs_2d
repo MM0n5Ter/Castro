@@ -16,8 +16,8 @@ amr.n_cell         = 128 256
 
 amr.max_level      = 2       # maximum level number allowed
 
-castro.lo_bc       =  3 2
-castro.hi_bc       =  2 2
+hydrosim.lo_bc       =  3 2
+hydrosim.hi_bc       =  2 2
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
@@ -25,41 +25,41 @@ castro.hi_bc       =  2 2
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.do_hydro = 1
-castro.do_grav  = 1
-castro.do_react = 0
-castro.do_sponge = 1
-castro.do_radiation = 1
+hydrosim.do_hydro = 1
+hydrosim.do_gravity_flag  = 1
+hydrosim.do_react = 0
+hydrosim.do_damping_zone = 1
+hydrosim.do_radiative_transfer = 1
 
-castro.small_temp = 1.e3
-castro.small_dens = 1.e-6
-castro.small_pres = 1.e0
-
-
-castro.sponge_implicit = 0
-castro.sponge_upper_density = 1.0e-3
-castro.sponge_lower_density = 1.0e-6
-castro.sponge_timescale     = 2.e1
-
-castro.ppm_type = 1
-castro.ppm_temp_fix = 0
-
-castro.transverse_reset_rhoe = 1
-
-castro.use_flattening = 1
-
-castro.riemann_solver = 0
-
-gravity.gravity_type = MonopoleGrav
-gravity.drdxfac = 2
-
-castro.grav_source_type = 4
+hydrosim.small_temp = 1.e3
+hydrosim.small_dens = 1.e-6
+hydrosim.pressure_cutoff = 1.e0
 
 
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep by this factor
-castro.change_max     = 1.05    # factor by which dt is allowed to change each timestep
-castro.sum_interval   = 0       # timesteps between computing and printing volume averages
+hydrosim.damping_implicit = 0
+hydrosim.damping_upper_density = 1.0e-3
+hydrosim.damping_lower_density = 1.0e-6
+hydrosim.damping_timescale     = 2.e1
+
+hydrosim.ppm_recon_kind = 1
+hydrosim.ppm_temp_mode = 0
+
+hydrosim.transverse_rebuild_rhoe = 1
+
+hydrosim.use_shock_flatten = 1
+
+hydrosim.riemann_method = 0
+
+gravity.gravity_model_name = MonopoleGrav
+gravity.radial_bin_ratio = 2
+
+hydrosim.gravity_source_mode = 4
+
+
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep by this factor
+hydrosim.change_max     = 1.05    # factor by which dt is allowed to change each timestep
+hydrosim.sum_step_period   = 0       # timesteps between computing and printing volume averages
 
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 10000   # how often to regrid
@@ -76,13 +76,13 @@ amr.max_grid_size   = 128      # maximum grid size allowed -- used to control pa
 amr.blocking_factor = 32       # block factor in grid generation
 
 amr.v               = 1       # control verbosity in Amr.cpp
-castro.v            = 0       # control verbosity in Castro.cpp
+hydrosim.v            = 0       # control verbosity in HydroSim.cpp
 
 amr.derive_plot_vars = ALL
 
 problem.model_name =  "SolarLike_0.2M.hse.1280"
 
-amr.refinement_indicators = denerr
+amr.refine_criteria = denerr
 
 amr.refine.denerr.max_level = 10
 amr.refine.denerr.field_name = density
@@ -101,14 +101,14 @@ opacity.kappa_r_exp_p = 0.0e0
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
-# ##### SolverType #####
+# ##### SolverKind #####
 # # 0: single group diffusion w/o coupling to hydro
-# # 5: SGFLD       6: MGFLD
-radiation.SolverType = 5
+# # 5: SGFLD       6: MultigroupDiffusion
+radiation.SolverKind = 5
 
-radiation.comoving = 0
+radiation.moving_frame = 0
 
-radiation.Er_Lorentz_term = 0
+radiation.lorentz_energy_term = 0
 
 # RADIATION TOLERANCES
 radiation.reltol  = 1.e-6 # relative tolerance for implicit update loop
@@ -136,10 +136,10 @@ radiation.hi_bc     = 105 101 102
 # or use a Fortran function FORT_RADBNDRY to specify values that vary
 # in space and time.
 
-# If bcflag is 0 then bcval is used, otherwise FORT_RADBNDRY used:
+# If bc_kind is 0 then bcval is used, otherwise FORT_RADBNDRY used:
 
-radiation.lo_bcflag = 0 0 0
-radiation.hi_bcflag = 0 0 0
+radiation.lo_bc_kind = 0 0 0
+radiation.hi_bc_kind = 0 0 0
 
 # bcval is interpreted differently depending on the boundary condition
 # 101 = LO_DIRICHLET           bcval is Dirichlet value of rad energy density
@@ -147,26 +147,26 @@ radiation.hi_bcflag = 0 0 0
 # 104 = LO_MARSHAK             bcval is incident flux
 # 105 = LO_SANCHEZ_POMRANING   bcval is incident flux
 
-radiation.lo_bcval = 0.0 0.0 0.0
-radiation.hi_bcval = 5.3e9 0.0  0.0
+radiation.lo_bc_value = 0.0 0.0 0.0
+radiation.hi_bc_value = 5.3e9 0.0  0.0
 
 # radiation plotting
-radiation.plot_lambda = 1
-radiation.plot_kappa_p = 1
-radiation.plot_kappa_r = 1
-radiation.plot_lab_flux = 1
-radiation.plot_com_flux = 1
+radiation.plot_flux_limiter = 1
+radiation.plot_planck_opacity = 1
+radiation.plot_rosseland_opacity = 1
+radiation.plot_lab_rad_flux = 1
+radiation.plot_moving_flux = 1
 
 
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use AlphaBetaSolver, support symmetric matrices only
+# solver flag values >= 100 use MultiLevelEllipticSolver, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
-# For MGFLD with accelerate = 2, must use >=100.
+# For MultigroupDiffusion with accelerate = 2, must use >=100.
 #
 # 0     SMG
 # 1     PFMG  (>= 2D only)
@@ -179,13 +179,13 @@ radiation.plot_com_flux = 1
 # 1002  PCG   using ParCSR ObjectType
 # 1003  PCG   using SStruct ObjectType
 
-radsolve.level_solver_flag = 100  # can be any supported hypre solver flag
+radiation_solve.level_solver_kind = 100  # can be any supported hypre solver flag
 
-radsolve.reltol     = 1.0e-11 # relative tolerance
-radsolve.abstol     = 0.0     # absolute tolerance (often not necessary)
-radsolve.maxiter    = 200     # linear solver iteration limit
+radiation_solve.reltol     = 1.0e-11 # relative tolerance
+radiation_solve.abstol     = 0.0     # absolute tolerance (often not necessary)
+radiation_solve.maxiter    = 200     # linear solver iteration limit
 
-radsolve.v = 1      # verbosity
+radiation_solve.v = 1      # verbosity
 
-hmabec.verbose = 2  # verbosity for HypreMultiABec solvers
-habec.verbose  = 2  # verbosity for HypreABec solvers
+hmabec.verbose = 2  # verbosity for MultiLevelEllipticSolver solvers
+habec.verbose  = 2  # verbosity for AlphaBetaSolver solvers

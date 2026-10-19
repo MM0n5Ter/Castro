@@ -12,7 +12,7 @@ import yt
 
 def get_Te_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()

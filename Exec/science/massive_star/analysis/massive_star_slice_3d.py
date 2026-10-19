@@ -17,10 +17,10 @@ plotfile = sys.argv[1]
 ds = CastroDataset(plotfile)
 
 t_drive = 0.0
-if "[*] castro.drive_initial_convection_tmax" in ds.parameters:
-    t_drive = ds.parameters["[*] castro.drive_initial_convection_tmax"]
-elif "castro.drive_initial_convection_tmax" in ds.parameters:
-    t_drive = ds.parameters["castro.drive_initial_convection_tmax"]
+if "[*] hydrosim.convect_drive_end_time" in ds.parameters:
+    t_drive = ds.parameters["[*] hydrosim.convect_drive_end_time"]
+elif "hydrosim.convect_drive_end_time" in ds.parameters:
+    t_drive = ds.parameters["hydrosim.convect_drive_end_time"]
 print(t_drive)
 
 domain_frac = 0.2

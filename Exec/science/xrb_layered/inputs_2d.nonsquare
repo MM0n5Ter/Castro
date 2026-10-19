@@ -9,55 +9,55 @@ geometry.prob_lo     = 0.0     0.0
 geometry.prob_hi     = 3072    3072
 amr.n_cell           = 128     256
 
-castro.allow_non_unit_aspect_zones = 1
-castro.domain_is_plane_parallel = 1
+hydrosim.allow_anisotropic_cells = 1
+hydrosim.plane_parallel_domain = 1
 
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 # 0 = Interior           3 = Symmetry
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  0   3
-castro.hi_bc       =  0   2
+hydrosim.lo_bc       =  0   3
+hydrosim.hi_bc       =  0   2
 
-castro.fill_ambient_bc = 1
-castro.ambient_fill_dir = 1
-castro.ambient_outflow_vel = 1
+hydrosim.apply_ambient_bc = 1
+hydrosim.ambient_bc_axis = 1
+hydrosim.ambient_outflow_mode = 1
 
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
-castro.add_ext_src   = 0
-castro.do_grav = 1
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
+hydrosim.enable_extra_source   = 0
+hydrosim.do_gravity_flag = 1
+hydrosim.do_damping_zone = 1
 
-castro.ppm_type = 1
-castro.grav_source_type = 2
-castro.use_pslope = 1
-castro.pslope_cutoff_density = 1.e4
+hydrosim.ppm_recon_kind = 1
+hydrosim.gravity_source_mode = 2
+hydrosim.use_pressure_slope = 1
+hydrosim.slope_rho_cutoff = 1.e4
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -1.29e14
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -1.29e14
 
 # burning
-castro.react_rho_min = 1.e2
-castro.react_T_min = 5.e6
+hydrosim.burn_rho_min = 1.e2
+hydrosim.burn_temp_min = 5.e6
 
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
 # SPONGE
-castro.sponge_upper_density = 1.e3
-castro.sponge_lower_density = 1.e2
-castro.sponge_timescale     = 1.0e-7
+hydrosim.damping_upper_density = 1.e3
+hydrosim.damping_lower_density = 1.e2
+hydrosim.damping_timescale     = 1.0e-7
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING 

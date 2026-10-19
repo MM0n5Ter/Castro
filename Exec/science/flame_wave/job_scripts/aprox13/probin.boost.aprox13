@@ -6,7 +6,7 @@
 
   nx_model = 1024
 
-  dens_base = 3.43e6
+  density_base = 3.43e6
 
   T_star = 5.d7
   T_hi = 2.d8

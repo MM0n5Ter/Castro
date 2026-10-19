@@ -16,4 +16,4 @@ problem.t     = 0.0008
 
 problem.npts  = 512
 
-castro.riemann_shock_maxiter = 100
+hydrosim.shock_star_max_iters = 100

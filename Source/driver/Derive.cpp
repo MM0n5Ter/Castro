@@ -1,10 +1,10 @@
 #include <AMReX_REAL.H>
 
 #include <Derive.H>
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef DIFFUSION
-#include <diffusion_util.H>
+#include <conduction_util.H>
 #endif
 
 using namespace amrex;
@@ -17,7 +17,7 @@ extern "C"
     // These routines are called in an MFIter loop, so we do not
     // need to explicitly synchronize after GPU kernels.
 
-    void ca_derpres(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_pressure(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -50,7 +50,7 @@ extern "C"
       });
     }
 
-    void ca_dereint1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_internal_from_total(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -72,7 +72,7 @@ extern "C"
       });
     }
 
-    void ca_dereint2(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_internal_from_stored(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -88,7 +88,7 @@ extern "C"
       });
     }
 
-    void ca_derlogden(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_log_density(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -103,7 +103,7 @@ extern "C"
       });
     }
 
-    void ca_deruplusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_u_plus_c(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -138,7 +138,7 @@ extern "C"
       });
     }
 
-    void ca_deruminusc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_u_minus_c(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -173,7 +173,7 @@ extern "C"
       });
     }
 
-    void ca_dersoundspeed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_sound_speed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -209,7 +209,7 @@ extern "C"
     }
 
 
-    void ca_dergamma1(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_adiabatic_index(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -244,7 +244,7 @@ extern "C"
       });
     }
 
-    void ca_dermachnumber(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_mach_ratio(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                           const FArrayBox& datfab, const Geometry& /*geom*/,
                           Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -282,7 +282,7 @@ extern "C"
       });
     }
 
-    void ca_derentropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_entropy(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -317,7 +317,7 @@ extern "C"
     }
 
 #ifdef DIFFUSION
-    void ca_dercond(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_conductivity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -325,11 +325,11 @@ extern "C"
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_cond(bx, dat, der);
+      fill_cell_conductivity(bx, dat, der);
 
     }
 
-    void ca_derdiffcoeff(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_diffusivity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -337,25 +337,25 @@ extern "C"
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_diff_coeff(bx, dat, der);
+      fill_conduction_coeff(bx, dat, der);
 
     }
 
-    void ca_derdiffterm(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_diffusion_term(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                         const FArrayBox& datfab, const Geometry& geom,
                         Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
 
       const Box& obx = amrex::grow(bx, 1);
 
-      FArrayBox coeff_cc;
-      coeff_cc.resize(obx, 1, The_Async_Arena());
-      Array4<Real> const coeff_arr = coeff_cc.array();
+      FArrayBox cell_coeff;
+      cell_coeff.resize(obx, 1, The_Async_Arena());
+      Array4<Real> const cell_conductivity_arr = cell_coeff.array();
 
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
-      fill_temp_cond(obx, dat, coeff_arr);
+      fill_cell_conductivity(obx, dat, cell_conductivity_arr);
 
       auto dx = geom.CellSizeArray();
       auto problo = geom.ProbLoArray();
@@ -366,41 +366,41 @@ extern "C"
       {
 
         // (k grad T)_{i+1/2}
-        Real kgradT_xhi = 0.5_rt * (coeff_arr(i+1,j,k) + coeff_arr(i,j,k)) *
+        Real cond_flux_xhi = 0.5_rt * (cell_conductivity_arr(i+1,j,k) + cell_conductivity_arr(i,j,k)) *
           (dat(i+1,j,k,UTEMP) - dat(i,j,k,UTEMP)) / dx[0];
 
         // (k grad T)_{i-1/2}
-        Real kgradT_xlo = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i-1,j,k)) *
+        Real cond_flux_xlo = 0.5_rt * (cell_conductivity_arr(i,j,k) + cell_conductivity_arr(i-1,j,k)) *
           (dat(i,j,k,UTEMP) - dat(i-1,j,k,UTEMP)) / dx[0];
 
 #if AMREX_SPACEDIM >= 2
         // (k grad T)_{j+1/2}
-        Real kgradT_yhi = 0.5_rt * (coeff_arr(i,j+1,k) + coeff_arr(i,j,k)) *
+        Real cond_flux_yhi = 0.5_rt * (cell_conductivity_arr(i,j+1,k) + cell_conductivity_arr(i,j,k)) *
           (dat(i,j+1,k,UTEMP) - dat(i,j,k,UTEMP)) / dx[1];
 
         // (k grad T)_{j-1/2}
-        Real kgradT_ylo = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j-1,k)) *
+        Real cond_flux_ylo = 0.5_rt * (cell_conductivity_arr(i,j,k) + cell_conductivity_arr(i,j-1,k)) *
           (dat(i,j,k,UTEMP) - dat(i,j-1,k,UTEMP)) / dx[1];
 #endif
 
 #if AMREX_SPACEDIM == 3
         // (k grad T)_{k+1/2}
-        Real kgradT_zhi = 0.5_rt * (coeff_arr(i,j,k+1) + coeff_arr(i,j,k)) *
+        Real cond_flux_zhi = 0.5_rt * (cell_conductivity_arr(i,j,k+1) + cell_conductivity_arr(i,j,k)) *
           (dat(i,j,k+1,UTEMP) - dat(i,j,k,UTEMP)) / dx[2];
 
         // (k grad T)_{k-1/2}
-        Real kgradT_zlo = 0.5_rt * (coeff_arr(i,j,k) + coeff_arr(i,j,k-1)) *
+        Real cond_flux_zlo = 0.5_rt * (cell_conductivity_arr(i,j,k) + cell_conductivity_arr(i,j,k-1)) *
           (dat(i,j,k,UTEMP) - dat(i,j,k-1,UTEMP)) / dx[2];
 #endif
 
         if (coord_type == 0) {
           // Cartesian
-          der(i,j,k,0) = (kgradT_xhi - kgradT_xlo)/dx[0];
+          der(i,j,k,0) = (cond_flux_xhi - cond_flux_xlo)/dx[0];
 #if AMREX_SPACEDIM >= 2
-          der(i,j,k,0) += (kgradT_yhi - kgradT_ylo)/dx[1];
+          der(i,j,k,0) += (cond_flux_yhi - cond_flux_ylo)/dx[1];
 #endif
 #if AMREX_SPACEDIM == 3
-          der(i,j,k,0) += (kgradT_zhi - kgradT_zlo)/dx[2];
+          der(i,j,k,0) += (cond_flux_zhi - cond_flux_zlo)/dx[2];
 #endif
 
         } else if (coord_type == 1) {
@@ -409,9 +409,9 @@ extern "C"
           Real r = (static_cast<Real>(i) + 0.5_rt)*dx[0] + problo[0];
           Real rp = (static_cast<Real>(i) + 1.0_rt)*dx[0] + problo[0];
 
-          der(i,j,k,0) = (rp*kgradT_xhi - rm*kgradT_xlo)/(r*dx[0]);
+          der(i,j,k,0) = (rp*cond_flux_xhi - rm*cond_flux_xlo)/(r*dx[0]);
 #if AMREX_SPACEDIM == 2
-          der(i,j,k,0) += (kgradT_yhi - kgradT_ylo)/dx[1];
+          der(i,j,k,0) += (cond_flux_yhi - cond_flux_ylo)/dx[1];
 #endif
 
         } else if (coord_type == 2) {
@@ -420,13 +420,13 @@ extern "C"
           Real r = (static_cast<Real>(i) + 0.5_rt)*dx[0] + problo[0];
           Real rp = (static_cast<Real>(i) + 1.0_rt)*dx[0] + problo[0];
 
-          der(i,j,k,0) = (rp*rp*kgradT_xhi - rm*rm*kgradT_xlo)/(r*r*dx[0]);
+          der(i,j,k,0) = (rp*rp*cond_flux_xhi - rm*rm*cond_flux_xlo)/(r*r*dx[0]);
 #if AMREX_SPACEDIM == 2
-          Real sinm = std::sin(static_cast<Real>(j)*dx[1] + problo[1]);
+          Real sin_lo = std::sin(static_cast<Real>(j)*dx[1] + problo[1]);
           Real sinc = std::sin((static_cast<Real>(j) + 0.5_rt)*dx[1] + problo[1]);
           Real sinp = std::sin((static_cast<Real>(j) + 1.0_rt)*dx[1] + problo[1]);
 
-          der(i,j,k,0) += (sinp*kgradT_yhi - sinm*kgradT_ylo)/(r*r*sinc*dx[1]);
+          der(i,j,k,0) += (sinp*cond_flux_yhi - sin_lo*cond_flux_ylo)/(r*r*sinc*dx[1]);
 #endif
         }
       });
@@ -434,7 +434,7 @@ extern "C"
 #endif
 
 #ifdef REACTIONS
-    void ca_derenuctimescale(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_timescale_ratio(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                              const FArrayBox& datfab, const Geometry& geom,
                              Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -453,7 +453,7 @@ extern "C"
       dd = amrex::min(dx[0], dx[1], dx[2]);
 #endif
 
-      int enuc_comp = datfab.nComp()-1;
+      int energy_gen_index = datfab.nComp()-1;
 
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -462,7 +462,7 @@ extern "C"
         // the nuclear energy (rho H_nuc) is tacked onto the end of
         // the input state, after the NUM_STATE conserved state
         // quantities
-        Real enuc = std::abs(dat(i,j,k,enuc_comp)) / dat(i,j,k,URHO);
+        Real enuc = std::abs(dat(i,j,k,energy_gen_index)) / dat(i,j,k,URHO);
 
         if (enuc > 1.e-100_rt) {
 
@@ -496,7 +496,7 @@ extern "C"
       });
     }
 
-    void ca_derenuc(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_energy_generation(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -514,7 +514,7 @@ extern "C"
     }
 #endif
 
-    void ca_dervel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_velocity_component(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -530,7 +530,7 @@ extern "C"
     }
 
 
-    void ca_dermagvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_speed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& /*geom*/,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -542,16 +542,16 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real deninv = 1.0_rt/dat(i,j,k,0);
+        Real inv_density = 1.0_rt/dat(i,j,k,0);
 
         der(i,j,k,0) = std::sqrt( (dat(i,j,k,1) * dat(i,j,k,1) +
                                    dat(i,j,k,2) * dat(i,j,k,2) +
-                                   dat(i,j,k,3) * dat(i,j,k,3)) ) * deninv;
+                                   dat(i,j,k,3) * dat(i,j,k,3)) ) * inv_density;
       });
     }
 
 
-    void ca_dermaggrav(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_gravity_magnitude(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& /*geom*/,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -570,7 +570,7 @@ extern "C"
       });
     }
 
-    void ca_derradialvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_radial_velocity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -596,7 +596,7 @@ extern "C"
         loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
 #endif
 
-        if (domain_is_plane_parallel) {
+        if (plane_parallel_domain) {
 #if AMREX_SPACEDIM == 2
           // the radial velocity is just the horizontal velocity
           der(i,j,k,0) = dat(i,j,k,1)/dat(i,j,k,0);
@@ -622,7 +622,7 @@ extern "C"
     }
 
 
-    void ca_dercircvel(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+    void derive_circular_speed(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                        const FArrayBox& datfab, const Geometry& geom,
                        Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -649,7 +649,7 @@ extern "C"
         loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
 #endif
 
-        if (domain_is_plane_parallel) {
+        if (plane_parallel_domain) {
 #if AMREX_SPACEDIM == 2
           // the circumferential velocity is just the out-of-plane velocity
           der(i,j,k,0) = dat(i,j,k,3)/dat(i,j,k,0);
@@ -670,7 +670,7 @@ extern "C"
           // perpendicular to radial, and in general 3-d (e.g. a
           // sphere), the sign doesn't make sense, so we compute this
           // such that v_r^2 + v_c^2 = v^2
-          Real vtot2 = (dat(i,j,k,1)*dat(i,j,k,1) +
+          Real speed_sq = (dat(i,j,k,1)*dat(i,j,k,1) +
                         dat(i,j,k,2)*dat(i,j,k,2) +
                         dat(i,j,k,3)*dat(i,j,k,3))/(dat(i,j,k,0)*dat(i,j,k,0));
 
@@ -678,14 +678,14 @@ extern "C"
                      dat(i,j,k,2)*loc[1] +
                      dat(i,j,k,3)*loc[2]) / ( dat(i,j,k,0)*r );
 
-          der(i,j,k,0) = std::sqrt(amrex::max(vtot2 - vr*vr, 0.0_rt));
+          der(i,j,k,0) = std::sqrt(amrex::max(speed_sq - vr*vr, 0.0_rt));
         }
 
       });
     }
 
 
-  void ca_dermagmom(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_momentum_magnitude(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                     const FArrayBox& datfab, const Geometry& /*geom*/,
                     Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -704,7 +704,7 @@ extern "C"
                        });
   }
 
-  void ca_derangmomx (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_momentum_x (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -721,7 +721,7 @@ extern "C"
                        {
                          Real loc[3];
 
-                         //loc calculated like sum_utils.cpp
+                         //loc calculated like quantity_sums.cpp
                          //This might be equivalent and more modular: position(i, j, k, geom, loc);
                          loc[0] = problo[0] + (0.5_rt + i) * dx[0];
 
@@ -741,14 +741,14 @@ extern "C"
                            loc[dir] -= problem::center[dir];
                          }
 
-                         // Explicitly computing only the required cross-product as in inertial_to_rotational_velocity
-                         if (idir == 0) { // cross_product(loc, mom): ang_mom(1)->x)
+                         // Explicitly computing only the required cross-product as in inertial_to_frame_velocity
+                         if (idir == 0) { // cross_product(loc, mom): angular_momentum_sum(1)->x)
                            L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
                          }
-                         else if (idir == 1) { // cross_product(loc, mom): ang_mom(2)->y)
+                         else if (idir == 1) { // cross_product(loc, mom): angular_momentum_sum(2)->y)
                            L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
                          }
-                         else { // cross_product(loc, mom): ang_mom(3)->z)
+                         else { // cross_product(loc, mom): angular_momentum_sum(3)->z)
                            L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
                          }
 
@@ -756,7 +756,7 @@ extern "C"
 
   }
 
-  void ca_derangmomy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_momentum_y (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -790,13 +790,13 @@ extern "C"
                            loc[dir] -= problem::center[dir];
                          }
 
-                         if (idir == 0) { // cross_product(loc, mom): ang_mom(1)->x)
+                         if (idir == 0) { // cross_product(loc, mom): angular_momentum_sum(1)->x)
                            L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
                          }
-                         else if (idir == 1) { // cross_product(loc, mom): ang_mom(2)->y)
+                         else if (idir == 1) { // cross_product(loc, mom): angular_momentum_sum(2)->y)
                            L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
                          }
-                         else { // cross_product(loc, mom): ang_mom(3)->z)
+                         else { // cross_product(loc, mom): angular_momentum_sum(3)->z)
                            L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
                          }
 
@@ -804,7 +804,7 @@ extern "C"
 
   }
 
-  void ca_derangmomz (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_ang_momentum_z (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -839,13 +839,13 @@ extern "C"
                            loc[dir] -= problem::center[dir];
                          }
 
-                         if (idir == 0) { // cross_product(loc, mom): ang_mom(1)->x)
+                         if (idir == 0) { // cross_product(loc, mom): angular_momentum_sum(1)->x)
                            L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
                          }
-                         else if (idir == 1) { // cross_product(loc, mom): ang_mom(2)->y)
+                         else if (idir == 1) { // cross_product(loc, mom): angular_momentum_sum(2)->y)
                            L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
                          }
-                         else { // cross_product(loc, mom): ang_mom(3)->z)
+                         else { // cross_product(loc, mom): angular_momentum_sum(3)->z)
                            L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
                          }
 
@@ -853,7 +853,7 @@ extern "C"
 
   }
 
-  void ca_derkineng (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_kinetic_energy (const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -871,7 +871,7 @@ extern "C"
 
   }
 
-  void ca_dernull(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
+  void derive_noop(Real* /*der*/, const int* /*der_lo*/, const int* /*der_hi*/, const int* /*nvar*/,
                   const Real* /*data*/, const int* /*data_lo*/, const int* /*data_hi*/, const int* /*ncomp*/,
                   const int* /*lo*/, const int* /*hi*/,
                   const int* /*domain_lo*/, const int* /*domain_hi*/,
@@ -884,7 +884,7 @@ extern "C"
 
   }
 
-  void ca_derspec(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_mass_fraction(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -900,7 +900,7 @@ extern "C"
     }
 
 
-  void ca_derye(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_elec_frac(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                 const FArrayBox& datfab, const Geometry& /*geom*/,
                 Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -922,7 +922,7 @@ extern "C"
       });
     }
 
-  void ca_derabar(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_atomic_mass(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& /*geom*/,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -944,7 +944,7 @@ extern "C"
       });
     }
 
-  void ca_dermagvort(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_vorticity(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& geom,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1011,24 +1011,24 @@ extern "C"
           Real rp1 = (static_cast<Real>(i) + 1.5_rt)*dx[0] + problo[0];
 
           // dv_r/dz
-          Real vr_z = 0.5_rt * (dat(i,j+1,k,1) / dat(i,j+1,k,0) -
+          Real rad_vel_dz = 0.5_rt * (dat(i,j+1,k,1) / dat(i,j+1,k,0) -
                                 dat(i,j-1,k,1) / dat(i,j-1,k,0)) / dx[1];
 
           // dv_phi/dz
-          Real vphi_z = 0.5_rt * (dat(i,j+1,k,3) / dat(i,j+1,k,0) -
+          Real phi_vel_dz = 0.5_rt * (dat(i,j+1,k,3) / dat(i,j+1,k,0) -
                                   dat(i,j-1,k,3) / dat(i,j-1,k,0)) / dx[1];
 
           // d (r v_phi)/dr
-          Real rvphi_r = 0.5_rt * (rp1 * dat(i+1,j,k,3) / dat(i+1,j,k,0) -
+          Real ang_mom_dr = 0.5_rt * (rp1 * dat(i+1,j,k,3) / dat(i+1,j,k,0) -
                                    rm1 * dat(i-1,j,k,3) / dat(i-1,j,k,0)) / dx[0];
 
           // dv_z/dr
-          Real vz_r = 0.5_rt * (dat(i+1,j,k,2) / dat(i+1,j,k,0) -
+          Real z_vel_dr = 0.5_rt * (dat(i+1,j,k,2) / dat(i+1,j,k,0) -
                                 dat(i-1,j,k,2) / dat(i-1,j,k,0)) / dx[0];
 
-          der(i,j,k,0) = std::sqrt(vphi_z*vphi_z +
-                                   (vr_z - vz_r)*(vr_z - vz_r) +
-                                   (rvphi_r/r)*(rvphi_r/r));
+          der(i,j,k,0) = std::sqrt(phi_vel_dz*phi_vel_dz +
+                                   (rad_vel_dz - z_vel_dr)*(rad_vel_dz - z_vel_dr) +
+                                   (ang_mom_dr/r)*(ang_mom_dr/r));
 #else
           // for 1-d axisymmetric, we just set vorticity to 0
           der(i,j,k,0) = 0.0_rt;
@@ -1044,28 +1044,28 @@ extern "C"
           Real rp1 = (static_cast<Real>(i) + 1.5_rt)*dx[0] + problo[0];
 
           Real sinc  = std::sin((static_cast<Real>(j) + 0.5_rt)*dx[1] + problo[1]);
-          Real sinm1 = std::sin((static_cast<Real>(j) - 0.5_rt)*dx[1] + problo[1]);
-          Real sinp1 = std::sin((static_cast<Real>(j) + 1.5_rt)*dx[1] + problo[1]);
+          Real sin_prev_ctr = std::sin((static_cast<Real>(j) - 0.5_rt)*dx[1] + problo[1]);
+          Real sin_next_ctr = std::sin((static_cast<Real>(j) + 1.5_rt)*dx[1] + problo[1]);
 
-          // d (sin(theta) v_phi)/dtheta
-          Real sinvphi_theta = 0.5_rt * (sinp1 * dat(i,j+1,k,3) / dat(i,j+1,k,0) -
-                                         sinm1 * dat(i,j-1,k,3) / dat(i,j-1,k,0)) / dx[1];
+          // d (sin(theta) v_phi)/theta_cell_width
+          Real sin_vphi_dtheta = 0.5_rt * (sin_next_ctr * dat(i,j+1,k,3) / dat(i,j+1,k,0) -
+                                         sin_prev_ctr * dat(i,j-1,k,3) / dat(i,j-1,k,0)) / dx[1];
 
           // d (r v_phi)/dr
-          Real rvphi_r = 0.5_rt * (rp1 * dat(i+1,j,k,3) / dat(i+1,j,k,0) -
+          Real ang_mom_dr = 0.5_rt * (rp1 * dat(i+1,j,k,3) / dat(i+1,j,k,0) -
                                    rm1 * dat(i-1,j,k,3) / dat(i-1,j,k,0)) / dx[0];
 
           // d (r v_theta)/dr
-          Real rvtheta_r = 0.5_rt * (rp1 * dat(i+1,j,k,2) / dat(i+1,j,k,0) -
+          Real theta_mom_dr = 0.5_rt * (rp1 * dat(i+1,j,k,2) / dat(i+1,j,k,0) -
                                      rm1 * dat(i-1,j,k,2) / dat(i-1,j,k,0)) / dx[0];
 
-          // dv_r/dtheta
-          Real vr_theta = 0.5_rt * (dat(i,j+1,k,1) / dat(i,j+1,k,0) -
+          // dv_r/theta_cell_width
+          Real rad_vel_dtheta = 0.5_rt * (dat(i,j+1,k,1) / dat(i,j+1,k,0) -
                                     dat(i,j-1,k,1) / dat(i,j-1,k,0)) / dx[1];
 
-          der(i,j,k,0) = std::sqrt((sinvphi_theta/sinc)*(sinvphi_theta/sinc) +
-                                   (rvtheta_r - vr_theta)*(rvtheta_r - vr_theta) +
-                                   (rvphi_r*rvphi_r)) / rc;
+          der(i,j,k,0) = std::sqrt((sin_vphi_dtheta/sinc)*(sin_vphi_dtheta/sinc) +
+                                   (theta_mom_dr - rad_vel_dtheta)*(theta_mom_dr - rad_vel_dtheta) +
+                                   (ang_mom_dr*ang_mom_dr)) / rc;
 #else
           // 1-d spherical -- we don't really have a vorticity in this case
           der(i,j,k,0) = 0.0;
@@ -1074,7 +1074,7 @@ extern "C"
       });
     }
 
-  void ca_derdivu(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_flow_divergence(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                          const FArrayBox& datfab, const Geometry& geom,
                          Real /*time*/, const int* /*bcrec*/, int /*level*/)
     {
@@ -1137,17 +1137,17 @@ extern "C"
           der(i,j,k,0) = 0.5_rt * (rp1*rp1*uhi - rm1*rm1*ulo) / (r*r*dx[0]);
 #if AMREX_SPACEDIM == 2
           Real sinc = std::sin((static_cast<Real>(j) + 0.5_rt)*dx[1] + problo[1]);
-          Real sinm1 = std::sin((static_cast<Real>(j) - 0.5_rt)*dx[1] + problo[1]);
-          Real sinp1 = std::sin((static_cast<Real>(j) + 1.5_rt)*dx[1] + problo[1]);
+          Real sin_prev_ctr = std::sin((static_cast<Real>(j) - 0.5_rt)*dx[1] + problo[1]);
+          Real sin_next_ctr = std::sin((static_cast<Real>(j) + 1.5_rt)*dx[1] + problo[1]);
 
-          der(i,j,k,0) += 0.5_rt * (vhi*sinp1 - vlo*sinm1) / (r*sinc*dx[1]);
+          der(i,j,k,0) += 0.5_rt * (vhi*sin_next_ctr - vlo*sin_prev_ctr) / (r*sinc*dx[1]);
 #endif
         }
 
       });
   }
 
-  void ca_derstate(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_state_error(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                    const FArrayBox& datfab, const Geometry& /*geom*/,
                    Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1173,7 +1173,7 @@ extern "C"
   }
 
 #ifdef MHD
-  void ca_dermagcenx(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_cell_bfield_x(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1189,7 +1189,7 @@ extern "C"
 
   }
 
-  void ca_dermagceny(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_cell_bfield_y(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1205,7 +1205,7 @@ extern "C"
 
   }
 
-  void ca_dermagcenz(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_cell_bfield_z(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                      const FArrayBox& datfab, const Geometry& /*geom*/,
                      Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {
@@ -1221,7 +1221,7 @@ extern "C"
 
   }
 
-  void ca_derdivb(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
+  void derive_b_divergence(const Box& bx, FArrayBox& derfab, int /*dcomp*/, int /*ncomp*/,
                   const FArrayBox& datfab, const Geometry& geom,
                   Real /*time*/, const int* /*bcrec*/, int /*level*/)
   {

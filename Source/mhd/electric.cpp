@@ -1,12 +1,12 @@
-#include <Castro.H>
+#include <HydroSim.H>
 
-#include <mhd_util.H>
+#include <mhd_helpers.H>
 
 using namespace amrex;
 
 void
-Castro::electric_edge_x(const Box& bx,
-                        Array4<Real const> const& q_arr,
+HydroSim::edge_emf_x(const Box& bx,
+                        Array4<Real const> const& prim_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxy,
                         Array4<Real const> const& flxz) {
@@ -17,7 +17,7 @@ Castro::electric_edge_x(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    Real zone_prim[NQ];
 
     // Compute Ex(i, j-1/2, k-1/2)
 
@@ -28,19 +28,19 @@ Castro::electric_edge_x(const Box& bx,
     // via Faraday's law
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k-1,n);
+      zone_prim[n] = prim_arr(i,j-1,k-1,n);
     }
-    Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 0);
-    Real a = 2.0_rt * (-flxy(i,j,k-1,UMAGZ) - Ecen);
+    Real EmfCenter = 0.0_rt;
+    electric(zone_prim, EmfCenter, 0);
+    Real a = 2.0_rt * (-flxy(i,j,k-1,UBZ) - EmfCenter);
 
     // now compute dEx/dy_{i,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k,n);
+      zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 0);
-    Real b = 2.0_rt *(-flxy(i,j,k,UMAGZ) - Ecen);
+    electric(zone_prim, EmfCenter, 0);
+    Real b = 2.0_rt *(-flxy(i,j,k,UBZ) - EmfCenter);
 
     // Upwind in the z direction to get dEx/dy i, j-3/4, k-1/2
     // using w_{i,j-1,k-1/2}
@@ -60,18 +60,18 @@ Castro::electric_edge_x(const Box& bx,
     // first compute dEx/dy_{i,j-1/4,k-1}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k-1,n);
+      zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
-    a = 2.0_rt * (Ecen + flxy(i,j,k-1,UMAGZ));
+    electric(zone_prim, EmfCenter, 0);
+    a = 2.0_rt * (EmfCenter + flxy(i,j,k-1,UBZ));
 
     // now compute dEx/dy_{i,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 0);
-    b = 2.0_rt * (Ecen + flxy(i,j,k,UMAGZ));
+    electric(zone_prim, EmfCenter, 0);
+    b = 2.0_rt * (EmfCenter + flxy(i,j,k,UBZ));
 
     // finally upwind in the z direction to get dEx/dy i, j-1/4, k-1/2
     // using w_{i,j,k-1/2}
@@ -97,18 +97,18 @@ Castro::electric_edge_x(const Box& bx,
     // note that the face value of Ex_{i,j-1,k-1/2} = F_{i,j-1,k-1/2}(By)
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k-1,n);
+      zone_prim[n] = prim_arr(i,j-1,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
-    a = 2.0_rt * (flxz(i,j-1,k,UMAGY) - Ecen);
+    electric(zone_prim, EmfCenter, 0);
+    a = 2.0_rt * (flxz(i,j-1,k,UBY) - EmfCenter);
 
     // now compute dEx/dz_{i,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k-1,n);
+      zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 0);
-    b = 2.0_rt * (flxz(i,j,k,UMAGY) - Ecen);
+    electric(zone_prim, EmfCenter, 0);
+    b = 2.0_rt * (flxz(i,j,k,UBY) - EmfCenter);
 
     // upwind in the y direction to get dEx/dz i, j-1/2, k-3/4
     // using v_{i,j-1/2,k-1}
@@ -126,18 +126,18 @@ Castro::electric_edge_x(const Box& bx,
     // first compute dEx/dz_{i,j-1,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k,n);
+      zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 0);
-    a = 2.0_rt * (Ecen - flxz(i,j-1,k,UMAGY));
+    electric(zone_prim, EmfCenter, 0);
+    a = 2.0_rt * (EmfCenter - flxz(i,j-1,k,UBY));
 
     // now compute dEx/dz_{i,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 0);
-    b = 2.0_rt * (Ecen - flxz(i,j,k,UMAGY));
+    electric(zone_prim, EmfCenter, 0);
+    b = 2.0_rt * (EmfCenter - flxz(i,j,k,UBY));
 
     // upwind in the y direction to get dEx/dz i, j-1/2, k-1/4
     // using v_{i,j-1/2,k}
@@ -156,15 +156,15 @@ Castro::electric_edge_x(const Box& bx,
 
     // now the final Ex_{i,j-1/2,k-1/2} (shifted to j-1/2, k-1/2)
 
-    E(i,j,k) = 0.25_rt * (-flxy(i,j,k,UMAGZ) - flxy(i,j,k-1,UMAGZ) +
-                          flxz(i,j-1,k,UMAGY) + flxz(i,j,k,UMAGY)) + dd1 + dd2;
+    E(i,j,k) = 0.25_rt * (-flxy(i,j,k,UBZ) - flxy(i,j,k-1,UBZ) +
+                          flxz(i,j-1,k,UBY) + flxz(i,j,k,UBY)) + dd1 + dd2;
 
   });
 }
 
 void
-Castro::electric_edge_y(const Box& bx,
-                        Array4<Real const> const& q_arr,
+HydroSim::edge_emf_y(const Box& bx,
+                        Array4<Real const> const& prim_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxx,
                         Array4<Real const> const& flxz) {
@@ -175,7 +175,7 @@ Castro::electric_edge_y(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    Real zone_prim[NQ];
 
     // Compute Ey(i-1/2, j, k-1/2)
 
@@ -184,19 +184,19 @@ Castro::electric_edge_y(const Box& bx,
     // first compute dEy/dz_{i-1,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k-1,n);
+      zone_prim[n] = prim_arr(i-1,j,k-1,n);
     }
-    Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 1);
-    Real a = 2.0_rt * (-flxz(i-1,j,k,UMAGX) - Ecen);
+    Real EmfCenter = 0.0_rt;
+    electric(zone_prim, EmfCenter, 1);
+    Real a = 2.0_rt * (-flxz(i-1,j,k,UBX) - EmfCenter);
 
     // now compute dEy/dz_{i,j,k-3/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k-1,n);
+      zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
-    Real b = 2.0_rt * (-flxz(i,j,k,UMAGX) - Ecen);
+    electric(zone_prim, EmfCenter, 1);
+    Real b = 2.0_rt * (-flxz(i,j,k,UBX) - EmfCenter);
 
     // upwind in the x direction to get dEy/dz i-1/2, j, k-3/4
     // using u_{i-1/2,j,k-1}
@@ -215,18 +215,18 @@ Castro::electric_edge_y(const Box& bx,
     // first compute dEy/dz_{i-1,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k,n);
+      zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
-    a = 2.0_rt * (Ecen + flxz(i-1,j,k,UMAGX));
+    electric(zone_prim, EmfCenter, 1);
+    a = 2.0_rt * (EmfCenter + flxz(i-1,j,k,UBX));
 
     // now compute dEy/dz_{i,j,k-1/4}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
-    b = 2.0_rt * (Ecen + flxz(i,j,k,UMAGX));
+    electric(zone_prim, EmfCenter, 1);
+    b = 2.0_rt * (EmfCenter + flxz(i,j,k,UBX));
 
     // upwind in the x direction to get dEy/dz i-1/2, j, k-1/4
     // using u_{i-1/2.j,k}
@@ -251,18 +251,18 @@ Castro::electric_edge_y(const Box& bx,
     // first compute dEy/dz_{i-3/4,j,k-1}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k-1,n);
+      zone_prim[n] = prim_arr(i-1,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
-    a = 2.0_rt * (flxx(i,j,k-1,UMAGZ) - Ecen);
+    electric(zone_prim, EmfCenter, 1);
+    a = 2.0_rt * (flxx(i,j,k-1,UBZ) - EmfCenter);
 
     // next compute dEy/dz_{i-3/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k,n);
+      zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
-    b = 2.0_rt * (flxx(i,j,k,UMAGZ) - Ecen);
+    electric(zone_prim, EmfCenter, 1);
+    b = 2.0_rt * (flxx(i,j,k,UBZ) - EmfCenter);
 
     // upwind in the z direction to get dEy/dx i-3/4, j, k-1/2
     // using w_{i-1,j,k-1/2}
@@ -280,18 +280,18 @@ Castro::electric_edge_y(const Box& bx,
     // first compute dEy/dx_{i-1/4,j,k-1}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k-1,n);
+      zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(q_zone, Ecen, 1);
-    a = 2.0_rt * (Ecen - flxx(i,j,k-1,UMAGZ));
+    electric(zone_prim, EmfCenter, 1);
+    a = 2.0_rt * (EmfCenter - flxx(i,j,k-1,UBZ));
 
     // next compute dEy/dx_{i-1/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 1);
-    b = 2.0_rt * (Ecen - flxx(i,j,k,UMAGZ));
+    electric(zone_prim, EmfCenter, 1);
+    b = 2.0_rt * (EmfCenter - flxx(i,j,k,UBZ));
 
     // upwind in the z direction for i-1/4, j, k-1/2
     // using w_{i,j,k-1/2}
@@ -310,16 +310,16 @@ Castro::electric_edge_y(const Box& bx,
 
     // now the final Ey_{i-1/2, j, k-1/2}
 
-    E(i,j,k) = 0.25_rt * (-flxz(i,j,k,UMAGX) - flxz(i-1,j,k,UMAGX) +
-                          flxx(i,j,k-1,UMAGZ) + flxx(i,j,k,UMAGZ)) + dd1 + dd2;
+    E(i,j,k) = 0.25_rt * (-flxz(i,j,k,UBX) - flxz(i-1,j,k,UBX) +
+                          flxx(i,j,k-1,UBZ) + flxx(i,j,k,UBZ)) + dd1 + dd2;
 
   });
 }
 
 
 void
-Castro::electric_edge_z(const Box& bx,
-                        Array4<Real const> const& q_arr,
+HydroSim::edge_emf_z(const Box& bx,
+                        Array4<Real const> const& prim_arr,
                         Array4<Real> const& E,
                         Array4<Real const> const& flxx,
                         Array4<Real const> const& flxy) {
@@ -330,7 +330,7 @@ Castro::electric_edge_z(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real q_zone[NQ];
+    Real zone_prim[NQ];
 
     // Compute Ez(i-1/2, j-1/2, k)
 
@@ -339,19 +339,19 @@ Castro::electric_edge_z(const Box& bx,
     // first compute dEz/dx_{i-3/4,j-1,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j-1,k,n);
+      zone_prim[n] = prim_arr(i-1,j-1,k,n);
     }
-    Real Ecen = 0.0_rt;
-    electric(q_zone, Ecen, 2);
-    Real a = 2.0_rt * (-flxx(i,j-1,k,UMAGY) - Ecen);
+    Real EmfCenter = 0.0_rt;
+    electric(zone_prim, EmfCenter, 2);
+    Real a = 2.0_rt * (-flxx(i,j-1,k,UBY) - EmfCenter);
 
     //  next dEz/dx_{i-3/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k,n);
+      zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    Real b = 2.0_rt * (-flxx(i,j,k,UMAGY) - Ecen);
+    electric(zone_prim, EmfCenter, 2);
+    Real b = 2.0_rt * (-flxx(i,j,k,UBY) - EmfCenter);
 
     // upwind in the y direction to get dEz/dx i-3/4, j-1/2, k
     // using v_{i-1,j-1/2,k}
@@ -370,18 +370,18 @@ Castro::electric_edge_z(const Box& bx,
     // first compute dEz/dx_{i-1/4,j-1,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k,n);
+      zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    a = 2.0_rt * (Ecen + flxx(i,j-1,k,UMAGY));
+    electric(zone_prim, EmfCenter, 2);
+    a = 2.0_rt * (EmfCenter + flxx(i,j-1,k,UBY));
 
     // next dEz/dx_{i-1/4,j,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    b = 2.0_rt * (Ecen + flxx(i,j,k,UMAGY));
+    electric(zone_prim, EmfCenter, 2);
+    b = 2.0_rt * (EmfCenter + flxx(i,j,k,UBY));
 
     // upwind in the y direction to get dEz/dx i-1/4, j-1/2, k
     // using v_{i,j-1/2,k}
@@ -406,18 +406,18 @@ Castro::electric_edge_z(const Box& bx,
     // first compute dEz/dy_{i-1,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j-1,k,n);
+      zone_prim[n] = prim_arr(i-1,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    a = 2.0_rt * (flxy(i-1,j,k,UMAGX) - Ecen);
+    electric(zone_prim, EmfCenter, 2);
+    a = 2.0_rt * (flxy(i-1,j,k,UBX) - EmfCenter);
 
     // now compute dEz/dy_{i,j-3/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j-1,k,n);
+      zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    b = 2.0_rt * (flxy(i,j,k,UMAGX) - Ecen);
+    electric(zone_prim, EmfCenter, 2);
+    b = 2.0_rt * (flxy(i,j,k,UBX) - EmfCenter);
 
     // upwind in the x direction to get dEz/dy i-1/2, j-3/4, k
     // using u_{i-1/2,j-1,k}
@@ -435,18 +435,18 @@ Castro::electric_edge_z(const Box& bx,
     // first compute dEz/dy_{i-1,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i-1,j,k,n);
+      zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    a = 2.0_rt * (Ecen - flxy(i-1,j,k,UMAGX));
+    electric(zone_prim, EmfCenter, 2);
+    a = 2.0_rt * (EmfCenter - flxy(i-1,j,k,UBX));
 
     // now compute dEz/dy_{i,j-1/4,k}
 
     for (int n = 0; n < NQ; n++) {
-      q_zone[n] = q_arr(i,j,k,n);
+      zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(q_zone, Ecen, 2);
-    b = 2.0_rt * (Ecen - flxy(i,j,k,UMAGX));
+    electric(zone_prim, EmfCenter, 2);
+    b = 2.0_rt * (EmfCenter - flxy(i,j,k,UBX));
 
     // Upwind in the x direction for i-1/2, j-1/4, k
     // using u_{i-1/2,j,k}
@@ -465,8 +465,8 @@ Castro::electric_edge_z(const Box& bx,
 
     // compute Ez i-1/2, j-1/2, k
 
-    E(i,j,k) = 0.25_rt * (-flxx(i,j,k,UMAGY) - flxx(i,j-1,k,UMAGY) +
-                          flxy(i-1,j,k,UMAGX) + flxy(i,j,k,UMAGX)) + dd1 + dd2;
+    E(i,j,k) = 0.25_rt * (-flxx(i,j,k,UBY) - flxx(i,j-1,k,UBY) +
+                          flxy(i-1,j,k,UBX) + flxy(i,j,k,UBX)) + dd1 + dd2;
 
   });
 }

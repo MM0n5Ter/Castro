@@ -23,7 +23,7 @@ amr.n_error_buf     = 2 2 2 2 2 2 # number of buffer cells in error est
 amr.n_proper        = 1       # default value
 amr.grid_eff        = 0.7     # what constitutes an efficient grid
 
-amr.refinement_indicators = tempgrad_rel
+amr.refine_criteria = tempgrad_rel
 
 amr.refine.tempgrad_rel.max_level = 14
 amr.refine.tempgrad_rel.relative_gradient = 0.1
@@ -68,40 +68,40 @@ amr.grid_log        = grdlog  # name of grid logging file
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2    4    4
-castro.hi_bc       =  2    4    4
+hydrosim.lo_bc       =  2    4    4
+hydrosim.hi_bc       =  2    4    4
 
 # WHICH PHYSICS
-castro.do_grav        = 0
-castro.do_hydro       = 1
-castro.do_radiation   = 1
-castro.do_reflux      = 1       # 1 => do refluxing
-castro.do_react       = 0       # reactions?
+hydrosim.do_gravity_flag        = 0
+hydrosim.do_hydro       = 1
+hydrosim.do_radiative_transfer   = 1
+hydrosim.do_reflux      = 1       # 1 => do refluxing
+hydrosim.do_react       = 0       # reactions?
 
 # hydro cutoff parameters
-castro.small_dens     = 1.e-20
+hydrosim.small_dens     = 1.e-20
 
 # External source terms
-castro.add_ext_src=0            #  Add external source terms
+hydrosim.enable_extra_source=0            #  Add external source terms
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1 
-#castro.initial_dt     = 0.01
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1 
+#hydrosim.first_step_dt     = 0.01
 
-#castro.fixed_dt       = 1.e-15
+#hydrosim.constant_dt       = 1.e-15
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v = 1
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v = 1
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
-##### SolverType #####
+##### SolverKind #####
 # 0: single group diffusion w/o coupling to hydro
-# 5: SGFLD       6: MGFLD
-radiation.SolverType = 6
+# 5: SGFLD       6: MultigroupDiffusion
+radiation.SolverKind = 6
 
 radiation.nGroups = 16
 radiation.lowestGroupHz = 1.e10
@@ -110,13 +110,13 @@ radiation.highestGroupHz = 2.e14
 radiation.accelerate = 1
 
 radiation.do_fspace_advection = 1
-radiation.Er_Lorentz_term = 0
+radiation.lorentz_energy_term = 0
 
 # RADIATION TOLERANCES
 radiation.reltol  = 1.e-6 # relative tolerance for implicit update loop
 radiation.abstol  = 0.0   # absolute tolerance for implicit update loop
 radiation.maxiter = 50    # return after numiter iterations if not converged
-radiation.maxInIter = 30      # return after numiter iterations if not converged
+radiation.maxInnerIter = 30      # return after numiter iterations if not converged
 
 # RADIATION LIMITER
 radiation.limiter = 0     # 0 = no limiter
@@ -137,10 +137,10 @@ radiation.hi_bc     = 101 102 102
 # or use a Fortran function FORT_RADBNDRY to specify values that vary
 # in space and time.
 
-# If bcflag is 0 then bcval is used, otherwise FORT_RADBNDRY used:
+# If bc_kind is 0 then bcval is used, otherwise FORT_RADBNDRY used:
 
-radiation.lo_bcflag = 0 0 0
-radiation.hi_bcflag = 0 0 0
+radiation.lo_bc_kind = 0 0 0
+radiation.hi_bc_kind = 0 0 0
 
 # bcval is interpreted differently depending on the boundary condition
 # 101 = LO_DIRICHLET           bcval is Dirichlet value of rad energy density
@@ -148,8 +148,8 @@ radiation.hi_bcflag = 0 0 0
 # 104 = LO_MARSHAK             bcval is incident flux
 # 105 = LO_SANCHEZ_POMRANING   bcval is incident flux
 
-# radiation.lo_bcval = 0 0 0
-# radiation.hi_bcval = 0 0 0
+# radiation.lo_bc_value = 0 0 0
+# radiation.hi_bc_value = 0 0 0
 
 radiation.lo_bcval0 = 3.27517624962438426E-014 2.82440556862939748E-013 \
 2.42497757527818012E-012 2.06318928406580997E-011 \
@@ -171,12 +171,12 @@ radiation.hi_bcval0 = 6.81835171549573965E-014 5.89264374490598366E-013 \
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use AlphaBetaSolver, support symmetric matrices only
+# solver flag values >= 100 use MultiLevelEllipticSolver, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
-# For MGFLD with accelerate = 2, must use >=100.
+# For MultigroupDiffusion with accelerate = 2, must use >=100.
 #
 # 0     SMG
 # 1     PFMG  (>= 2D only)
@@ -189,16 +189,16 @@ radiation.hi_bcval0 = 6.81835171549573965E-014 5.89264374490598366E-013 \
 # 1002  PCG   using ParCSR ObjectType
 # 1003  PCG   using SStruct ObjectType
 
-radsolve.level_solver_flag = 0   # can be any supported hypre solver flag
+radiation_solve.level_solver_kind = 0   # can be any supported hypre solver flag
 
-radsolve.reltol     = 1.0e-11 # relative tolerance
-radsolve.abstol     = 0.0     # absolute tolerance (often not necessary)
-radsolve.maxiter    = 200     # linear solver iteration limit
+radiation_solve.reltol     = 1.0e-11 # relative tolerance
+radiation_solve.abstol     = 0.0     # absolute tolerance (often not necessary)
+radiation_solve.maxiter    = 200     # linear solver iteration limit
 
-radsolve.v = 1      # verbosity
+radiation_solve.v = 1      # verbosity
 
-hmabec.verbose = 1  # verbosity for HypreMultiABec solvers
-habec.verbose  = 1  # verbosity for HypreABec solvers
+hmabec.verbose = 1  # verbosity for MultiLevelEllipticSolver solvers
+habec.verbose  = 1  # verbosity for AlphaBetaSolver solvers
 
 #
 # The default strategy is SFC.

@@ -15,7 +15,7 @@ amr.n_error_buf      = 0 0 0 0 0 0 0 0 0 0 0
 amr.blocking_factor  = 8
 amr.max_grid_size    = 8
 
-amr.refinement_indicators = denerr
+amr.refine_criteria = denerr
 
 amr.refine.denerr.value_greater = 1.0e0
 amr.refine.denerr.field_name = density
@@ -26,21 +26,21 @@ amr.refine.denerr.field_name = density
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.lo_bc       =  2   2   2
-castro.hi_bc       =  2   2   2
+hydrosim.lo_bc       =  2   2   2
+hydrosim.hi_bc       =  2   2   2
 
 # WHICH PHYSICS
-castro.do_hydro = 0
-castro.do_grav  = 1
+hydrosim.do_hydro = 0
+hydrosim.do_gravity_flag  = 1
 
 # GRAVITY
-gravity.gravity_type = PoissonGrav # Full self-gravity with the Poisson equation
-gravity.max_multipole_order = 0    # Multipole expansion includes terms up to r**(-max_multipole_order)
+gravity.gravity_model_name = PoissonGrav # Full self-gravity with the Poisson equation
+gravity.multipole_order_cap = 0    # Multipole expansion includes terms up to r**(-multipole_order_cap)
 gravity.rel_tol = 1.e-12           # Relative tolerance for multigrid solver
-gravity.direct_sum_bcs = 1         # Calculate boundary conditions exactly
+gravity.boundary_direct_sum = 1         # Calculate boundary conditions exactly
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing integrals
+hydrosim.sum_step_period   = 1       # timesteps between computing integrals
 amr.data_log          = grid_diag.out
 
 # CHECKPOINT FILES

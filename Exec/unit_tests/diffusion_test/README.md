@@ -1,14 +1,14 @@
 # Problem Setup
 
 This is a pure diffusion problem (no hydro).  It uses the explicit
-diffusion solver in Castro to diffuse a Gaussian thermal pulse.
-Because diffusion in Castro is incorporated in the energy equation, we
+diffusion solver in HydroSim to diffuse a Gaussian thermal pulse.
+Because diffusion in HydroSim is incorporated in the energy equation, we
 are solving:
 
    d(ρe)/dt = ∇·(k ∇T)
 
 where L is the Laplacian and k is the thermal conductivity.  Here we
-assume that k is constant, but Castro does not require that
+assume that k is constant, but HydroSim does not require that
 assumption.  For this problem, we take ρ = constant, and using a
 gamma-law EOS, we have e = c_v T, so this can take the form of a
 diffusion equation as:
@@ -34,7 +34,7 @@ analytic solution at the time of the plotfile output.  This allows you
 to compare the current solution to the analytic solution to assess the
 error.
 
-It also will use the Castro problem-specific post-simulation hooks (in
+It also will use the HydroSim problem-specific post-simulation hooks (in
 `Prob.cpp`) to output the L-inf norm of the error (numerical vs
 analyic solution) at the end of the simulation.  This can be used
 for convergence testing.
@@ -48,9 +48,9 @@ the diffusion in 2-d cylindrical axisymmetric coordinates,
 with 2 levels of refinement can be run as:
 
 ```
-./Castro2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=64  128
-./Castro2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=128 256
-./Castro2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=256 512
+./HydroSim2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=64  128
+./HydroSim2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=128 256
+./HydroSim2d.gnu.ex inputs.2d.axisymmetric amr.n_cell=256 512
 ```
 
 At the end, each run will report the norm of the error against the
@@ -74,9 +74,9 @@ refinement criteria.
 Run with:
 
 ```
-./Castro2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=64 64
-./Castro2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=128 128
-./Castro2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=256 256
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=64 64
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=128 128
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.bessel amr.n_cell=256 256
 ```
 
 After each run, the norm of the error against the analytic solution
@@ -97,9 +97,9 @@ the Gaussian wave must be initialized along the symmetry axis.
 To test θ dependence, it needs to be initialized off from the center.
 Run with:
 ```
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=64 64   problem.center=0.6 0 0
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=128 128 problem.center=0.6 0 0
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=256 256 problem.center=0.6 0 0
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=64 64   problem.center=0.6 0 0
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=128 128 problem.center=0.6 0 0
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.n_cell=256 256 problem.center=0.6 0 0
 ```
 where the Gaussian wave is initialized at r=0.6 and θ=0.
 
@@ -117,10 +117,10 @@ We again get 2nd order accuracy against analytic solution, this time with AMR.
 A convergence test of the 4th-order SDC algorithm can be run as:
 
 ```
-./Castro1d.gnu.TRUESDC.ex inputs.1d castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=64
-./Castro1d.gnu.TRUESDC.ex inputs.1d castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=128
-./Castro1d.gnu.TRUESDC.ex inputs.1d castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=256
-./Castro1d.gnu.TRUESDC.ex inputs.1d castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=512
+./HydroSim1d.gnu.TRUESDC.ex inputs.1d hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=64
+./HydroSim1d.gnu.TRUESDC.ex inputs.1d hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=128
+./HydroSim1d.gnu.TRUESDC.ex inputs.1d hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=256
+./HydroSim1d.gnu.TRUESDC.ex inputs.1d hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=512
 ```
 
 Note: this is Cartesian, not spherical (since we don't have spherical
@@ -157,11 +157,11 @@ conductivity we do:
 Tests can be run as:
 
 ```
- ./Castro1d.gnu.ex inputs.1d.powerlaw amr.n_cell=64
+ ./HydroSim1d.gnu.ex inputs.1d.powerlaw amr.n_cell=64
  mv diffuse_plt00048 diffuse_64
- ./Castro1d.gnu.ex inputs.1d.powerlaw
+ ./HydroSim1d.gnu.ex inputs.1d.powerlaw
  mv diffuse_plt00191 diffuse_128
- ./Castro1d.gnu.ex inputs.1d.powerlaw amr.n_cell=256
+ ./HydroSim1d.gnu.ex inputs.1d.powerlaw amr.n_cell=256
  mv diffuse_plt00761 diffuse_256
 ```
 
@@ -212,13 +212,13 @@ make DIM=1 CONDUCTIVITY_DIR=powerlaw -j 20
 and then run as:
 
 ```
-./Castro1d.gnu.ex inputs.1d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=64
+./HydroSim1d.gnu.ex inputs.1d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=64
 mv diffuse_plt00048 diffuse_64
-./Castro1d.gnu.ex inputs.1d.powerlaw castro.time_integration_method=2 castro.sdc_order=4
+./HydroSim1d.gnu.ex inputs.1d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4
 mv diffuse_plt00190 diffuse_128
-./Castro1d.gnu.ex inputs.1d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=256
+./HydroSim1d.gnu.ex inputs.1d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=256
 mv diffuse_plt00760 diffuse_256
-./Castro1d.gnu.ex inputs.1d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=512
+./HydroSim1d.gnu.ex inputs.1d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=512
 mv diffuse_plt03040 diffuse_512
 
 RichardsonConvergenceTest1d.gnu.ex coarFile=diffuse_64 mediFile=diffuse_128 fineFile=diffuse_256 > convergence_diffusion.1d.lo.sdc4.out
@@ -264,13 +264,13 @@ make DIM=2 CONDUCTIVITY_DIR=powerlaw -j 20 USE_MPI=TRUE
 and then run as:
 
 ```
-mpiexec -n 16 ./Castro2d.gnu.MPI.ex inputs.2d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=64 64
+mpiexec -n 16 ./HydroSim2d.gnu.MPI.ex inputs.2d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=64 64
 mv diffuse_plt00039 diffuse_2d_64
-mpiexec -n 16 ./Castro2d.gnu.MPI.ex inputs.2d.powerlaw castro.time_integration_method=2 castro.sdc_order=4
+mpiexec -n 16 ./HydroSim2d.gnu.MPI.ex inputs.2d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4
 mv diffuse_plt00157 diffuse_2d_128
-mpiexec -n 16 ./Castro2d.gnu.MPI.ex inputs.2d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=256 256
+mpiexec -n 16 ./HydroSim2d.gnu.MPI.ex inputs.2d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=256 256
 mv diffuse_plt00626 diffuse_2d_256
-mpiexec -n 16 ./Castro2d.gnu.MPI.ex inputs.2d.powerlaw castro.time_integration_method=2 castro.sdc_order=4 amr.n_cell=512 512
+mpiexec -n 16 ./HydroSim2d.gnu.MPI.ex inputs.2d.powerlaw hydrosim.time_scheme=2 hydrosim.sdc_accuracy_order=4 amr.n_cell=512 512
 mv diffuse_plt02504 diffuse_2d_512
 
 RichardsonConvergenceTest2d.gnu.ex coarFile=diffuse_2d_64 mediFile=diffuse_2d_128 fineFile=diffuse_2d_256 > convergence_diffusion.2d.lo.sdc4.out
@@ -317,13 +317,13 @@ make DIM=2 CONDUCTIVITY_DIR=powerlaw -j 20
 Now run using:
 
 ```
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=32 32 castro.fixed_dt=3.2e-6
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=32 32 hydrosim.constant_dt=3.2e-6
 mv diffuse_plt00314 diffuse_sph_32
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=64 64 castro.fixed_dt=1.6e-6
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=64 64 hydrosim.constant_dt=1.6e-6
 mv diffuse_plt00626 diffuse_sph_64
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=128 128 castro.fixed_dt=8.e-7
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=128 128 hydrosim.constant_dt=8.e-7
 mv diffuse_plt01251 diffuse_sph_128
-./Castro2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=256 256 castro.fixed_dt=4.e-7
+./HydroSim2d.gnu.MPI.ex inputs.2d.sph.gaussian amr.plot_per = 0.001 amr.n_cell=256 256 hydrosim.constant_dt=4.e-7
 mv diffuse_plt02501 diffuse_sph_256
 ```
 
@@ -347,7 +347,7 @@ Level  L1 norm of Error in Each Component
                  entropy        2.867059e+04       1.786225   8.312456e+03
             thermal_cond        6.322558e-04       1.841497   1.764196e-04
               diff_coeff        6.322558e-04       1.841497   1.764196e-04
-               diff_term        2.631251e-01       1.915835   6.973300e-02
+               diffusion_term        2.631251e-01       1.915835   6.973300e-02
 ```
 
 For the higher resolution runs, e.g. `convergence_diffusion.2d.hi.out`:
@@ -368,5 +368,5 @@ Warning: BoxArray lengths are not the same at level 0
                  entropy        8.312456e+03       2.020431   2.048891e+03
             thermal_cond        1.764196e-04       2.066769   4.211021e-05
               diff_coeff        1.764196e-04       2.066769   4.211021e-05
-               diff_term        6.973300e-02       1.903361   1.864102e-02
+               diffusion_term        6.973300e-02       1.903361   1.864102e-02
 ```

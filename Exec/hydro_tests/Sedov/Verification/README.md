@@ -1,10 +1,10 @@
 The Verification directory contains the analytic solutions for the
 Sedov problem
 
-To compare Castro output, we need to radially bin the plotfile data to
+To compare HydroSim output, we need to radially bin the plotfile data to
 get density, total velocity, and pressure as a function of radius.
 This can be accomplished using main.cpp routine in
-Castro/Diagnostics/Sedov
+HydroSim/Diagnostics/Sedov
 
 Cylindrical explosion is available in 1-d cylindrical and
 2-d Cartesian coordinates using inputs.1d.cyl and inputs.2d.cyl_in_cartcoords,
@@ -22,12 +22,12 @@ For the 2-d Cylindrical explosion in Cartesian coordinates:
     ```
   * run:
     ```
-    ./Castro2d.gnu.MPI.ex inputs.2d.cyl_in_cartcoords
+    ./HydroSim2d.gnu.MPI.ex inputs.2d.cyl_in_cartcoords
     ```
 
   * create the angle-averaged profile:
 
-    compile main.cpp in Castro/Diagnostics/Sedov as:
+    compile main.cpp in HydroSim/Diagnostics/Sedov as:
     ```
     make DIM=2
     ```
@@ -52,7 +52,7 @@ NOTES:
 
   * To get good agreement with the analytic solution for the Sedov
     problem, it is necessary to start off with a small timestep.  This
-    is accomplished by setting castro.init_shrink = 0.1 in the inputs
+    is accomplished by setting hydrosim.init_dt_shrink = 0.1 in the inputs
     file.
 
   * Subsampling is critical to ensure that the perturbation is as

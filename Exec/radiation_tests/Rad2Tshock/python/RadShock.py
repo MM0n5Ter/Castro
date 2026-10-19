@@ -207,7 +207,7 @@ def TwoTShock(P0=1.0e-4, gamma=5./3., sigma=1.0e6, kappa=1., M0=2):
             rhop = rhopre[ilast]
             vp = vpre[ilast]
             Tp = Tpre[ilast]
-            thetap = thetapre[ilast]
+            theta_plus = thetapre[ilast]
             pp = peos(rhop, Tp)
             ep = eeos(Tp)
             Ep = ep + 0.5*vp**2

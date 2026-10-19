@@ -15,8 +15,8 @@ USE_PARTICLES = FALSE
 USE_MHD = TRUE
 
 
-# define the location of the CASTRO top directory
-CASTRO_HOME  ?= ../../..
+# define the location of the HYDROSIM top directory
+HYDROSIM_HOME  ?= ../../..
 
 # This sets the EOS directory in $(MICROPHYSICS_HOME)/EOS
 EOS_DIR     := gamma_law
@@ -30,4 +30,4 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim

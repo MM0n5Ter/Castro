@@ -14,71 +14,71 @@ amr.n_cell           = 512
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  1
-castro.hi_bc       =  1
+hydrosim.lo_bc       =  1
+hydrosim.hi_bc       =  1
 
 
-castro.xl_ext_bc_type = 1
-castro.hse_interp_temp = 1
-castro.hse_reflect_vels = 1
-castro.hse_zero_vels=0
+hydrosim.xl_bc_kind = 1
+hydrosim.hse_temp_extrap = 1
+hydrosim.hse_mirror_vel = 1
+hydrosim.hse_rest_vel=0
 
 fab.format=NATIVE_32
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 0
-castro.add_ext_src = 0
-castro.do_grav = 1
-castro.do_sponge = 1
-castro.do_radiation = 1
-castro.do_rotation = 0
-castro.do_reflux      = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 0
+hydrosim.enable_extra_source = 0
+hydrosim.do_gravity_flag = 1
+hydrosim.do_damping_zone = 1
+hydrosim.do_radiative_transfer = 1
+hydrosim.do_frame_spin = 0
+hydrosim.do_reflux      = 1
 
 
-#castro.do_tracer_particles      = 1
-#particles.particle_init_file    = particle_file   # initial position of particles
-#particles.particle_restart_file = xxxxx           # we can add new particles at restart
-#particles.timestamp_dir         = particle_dir    # directory for output
-#particles.timestamp_density     = 1
-#particles.timestamp_temperature = 1
+#hydrosim.enable_tracer_particles      = 1
+#particles.particle_seed_file    = particle_file   # initial position of particles
+#particles.particle_resume_file = xxxxx           # we can add new particles at restart
+#particles.snapshot_dir         = particle_dir    # directory for output
+#particles.snapshot_density     = 1
+#particles.snapshot_temperature = 1
 #particles.v                     = 1               # verbosity
 #particles.write_in_plotfile     = 1
 
 
 
 
-#castro.ppm_type = 1
-#castro.ppm_reference = 1
-#castro.ppm_reference_edge_limit = 1
-#castro.riemann_solver = 1
+#hydrosim.ppm_recon_kind = 1
+#hydrosim.ppm_reference = 1
+#hydrosim.ppm_reference_edge_limit = 1
+#hydrosim.riemann_method = 1
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -1.0e3
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -1.0e3
 
-castro.sponge_lower_factor = 0.0
-castro.sponge_upper_factor = 1.0
+hydrosim.damping_lower_factor = 0.0
+hydrosim.damping_upper_factor = 1.0
 
-castro.sponge_lower_density = 1.1e-15
-castro.sponge_upper_density = 1.0e-13
+hydrosim.damping_lower_density = 1.1e-15
+hydrosim.damping_upper_density = 1.0e-13
 
-castro.sponge_target_x_velocity = 0.0
+hydrosim.damping_target_x_velocity = 0.0
 
-castro.sponge_lower_pressure = 0.9e1
-castro.sponge_upper_pressure = 1.0e1
+hydrosim.damping_lower_pressure = 0.9e1
+hydrosim.damping_upper_pressure = 1.0e1
 
-castro.sponge_timescale    = 1.e2
+hydrosim.damping_timescale    = 1.e2
 
 # TIME STEP CONTROL
-castro.cfl            = 0.01     # cfl number for hyperbolic system
-castro.init_shrink    = 0.01     # scale back initial timestep
-castro.change_max     = 1.001     # max time step growth
+hydrosim.cfl            = 0.01     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.01     # scale back initial timestep
+hydrosim.change_max     = 1.001     # max time step growth
 
-#castro.fixed_dt = 1.3e-10
-#castro.initial_dt = 1e-4
+#hydrosim.constant_dt = 1.3e-10
+#hydrosim.first_step_dt = 1e-4
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING 
@@ -156,14 +156,14 @@ amr.data_log = log
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
-##### SolverType #####
+##### SolverKind #####
 # 0: single group diffusion w/o coupling to hydro
-# 5: SGFLD       6: MGFLD
-radiation.SolverType = 5
+# 5: SGFLD       6: MultigroupDiffusion
+radiation.SolverKind = 5
 
-radiation.comoving = 0
+radiation.moving_frame = 0
 
-radiation.Er_Lorentz_term = 0
+radiation.lorentz_energy_term = 0
 
 # RADIATION TOLERANCES
 radiation.reltol  = 1.e-8 # relative tolerance for implicit update loop
@@ -192,10 +192,10 @@ radiation.hi_bc     = 101
 # or use a Fortran function FORT_RADBNDRY to specify values that vary
 # in space and time.
 
-# If bcflag is 0 then bcval is used, otherwise FORT_RADBNDRY used:
+# If bc_kind is 0 then bcval is used, otherwise FORT_RADBNDRY used:
 
-radiation.lo_bcflag = 0  0  0
-radiation.hi_bcflag = 0  0  0
+radiation.lo_bc_kind = 0  0  0
+radiation.hi_bc_kind = 0  0  0
 
 # bcval is interpreted differently depending on the boundary condition
 # 101 = LO_DIRICHLET           bcval is Dirichlet value of rad energy density
@@ -203,24 +203,24 @@ radiation.hi_bcflag = 0  0  0
 # 104 = LO_MARSHAK             bcval is incident flux
 # 105 = LO_SANCHEZ_POMRANING   bcval is incident flux
 
-radiation.lo_bcval =  1e-10
-radiation.hi_bcval =  0.0793671
+radiation.lo_bc_value =  1e-10
+radiation.hi_bc_value =  0.0793671
 
-radiation.plot_lab_Er =	1
-radiation.plot_com_flux = 1
-radiation.plot_lab_flux = 1
+radiation.plot_lab_rad_energy =	1
+radiation.plot_moving_flux = 1
+radiation.plot_lab_rad_flux = 1
 
-radiation.plot_lambda = 1
-radiation.plot_kappa_p = 1
-radiation.plot_kappa_r = 1
+radiation.plot_flux_limiter = 1
+radiation.plot_planck_opacity = 1
+radiation.plot_rosseland_opacity = 1
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use AlphaBetaSolver, support symmetric matrices only
+# solver flag values >= 100 use MultiLevelEllipticSolver, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
-# For MGFLD with accelerate = 2, must use >=100.
+# For MultigroupDiffusion with accelerate = 2, must use >=100.
 #
 # 0     SMG
 # 1     PFMG  (>= 2D only)
@@ -233,13 +233,13 @@ radiation.plot_kappa_r = 1
 # 1002  PCG   using ParCSR ObjectType
 # 1003  PCG   using SStruct ObjectType
 
-radsolve.level_solver_flag = 1003   # can be any supported hypre solver flag
+radiation_solve.level_solver_kind = 1003   # can be any supported hypre solver flag
 
-radsolve.reltol     = 1.0e-10 # relative tolerance
-radsolve.abstol     = 0.0     # absolute tolerance (often not necessary)
-radsolve.maxiter    = 200     # linear solver iteration limit
+radiation_solve.reltol     = 1.0e-10 # relative tolerance
+radiation_solve.abstol     = 0.0     # absolute tolerance (often not necessary)
+radiation_solve.maxiter    = 200     # linear solver iteration limit
 
-radsolve.v = 0      # verbosity
+radiation_solve.v = 0      # verbosity
 
-hmabec.verbose = 0  # verbosity for HypreMultiABec solvers
-habec.verbose  = 0  # verbosity for HypreABec solvers
+hmabec.verbose = 0  # verbosity for MultiLevelEllipticSolver solvers
+habec.verbose  = 0  # verbosity for AlphaBetaSolver solvers

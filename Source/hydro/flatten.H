@@ -1,157 +1,157 @@
-#ifndef flatten_H
-#define flatten_H
+#ifndef flattening_H
+#define flattening_H
 
 namespace hydro {
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real flatten(int i, int j, int k,
-             Array4<Real const> const& q_arr,
-             const int pres_comp)
+             Array4<Real const> const& prim_arr,
+             const int pressure_index)
 {
-    constexpr Real small_pres = 1.e-200_rt;
+    constexpr Real pressure_cutoff = 1.e-200_rt;
 
     // Knobs for detection of strong shock
-    constexpr Real shktst = 0.33_rt;
-    constexpr Real zcut1 = 0.75_rt;
-    constexpr Real zcut2 = 0.85_rt;
-    constexpr Real dzcut = 1.0_rt / (zcut2-zcut1);
+    constexpr Real shock_threshold = 0.33_rt;
+    constexpr Real zcut_low = 0.75_rt;
+    constexpr Real zcut_high = 0.85_rt;
+    constexpr Real zcut_inv_width = 1.0_rt / (zcut_high-zcut_low);
 
     // x-direction flattening coef
 
-    Real dp = q_arr(i+1,j,k,pres_comp) - q_arr(i-1,j,k,pres_comp);
+    Real dp = prim_arr(i+1,j,k,pressure_index) - prim_arr(i-1,j,k,pressure_index);
 
-    int ishft = dp > 0.0_rt ? 1 : -1;
+    int upwind_shift = dp > 0.0_rt ? 1 : -1;
 
-    Real denom = std::max(small_pres, std::abs(q_arr(i+2,j,k,pres_comp) - q_arr(i-2,j,k,pres_comp)));
+    Real denom = std::max(pressure_cutoff, std::abs(prim_arr(i+2,j,k,pressure_index) - prim_arr(i-2,j,k,pressure_index)));
     Real zeta = std::abs(dp) / denom;
-    Real z = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    Real z = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     Real tst = 0.0_rt;
-    if (q_arr(i-1,j,k,QU) - q_arr(i+1,j,k,QU) >= 0.0_rt) {
+    if (prim_arr(i-1,j,k,QU) - prim_arr(i+1,j,k,QU) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    Real tmp = std::min(q_arr(i+1,j,k,pres_comp), q_arr(i-1,j,k,pres_comp));
+    Real tmp = std::min(prim_arr(i+1,j,k,pressure_index), prim_arr(i-1,j,k,pressure_index));
 
     Real chi = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi = tst;
     }
 
 
-    dp = q_arr(i+1-ishft,j,k,pres_comp) - q_arr(i-1-ishft,j,k,pres_comp);
+    dp = prim_arr(i+1-upwind_shift,j,k,pressure_index) - prim_arr(i-1-upwind_shift,j,k,pressure_index);
 
-    denom = std::max(small_pres, std::abs(q_arr(i+2-ishft,j,k,pres_comp)-q_arr(i-2-ishft,j,k,pres_comp)));
+    denom = std::max(pressure_cutoff, std::abs(prim_arr(i+2-upwind_shift,j,k,pressure_index)-prim_arr(i-2-upwind_shift,j,k,pressure_index)));
     zeta = std::abs(dp) / denom;
-    Real z2 = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    Real z2 = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     tst = 0.0_rt;
-    if (q_arr(i-1-ishft,j,k,QU) - q_arr(i+1-ishft,j,k,QU) >= 0.0_rt) {
+    if (prim_arr(i-1-upwind_shift,j,k,QU) - prim_arr(i+1-upwind_shift,j,k,QU) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    tmp = std::min(q_arr(i+1-ishft,j,k,pres_comp), q_arr(i-1-ishft,j,k,pres_comp));
+    tmp = std::min(prim_arr(i+1-upwind_shift,j,k,pressure_index), prim_arr(i-1-upwind_shift,j,k,pressure_index));
 
     Real chi2 = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi2 = tst;
     }
 
-    Real flatn = 1.0_rt - std::max(chi2 * z2, chi * z);
+    Real flatten_factor = 1.0_rt - std::max(chi2 * z2, chi * z);
 
 
 #if AMREX_SPACEDIM >= 2
     // y-direction flattening coef
 
-    dp = q_arr(i,j+1,k,pres_comp) - q_arr(i,j-1,k,pres_comp);
+    dp = prim_arr(i,j+1,k,pressure_index) - prim_arr(i,j-1,k,pressure_index);
 
-    ishft = dp > 0.0_rt ? 1 : -1;
+    upwind_shift = dp > 0.0_rt ? 1 : -1;
 
-    denom = std::max(small_pres, std::abs(q_arr(i,j+2,k,pres_comp) - q_arr(i,j-2,k,pres_comp)));
+    denom = std::max(pressure_cutoff, std::abs(prim_arr(i,j+2,k,pressure_index) - prim_arr(i,j-2,k,pressure_index)));
     zeta = std::abs(dp) / denom;
-    z = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    z = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     tst = 0.0_rt;
-    if (q_arr(i,j-1,k,QV) - q_arr(i,j+1,k,QV) >= 0.0_rt) {
+    if (prim_arr(i,j-1,k,QV) - prim_arr(i,j+1,k,QV) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    tmp = std::min(q_arr(i,j+1,k,pres_comp), q_arr(i,j-1,k,pres_comp));
+    tmp = std::min(prim_arr(i,j+1,k,pressure_index), prim_arr(i,j-1,k,pressure_index));
 
     chi = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi = tst;
     }
 
 
-    dp = q_arr(i,j+1-ishft,k,pres_comp) - q_arr(i,j-1-ishft,k,pres_comp);
+    dp = prim_arr(i,j+1-upwind_shift,k,pressure_index) - prim_arr(i,j-1-upwind_shift,k,pressure_index);
 
-    denom = std::max(small_pres, std::abs(q_arr(i,j+2-ishft,k,pres_comp) - q_arr(i,j-2-ishft,k,pres_comp)));
+    denom = std::max(pressure_cutoff, std::abs(prim_arr(i,j+2-upwind_shift,k,pressure_index) - prim_arr(i,j-2-upwind_shift,k,pressure_index)));
     zeta = std::abs(dp) / denom;
-    z2 = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    z2 = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     tst = 0.0_rt;
-    if (q_arr(i,j-1-ishft,k,QV) - q_arr(i,j+1-ishft,k,QV) >= 0.0_rt) {
+    if (prim_arr(i,j-1-upwind_shift,k,QV) - prim_arr(i,j+1-upwind_shift,k,QV) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    tmp = std::min(q_arr(i,j+1-ishft,k,pres_comp), q_arr(i,j-1-ishft,k,pres_comp));
+    tmp = std::min(prim_arr(i,j+1-upwind_shift,k,pressure_index), prim_arr(i,j-1-upwind_shift,k,pressure_index));
 
     chi2 = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi2 = tst;
     }
 
-    flatn = std::min(flatn, 1.0_rt - std::max(chi2 * z2, chi * z));
+    flatten_factor = std::min(flatten_factor, 1.0_rt - std::max(chi2 * z2, chi * z));
 #endif
 
 
 #if AMREX_SPACEDIM == 3
     // z-direction flattening coef
 
-    dp = q_arr(i,j,k+1,pres_comp) - q_arr(i,j,k-1,pres_comp);
+    dp = prim_arr(i,j,k+1,pressure_index) - prim_arr(i,j,k-1,pressure_index);
 
-    ishft = dp > 0.0_rt ? 1: -1;
+    upwind_shift = dp > 0.0_rt ? 1: -1;
 
-    denom = std::max(small_pres, std::abs(q_arr(i,j,k+2,pres_comp) - q_arr(i,j,k-2,pres_comp)));
+    denom = std::max(pressure_cutoff, std::abs(prim_arr(i,j,k+2,pressure_index) - prim_arr(i,j,k-2,pressure_index)));
     zeta = std::abs(dp) / denom;
-    z = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    z = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     tst = 0.0_rt;
-    if (q_arr(i,j,k-1,QW) - q_arr(i,j,k+1,QW) >= 0.0_rt) {
+    if (prim_arr(i,j,k-1,QW) - prim_arr(i,j,k+1,QW) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    tmp = std::min(q_arr(i,j,k+1,pres_comp), q_arr(i,j,k-1,pres_comp));
+    tmp = std::min(prim_arr(i,j,k+1,pressure_index), prim_arr(i,j,k-1,pressure_index));
 
     chi = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi = tst;
     }
 
 
-    dp = q_arr(i,j,k+1-ishft,pres_comp) - q_arr(i,j,k-1-ishft,pres_comp);
+    dp = prim_arr(i,j,k+1-upwind_shift,pressure_index) - prim_arr(i,j,k-1-upwind_shift,pressure_index);
 
-    denom = std::max(small_pres, std::abs(q_arr(i,j,k+2-ishft,pres_comp) - q_arr(i,j,k-2-ishft,pres_comp)));
+    denom = std::max(pressure_cutoff, std::abs(prim_arr(i,j,k+2-upwind_shift,pressure_index) - prim_arr(i,j,k-2-upwind_shift,pressure_index)));
     zeta = std::abs(dp) / denom;
-    z2 = amrex::Clamp(dzcut * (zeta - zcut1), 0.0_rt, 1.0_rt);
+    z2 = amrex::Clamp(zcut_inv_width * (zeta - zcut_low), 0.0_rt, 1.0_rt);
 
     tst = 0.0_rt;
-    if (q_arr(i,j,k-1-ishft,QW) - q_arr(i,j,k+1-ishft,QW) >= 0.0_rt) {
+    if (prim_arr(i,j,k-1-upwind_shift,QW) - prim_arr(i,j,k+1-upwind_shift,QW) >= 0.0_rt) {
       tst = 1.0_rt;
     }
 
-    tmp = std::min(q_arr(i,j,k+1-ishft,pres_comp), q_arr(i,j,k-1-ishft,pres_comp));
+    tmp = std::min(prim_arr(i,j,k+1-upwind_shift,pressure_index), prim_arr(i,j,k-1-upwind_shift,pressure_index));
 
     chi2 = 0.0_rt;
-    if (std::abs(dp) > shktst*tmp) {
+    if (std::abs(dp) > shock_threshold*tmp) {
       chi2 = tst;
     }
 
-    flatn = std::min(flatn,  1.0_rt - std::max(chi2 * z2, chi * z));
+    flatten_factor = std::min(flatten_factor,  1.0_rt - std::max(chi2 * z2, chi * z));
 #endif
 
-    return flatn;
+    return flatten_factor;
 }
 
 }

@@ -1,15 +1,15 @@
 // Implementations of functions in Problem.H go here
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
 void
-Castro::flame_width_properties (amrex::Real time,
+HydroSim::flame_width_properties (amrex::Real time,
                                 amrex::Real& T_max, amrex::Real& T_min,
                                 amrex::Real& grad_T_max)
 {
-    BL_PROFILE("Castro::flame_width_properties()");
+    BL_PROFILE("HydroSim::flame_width_properties()");
 
     const auto dx = geom.CellSizeArray();
 
@@ -59,9 +59,9 @@ Castro::flame_width_properties (amrex::Real time,
 
 
 void
-Castro::flame_speed_properties (amrex::Real time, amrex::Real& rho_fuel_dot)
+HydroSim::flame_speed_properties (amrex::Real time, amrex::Real& rho_fuel_dot)
 {
-    BL_PROFILE("Castro::flame_speed_properties()");
+    BL_PROFILE("HydroSim::flame_speed_properties()");
 
     const auto dx = geom.CellSizeArray();
 
@@ -108,10 +108,10 @@ Castro::flame_speed_properties (amrex::Real time, amrex::Real& rho_fuel_dot)
 
 
 void
-Castro::flame_peak_properties (amrex::Real time,
+HydroSim::flame_peak_properties (amrex::Real time,
                                amrex::Real& rho_enuc_max, amrex::Real& peak_x)
 {
-    BL_PROFILE("Castro::flame_peak_properties()");
+    BL_PROFILE("HydroSim::flame_peak_properties()");
 
     const auto dx = geom.CellSizeArray();
     const auto prob_lo = geom.ProbLoArray();

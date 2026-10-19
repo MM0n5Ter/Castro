@@ -15,36 +15,36 @@ amr.n_cell           =  64    64    64
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3 3 3
-castro.hi_bc       =  2 2 2
+hydrosim.lo_bc       =  3 3 3
+hydrosim.hi_bc       =  2 2 2
 
 # WHICH PHYSICS
-castro.do_hydro      = 1
-castro.do_react      = 0
-castro.add_ext_src   = 0
-castro.do_sponge     = 0
-castro.ppm_type      = 1
-castro.do_grav       = 1
-gravity.gravity_type = MonopoleGrav
-gravity.drdxfac      = 4
+hydrosim.do_hydro      = 1
+hydrosim.do_react      = 0
+hydrosim.enable_extra_source   = 0
+hydrosim.do_damping_zone     = 0
+hydrosim.ppm_recon_kind      = 1
+hydrosim.do_gravity_flag       = 1
+gravity.gravity_model_name = MonopoleGrav
+gravity.radial_bin_ratio      = 4
 
 # RELEVANT FOR EOS
-castro.small_temp    = 1.e-3
-castro.small_dens    = 1.e-6
+hydrosim.small_temp    = 1.e-3
+hydrosim.small_dens    = 1.e-6
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.05    # scale back initial timestep
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.05    # scale back initial timestep
 
 # SPONGE
-castro.sponge_lower_density = 1.0e-3
-castro.sponge_upper_density = 1.0e-3
-castro.sponge_timescale = 1.0e-3
+hydrosim.damping_lower_density = 1.0e-3
+hydrosim.damping_upper_density = 1.0e-3
+hydrosim.damping_timescale = 1.0e-3
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.v              = 0       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.v              = 0       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 #amr.grid_log        = grdlog  # name of grid logging file
 
@@ -56,7 +56,7 @@ amr.blocking_factor = 8       # block factor in grid generation
 amr.max_grid_size   = 32
 amr.n_error_buf     = 2 2 2 2 # number of buffer cells in error est
 
-amr.refinement_indicators = dengrad
+amr.refine_criteria = dengrad
 
 amr.refine.dengrad.gradient = 1.0e7
 amr.refine.dengrad.field_name = density

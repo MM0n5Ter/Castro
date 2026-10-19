@@ -4,42 +4,42 @@
 #include <AMReX_REAL.H>
 #include <reconstruction.H>
 
-#ifndef PPM_H
-#define PPM_H
+#ifndef PARABOLIC_EDGE_H
+#define PARABOLIC_EDGE_H
 
 using namespace amrex::literals;
 using namespace reconstruction;
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 int
-check_trace_source(amrex::Array4<amrex::Real const> const& srcQ, const int idir,
+source_trace_needed(amrex::Array4<amrex::Real const> const& prim_source, const int idir,
                    const int i, const int j, const int k, const int ncomp) {
 
-    int do_trace = 0;
+    int trace_enabled = 0;
     if (idir == 0) {
         for (int b = i-2; b <= i+2; b++) {
-            if (std::abs(srcQ(b,j,k,ncomp)) > 0.0_rt) {
-                do_trace = 1;
+            if (std::abs(prim_source(b,j,k,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
                 break;
             }
         }
     } else if (idir == 1) {
         for (int b = j-2; b <= j+2; b++) {
-            if (std::abs(srcQ(i,b,k,ncomp)) > 0.0_rt) {
-                do_trace = 1;
+            if (std::abs(prim_source(i,b,k,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
                 break;
             }
         }
     } else {
         for (int b = k-2; b <= k+2; b++) {
-            if (std::abs(srcQ(i,j,b,ncomp)) > 0.0_rt) {
-                do_trace = 1;
+            if (std::abs(prim_source(i,j,b,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
                 break;
             }
         }
     }
 
-    return do_trace;
+    return trace_enabled;
 }
 
 
@@ -49,41 +49,41 @@ check_trace_source(amrex::Array4<amrex::Real const> const& srcQ, const int idir,
 /// This uses the standard PPM limiters
 ///
 /// @param s      Real[nslp] the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
-/// @param flatn  The flattening coefficient
+/// @param flatten_factor  The flattening coefficient
 /// @param sm     The value of the parabola on the left edge of the zone
 /// @param sp     The value of the parabola on the right edge of the zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-ppm_reconstruct(const amrex::Real* s,
-                const amrex::Real flatn, amrex::Real& sm, amrex::Real& sp) {
+parabolic_reconstruct(const amrex::Real* s,
+                const amrex::Real flatten_factor, amrex::Real& sm, amrex::Real& sp) {
 
 
-    if (ppm_do_limiting) {
+    if (ppm_parabola_clip) {
 
         // Compute van Leer slopes
 
         amrex::Real dsl = 2.0_rt * (s[im1] - s[im2]);
         amrex::Real dsr = 2.0_rt * (s[i0] - s[im1]);
 
-        amrex::Real dsvl_l = 0.0_rt;
+        amrex::Real van_leer_slope_left = 0.0_rt;
         if (dsl*dsr > 0.0_rt) {
           amrex::Real dsc = 0.5_rt * (s[i0] - s[im2]);
-          dsvl_l = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
+          van_leer_slope_left = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
         }
 
         dsl = 2.0_rt * (s[i0] - s[im1]);
         dsr = 2.0_rt * (s[ip1] - s[i0]);
 
-        amrex::Real dsvl_r = 0.0_rt;
+        amrex::Real van_leer_slope_right = 0.0_rt;
         if (dsl*dsr > 0.0_rt) {
           amrex::Real dsc = 0.5_rt * (s[ip1] - s[im1]);
-          dsvl_r = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl),std::abs(dsr));
+          van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl),std::abs(dsr));
         }
 
         // Interpolate s to edges
 
-        sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (dsvl_r - dsvl_l);
+        sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
         // Make sure sedge lies in between adjacent cell-centered values
 
@@ -94,24 +94,24 @@ ppm_reconstruct(const amrex::Real* s,
         dsl = 2.0_rt * (s[i0] - s[im1]);
         dsr = 2.0_rt * (s[ip1] - s[i0]);
 
-        dsvl_l = 0.0_rt;
+        van_leer_slope_left = 0.0_rt;
         if (dsl*dsr > 0.0_rt) {
             amrex::Real dsc = 0.5_rt * (s[ip1] - s[im1]);
-            dsvl_l = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
+            van_leer_slope_left = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
         }
 
         dsl = 2.0_rt * (s[ip1] - s[i0]);
         dsr = 2.0_rt * (s[ip2] - s[ip1]);
 
-        dsvl_r = 0.0_rt;
+        van_leer_slope_right = 0.0_rt;
         if (dsl*dsr > 0.0_rt) {
             amrex::Real dsc = 0.5_rt * (s[ip2] - s[i0]);
-            dsvl_r = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
+            van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
         }
 
         // Interpolate s to edges
 
-        sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (dsvl_r - dsvl_l);
+        sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
         // Make sure sedge lies in between adjacent cell-centered values
 
@@ -120,8 +120,8 @@ ppm_reconstruct(const amrex::Real* s,
 
         // Flatten the parabola
 
-        sm = flatn * sm + (1.0_rt - flatn) * s[i0];
-        sp = flatn * sp + (1.0_rt - flatn) * s[i0];
+        sm = flatten_factor * sm + (1.0_rt - flatten_factor) * s[i0];
+        sp = flatten_factor * sp + (1.0_rt - flatten_factor) * s[i0];
 
         // Modify using quadratic limiters
 
@@ -158,9 +158,9 @@ ppm_reconstruct(const amrex::Real* s,
 /// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
 /// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
 ///                    i-2, i-1, i, i+1, i+2
-/// @param flatn       flattening coefficient
-/// @param lo_bc_test  true if a physical boundary is just to the left of this zone
-/// @param hi_bc_test  true if a physical boundary is just to the right of this zone
+/// @param flatten_factor       flattening coefficient
+/// @param at_lo_symmetry  true if a physical boundary is just to the left of this zone
+/// @param at_hi_symmetry  true if a physical boundary is just to the right of this zone
 ///
 /// @param sm     The value of the parabola on the left edge of the zone
 /// @param sp     The value of the parabola on the right edge of the zone
@@ -169,7 +169,7 @@ ppm_reconstruct(const amrex::Real* s,
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
-ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatn,
+reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, const amrex::Real* src, const amrex::Real flatten_factor,
                        const amrex::Real dx,
                        amrex::Real& sm, amrex::Real& sp) {
 
@@ -177,42 +177,42 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
 
     // compute the hydrostatic pressure in each zone center starting with i0
 
-    amrex::Real p0_hse = p[i0];
+    amrex::Real p0_hydrostatic = p[i0];
 
-    amrex::Real pp1_hse = p0_hse + 0.25_rt*dx * (rho[i0] + rho[ip1]) * (src[i0] + src[ip1]);
-    amrex::Real pp2_hse = pp1_hse + 0.25_rt*dx * (rho[ip1] + rho[ip2]) * (src[ip1] + src[ip2]);
+    amrex::Real pp1_hydrostatic = p0_hydrostatic + 0.25_rt*dx * (rho[i0] + rho[ip1]) * (src[i0] + src[ip1]);
+    amrex::Real pp2_hydrostatic = pp1_hydrostatic + 0.25_rt*dx * (rho[ip1] + rho[ip2]) * (src[ip1] + src[ip2]);
 
-    amrex::Real pm1_hse = p0_hse - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
-    amrex::Real pm2_hse = pm1_hse - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
+    amrex::Real pm1_hydrostatic = p0_hydrostatic - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
+    amrex::Real pm2_hydrostatic = pm1_hydrostatic - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
 
     // compute hydrostatic pressure at the interface
 
-    amrex::Real p_p_hse = p0_hse + 0.5_rt*dx * rho[i0] * src[i0];
-    amrex::Real p_m_hse = p0_hse - 0.5_rt*dx * rho[i0] * src[i0];
+    amrex::Real p_plus_hydrostatic = p0_hydrostatic + 0.5_rt*dx * rho[i0] * src[i0];
+    amrex::Real p_minus_hydrostatic = p0_hydrostatic - 0.5_rt*dx * rho[i0] * src[i0];
 
     // this only makes sense if the pressures are positive
-    bool ptest =  p0_hse < 0.0 ||
-                 pp1_hse < 0.0 ||
-                 pp2_hse < 0.0 ||
-                 pm1_hse < 0.0 ||
-                 pm2_hse < 0.0 ||
-                 p_p_hse < 0.0 ||
-                 p_m_hse < 0.0;
+    bool ptest =  p0_hydrostatic < 0.0 ||
+                 pp1_hydrostatic < 0.0 ||
+                 pp2_hydrostatic < 0.0 ||
+                 pm1_hydrostatic < 0.0 ||
+                 pm2_hydrostatic < 0.0 ||
+                 p_plus_hydrostatic < 0.0 ||
+                 p_minus_hydrostatic < 0.0;
 
 
-    bool do_hse = !ptest && rho[i0] >= pslope_cutoff_density;
+    bool use_hydrostatic_edges = !ptest && rho[i0] >= slope_rho_cutoff;
 
-    if (do_hse) {
+    if (use_hydrostatic_edges) {
 
         // subtract off the hydrostatic pressure
 
-        tp[i0] = p[i0] - p0_hse;
+        tp[i0] = p[i0] - p0_hydrostatic;
 
-        tp[ip1] = p[ip1] - pp1_hse;
-        tp[ip2] = p[ip2] - pp2_hse;
+        tp[ip1] = p[ip1] - pp1_hydrostatic;
+        tp[ip2] = p[ip2] - pp2_hydrostatic;
 
-        tp[im1] = p[im1] - pm1_hse;
-        tp[im2] = p[im2] - pm2_hse;
+        tp[im1] = p[im1] - pm1_hydrostatic;
+        tp[im2] = p[im2] - pm2_hydrostatic;
 
     } else {
 
@@ -225,7 +225,7 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
         tp[ip2] = p[ip2];
     }
 
-    ppm_reconstruct(tp, flatn, sm, sp);
+    parabolic_reconstruct(tp, flatten_factor, sm, sp);
 
 
     // now correct sm and sp to be back to the full pressure by
@@ -233,12 +233,12 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
     // if we are doing the full well-balanced method, then we
     // don't do this until after the characteristic tracing
 
-    if (do_hse && !castro::ppm_well_balanced) {
-        sp += p_p_hse;
-        sm += p_m_hse;
+    if (use_hydrostatic_edges && !hydrosim::ppm_equil_recon) {
+        sp += p_plus_hydrostatic;
+        sm += p_minus_hydrostatic;
     }
 
-    return do_hse;
+    return use_hydrostatic_edges;
 
 }
 
@@ -260,7 +260,7 @@ ppm_reconstruct_pslope(const amrex::Real* rho, const amrex::Real* p, const amrex
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
+integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
                 const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
                 amrex::Real* Ip, amrex::Real* Im) {
 
@@ -329,7 +329,7 @@ ppm_int_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-ppm_int_profile_single(const Real sm, const Real sp, const Real sc,
+integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
                        const Real lam, const Real dtdx,
                        Real& Ip, Real& Im) {
 

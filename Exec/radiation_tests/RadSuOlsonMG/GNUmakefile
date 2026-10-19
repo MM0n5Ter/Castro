@@ -10,7 +10,7 @@ PROFILE    = FALSE
 USE_RAD = TRUE
 
 
-CASTRO_HOME ?= ../../..
+HYDROSIM_HOME ?= ../../..
 
 EOS_DIR     := rad_power_law
 
@@ -26,7 +26,7 @@ PROBLEM_DIR ?= ./
 Bpack   := $(PROBLEM_DIR)/Make.package
 Blocs   := $(PROBLEM_DIR)
 
-include $(CASTRO_HOME)/Exec/Make.Castro
+include $(HYDROSIM_HOME)/Exec/Make.HydroSim
 
 #F90FLAGS += -x f95-cpp-input -D MG_SU_OLSON
 

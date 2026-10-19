@@ -1,7 +1,7 @@
-#ifndef SLOPE_H
-#define SLOPE_H
+#ifndef LIMITER_H
+#define LIMITER_H
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 #ifdef RADIATION
 #include <Radiation.H>
@@ -22,14 +22,14 @@ using namespace reconstruction;
 /// Construct the piecewise linear slopes for an input state q
 ///
 /// @param q               Real[nslp] giving q_{i-2} through q_{i+2}, used in the reconstruction
-/// @param flatn           flattening coefficient
-/// @param bnd_lo_reflect  true if a symmetry boundary is just to the left of this zone
-/// @param bnd_hi_reflect  true if a symmetry boundary is just to the right of this zone
+/// @param flatten_factor           flattening coefficient
+/// @param reflect_lo_edge  true if a symmetry boundary is just to the left of this zone
+/// @param reflect_hi_edge  true if a symmetry boundary is just to the right of this zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
-uslope(const Real* q, const Real flatn,
-       bool bnd_lo_reflect, bool bnd_hi_reflect) {
+limited_slope(const Real* q, const Real flatten_factor,
+       bool reflect_lo_edge, bool reflect_hi_edge) {
 
   Real dq;
 
@@ -41,7 +41,7 @@ uslope(const Real* q, const Real flatn,
   } else {
 
     // second-order -- piecewise linear slopes
-    if (plm_limiter == 1) {
+    if (plm_slope_limiter == 1) {
       // the 2nd order MC limiter
 
       Real dlft = 2.0_rt*(q[i0] - q[im1]);
@@ -51,7 +51,7 @@ uslope(const Real* q, const Real flatn,
       Real slop = amrex::min(std::abs(dlft), std::abs(drgt));
       Real dlim = dlft*drgt >= 0.0_rt ? slop : 0.0_rt;
 
-      dq = flatn * dsgn * amrex::min(dlim, std::abs(dcen));
+      dq = flatten_factor * dsgn * amrex::min(dlim, std::abs(dcen));
 
     } else {
       // the 4th order MC limiter
@@ -66,12 +66,12 @@ uslope(const Real* q, const Real flatn,
       Real qp1 = q[ip1];
       Real qp2 = q[ip2];
 
-      if (bnd_lo_reflect) {
+      if (reflect_lo_edge) {
         qm2 = -qp1;
         qm1 = -3.0_rt*q0 + qp1 - 0.125_rt*(qp2 + qp1);
       }
 
-      if (bnd_hi_reflect) {
+      if (reflect_hi_edge) {
         qp2 = -qm1;
         qp1 = -3.0_rt*q0 + qm1 - 0.125_rt*(qm2 + qm1);
       }
@@ -79,33 +79,33 @@ uslope(const Real* q, const Real flatn,
       // First compute Fromm slopes
 
       // df at i+1
-      Real dlftp1 = 2.0_rt*(qp1 - q0);
-      Real drgtp1 = 2.0_rt*(qp2 - qp1);
-      Real dcen = 0.25_rt * (dlftp1 + drgtp1);
+      Real left_diff_p1 = 2.0_rt*(qp1 - q0);
+      Real right_diff_p1 = 2.0_rt*(qp2 - qp1);
+      Real dcen = 0.25_rt * (left_diff_p1 + right_diff_p1);
       Real dsgn = std::copysign(1.0_rt, dcen);
-      Real slop = amrex::min(std::abs(dlftp1), std::abs(drgtp1));
-      Real dlim = dlftp1*drgtp1 >= 0.0_rt ? slop : 0.0_rt;
-      Real dfp1 = dsgn*amrex::min(dlim, std::abs(dcen));
+      Real slop = amrex::min(std::abs(left_diff_p1), std::abs(right_diff_p1));
+      Real dlim = left_diff_p1*right_diff_p1 >= 0.0_rt ? slop : 0.0_rt;
+      Real limited_slope_p1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
       // df at i-1
-      Real dlftm1 = 2.0_rt*(qm1 - qm2);
-      Real drgtm1 = 2.0_rt*(q0 - qm1);
-      dcen = 0.25_rt * (dlftm1 + drgtm1);
+      Real left_diff_m1 = 2.0_rt*(qm1 - qm2);
+      Real right_diff_m1 = 2.0_rt*(q0 - qm1);
+      dcen = 0.25_rt * (left_diff_m1 + right_diff_m1);
       dsgn = std::copysign(1.0_rt, dcen);
-      slop = amrex::min(std::abs(dlftm1), std::abs(drgtm1));
-      dlim = dlftm1*drgtm1 >= 0.0_rt ? slop : 0.0_rt;
-      Real dfm1 = dsgn*amrex::min(dlim, std::abs(dcen));
+      slop = amrex::min(std::abs(left_diff_m1), std::abs(right_diff_m1));
+      dlim = left_diff_m1*right_diff_m1 >= 0.0_rt ? slop : 0.0_rt;
+      Real limited_slope_m1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
       // Now compute limited fourth order slopes at i
-      Real dlft = drgtm1;
-      Real drgt = dlftp1;
+      Real dlft = right_diff_m1;
+      Real drgt = left_diff_p1;
       dcen = 0.25_rt * (dlft + drgt);
       dsgn = std::copysign(1.0_rt, dcen);
       slop = amrex::min(std::abs(dlft), std::abs(drgt));
       dlim = dlft*drgt >= 0.0_rt ? slop : 0.0_rt;
 
-      Real dq1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(dfp1 + dfm1);
-      dq = flatn * dsgn * amrex::min(dlim, std::abs(dq1));
+      Real dq1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(limited_slope_p1 + limited_slope_m1);
+      dq = flatten_factor * dsgn * amrex::min(dlim, std::abs(dq1));
     }
   }
 
@@ -120,14 +120,14 @@ uslope(const Real* q, const Real flatn,
 /// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2
 /// @param src         Real[nslp] the source in the velocity equation (e.g. g) in zones
 ///                    i-2, i-1, i, i+1, i+2
-/// @param flatn       flattening coefficient
-/// @param lo_bc_test  true if a physical boundary is just to the left of this zone
-/// @param hi_bc_test  true if a physical boundary is just to the right of this zone
+/// @param flatten_factor       flattening coefficient
+/// @param at_lo_symmetry  true if a physical boundary is just to the left of this zone
+/// @param at_hi_symmetry  true if a physical boundary is just to the right of this zone
 ///
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
-       bool lo_bc_test, bool hi_bc_test,
+pressure_slope(const Real* rho, const Real* p, const Real* src, const Real flatten_factor,
+       bool at_lo_symmetry, bool at_hi_symmetry,
        const Real dx, Real& dp) {
 
   // dp should come in as the current estimate of the pressure slope
@@ -139,7 +139,7 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
 
   } else {
 
-    if (rho[i0] < pslope_cutoff_density) {
+    if (rho[i0] < slope_rho_cutoff) {
       return;
     }
 
@@ -149,33 +149,33 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
     Real pp2;
     Real pm2;
 
-    Real p0_hse;
-    Real pp1_hse;
-    Real pp2_hse;
-    Real pm1_hse;
-    Real pm2_hse;
+    Real p0_hydrostatic;
+    Real pp1_hydrostatic;
+    Real pp2_hydrostatic;
+    Real pm1_hydrostatic;
+    Real pm2_hydrostatic;
 
-    p0_hse = p[i0];
+    p0_hydrostatic = p[i0];
 
-    pp1_hse = p0_hse + 0.25_rt*dx * (rho[i0] + rho[ip1]) * (src[i0] + src[ip1]);
-    pp2_hse = pp1_hse + 0.25_rt*dx * (rho[ip1] + rho[ip2]) * (src[ip1] + src[ip2]);
+    pp1_hydrostatic = p0_hydrostatic + 0.25_rt*dx * (rho[i0] + rho[ip1]) * (src[i0] + src[ip1]);
+    pp2_hydrostatic = pp1_hydrostatic + 0.25_rt*dx * (rho[ip1] + rho[ip2]) * (src[ip1] + src[ip2]);
 
-    pm1_hse = p0_hse - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
-    pm2_hse = pm1_hse - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
+    pm1_hydrostatic = p0_hydrostatic - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
+    pm2_hydrostatic = pm1_hydrostatic - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
 
     p0 = 0.0_rt;
-    pp1 = p[ip1] - pp1_hse;
-    pp2 = p[ip2] - pp2_hse;
+    pp1 = p[ip1] - pp1_hydrostatic;
+    pp2 = p[ip2] - pp2_hydrostatic;
 
-    pm1 = p[im1] - pm1_hse;
-    pm2 = p[im2] - pm2_hse;
+    pm1 = p[im1] - pm1_hydrostatic;
+    pm2 = p[im2] - pm2_hydrostatic;
 
-    if (lo_bc_test) {
+    if (at_lo_symmetry) {
       pm1 = 0.0_rt;  // HSE is perfectly satisfied
       pm2 = 0.0_rt;
     }
 
-    if (hi_bc_test) {
+    if (at_hi_symmetry) {
       pp1 = 0.0_rt;
       pp2 = 0.0_rt;
     }
@@ -193,13 +193,13 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
     //
     // we use the value above with HSE removed
 
-    Real dlftp1 = pp1 - p0;
-    Real drgtp1 = pp2 - pp1;
+    Real left_diff_p1 = pp1 - p0;
+    Real right_diff_p1 = pp2 - pp1;
 
-    Real dcen = 0.5_rt*(dlftp1 + drgtp1);
+    Real dcen = 0.5_rt*(left_diff_p1 + right_diff_p1);
     Real dsgn = std::copysign(1.0_rt, dcen);
-    Real dlim = dlftp1*drgtp1 >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(dlftp1), std::abs(drgtp1)) : 0.0_rt;
-    Real dfp1 = dsgn*amrex::min(dlim, std::abs(dcen));
+    Real dlim = left_diff_p1*right_diff_p1 >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(left_diff_p1), std::abs(right_diff_p1)) : 0.0_rt;
+    Real limited_slope_p1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
     // Dp at i-1
 
@@ -211,14 +211,14 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
     //
     // again use the values with HSE removed
 
-    Real dlftm1 = pm1 - pm2;
-    Real drgtm1 = p0 - pm1;
+    Real left_diff_m1 = pm1 - pm2;
+    Real right_diff_m1 = p0 - pm1;
 
-    dcen = 0.5_rt*(dlftm1 + drgtm1);
+    dcen = 0.5_rt*(left_diff_m1 + right_diff_m1);
     dsgn = std::copysign(1.0_rt, dcen);
-    dlim = dlftm1*drgtm1 >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(dlftm1), std::abs(drgtm1)) : 0.0_rt;
+    dlim = left_diff_m1*right_diff_m1 >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(left_diff_m1), std::abs(right_diff_m1)) : 0.0_rt;
 
-    Real dfm1 = dsgn*amrex::min(dlim, std::abs(dcen));
+    Real limited_slope_m1 = dsgn*amrex::min(dlim, std::abs(dcen));
 
     // Now limited fourth order slopes at i
 
@@ -226,17 +226,17 @@ pslope(const Real* rho, const Real* p, const Real* src, const Real flatn,
     // dp_{i+1} and dp_i
 
     // dp_i
-    Real dlft = drgtm1;
+    Real dlft = right_diff_m1;
 
     // dp_{i+1}
-    Real drgt = dlftp1;
+    Real drgt = left_diff_p1;
 
     dcen = 0.5_rt*(dlft + drgt);
     dsgn = std::copysign(1.0_rt, dcen);
     dlim = dlft*drgt >= 0.0_rt ? 2.0_rt * amrex::min(std::abs(dlft), std::abs(drgt)) : 0.0_rt;
 
-    Real dp1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(dfp1 + dfm1);
-    dp = flatn * dsgn*amrex::min(dlim, std::abs(dp1));
+    Real dp1 = (4.0_rt/3.0_rt)*dcen - (1.0_rt/6.0_rt)*(limited_slope_p1 + limited_slope_m1);
+    dp = flatten_factor * dsgn*amrex::min(dlim, std::abs(dp1));
 
     dp += rho[i0] * src[i0] * dx;
   }

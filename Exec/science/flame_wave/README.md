@@ -11,7 +11,7 @@ This is the XRB flame setup.
 
   This explored both 2D and 3D pure He flames.  Another change was in
   the lower boundary condition -- a reflecting boundary was used an
-  `castro.use_pslope` was enabled.  The inputs files for this are in
+  `hydrosim.use_pressure_slope` was enabled.  The inputs files for this are in
   `inputs_He/`
 
   This looked at 2D pure He flames and explored different reaction

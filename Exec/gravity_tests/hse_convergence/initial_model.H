@@ -12,7 +12,7 @@
 #include <eos.H>
 
 struct model_t {
-    Real dens_base = -1;
+    Real density_base = -1;
     Real T_base = -1;
     Real xn[NumSpec] = {0.0};
 };
@@ -62,7 +62,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
     // get the base conditions
 
     eos_t eos_state;
-    eos_state.rho = model_params.dens_base;
+    eos_state.rho = model_params.density_base;
     eos_state.T = model_params.T_base;
     for (int n = 0; n < NumSpec; n++) {
         eos_state.xn[n] = model_params.xn[n];
@@ -87,7 +87,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
     Real p = eos_state.p;
 
-    if (time_integration_method == 2 && sdc_order == 4) {
+    if (time_scheme == 2 && sdc_accuracy_order == 4) {
 
         // a fourth order accurate method
 
@@ -126,10 +126,10 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real s = entropy_fixed;
 
-            Real k1 = f(p, s, gravity::const_grav, rho, T, xn);
-            Real k2 = f(p + 0.5_rt * h * k1, s, gravity::const_grav, rho, T, xn);
-            Real k3 = f(p + 0.5_rt * h * k2, s, gravity::const_grav, rho, T, xn);
-            Real k4 = f(p + h * k3, s, gravity::const_grav, rho, T, xn);
+            Real k1 = f(p, s, gravity::uniform_accel, rho, T, xn);
+            Real k2 = f(p + 0.5_rt * h * k1, s, gravity::uniform_accel, rho, T, xn);
+            Real k3 = f(p + 0.5_rt * h * k2, s, gravity::uniform_accel, rho, T, xn);
+            Real k4 = f(p + h * k3, s, gravity::uniform_accel, rho, T, xn);
 
             Real pnew = p + (1.0_rt/6.0_rt) * h * (k1 + 2.0_rt * k2 + 2.0_rt * k3 + k4);
 
@@ -176,10 +176,10 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real s = entropy_fixed;
 
-            Real k1 = f(p, s, gravity::const_grav, rho, T, model_params.xn);
-            Real k2 = f(p + 0.5_rt * h * k1, s, gravity::const_grav, rho, T, model_params.xn);
-            Real k3 = f(p + 0.5_rt * h * k2, s, gravity::const_grav, rho, T, model_params.xn);
-            Real k4 = f(p + h * k3, s, gravity::const_grav, rho, T, model_params.xn);
+            Real k1 = f(p, s, gravity::uniform_accel, rho, T, model_params.xn);
+            Real k2 = f(p + 0.5_rt * h * k1, s, gravity::uniform_accel, rho, T, model_params.xn);
+            Real k3 = f(p + 0.5_rt * h * k2, s, gravity::uniform_accel, rho, T, model_params.xn);
+            Real k4 = f(p + h * k3, s, gravity::uniform_accel, rho, T, model_params.xn);
 
             Real pnew = p + (1.0_rt/6.0_rt) * h * (k1 + 2.0_rt*k2 + 2.0_rt*k3 + k4);
 
@@ -217,13 +217,13 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
         for (int i = ibase; i <= itop + nbuf; i++) {
 
             if (i == ibase) {
-                model::profile(0).state(i, model::idens) = model_params.dens_base; // initial guess
+                model::profile(0).state(i, model::idens) = model_params.density_base; // initial guess
                 model::profile(0).state(i, model::ipres) =
-                    p + 0.5_rt * dx * model_params.dens_base * gravity::const_grav;
+                    p + 0.5_rt * dx * model_params.density_base * gravity::uniform_accel;
 
                 eos_t eos_state;
                 eos_state.rho = model::profile(0).state(i, model::idens);
-                eos_state.T = model_params.dens_base;
+                eos_state.T = model_params.density_base;
                 eos_state.p = model::profile(0).state(i, model::ipres);
                 for (int n = 0; n < NumSpec; n++) {
                     eos_state.xn[n] = model_params.xn[n];
@@ -242,7 +242,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
                 Real dens_zone = model::profile(0).state(i-1, model::idens);
 
-                bool converged_hse = false;
+                bool hydrostatic_converged = false;
 
                 Real p_want;
                 eos_t eos_state;
@@ -250,7 +250,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 for (int iter = 0; iter < MAX_ITER; iter++) {
 
                     p_want = model::profile(0).state(i-1, model::ipres) +
-                        dx * 0.5_rt * (dens_zone + model::profile(0).state(i-1, model::idens)) * gravity::const_grav;
+                        dx * 0.5_rt * (dens_zone + model::profile(0).state(i-1, model::idens)) * gravity::uniform_accel;
 
                     // use the EOS with constant entropy to find corrected state
 
@@ -267,13 +267,13 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                     Real drho = eos_state.rho - dens_zone;
                     dens_zone = eos_state.rho;
                     if (std::abs(drho) < TOL * dens_zone) {
-                        converged_hse = true;
+                        hydrostatic_converged = true;
                         break;
                     }
 
                 }
 
-                if (!converged_hse) {
+                if (!hydrostatic_converged) {
                     amrex::Error("ERROR: failed to convergence in initial model generation");
                 }
 
@@ -298,7 +298,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
 
             Real dens_zone = model::profile(0).state(i+1, model::idens);
 
-            bool converged_hse = false;
+            bool hydrostatic_converged = false;
 
             Real p_want;
             eos_t eos_state;
@@ -306,7 +306,7 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
             for (int iter = 0; iter < MAX_ITER; iter++) {
 
                 p_want = model::profile(0).state(i+1, model::ipres) -
-                    dx * 0.5_rt * (dens_zone + model::profile(0).state(i+1, model::idens)) * gravity::const_grav;
+                    dx * 0.5_rt * (dens_zone + model::profile(0).state(i+1, model::idens)) * gravity::uniform_accel;
 
                 // use the EOS with constant entropy to find corrected state
 
@@ -323,12 +323,12 @@ generate_initial_model(const int nx, const Real xmin, const Real xmax,
                 Real drho = eos_state.rho - dens_zone;
                 dens_zone = eos_state.rho;
                 if (std::abs(drho) < TOL * dens_zone) {
-                    converged_hse = true;
+                    hydrostatic_converged = true;
                     break;
                 }
             }
 
-            if (!converged_hse) {
+            if (!hydrostatic_converged) {
                 amrex::Error("failed to convergence in initial model generation (down)");
             }
 

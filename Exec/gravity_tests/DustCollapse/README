@@ -15,5 +15,5 @@ we have:
 and a typical timescale is ~ 0.06 s.
 
 The diagnostic routines to create radius-vs-time plots from the 1d, 2d and 
-3d plotfiles are in Castro/Diagnostics/DustCollapse.
+3d plotfiles are in HydroSim/Diagnostics/DustCollapse.
 

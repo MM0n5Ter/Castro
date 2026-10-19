@@ -16,7 +16,7 @@ class Profile:
     """read a plotfile using yt and store the 1d profile for T and enuc"""
 
     def __init__(self, plotfile):
-        ds = yt.load(plotfile, hint="castro")
+        ds = yt.load(plotfile, hint="hydrosim")
 
         time = float(ds.current_time)
         ad = ds.all_data()

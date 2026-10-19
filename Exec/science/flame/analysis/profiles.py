@@ -21,7 +21,7 @@ def find_files(plist, times):
     mask = np.zeros(len(times))
     files_to_plot = []
     for pfile in plist:
-        ds = yt.load(pfile, hint="castro")
+        ds = yt.load(pfile, hint="hydrosim")
         for k, t in enumerate(times):
             if mask[k]:
                 continue
@@ -42,7 +42,7 @@ def rgba_to_hex(rgba):
 
 def get_Tev_profile(plotfile):
 
-    ds = yt.load(plotfile, hint="castro")
+    ds = yt.load(plotfile, hint="hydrosim")
 
     time = float(ds.current_time)
     ad = ds.all_data()

@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
         Abort("ERROR: rhd_shocktube diagnostic only works for DIM=1");
 
     // Input arguments
-    string pltfile, groupfile, slcfile;
+    string pltfile, energy_group_file, slcfile;
     int j = 1;         // skip program name
 
     while ( j < argc)
@@ -33,9 +33,9 @@ int main(int argc, char* argv[])
         {
             pltfile = argv[++j];
         }
-        else if ( !strcmp(argv[j], "-g") || !strcmp(argv[j],"--groupfile") )
+        else if ( !strcmp(argv[j], "-g") || !strcmp(argv[j],"--energy_group_file") )
         {
-            groupfile = argv[++j];
+            energy_group_file = argv[++j];
         }
         else if ( !strcmp(argv[j], "-s") || !strcmp(argv[j],"--slicefile") )
         {
@@ -52,20 +52,20 @@ int main(int argc, char* argv[])
         ++j;
     }
 
-    if (pltfile.empty() || groupfile.empty() || slcfile.empty())
+    if (pltfile.empty() || energy_group_file.empty() || slcfile.empty())
     {
         PrintHelp();
         Abort("Missing input file");
     }
 
     Print() << "\nplotfile  = \"" << pltfile << "\"" << std::endl;
-    Print() <<   "groupfile = \"" << groupfile << "\"" << std::endl;
+    Print() <<   "energy_group_file = \"" << energy_group_file << "\"" << std::endl;
     Print() <<   "slicefile = \"" << slcfile << "\"" << std::endl;
     Print() << std::endl;
 
     // open the group file and read in the number of groups
     std::ifstream group_file;
-    group_file.open(groupfile);
+    group_file.open(energy_group_file);
 
     string header_line;
     string line;
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 
     auto dens_comp = varComps[0];
     auto velx_comp = varComps[1];
-    auto pres_comp = varComps[2];
+    auto pressure_index = varComps[2];
     auto rad0_comp = varComps[3];
 
     // allocate storage for data
@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
                       BL_TO_FORTRAN_FAB(lev_data_mf[mfi]),
                       nbins, dens_bin.dataPtr(), vel_bin.dataPtr(),
                       pres_bin.dataPtr(), rad_bin.dataPtr(),
-                      dens_comp, velx_comp, pres_comp, rad0_comp,
+                      dens_comp, velx_comp, pressure_index, rad0_comp,
                       ngroups);
     }
 

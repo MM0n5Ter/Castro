@@ -15,24 +15,24 @@ amr.n_cell           =  200    200    200
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
 
-castro.lo_bc       =  3   3   3
-castro.hi_bc       =  2   2   2
+hydrosim.lo_bc       =  3   3   3
+hydrosim.hi_bc       =  2   2   2
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.ppm_type = 1
+hydrosim.do_hydro = 1
+hydrosim.ppm_recon_kind = 1
 
-castro.small_dens = 1.0e-6
-castro.small_temp = 1.0e-16
+hydrosim.small_dens = 1.0e-6
+hydrosim.small_temp = 1.0e-16
 
 # TIME STEP CONTROL
-castro.cfl            = 0.5     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # maximum increase in dt over successive steps
+hydrosim.cfl            = 0.5     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # maximum increase in dt over successive steps
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 1       # timesteps between computing integrals
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 1       # timesteps between computing integrals
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 gravity.v             = 1       # verbosity in Gravity.cpp
 

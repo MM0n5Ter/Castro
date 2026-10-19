@@ -14,57 +14,57 @@ amr.n_cell           = 384         96
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  3   1
-castro.hi_bc       =  2   2
+hydrosim.lo_bc       =  3   1
+hydrosim.hi_bc       =  2   2
 
-castro.yl_ext_bc_type = 1
-castro.hse_interp_temp = 1
-castro.hse_reflect_vels = 1
+hydrosim.yl_bc_kind = 1
+hydrosim.hse_temp_extrap = 1
+hydrosim.hse_mirror_vel = 1
 
 
 # WHICH PHYSICS
-castro.do_hydro = 1
-castro.do_react = 1
-castro.do_rotation = 1
-castro.do_grav = 1
-castro.do_sponge = 1
+hydrosim.do_hydro = 1
+hydrosim.do_react = 1
+hydrosim.do_frame_spin = 1
+hydrosim.do_gravity_flag = 1
+hydrosim.do_damping_zone = 1
 
-castro.small_temp = 1.e6
-castro.small_dens = 1.e-5
+hydrosim.small_temp = 1.e6
+hydrosim.small_dens = 1.e-5
 
-castro.ppm_type = 1
-castro.grav_source_type = 2
+hydrosim.ppm_recon_kind = 1
+hydrosim.gravity_source_mode = 2
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -1.5e14
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -1.5e14
 
-castro.rotational_period = 0.0005
-castro.rotation_include_centrifugal = 0
+hydrosim.spin_period = 0.0005
+hydrosim.rotation_centrifugal_on = 0
 
-castro.diffuse_temp = 1
-castro.diffuse_cutoff_density = 5.e4
-castro.diffuse_cond_scale_fac = 10.0
+hydrosim.conduction_enabled = 1
+hydrosim.conduction_cutoff_density = 5.e4
+hydrosim.conduction_scale_factor = 10.0
 
-castro.react_rho_min = 1.e2
-castro.react_rho_max = 5.e7
+hydrosim.burn_rho_min = 1.e2
+hydrosim.burn_rho_max = 5.e7
 
-castro.react_T_min = 6.e7
+hydrosim.burn_temp_min = 6.e7
 
-castro.sponge_upper_density = 1.e2
-castro.sponge_lower_density = 1.e0
-castro.sponge_timescale     = 1.e-7
+hydrosim.damping_upper_density = 1.e2
+hydrosim.damping_lower_density = 1.e0
+hydrosim.damping_timescale     = 1.e-7
 
 # TIME STEP CONTROL
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 0.1     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.1     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
-castro.use_retry      = 1
-castro.max_subcycles = 16
+hydrosim.allow_step_retry      = 1
+hydrosim.subcycle_cap = 16
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 0       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 0       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING

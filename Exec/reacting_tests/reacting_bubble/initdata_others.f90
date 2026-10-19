@@ -1,6 +1,6 @@
-subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
+subroutine hs_initdata_lowmach(lo,hi,LOWMACH_init_type, &
                                state,state_l1,state_l2,state_h1,state_h2, &
-                               dx,dr,xlo,xhi,p0,MAESTRO_npts_model,level)
+                               dx,dr,xlo,xhi,p0,LOWMACH_npts_model,level)
 
   use probdata_module
   use eos_module
@@ -10,11 +10,11 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
   use amrex_fort_module, only : rt => amrex_real
   implicit none
 
-  integer lo(2), hi(2), MAESTRO_init_type, level
-  integer MAESTRO_npts_model
+  integer lo(2), hi(2), LOWMACH_init_type, level
+  integer LOWMACH_npts_model
   integer state_l1,state_l2,state_h1,state_h2
   real(rt)         xlo(2), xhi(2), dx(2), dr
-  real(rt)         p0(0:MAESTRO_npts_model-1)
+  real(rt)         p0(0:LOWMACH_npts_model-1)
   real(rt)         state(state_l1:state_h1,state_l2:state_h2,NVAR)
 
   ! local variables
@@ -25,12 +25,12 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
   type (eos_t) eos_state
 
-  minpres = p0(MAESTRO_npts_model-1)
+  minpres = p0(LOWMACH_npts_model-1)
 
   ! compute p0 and add pi if necessary
   do j = lo(2), hi(2)
      do i = lo(1), hi(1)
-        if (MAESTRO_init_type .eq. 1) then
+        if (LOWMACH_init_type .eq. 1) then
            ! set pressure = p0
            state(i,j,UEDEN) = p0(j)
         else
@@ -41,7 +41,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
      end do
   end do
 
-  if (MAESTRO_init_type .eq. 1 .or. MAESTRO_init_type .eq. 2) then
+  if (LOWMACH_init_type .eq. 1 .or. LOWMACH_init_type .eq. 2) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -80,7 +80,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
         end do
      end do
 
-  else if (MAESTRO_init_type .eq. 3) then
+  else if (LOWMACH_init_type .eq. 3) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -118,7 +118,7 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
         end do
      end do
 
-  else if (MAESTRO_init_type .eq. 4) then
+  else if (LOWMACH_init_type .eq. 4) then
 
      do j = lo(2), hi(2)
         do i = lo(1), hi(1)
@@ -162,9 +162,9 @@ subroutine ca_initdata_maestro(lo,hi,MAESTRO_init_type, &
 
   end if
 
-end subroutine ca_initdata_maestro
+end subroutine hs_initdata_lowmach
 
-subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
+subroutine ca_initdata_makemodel(model,model_size,LOWMACH_npts_model, &
                                  rho0,tempbar,dx,dr,r_model_start)
 
   use network, only: nspec
@@ -173,10 +173,10 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
   use amrex_fort_module, only : rt => amrex_real
   implicit none
 
-  integer model_size,MAESTRO_npts_model
-  real(rt)         model(model_size,0:MAESTRO_npts_model-1)
-  real(rt)         rho0   (0:MAESTRO_npts_model-1)
-  real(rt)         tempbar(0:MAESTRO_npts_model-1)
+  integer model_size,LOWMACH_npts_model
+  real(rt)         model(model_size,0:LOWMACH_npts_model-1)
+  real(rt)         rho0   (0:LOWMACH_npts_model-1)
+  real(rt)         tempbar(0:LOWMACH_npts_model-1)
   real(rt)         dx(2), dr
   integer r_model_start
 
@@ -186,14 +186,14 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
   real(rt)         TOL
 
-  real(rt)         pres(0:MAESTRO_npts_model-1)
+  real(rt)         pres(0:LOWMACH_npts_model-1)
   real(rt)         entropy_want,entropy
   real(rt)         dens_zone,temp_zone,xn(nspec)
 
-  logical converged_hse,isentropic,fluff
+  logical hydrostatic_converged,isentropic,fluff
   real(rt)         g_zone,low_density_cutoff,temp_fluff
 
-  real(rt)         p_want,pres_zone,dpt,dpd,dst,dsd,A,B,drho,dtemp
+  real(rt)         p_want,pressure_zone,dpt,dpd,dst,dsd,A,B,drho,dtemp
 
   type (eos_t) eos_state
 
@@ -241,7 +241,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
   !---------------------------------------------------------------------------
   ! integrate up
   !---------------------------------------------------------------------------
-  do i=r_model_start+1,MAESTRO_npts_model-1
+  do i=r_model_start+1,LOWMACH_npts_model-1
 
      ! as the initial guess for the temperature and density, use the previous
      ! zone
@@ -253,7 +253,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
      !-----------------------------------------------------------------------
 
      ! start off the Newton loop by saying that the zone has not converged
-     converged_hse = .FALSE.
+     hydrostatic_converged = .FALSE.
 
      if (.not. fluff) then
 
@@ -294,14 +294,14 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
               call eos_on_host(eos_input_rt, eos_state)
 
               entropy = eos_state % s
-              pres_zone = eos_state % p
+              pressure_zone = eos_state % p
 
               dpt = eos_state % dpdt
               dpd = eos_state % dpdr
               dst = eos_state % dsdt
               dsd = eos_state % dsdt
 
-              A = p_want - pres_zone
+              A = p_want - pressure_zone
               B = entropy_want - entropy
 
               dtemp = ((dsd/(dpd-0.5*dr*g_zone))*A - B)/ &
@@ -322,7 +322,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
                  dens_zone = low_density_cutoff
                  temp_zone = temp_fluff
-                 converged_hse = .TRUE.
+                 hydrostatic_converged = .TRUE.
                  fluff = .TRUE.
                  exit
 
@@ -330,7 +330,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
               ! if (A < TOL .and. B < ETOL) then
               if (abs(drho) < TOL*dens_zone .and. abs(dtemp) < TOL*temp_zone) then
-                 converged_hse = .TRUE.
+                 hydrostatic_converged = .TRUE.
                  exit
               endif
 
@@ -350,17 +350,17 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
               call eos_on_host(eos_input_rt, eos_state)
 
               entropy = eos_state % s
-              pres_zone = eos_state % p
+              pressure_zone = eos_state % p
 
               dpd = eos_state % dpdr
 
-              drho = (p_want - pres_zone)/(dpd - 0.5*dr*g_zone)
+              drho = (p_want - pressure_zone)/(dpd - 0.5*dr*g_zone)
 
               dens_zone = max(0.9*dens_zone, &
                    min(dens_zone + drho, 1.1*dens_zone))
 
               if (abs(drho) < TOL*dens_zone) then
-                 converged_hse = .TRUE.
+                 hydrostatic_converged = .TRUE.
                  exit
               endif
 
@@ -368,7 +368,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
                  dens_zone = low_density_cutoff
                  temp_zone = temp_fluff
-                 converged_hse = .TRUE.
+                 hydrostatic_converged = .TRUE.
                  fluff = .TRUE.
                  exit
 
@@ -378,7 +378,7 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
         enddo
 
-        if (.NOT. converged_hse) then
+        if (.NOT. hydrostatic_converged) then
 
            print *, 'Error zone', i, ' did not converge in init_1d'
            print *, 'integrate up'
@@ -407,13 +407,13 @@ subroutine ca_initdata_makemodel(model,model_size,MAESTRO_npts_model, &
 
      call eos_on_host(eos_input_rt, eos_state)
 
-     pres_zone = eos_state % p
+     pressure_zone = eos_state % p
 
      ! update the thermodynamics in this zone
      model(1,i) = dens_zone
      model(2,i) = temp_zone
 
-     pres(i) = pres_zone
+     pres(i) = pressure_zone
 
      ! to make this process converge faster, set the density in the next zone to
      ! the density in this zone
@@ -425,7 +425,7 @@ end subroutine ca_initdata_makemodel
 
 subroutine ca_initdata_overwrite(lo,hi, &
                                  state,state_l1,state_l2,state_h1,state_h2, &
-                                 model,model_size,MAESTRO_npts_model,dx,dr, &
+                                 model,model_size,LOWMACH_npts_model,dx,dr, &
                                  xlo,xhi,r_model_start)
 
   use meth_params_module, only : NVAR, URHO, UMX, UMY, UEDEN, UEINT, UFS, UTEMP
@@ -436,10 +436,10 @@ subroutine ca_initdata_overwrite(lo,hi, &
   implicit none
 
   integer lo(2), hi(2), r_model_start
-  integer model_size,MAESTRO_npts_model
+  integer model_size,LOWMACH_npts_model
   integer state_l1,state_l2,state_h1,state_h2
   real(rt)         state(state_l1:state_h1,state_l2:state_h2,NVAR)
-  real(rt)         model(model_size,0:MAESTRO_npts_model-1)
+  real(rt)         model(model_size,0:LOWMACH_npts_model-1)
   real(rt)         dx(2), xlo(2), xhi(2), dr
 
   ! local

@@ -4,7 +4,7 @@
 # the plotfile data from the RadSphere problem (using the fradsphere
 # tool) and compare to the analytic solution, and output a plot.
 #
-# run as: ./radsphere.py castroradiation_dir plotfle
+# run as: ./radsphere.py hydrosimradiation_dir plotfle
 
 import sys
 import os
@@ -15,12 +15,12 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-def process(castro_dir, plotfile):
+def process(hydrosim_dir, plotfile):
 
     run_dir = os.getcwd()
 
     # 1. make sure that the analysis tool is built
-    build_dir = castro_dir + "/Diagnostics/Radiation/"
+    build_dir = hydrosim_dir + "/Diagnostics/Radiation/"
     os.chdir(build_dir)
     os.system("make DIM=1 rad_sphere.ex >& /dev/null")
 
@@ -107,9 +107,9 @@ def process(castro_dir, plotfile):
 if __name__ == "__main__":
 
     if len(sys.argv) < 3:
-        sys.exit("usage: ./sedov_3d_sph.py castro_dir plotfile")
+        sys.exit("usage: ./sedov_3d_sph.py hydrosim_dir plotfile")
 
-    castro_dir = str(sys.argv[1])
+    hydrosim_dir = str(sys.argv[1])
     plotfile = str(sys.argv[2])
 
-    process(castro_dir, plotfile)
+    process(hydrosim_dir, plotfile)

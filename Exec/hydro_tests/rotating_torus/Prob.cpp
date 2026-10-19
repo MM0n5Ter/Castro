@@ -1,13 +1,13 @@
 /* Implementations of functions in Problem.H go here */
 
-#include <Castro.H>
+#include <HydroSim.H>
 
 using namespace amrex;
 
-Real Castro::initial_moment_of_inertia = 0.0;
+Real HydroSim::initial_moment_of_inertia = 0.0;
 
 Real
-Castro::compute_moment_of_inertia()
+HydroSim::compute_moment_of_inertia()
 {
 
     // Compute the moment of inertia for the mass
@@ -22,16 +22,16 @@ Castro::compute_moment_of_inertia()
 
     Real moment = 0.0;
 
-    bool local_flag = true;
+    bool local_only = true;
 
     for (int lev = 0; lev <= finest_level; ++lev) {
 
-        // Get the Castro level
-        Castro& ca_lev = getLevel(lev);
+        // Get the HydroSim level
+        HydroSim& hs_level = getLevel(lev);
 
         // Add up the moment of inertia on this level
         int idir = -1; // So we do r**2, rather than any particular direction
-        moment += ca_lev.locSquaredSum("density", time, idir, local_flag);
+        moment += hs_level.locDistSquaredTotal("density", time, idir, local_only);
 
     }
 
@@ -43,7 +43,7 @@ Castro::compute_moment_of_inertia()
 }
 
 void
-Castro::problem_post_init() {
+HydroSim::user_post_init() {
 
     if (level != 0) return;
 
@@ -54,7 +54,7 @@ Castro::problem_post_init() {
 }
 
 void
-Castro::problem_post_restart() {
+HydroSim::user_post_restart() {
 
     if (level != 0) return;
 
@@ -65,7 +65,7 @@ Castro::problem_post_restart() {
 }
 
 void
-Castro::problem_post_timestep() {
+HydroSim::user_post_timestep() {
 
     if (level != 0) return;
 

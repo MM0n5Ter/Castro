@@ -6,7 +6,7 @@
 #include <eos_type.H>
 #include <eos.H>
 
-#include <riemann_constants.H>
+#include <solver_constants.H>
 
 AMREX_INLINE
 void
@@ -27,7 +27,7 @@ W_s_shock(const amrex::Real W_s, const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::eos_temp_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -63,7 +63,7 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
     bool converged = false;
 
     int iter = 1;
-    while (! converged && iter < castro::riemann_shock_maxiter) {
+    while (! converged && iter < hydrosim::shock_star_max_iters) {
 
         amrex::Real rhostar_s, f, fprime;
 
@@ -72,7 +72,7 @@ newton_shock(amrex::Real& W_s, const amrex::Real pstar,
 
         amrex::Real dW = -f / fprime;
 
-        if (std::abs(dW) < castro::riemann_pstar_tol * W_s) {
+        if (std::abs(dW) < hydrosim::riemann_star_tol * W_s) {
             converged = true;
         }
 
@@ -99,7 +99,7 @@ shock(const amrex::Real pstar,
 
     amrex::ignore_unused(u_s);
 
-    amrex::Real rhostar_hist[riemann_constants::HISTORY_SIZE], Ws_hist[riemann_constants::HISTORY_SIZE];
+    amrex::Real rhostar_hist[solver_constants::STAR_HISTORY_DEPTH], Ws_hist[solver_constants::STAR_HISTORY_DEPTH];
 
     // compute the Z_s function for a shock.
     // Here the "_s" variables are the state (L or R) that we are
@@ -116,7 +116,7 @@ shock(const amrex::Real pstar,
     for (int n = 0; n < NumSpec; ++n) {
         eos_state.xn[n] = xn[n];
     }
-    eos_state.T = castro::T_guess;
+    eos_state.T = hydrosim::eos_temp_guess;
 
     eos(eos_input_rp, eos_state);
 
@@ -136,7 +136,7 @@ shock(const amrex::Real pstar,
     // just doesn't work.  In this case, we use the ideas from CG, and
     // take W = sqrt(gamma p rho)
 
-    if (pstar - p_s < riemann_constants::riemann_p_tol * p_s) {
+    if (pstar - p_s < solver_constants::pressure_tolerance * p_s) {
         W_s = std::sqrt(eos_state.gam1 * p_s * rho_s);
     } else {
        W_s = std::sqrt((pstar - p_s) *
@@ -150,7 +150,7 @@ shock(const amrex::Real pstar,
     amrex::Real rhostar_s;
 
     if (taustar_s < 0.0_rt) {
-        rhostar_s = riemann_constants::small;
+        rhostar_s = solver_constants::small;
         W_s = std::sqrt((pstar - p_s) / (1.0_rt / rho_s - 1.0_rt / rhostar_s));
     }
 
@@ -164,7 +164,7 @@ shock(const amrex::Real pstar,
     // now did we converge?
 
     if (! converged) {
-        for (int i = 0; i < castro::riemann_shock_maxiter; ++i) {
+        for (int i = 0; i < hydrosim::shock_star_max_iters; ++i) {
             std::cout << i << " " << rhostar_hist[i] << " " << Ws_hist[i] << std::endl;
         }
 

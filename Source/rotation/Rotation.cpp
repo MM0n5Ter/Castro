@@ -1,9 +1,9 @@
-#include <Castro.H>
-#include <Castro_math.H>
+#include <HydroSim.H>
+#include <HydroSim_math.H>
 #include <Rotation.H>
 
 void
-Castro::fill_rotational_psi(const Box& bx,
+HydroSim::fill_scaled_centrifugal_potential(const Box& bx,
                             Array4<Real> const& psi,
                             const Real time) {
 
@@ -14,11 +14,11 @@ Castro::fill_rotational_psi(const Box& bx,
   // rotation, psi = -R^2 / 2, where R is the distance orthogonal to
   // the rotation axis. There are also v-constant and j-constant
   // rotation laws that we do not implement here. We will construct
-  // this as potential / omega**2, so that the rotational_potential
+  // this as potential / omega**2, so that the centrifugal_potential
   // routine uniquely determines the rotation law. For the other
   // rotation laws, we would simply divide by v_0^2 or j_0^2 instead.
 
-  const auto omega = get_omega();
+  const auto omega = get_angular_speed();
   Real denom = omega * omega;
 
   const auto problo = geom.ProbLoArray();
@@ -45,8 +45,8 @@ Castro::fill_rotational_psi(const Box& bx,
 #endif
 
     if (denom != 0.0) {
-        auto omega_vec = get_omega_vec(geomdata, j);
-        psi(i,j,k) = rotational_potential(r, omega_vec, coord) / denom;
+        auto angular_velocity_vec = get_angular_velocity(geomdata, j);
+        psi(i,j,k) = centrifugal_potential(r, angular_velocity_vec, coord) / denom;
     }
     else {
         psi(i,j,k) = 0.0;

@@ -19,10 +19,10 @@ geometry.coord_sys = 0                  # 0 => cart, 1 => RZ  2=>spherical
   geometry.prob_hi     = 10.240e7   10.240e7   15.360e7
   amr.n_cell           = 640        640        960
 
-  castro.fill_ambient_bc = 1
-  castro.ambient_fill_dir = 2
-  castro.lo_bc = 0   0   3
-  castro.hi_bc = 0   0   2
+  hydrosim.apply_ambient_bc = 1
+  hydrosim.ambient_bc_axis = 2
+  hydrosim.lo_bc = 0   0   3
+  hydrosim.hi_bc = 0   0   2
 
 # elif AMREX_SPACEDIM == 2
 
@@ -31,63 +31,63 @@ geometry.coord_sys = 0                  # 0 => cart, 1 => RZ  2=>spherical
   geometry.prob_hi     = 30.720e7   15.360e7
   amr.n_cell           = 1920       960
 
-  castro.fill_ambient_bc = 1
-  castro.ambient_fill_dir = 1
-  castro.lo_bc       =  0   3
-  castro.hi_bc       =  0   2
+  hydrosim.apply_ambient_bc = 1
+  hydrosim.ambient_bc_axis = 1
+  hydrosim.lo_bc       =  0   3
+  hydrosim.hi_bc       =  0   2
 
 #endif
 
-castro.domain_is_plane_parallel = 1
-castro.hydro_memory_footprint_ratio = 3
+hydrosim.plane_parallel_domain = 1
+hydrosim.hydro_tile_mem_ratio = 3
 
 # WHICH PHYSICS
-castro.do_hydro = 1           #hydrodynamics
-castro.do_react = 1           #microphysics
-castro.do_grav = 1            #gravity
+hydrosim.do_hydro = 1           #hydrodynamics
+hydrosim.do_react = 1           #microphysics
+hydrosim.do_gravity_flag = 1            #gravity
 
-castro.do_sponge = 1          #using sponge
-castro.sponge_timescale = 1.0e-6
-castro.sponge_upper_density = 1.0e-1
-castro.sponge_lower_density =  1.0e-2
+hydrosim.do_damping_zone = 1          #using sponge
+hydrosim.damping_timescale = 1.0e-6
+hydrosim.damping_upper_density = 1.0e-1
+hydrosim.damping_lower_density =  1.0e-2
 
-castro.ppm_type = 1
-castro.grav_source_type = 2
-castro.use_pslope = 1
-castro.ppm_well_balanced = 1
-castro.pslope_cutoff_density = 1.0e-2
+hydrosim.ppm_recon_kind = 1
+hydrosim.gravity_source_mode = 2
+hydrosim.use_pressure_slope = 1
+hydrosim.ppm_equil_recon = 1
+hydrosim.slope_rho_cutoff = 1.0e-2
 
-castro.use_flattening = 1
+hydrosim.use_shock_flatten = 1
 
-castro.small_temp = 5.0e5
-castro.small_dens = 5.0e-6
-castro.limit_fluxes_on_small_dens = 1
+hydrosim.small_temp = 5.0e5
+hydrosim.small_dens = 5.0e-6
+hydrosim.clip_small_rho_flux = 1
 
-castro.retry_small_density_cutoff = 5.0e-5
+hydrosim.retry_density_cutoff = 5.0e-5
 
-castro.use_retry = 1
-castro.max_subcycles = 16
+hydrosim.allow_step_retry = 1
+hydrosim.subcycle_cap = 16
 
-gravity.gravity_type = ConstantGrav
-gravity.const_grav   = -7.06e8
+gravity.gravity_model_name = ConstantGrav
+gravity.uniform_accel   = -7.06e8
 
-castro.react_rho_min = 1.0e1
-castro.react_T_min = 5.0e6
+hydrosim.burn_rho_min = 1.0e1
+hydrosim.burn_temp_min = 5.0e6
 
 # CONVECTION
 
-castro.drive_initial_convection = 1
-castro.drive_initial_convection_reinit_period = 2
-castro.drive_initial_convection_tmax = 50
+hydrosim.drive_initial_convection = 1
+hydrosim.convect_drive_reset_period = 2
+hydrosim.convect_drive_end_time = 50
 
 # TIME STEP CONTROL
-castro.cfl            = 0.85     # cfl number for hyperbolic system
-castro.init_shrink    = 0.01     # scale back initial timestep
-castro.change_max     = 1.1     # max time step growth
+hydrosim.cfl            = 0.85     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 0.01     # scale back initial timestep
+hydrosim.change_max     = 1.1     # max time step growth
 
 # DIAGNOSTICS & VERBOSITY
-castro.sum_interval   = 25       # timesteps between computing mass
-castro.v              = 1       # verbosity in Castro.cpp
+hydrosim.sum_step_period   = 25       # timesteps between computing mass
+hydrosim.v              = 1       # verbosity in HydroSim.cpp
 amr.v                 = 1       # verbosity in Amr.cpp
 
 
@@ -150,7 +150,7 @@ integrator.use_burn_retry = 1
 
 # refinement
 
-amr.refinement_indicators = dens temp edot
+amr.refine_criteria = dens temp edot
 
 amr.refine.dens.max_level = 2
 amr.refine.dens.value_greater = 1.0e2

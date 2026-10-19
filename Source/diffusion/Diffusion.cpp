@@ -1,67 +1,67 @@
 #include <AMReX_ParmParse.H>
 #include <Diffusion.H>
-#include <Castro.H>
+#include <HydroSim.H>
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
-#include <MGutils.H>
+#include <SolverUtils.H>
 
-#include <castro_limits.H>
+#include <hydrosim_limits.H>
 
 using namespace amrex;
 
-Diffusion::Diffusion(Amr* Parent, BCRec* _phys_bc)
+Diffusion::Diffusion(Amr* Parent, BCRec* _boundary_rec)
   :
     parent(Parent),
-    LevelData(MAX_LEV),
-    grids(MAX_LEV),
-    volume(MAX_LEV),
-    area(MAX_LEV),
-    phys_bc(_phys_bc)
+    LevelTable(LEVEL_LIMIT),
+    grids(LEVEL_LIMIT),
+    volume(LEVEL_LIMIT),
+    area(LEVEL_LIMIT),
+    phys_bc(_boundary_rec)
 {
-    AMREX_ALWAYS_ASSERT(parent->maxLevel() < MAX_LEV);
+    AMREX_ALWAYS_ASSERT(parent->maxLevel() < LEVEL_LIMIT);
 
-    make_mg_bc();
+    build_solver_bc();
 }
 
 
 void
-Diffusion::output_job_info_params(std::ostream& jobInfoFile)
+Diffusion::report_run_settings(std::ostream& jobInfoFile)
 {
 #include <diffusion_job_info_tests.H>
 }
 
 
 void
-Diffusion::install_level (int                   level,
-                          AmrLevel*             level_data,
-                          MultiFab&             _volume,
-                          MultiFab*             _area)
+Diffusion::attach_level (int                   level,
+                          AmrLevel*             amr_level_ptr,
+                          MultiFab&             _cell_volume,
+                          MultiFab*             _face_area)
 {
     if (verbose) {
         amrex::Print() << "Installing Diffusion level " << level << '\n';
     }
 
-    LevelData[level] = level_data;
+    LevelTable[level] = amr_level_ptr;
 
-    volume[level] = &_volume;
+    volume[level] = &_cell_volume;
 
-    area[level] = _area;
+    area[level] = _face_area;
 
-    BoxArray ba(LevelData[level]->boxArray());
+    BoxArray ba(LevelTable[level]->boxArray());
     grids[level] = ba;
 }
 
 void
-Diffusion::applyop (int level, MultiFab& Temperature,
-                    MultiFab& CrseTemp, MultiFab& DiffTerm,
-                    Vector<std::unique_ptr<MultiFab> >& temp_cond_coef)
+Diffusion::apply_stencil (int level, MultiFab& Temperature,
+                    MultiFab& CoarseTemperature, MultiFab& ConductionTerm,
+                    Vector<std::unique_ptr<MultiFab> >& conductivity_fields)
 {
-    applyop_mlmg(level, Temperature, CrseTemp, DiffTerm, temp_cond_coef);
+    apply_stencil_multigrid(level, Temperature, CoarseTemperature, ConductionTerm, conductivity_fields);
 }
 
 
 void
-Diffusion::make_mg_bc ()
+Diffusion::build_solver_bc ()
 {
     const Geometry& geom = parent->Geom(0);
 
@@ -92,11 +92,11 @@ Diffusion::make_mg_bc ()
 }
 
 void
-Diffusion::applyop_mlmg (int level, MultiFab& Temperature,
-                         MultiFab& CrseTemp, MultiFab& DiffTerm,
-                         Vector<std::unique_ptr<MultiFab> >& temp_cond_coef)
+Diffusion::apply_stencil_multigrid (int level, MultiFab& Temperature,
+                         MultiFab& CoarseTemperature, MultiFab& ConductionTerm,
+                         Vector<std::unique_ptr<MultiFab> >& conductivity_fields)
 {
-    BL_PROFILE("Diffusion::applyop_mlmg()");
+    BL_PROFILE("Diffusion::apply_stencil_multigrid()");
 
     if (verbose && ParallelDescriptor::IOProcessor()) {
         std::cout << "   " << '\n';
@@ -114,22 +114,22 @@ Diffusion::applyop_mlmg (int level, MultiFab& Temperature,
     info.setConsolidation(false);
 
     MLABecLaplacian mlabec({geom}, {ba}, {dm}, info);
-    mlabec.setMaxOrder(diffusion::mlmg_maxorder);
+    mlabec.setMaxOrder(diffusion::solver_max_order);
 
     mlabec.setDomainBC(mlmg_lobc, mlmg_hibc);
 
     if (level > 0) {
         const auto& rr = parent->refRatio(level-1);
-        mlabec.setCoarseFineBC(&CrseTemp, rr[0]);
+        mlabec.setCoarseFineBC(&CoarseTemperature, rr[0]);
     }
     mlabec.setLevelBC(0, &Temperature);
 
     mlabec.setScalars(0.0, -1.0);
-    mlabec.setBCoeffs(0, Array<MultiFab const*, AMREX_SPACEDIM>{AMREX_D_DECL(temp_cond_coef[0].get(),
-                                                                             temp_cond_coef[1].get(),
-                                                                             temp_cond_coef[2].get())});
+    mlabec.setBCoeffs(0, Array<MultiFab const*, AMREX_SPACEDIM>{AMREX_D_DECL(conductivity_fields[0].get(),
+                                                                             conductivity_fields[1].get(),
+                                                                             conductivity_fields[2].get())});
 
     MLMG mlmg(mlabec);
     mlmg.setVerbose(verbose);
-    mlmg.apply({&DiffTerm}, {&Temperature});
+    mlmg.apply({&ConductionTerm}, {&Temperature});
 }

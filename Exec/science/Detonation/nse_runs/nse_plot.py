@@ -29,7 +29,7 @@ plots = []
 plots.append([("Strang", "Strang (CFL = 0.25)", "Strang (CFL = 0.083)"), "strang_timestep.png"])
 plots.append([("SDC", "SDC (CFL = 0.25)", "SDC (CFL = 0.083)"), "sdc_timestep.png"])
 plots.append([("Strang", "SDC", "SDC (3 iters)"), "strang_sdc_compare.png"])
-plots.append([("SDC", "SDC (3 iters)", "SDC (4 iters)"), "sdc_iters.png"])
+plots.append([("SDC", "SDC (3 iters)", "SDC (4 iters)"), "deferred_iters.png"])
 
 for p in plots:
 

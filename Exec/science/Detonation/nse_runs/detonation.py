@@ -83,7 +83,7 @@ class Detonation:
                     self.integrator = v.strip()
                 elif k == "niters":
                     self.niters = int(v)
-                elif k == "dtnuc_e":
+                elif k == "burn_dt_energy":
                     self.dtnuce = float(v)
                 elif k == "order":
                     self.order = int(v)

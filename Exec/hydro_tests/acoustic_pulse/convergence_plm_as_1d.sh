@@ -4,11 +4,11 @@
 set -x
 
 DIM=3
-EXEC=./Castro${DIM}d.gnu.MPI.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.ex
 
 RUNPARAMS="
-castro.ppm_type=0
-castro.time_integration_method=0
+hydrosim.ppm_recon_kind=0
+hydrosim.time_scheme=0
 problem.init_as_1d=1
 geometry.prob_hi=1 0.125 0.125"
 

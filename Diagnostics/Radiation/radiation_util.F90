@@ -62,7 +62,7 @@ end subroutine fgaussian_pulse
 subroutine flgt_frnt1d(lo, hi, p, plo, phi, nc_p, nbins, &
      dens_bin, vel_bin, pres_bin, rad_bin, &
      imask, mask_size, r1,&
-     dens_comp, xmom_comp, pres_comp, &
+     dens_comp, xmom_comp, pressure_index, &
      rad_comp, dx, dx_fine) bind(C, name='flgt_frnt1d')
 
   use amrex_fort_module, only : rt => amrex_real
@@ -79,7 +79,7 @@ subroutine flgt_frnt1d(lo, hi, p, plo, phi, nc_p, nbins, &
   real(rt), intent(inout) :: pres_bin(0:nbins-1)
   real(rt), intent(inout) :: rad_bin(0:nbins-1)
   integer, intent(inout) :: imask(0:mask_size-1)
-  integer, intent(in), value :: mask_size, r1, dens_comp, xmom_comp, pres_comp, rad_comp
+  integer, intent(in), value :: mask_size, r1, dens_comp, xmom_comp, pressure_index, rad_comp
   real(rt), intent(in), value :: dx_fine
   real(rt), intent(in) :: dx(3)
 
@@ -104,7 +104,7 @@ subroutine flgt_frnt1d(lo, hi, p, plo, phi, nc_p, nbins, &
         vel_bin(index:index+(r1-1)) = &
              abs(p(ii,j,k,xmom_comp)) / p(ii,j,k,dens_comp)
 
-        pres_bin(index:index+(r1-1)) = p(ii,j,k,pres_comp)
+        pres_bin(index:index+(r1-1)) = p(ii,j,k,pressure_index)
 
         rad_bin(index:index+(r1-1)) = p(ii,j,k,rad_comp)
 
@@ -121,7 +121,7 @@ end subroutine flgt_frnt1d
 ! plotfile can be 1-, 2-, or 3-d.
 !
 ! This routine is a generalized version is based on fextract3d, but geared
-! toward the CASTRO radiating shock problem
+! toward the HYDROSIM radiating shock problem
 !
 ! We read in all the variables, but only output a subset
 subroutine fradshock(lo, hi, problo, probhi, p, plo, phi, nc_p, nbins, &
@@ -362,7 +362,7 @@ end subroutine fradsphere
 ! Analysis routine for RHD_shocktube
 subroutine frhdshocktube(lo, hi, p, plo, phi, nc_p, nbins, &
      dens_bin, vel_bin, pres_bin, rad_bin, &
-     dens_comp, xvel_comp, pres_comp, rad_comp, ngroups) &
+     dens_comp, xvel_comp, pressure_index, rad_comp, ngroups) &
      bind(C, name='frhdshocktube')
 
   use amrex_fort_module, only : rt => amrex_real
@@ -378,7 +378,7 @@ subroutine frhdshocktube(lo, hi, p, plo, phi, nc_p, nbins, &
   real(rt), intent(inout) :: vel_bin(0:nbins-1)
   real(rt), intent(inout) :: pres_bin(0:nbins-1)
   real(rt), intent(inout) :: rad_bin(0:nbins-1)
-  integer, intent(in), value :: dens_comp, xvel_comp, pres_comp, rad_comp, ngroups
+  integer, intent(in), value :: dens_comp, xvel_comp, pressure_index, rad_comp, ngroups
 
   integer :: i, j, k, ig
 
@@ -388,7 +388,7 @@ subroutine frhdshocktube(lo, hi, p, plo, phi, nc_p, nbins, &
 
      dens_bin(i) = p(i,j,k,dens_comp)
      vel_bin(i) = p(i,j,k,xvel_comp)
-     pres_bin(i) = p(i,j,k,pres_comp)
+     pres_bin(i) = p(i,j,k,pressure_index)
 
      do ig = 0, ngroups-1
          rad_bin(i) = rad_bin(i) + p(i,j,k,rad_comp+ig)

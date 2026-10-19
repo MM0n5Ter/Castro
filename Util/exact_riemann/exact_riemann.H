@@ -5,7 +5,7 @@
 
 #include <fstream>
 
-#include <castro_params.H>
+#include <hydrosim_params.H>
 
 #include <exact_riemann_sample.H>
 #include <exact_riemann_star_state.H>
@@ -90,7 +90,7 @@ exact_riemann() {
         for (int n = 0; n < NumSpec; ++n) {
             eos_state.xn[n] = xn_s[n];
         }
-        eos_state.T = castro::T_guess;
+        eos_state.T = hydrosim::eos_temp_guess;
 
         eos(eos_input_rp, eos_state);
 

@@ -118,7 +118,7 @@ build_star(const model_t& model_params, const Real dx,
 
     amrex::Real dens_zone;
     amrex::Real temp_zone;
-    amrex::Real pres_zone;
+    amrex::Real pressure_zone;
     amrex::Real entropy;
     amrex::Real xn[NumSpec];
 
@@ -203,7 +203,7 @@ build_star(const model_t& model_params, const Real dx,
         // thermodynamic state iteration loop
 
         // start off the Newton loop by saying that the zone has not converged
-        bool converged_hse = false;
+        bool hydrostatic_converged = false;
 
         if (! fluff) {
 
@@ -235,23 +235,23 @@ build_star(const model_t& model_params, const Real dx,
                     eos(eos_input_rt, eos_state);
 
                     entropy = eos_state.s;
-                    pres_zone = eos_state.p;
+                    pressure_zone = eos_state.p;
 
                     amrex::Real dpT = eos_state.dpdT;
                     amrex::Real dpd = eos_state.dpdr;
                     amrex::Real dsT = eos_state.dsdT;
                     amrex::Real dsd = eos_state.dsdr;
 
-                    amrex::Real A = p_want - pres_zone;
+                    amrex::Real A = p_want - pressure_zone;
                     amrex::Real B = entropy_base - entropy;
 
                     amrex::Real dAdT = -dpT;
                     amrex::Real dAdrho = 0.5_rt * dx * g_zone - dpd;
-                    amrex::Real dBdT = -dsT;
+                    amrex::Real dplanck_group_diff = -dsT;
                     amrex::Real dBdrho = -dsd;
 
                     dtemp = (B - (dBdrho / dAdrho) * A) /
-                        ((dBdrho / dAdrho) * dAdT - dBdT);
+                        ((dBdrho / dAdrho) * dAdT - dplanck_group_diff);
 
                     drho = -(A + dAdT * dtemp) / dAdrho;
 
@@ -267,14 +267,14 @@ build_star(const model_t& model_params, const Real dx,
                     if (dens_zone < model_params.low_density_cutoff) {
                         dens_zone = model_params.low_density_cutoff;
                         temp_zone = model_params.T_fluff;
-                        converged_hse = true;
+                        hydrostatic_converged = true;
                         fluff = true;
                         break;
                     }
 
                     if (std::abs(drho) < model_params.tol_hse * dens_zone &&
                         std::abs(dtemp) < model_params.tol_hse * temp_zone) {
-                        converged_hse = true;
+                        hydrostatic_converged = true;
                         break;
                     }
 
@@ -302,17 +302,17 @@ build_star(const model_t& model_params, const Real dx,
                     eos(eos_input_rt, eos_state);
 
                     entropy = eos_state.s;
-                    pres_zone = eos_state.p;
+                    pressure_zone = eos_state.p;
 
                     amrex::Real dpd = eos_state.dpdr;
 
-                    drho = (p_want - pres_zone) / (dpd - 0.5_rt * dx * g_zone);
+                    drho = (p_want - pressure_zone) / (dpd - 0.5_rt * dx * g_zone);
 
                     dens_zone = amrex::Clamp(dens_zone + drho,
                                              0.9_rt * dens_zone, 1.1_rt * dens_zone);
 
                     if (std::abs(drho) < model_params.tol_hse * dens_zone) {
-                        converged_hse = true;
+                        hydrostatic_converged = true;
                         break;
                     }
 
@@ -321,7 +321,7 @@ build_star(const model_t& model_params, const Real dx,
                         icutoff = i;
                         dens_zone = model_params.low_density_cutoff;
                         temp_zone = model_params.T_fluff;
-                        converged_hse = true;
+                        hydrostatic_converged = true;
                         fluff = true;
                         break;
                     }
@@ -335,7 +335,7 @@ build_star(const model_t& model_params, const Real dx,
             }  // thermo iteration loop
 
 
-            if (! converged_hse) {
+            if (! hydrostatic_converged) {
 
                 std::cout << "Error zone " << i <<  " did not converge in init_1d" << std::endl;
                 std::cout << dens_zone << " " << temp_zone << std::endl;
@@ -363,7 +363,7 @@ build_star(const model_t& model_params, const Real dx,
 
         eos(eos_input_rt, eos_state);
 
-        pres_zone = eos_state.p;
+        pressure_zone = eos_state.p;
 
         // determine the entropy that we want to constrain to, if
         // this is the first zone of the He layer
@@ -376,7 +376,7 @@ build_star(const model_t& model_params, const Real dx,
 
         model::profile(0).state(i, model::idens) = dens_zone;
         model::profile(0).state(i, model::itemp) = temp_zone;
-        model::profile(0).state(i, model::ipres) = pres_zone;
+        model::profile(0).state(i, model::ipres) = pressure_zone;
 
         for (int n = 0; n < NumSpec; ++n) {
             model::profile(0).state(i, model::ispec+n) = xn[n];

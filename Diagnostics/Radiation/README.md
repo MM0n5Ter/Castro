@@ -1,6 +1,6 @@
 # Radiation diagnostics
 
-This directory contains diagnostics for Castro's radiation tests.
+This directory contains diagnostics for HydroSim's radiation tests.
 These are:
 
 - `gaussian_pulse`: Process a 2-d gaussian radiation pulse.
@@ -48,12 +48,12 @@ to be analyzed and problem parameters:
     and defaults to 1).
 - `rad_source`: the arguments are assumed to be a list of the plotfiles to be analyzed
 - `rad_sphere`:  `-p plotfile_name` (or `--plotfile`) to provide the plotfile,
-    `-g groupfile_name` (or `--groupfile`) to provide the name of the group file
+    `-g groupfile_name` (or `--energy_group_file`) to provide the name of the group file
     (this is output at runtime by the `RadSphere` problem), and `-r radius` (or
     `--radius`) to provide the radius at which to print out the
     radiation quantities.
 - `rhd_shocktube`: `-p plotfile_name` (or `--plotfile`) to provide the plotfile,
-    `-g groupfile_name` (or `--groupfile`) to provide the name of the group file
+    `-g groupfile_name` (or `--energy_group_file`) to provide the name of the group file
     (this is output at runtime by the `RadSphere` problem), and
     `-s slicefile_name` (or `--slicefile`) to provide the name of the file to
     output the results.

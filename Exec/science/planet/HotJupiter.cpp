@@ -43,7 +43,7 @@ int main(){
   double X = 1.0,buffer_height,T_buffer,den_buffer,P_buffer;
   long double P2, P3,dz,dz2,dz3, den2,den3, T2,T3,error_expected,error;
   long double P_sol,T_sol,den_sol,dz_sol,kappa0;
-  long double Pc,Pd, Lad, Lin,P_char,T_char,Tc,grav ,Td,exp1, exp2,number_cell;
+  long double Pc,Pd, Lad, Lin,P_char,T_char,Tc,gravity_view ,Td,exp1, exp2,number_cell;
   double P2_temp,optical_depth_buffer,optical_depth_atm,optical_depth_radiative;
   int alpha=1, beta=0, count = 0,count_cell,count2=0;
   bool continuous_P, continuous_rho;
@@ -56,7 +56,7 @@ int main(){
   dP = 1.0e+3;                              //dP default value
   Lad = (2.0/7.0);                          //the adiabatic index of an ideal diatomic gas
   Lin = (1.0/2.0);
-  grav = -1.0e3;                            //constant gravity [cm/s^2]
+  gravity_view = -1.0e3;                            //constant gravity [cm/s^2]
   R = (1.3806488e-16)/2.34*6.02214129e23;   //ideal gas constant (defined with mean molecular mass)
 
   exp1=1.0 + alpha;
@@ -157,14 +157,14 @@ int main(){
       den2 = density(P2, T2, R);
       T3 = T1;
       den3 = den1;
-      dz2 = std::abs ((-P1+P2)* (1.0/grav)/((1.0/2.0)*(den1+den2)));
-      dz3 = std::abs ((-P1+P3)* (1.0/grav)/((1.0/2.0)*(den1+den3)));
+      dz2 = std::abs ((-P1+P2)* (1.0/gravity_view)/((1.0/2.0)*(den1+den2)));
+      dz3 = std::abs ((-P1+P3)* (1.0/gravity_view)/((1.0/2.0)*(den1+den3)));
 
     a:  if(difference(dz2, delta_z)*difference(dz3, delta_z)<0.0){
         P_sol = (P2+P3)/2.0;
         T_sol = Temp(P_sol, Pc, P_char, T_char, Td, Lin, Lad, exp1, exp2);
         den_sol = density(P_sol,T_sol, R);
-        dz_sol = std::abs ((-P1+P_sol)* (1.0/grav)/((1.0/2.0)*(den1+den_sol)));
+        dz_sol = std::abs ((-P1+P_sol)* (1.0/gravity_view)/((1.0/2.0)*(den1+den_sol)));
         count2++;
         }
         else{
@@ -172,13 +172,13 @@ int main(){
           P3 = P3 - P3/dP_factor/1.0;
           T3 = Temp(P3, Pc, P_char, T_char, Td, Lin, Lad, exp1, exp2);
           den3 = density(P3, T3, R);
-          dz3 = std::abs ((-P1+P3)* (1.0/grav)/((1.0/2.0)*(den1+den3)));
+          dz3 = std::abs ((-P1+P3)* (1.0/gravity_view)/((1.0/2.0)*(den1+den3)));
           }
         else if(difference(dz2, delta_z)<0.0){
           P2 = P2 + P2/dP_factor/1.0;
           T2 = Temp(P2, Pc, P_char, T_char, Td, Lin, Lad, exp1, exp2);
           den2 = density(P2,T2,R);
-          dz2 = std::abs ((-P1+P2)* (1.0/grav)/((1.0/2.0)*(den1+den2)));
+          dz2 = std::abs ((-P1+P2)* (1.0/gravity_view)/((1.0/2.0)*(den1+den2)));
           }
           goto a;
         }
@@ -196,7 +196,7 @@ int main(){
         goto a;
       }
 
-    b:  cout<<count_cell<<' ' <<setprecision(5) << "Final value, "<<' '<<"height[km]="<< ' '<< z/1.e5<<' ' <<"pressure[bar]=" <<' ' << P_sol/1.e6  <<' '<< "error="<<' ' << std::abs(difference(dz_sol, delta_z))<<' ' << std::abs ((-P1+P_sol)/dz_sol+ grav*((1.0/2.0)*(den1+den_sol))) << '\n';
+    b:  cout<<count_cell<<' ' <<setprecision(5) << "Final value, "<<' '<<"height[km]="<< ' '<< z/1.e5<<' ' <<"pressure[bar]=" <<' ' << P_sol/1.e6  <<' '<< "error="<<' ' << std::abs(difference(dz_sol, delta_z))<<' ' << std::abs ((-P1+P_sol)/dz_sol+ gravity_view*((1.0/2.0)*(den1+den_sol))) << '\n';
       T[count] = T_sol;
       P[count] = P_sol;
       den[count] = den_sol;

@@ -1,5 +1,5 @@
 """
-This script processes the Timestamp outputs from a Castro simulation with tracer particles enabled.
+This script processes the Timestamp outputs from a HydroSim simulation with tracer particles enabled.
 It loops through each Timestamp line-by-line and grabs unique particle identifiers (the particle ID and cpu number)
 And stores the information at all timesteps for each particle into a unique txt file
 

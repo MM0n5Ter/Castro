@@ -15,7 +15,7 @@ from yt.units import cm, amu
 
 def doit(plotfiles):
 
-    ds = yt.load(plotfiles[0], hint="castro")
+    ds = yt.load(plotfiles[0], hint="hydrosim")
 
     xmin = ds.domain_left_edge[0]
     xmax = 2*ds.domain_right_edge[0]/3
@@ -36,7 +36,7 @@ def doit(plotfiles):
 
     for i, pf in enumerate(plotfiles):
 
-        ds = yt.load(pf, hint="castro")
+        ds = yt.load(pf, hint="hydrosim")
 
         field = "abar"
         sp = yt.SlicePlot(ds, "theta", field, center=[xctr, yctr, 0.0*cm],

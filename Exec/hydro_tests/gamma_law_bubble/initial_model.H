@@ -6,7 +6,7 @@
 #include <eos.H>
 
 struct model_t {
-    Real dens_base = -1;
+    Real density_base = -1;
     Real p_base = -1;
     Real xn[NumSpec] = {0.0};
 };
@@ -33,7 +33,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
     // compute the pressure scale height (for an isothermal, ideal-gas
     // atmosphere)
 
-    Real H = model_params.p_base / model_params.dens_base / std::abs(gravity::const_grav);
+    Real H = model_params.p_base / model_params.density_base / std::abs(gravity::uniform_accel);
 
     // create the grid -- cell centers
 
@@ -47,7 +47,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
         // initial guess
 
-        Real temp = T_guess;
+        Real temp = eos_temp_guess;
 
         Real density;
 
@@ -64,15 +64,15 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
             Real z = xmin + static_cast<Real>(i) * dx;
 
-            density = model_params.dens_base *
-                std::pow(gravity::const_grav * model_params.dens_base *
+            density = model_params.density_base *
+                std::pow(gravity::uniform_accel * model_params.density_base *
                  (eos_rp::eos_gamma - 1.0) * z /
                  (eos_rp::eos_gamma * model_params.p_base) + 1.0_rt, 1.0_rt/(eos_rp::eos_gamma - 1.0_rt));
 
         } else {
             Real z = xmin + (static_cast<Real>(i) + 0.5_rt) * dx;
 
-            density = model_params.dens_base * std::exp(-z/H);
+            density = model_params.density_base * std::exp(-z/H);
         }
 
         // for zone 0, the pressure at the center is just the base
@@ -85,7 +85,7 @@ generate_initial_model(const int npts_model, const Real xmin, const Real xmax,
 
         } else {
             pressure = model::profile(0).state(i-1, model::ipres) -
-                dx * 0.5_rt * (density + model::profile(0).state(i-1, model::idens)) * std::abs(gravity::const_grav);
+                dx * 0.5_rt * (density + model::profile(0).state(i-1, model::idens)) * std::abs(gravity::uniform_accel);
         }
 
         eos_t eos_state;

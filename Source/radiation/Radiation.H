@@ -1,13 +1,13 @@
-#ifndef CASTRO_RADIATION_H
-#define CASTRO_RADIATION_H
+#ifndef HYDROSIM_RADIATION_H
+#define HYDROSIM_RADIATION_H
 
 #include <AMReX_AmrLevel.H>
 
-#include <Castro.H>
-#include <RadTypes.H>
-#include <RadBndry.H>
-#include <MGRadBndry.H>
-#include <RadSolve.H>
+#include <HydroSim.H>
+#include <RadComponents.H>
+#include <RadiativeBoundary.H>
+#include <MultiGroupBoundary.H>
+#include <RadTransportSolver.H>
 #include <AMReX_FluxRegister.H>
 #include <AMReX_Array.H>
 
@@ -21,96 +21,96 @@ class Radiation {
 
 public:
 
-  enum Solver_Type { InvalidSolver = -1,
-                     SingleGroupSolver = 0,
+  enum Solver_Kind { UnsetSolver = -1,
+                     OneGroupSolver = 0,
                      // ProtoMultiGroupSolver = 1,  // deleted
                      //  NeutrinoSolver = 2,  // deleted
                      //  SGFLDHybrid = 3,  // deleted
                      //  SGFLDImplicit = 4, // deleted
-                     SGFLDSolver = 5,
-                     MGFLDSolver = 6};
+                     SingleGroupFLDSolver = 5,
+                     MultiGroupFLDSolver = 6};
 
-  static Solver_Type SolverType;
+  static Solver_Kind SolverKind;
 
-  static amrex::Real radtoE, Etorad, radfluxtoF;
+  static amrex::Real radiativeToEnergy, EnergyToRadFactor, fluxFromRad;
 
-  static int do_multigroup;
+  static int groups_enabled;
   static int nGroups;
 
-  static int rad_hydro_combined;
-  static int Er_Lorentz_term;
+  static int rad_hydro_coupled;
+  static int lorentz_energy_term;
 
-  static int icomp_lambda, icomp_kp, icomp_kr;
-  static int icomp_lab_Er, icomp_lab_Fr, icomp_com_Fr;
-  static int nplotvar;   // extra plot variables
-  static amrex::Vector<std::string> plotvar_names;
+  static int comp_limiter, icomp_kappa_planck, icomp_kappa_rosseland;
+  static int comp_lab_energy, icomp_lab_flux, icomp_comoving_flux;
+  static int num_plot_vars;   // extra plot variables
+  static amrex::Vector<std::string> plot_var_names;
 
-  static int filter_lambda_T, filter_lambda_S;
-  static int filter_prim_int, filter_prim_T, filter_prim_S;
+  static int filter_limiter_T, limiter_filter_strength;
+  static int filter_primitive_interval, filter_prim_temperature, filter_primitive_S;
 
   static int accelerate;        ///< controls multigroup convergence acceleration
 
   int verbose;
 
   int maxiter;           ///< iteration limit for implicit update loop
-  int miniter;
-  int convergence_check_type; ///< 0 (default): both 2 and 3,
+  int min_outer_iter;
+  int convergence_check_mode; ///< 0 (default): both 2 and 3,
                               ///< 1: rhoe,
                               ///< 2: residue of Eq. rhoe,
                               ///< 3: T
-  amrex::Real relInTol, absInTol; ///< tolerance for inner iteration of J equation
-  int maxInIter;           ///< iteration limit for inner iteration of J equation
-  int minInIter;
-  int skipAccelAllowed;   ///< Skip acceleration if it doesn't help
-  int matter_update_type; ///< 0: conservative  1: non-conservative  2: C and NC interwoven
+  amrex::Real relInnerTol, absInnerTolerance; ///< tolerance for inner iteration of J equation
+  int maxInnerIter;           ///< iteration limit for inner iteration of J equation
+  int minInnerIter;
+  int skipAccelIfNoGain;   ///< Skip acceleration if it doesn't help
+  int matter_update_mode; ///< 0: conservative  1: non-conservative  2: C and NC interwoven
                           ///< The last outer iteration is always conservative.
-  int n_bisect;  ///< Bisection after n_bisect iterations
-  amrex::Real dedT_fac; ///< Make dedT larger for safety in Newton iteration
-  int inner_convergence_check;
+  int bisect_after;  ///< Bisection after bisect_after iterations
+  amrex::Real dedT_safety; ///< Make dedT larger for safety in Newton iteration
+  int inner_convergence_mode;
   amrex::Real delta_e_rat_dt_tol; ///< energy change tolerance for adjusting timestep
   amrex::Real delta_T_rat_dt_tol; ///< T change tolerance for adjusting timestep
-  int update_planck;     ///< after this number of iterations, lag planck
-  int update_rosseland;  ///< after this number of iterations, lag rosseland
-  int update_opacity;
-  int update_limiter;    ///< after this number of iterations, lag limiter
-  int inner_update_limiter; ///< This is for MGFLD solver.
+  int planck_lag_iter;     ///< after this number of iterations, lag planck
+  int rosseland_lag_iter;  ///< after this number of iterations, lag rosseland
+  int opacity_lag_iter;
+  int limiter_lag_iter;    ///< after this number of iterations, lag limiter
+  int inner_limiter_update_iters; ///< This is for MultigroupDiffusion solver.
                             ///< Stop updating limiter after ? inner iterations
                             ///< 0 means lagging by one outer iteration
   amrex::Real dT;               ///< temperature step for derivative estimate
-  amrex::Real underfac;         ///< factor controlling progressive underrelaxation
-  int do_sync;               ///< perform sync (if false zero out sync source)
-  int do_kappa_stm_emission;
+  amrex::Real underrelax_factor;         ///< factor controlling progressive underrelaxation
+  int apply_sync;               ///< perform sync (if false zero out sync source)
+  int do_stimulated_emission;
 
-  static void read_static_params();
+  static void load_static_settings();
 
 ///
 /// Physical constants for use in multigroup, made static and public
-/// so that other modules such as RadSolve can get to them easily.
+/// so that other modules such as RadTransportSolver can get to them easily.
 /// Values are set in the Radiation constructor.
 ///
-  static amrex::Real convert_MeV_erg, clight, hPlanck, kBoltz, Avogadro;
+  static amrex::Real mev_to_erg, clight, planckConst, boltzmannConst, Avogadro;
 
 ///
 /// Values used internally for speed of light, Stefan-Boltzmann constant,
 /// radiation constant.  (For contrived test problems, these may differ
 /// from the proper physical values, so be careful if you use them!)
 ///
-  static amrex::Real c, sigma, aRad;
+  static amrex::Real c, sigma, radConstant;
 
-  static int current_group_number;
-  static std::string current_group_name;
+  static int active_group_id;
+  static std::string group_label;
 
-  static int pure_hydro;
+  static int hydro_only;
 
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> > plotvar;
+  amrex::Vector<std::unique_ptr<amrex::MultiFab> > plot_fields;
 
 
 ///
 /// @param Parent
-/// @param castro
+/// @param hydrosim
 /// @param restart
 ///
-  Radiation(amrex::Amr* Parent, class Castro* castro, int restart = 0);
+  Radiation(amrex::Amr* Parent, class HydroSim* hydrosim, int restart = 0);
 
 ///
 /// @param level
@@ -155,22 +155,22 @@ public:
 /// access to group information
 
 ///
-/// @param igroup
+/// @param rad_group_idx
 ///
-  void set_current_group(int igroup);
+  void select_active_group(int rad_group_idx);
 
 /// @param i
 ///
-  amrex::Real group_center(int i) {
-    return nugroup[i];
+  amrex::Real group_frequency(int i) {
+    return freq_center[i];
   }
 
 
 ///
 /// @param i
 ///
-  amrex::Real group_weight(int i) {
-    return dnugroup[i];
+  amrex::Real group_width(int i) {
+    return freq_width[i];
   }
 
 
@@ -179,7 +179,7 @@ public:
 /// diagnostics for adjusting timestep
 /// @param lev
 ///
-  amrex::Real deltaEnergyRatMax(int lev) {
+  amrex::Real energyChangeRatioMax(int lev) {
     return delta_e_rat_level[lev];
   }
 
@@ -187,15 +187,15 @@ public:
 ///
 /// @param lev
 ///
-  amrex::Real deltaTRatMax(int lev) {
+  amrex::Real tempChangeRatioMax(int lev) {
     return delta_T_rat_level[lev];
   }
 
-  [[nodiscard]] amrex::Real deltaEnergyTol() const {
+  [[nodiscard]] amrex::Real energyChangeTol() const {
     return delta_e_rat_dt_tol;
   }
 
-  [[nodiscard]] amrex::Real deltaTTol() const {
+  [[nodiscard]] amrex::Real tempChangeTol() const {
     return delta_T_rat_dt_tol;
   }
 
@@ -204,8 +204,8 @@ public:
 ///
 /// @param level
 ///
-  amrex::FluxRegister* consRegister(int level) {
-      return flux_cons_old[level].get();
+  amrex::FluxRegister* conservativeRegister(int level) {
+      return conservative_register_old[level].get();
   }
 
 
@@ -219,20 +219,20 @@ public:
 ///
 /// @param level
 ///
-  void pre_timestep(int level);
+  void begin_timestep(int level);
 
 
 ///
 /// @param level
 /// @param ncycle
 ///
-  void init_flux(int level, int ncycle);
+  void reset_flux_records(int level, int ncycle);
 
 
 ///
 /// @param level
 ///
-  void deferred_sync_setup(int level);
+  void prepare_delayed_reflux(int level);
 
 
 ///
@@ -240,7 +240,7 @@ public:
 /// @param rhs
 /// @param indx
 ///
-  void deferred_sync(int level, amrex::MultiFab& rhs, int indx);
+  void apply_delayed_reflux(int level, amrex::MultiFab& rhs, int indx);
 
 
 ///
@@ -248,7 +248,7 @@ public:
 /// @param iteration
 /// @param ncycle
 ///
-  void single_group_update(int level, int iteration, int ncycle);
+  void advance_single_group(int level, int iteration, int ncycle);
 
 
 ///
@@ -256,13 +256,13 @@ public:
 /// @param iteration
 /// @param ncycle
 ///
-  void MGFLD_implicit_update(int level, int iteration, int ncycle);
+  void MultigroupDiffusion_implicit_update(int level, int iteration, int ncycle);
 
 
 ///
 /// @param os
 ///
-  void write_groups(ostream& os);
+  void dump_group_table(ostream& os);
 
 
 ///
@@ -275,13 +275,13 @@ public:
 /// @param level
 /// @param grids
 /// @param &Sborder
-/// @param &Erborder
-/// @param &lamborder
+/// @param &RadEnergyGrown
+/// @param &rad_lambda_grown
 ///
-  void compute_limiter(int level, const amrex::BoxArray& grids,
+  void build_flux_limiter(int level, const amrex::BoxArray& grids,
                        const amrex::MultiFab &Sborder,
-                       const amrex::MultiFab &Erborder,
-                       amrex::MultiFab &lamborder);
+                       const amrex::MultiFab &RadEnergyGrown,
+                       amrex::MultiFab &rad_lambda_grown);
 
 
 ///
@@ -291,7 +291,7 @@ public:
 /// @param dx
 /// @param box
 ///
-  void estimate_gamrPr(const amrex::FArrayBox& state, const amrex::FArrayBox& Er,
+  void estimate_rad_gamma_pressure(const amrex::FArrayBox& state, const amrex::FArrayBox& Er,
                        amrex::FArrayBox& gPr, const amrex::Real* dx, const amrex::Box& box);
 
 
@@ -299,7 +299,7 @@ public:
 /// @param level
 /// @param State
 ///
-  void filter_prim(int level, amrex::MultiFab& State);
+  void filter_primitives(int level, amrex::MultiFab& State);
 
   // internal utility functions:
 
@@ -308,100 +308,100 @@ public:
 /// @param exch
 /// @param Er
 /// @param fkp
-/// @param igroup
+/// @param rad_group_idx
 ///
-  void compute_exchange(amrex::MultiFab& exch, amrex::MultiFab& Er, amrex::MultiFab& fkp,
-                        int igroup = -1);
+  void evaluate_energy_transfer(amrex::MultiFab& exch, amrex::MultiFab& Er, amrex::MultiFab& fkp,
+                        int rad_group_idx = -1);
 
 
 ///
 /// @param eta
-/// @param etainv
+/// @param coupling_inverse
 /// @param state
 /// @param temp
 /// @param fkp
 /// @param Er
 /// @param delta_t
 /// @param c
-/// @param underrel
-/// @param lag_planck
-/// @param igroup
+/// @param underrelax_scale
+/// @param freeze_planck
+/// @param rad_group_idx
 ///
-  void compute_eta(amrex::MultiFab& eta, amrex::MultiFab& etainv, amrex::MultiFab& state,
+  void compute_coupling_factors(amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse, amrex::MultiFab& state,
                    amrex::MultiFab& temp, amrex::MultiFab& fkp, amrex::MultiFab& Er,
-                   amrex::Real delta_t, amrex::Real c, amrex::Real underrel, int lag_planck,
-                   int igroup = 0);
+                   amrex::Real delta_t, amrex::Real c, amrex::Real underrelax_scale, int freeze_planck,
+                   int rad_group_idx = 0);
 
 
 ///
 /// @param relative
 /// @param absolute
-/// @param frhoes
-/// @param frhoem
+/// @param state_energy_density
+/// @param matter_energy_density
 /// @param eta
-/// @param etainv
-/// @param dflux_old
-/// @param dflux_new
+/// @param coupling_inverse
+/// @param flux_div_old
+/// @param flux_div_new
 /// @param exchange
 /// @param delta_t
 ///
-  void internal_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                              amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                              amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
+  void apply_implicit_energy(amrex::Real& relative, amrex::Real& absolute,
+                              amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+                              amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
+                              amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,
                               amrex::MultiFab& exchange, amrex::Real delta_t);
 
 
 ///
 /// @param relative
 /// @param absolute
-/// @param frhoes
-/// @param frhoem
+/// @param state_energy_density
+/// @param matter_energy_density
 /// @param eta
-/// @param etainv
-/// @param dflux_old
-/// @param dflux_new
+/// @param coupling_inverse
+/// @param flux_div_old
+/// @param flux_div_new
 /// @param exchange
-/// @param Dterm
+/// @param diffusive_face_term
 /// @param delta_t
 ///
-  void internal_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                              amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                              amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
-                              amrex::MultiFab& exchange, amrex::MultiFab& Dterm,
+  void apply_implicit_energy(amrex::Real& relative, amrex::Real& absolute,
+                              amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+                              amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
+                              amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,
+                              amrex::MultiFab& exchange, amrex::MultiFab& diffusive_face_term,
                               amrex::Real delta_t);
 
 
 ///
 /// @param relative
 /// @param absolute
-/// @param frhoes
-/// @param frhoem
+/// @param state_energy_density
+/// @param matter_energy_density
 /// @param eta
-/// @param etainv
-/// @param Er_new
-/// @param dflux_old
-/// @param dflux_new
+/// @param coupling_inverse
+/// @param rad_energy_new
+/// @param flux_div_old
+/// @param flux_div_new
 /// @param temp
 /// @param fkp
 /// @param state
 /// @param delta_t
 ///
-  void nonconservative_energy_update(amrex::Real& relative, amrex::Real& absolute,
-                                     amrex::MultiFab& frhoes, amrex::MultiFab& frhoem,
-                                     amrex::MultiFab& eta, amrex::MultiFab& etainv,
-                                     amrex::MultiFab& Er_new,
-                                     amrex::MultiFab& dflux_old, amrex::MultiFab& dflux_new,
+  void apply_nonconservative_correction(amrex::Real& relative, amrex::Real& absolute,
+                                     amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+                                     amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
+                                     amrex::MultiFab& rad_energy_new,
+                                     amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,
                                      amrex::MultiFab& temp, amrex::MultiFab& fkp,
                                      amrex::MultiFab& state, amrex::Real delta_t);
 
 
 ///
 /// @param state
-/// @param frhoes
+/// @param state_energy_density
 ///
-  void state_update(amrex::MultiFab& state,  amrex::MultiFab& frhoes);
+  void sync_state_from_energy(amrex::MultiFab& state,  amrex::MultiFab& state_energy_density);
 
 
 ///
@@ -410,24 +410,24 @@ public:
 /// @param time
 /// @param level
 ///
-  void getBndryData(RadBndry& bd, amrex::MultiFab& Er, amrex::Real time, int level);
+  void fetchBndryData(RadiativeBoundary& bd, amrex::MultiFab& Er, amrex::Real time, int level);
 
 ///
 /// multigroup version
 ///
-/// @param mgbd
+/// @param multigroup_boundary
 /// @param Er
 /// @param time
 /// @param level
 ///
-  void getBndryDataMG(MGRadBndry& mgbd, amrex::MultiFab& Er, amrex::Real time, int level);
+  void fetchMultigridBndry(MultiGroupBoundary& multigroup_boundary, amrex::MultiFab& Er, amrex::Real time, int level);
 
 ///
-/// @param mgbd
+/// @param multigroup_boundary
 /// @param Er
 /// @param level
 ///
-  void getBndryDataMG_ga(MGRadBndry& mgbd, amrex::MultiFab& Er, int level);
+  void fetchMultigridBndryZeroRad(MultiGroupBoundary& multigroup_boundary, amrex::MultiFab& Er, int level);
 
 
 ///
@@ -435,7 +435,7 @@ public:
 /// @param level
 /// @param time
 ///
-  void filBndry(amrex::BndryRegister& bdry, int level, amrex::Real time);
+  void fillBndryRegister(amrex::BndryRegister& bdry, int level, amrex::Real time);
 
   // Flux limiter functions, potentially for use by all update modules
 
@@ -448,15 +448,15 @@ public:
 /// @param kappa_r
 /// @param kcomp
 /// @param Er
-/// @param igroup
-/// @param nGrow_Er
-/// @param Rcomp
+/// @param rad_group_idx
+/// @param nGrow_rad_energy
+/// @param GradComp
 ///
-  void scaledGradient(int level,
+  void evaluateGradientRatio(int level,
                       amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& R,
                       amrex::MultiFab& kappa_r, int kcomp,
-                      amrex::MultiFab& Er, int igroup,
-                      int nGrow_Er=0, int Rcomp=0);
+                      amrex::MultiFab& Er, int rad_group_idx,
+                      int nGrow_rad_energy=0, int GradComp=0);
 
 ///
 /// On input, lambda should contain scaled gradient.
@@ -465,11 +465,11 @@ public:
 /// @param level
 /// @param amrex::Array<amrex::MultiFab
 /// @param lambda
-/// @param lamcomp
+/// @param limiter_comp
 ///
-  void fluxLimiter(int level,
+  void computeFluxLimiter(int level,
                    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& lambda,
-                   int lamcomp=0);
+                   int limiter_comp=0);
 
 ///
 /// Fab versions of conversion functions.
@@ -481,41 +481,41 @@ public:
 /// @param state
 /// @param reg
 ///
-  void get_c_v(amrex::FArrayBox& c_v, amrex::FArrayBox& temp,
+  void get_heat_capacity(amrex::FArrayBox& c_v, amrex::FArrayBox& temp,
                amrex::FArrayBox& state, const amrex::Box& reg);
 
 
 ///
 /// MultiFab versions of conversion functions call Fab versions for eos data
 ///
-/// @param frhoe
+/// @param fluid_rho_eint
 /// @param state
 ///
-  void get_frhoe(amrex::MultiFab& frhoe, amrex::MultiFab& state);
+  void get_density_energy(amrex::MultiFab& fluid_rho_eint, amrex::MultiFab& state);
 
 ///
 /// Planck mean is only needed in the grid interiors, but must be
 /// computed separately for each fluid (fkp.nVar() == N fluids).
-/// temp contains frhoe on input
+/// temp contains fluid_rho_eint on input
 ///
 /// @param fkp
 /// @param temp
 /// @param state
-/// @param igroup
+/// @param rad_group_idx
 /// @param delta_t
 ///
-  void get_planck_and_temp(amrex::MultiFab& fkp, amrex::MultiFab& temp, amrex::MultiFab& state,
-                           int igroup = 0, amrex::Real delta_t = 0.0);
+  void derive_planck_and_temp(amrex::MultiFab& fkp, amrex::MultiFab& temp, amrex::MultiFab& state,
+                           int rad_group_idx = 0, amrex::Real delta_t = 0.0);
 
 ///
 /// Rosseland mean is needed on an extended region (nGrow == 1).
 /// Fills patches with state information on extended region
 ///
 /// @param kappa_r
-/// @param hclaw
-/// @param igroup
+/// @param hydro_level
+/// @param rad_group_idx
 ///
-  void get_rosseland(amrex::MultiFab& kappa_r, amrex::AmrLevel* hclaw, int igroup = 0);
+  void derive_rosseland_opacity(amrex::MultiFab& kappa_r, amrex::AmrLevel* hydro_level, int rad_group_idx = 0);
 
 ///
 /// For the interior opacities, temperature is assumed to be known (input)
@@ -527,277 +527,277 @@ public:
 /// @param temp
 /// @param state
 /// @param geom
-/// @param igroup
+/// @param rad_group_idx
 ///
-  void update_rosseland_from_temp(amrex::MultiFab& kappa_r,
+  void refresh_rosseland_from_temp(amrex::MultiFab& kappa_r,
                                   amrex::MultiFab& temp, amrex::MultiFab& state,
                                   const amrex::Geometry& geom,
-                                  int igroup = 0);
+                                  int rad_group_idx = 0);
 
 ///
-/// RadHydro
+/// RadiativeHydro
 ///
 /// @param kappa_r
 /// @param v
 /// @param dcf
 /// @param delta_t
 /// @param c
-/// @param hclaw
-/// @param igroup
+/// @param hydro_level
+/// @param rad_group_idx
 ///
-  void get_rosseland_v_dcf(amrex::MultiFab& kappa_r, amrex::MultiFab& v, amrex::MultiFab& dcf,
+  void derive_rosseland_velocity_coef(amrex::MultiFab& kappa_r, amrex::MultiFab& v, amrex::MultiFab& dcf,
                            amrex::Real delta_t, amrex::Real c,
-                           amrex::AmrLevel* hclaw,
-                           int igroup = 0);
+                           amrex::AmrLevel* hydro_level,
+                           int rad_group_idx = 0);
 
 ///
 /// multigroup methods
 ///
 /// @param verbose
 ///
-  void get_groups(int verbose);
+  void build_groups(int verbose);
 
 
 ///
 /// @param f
 /// @param indx
 ///
-  void extrapolateBorders(amrex::MultiFab& f, int indx);
+  void extendBorderValues(amrex::MultiFab& f, int indx);
 
 
 ///
 /// @param kappa_r
 /// @param state
 ///
-  void SGFLD_compute_rosseland(amrex::MultiFab& kappa_r, const amrex::MultiFab& state);
+  void compute_rosseland_opacity(amrex::MultiFab& kappa_r, const amrex::MultiFab& state);
 
 ///
 /// @param kappa_r
 /// @param state
 ///
-  void SGFLD_compute_rosseland(amrex::FArrayBox& kappa_r, const amrex::FArrayBox& state);
+  void compute_rosseland_opacity(amrex::FArrayBox& kappa_r, const amrex::FArrayBox& state);
 
 ///
 /// @param dcf
-/// @param etainv
+/// @param coupling_inverse
 /// @param kp
 /// @param kr
 /// @param geom
 ///
-  void update_dcf(amrex::MultiFab& dcf, amrex::MultiFab& etainv, amrex::MultiFab& kp, amrex::MultiFab& kr,
+  void refresh_diffusion_coef(amrex::MultiFab& dcf, amrex::MultiFab& coupling_inverse, amrex::MultiFab& kp, amrex::MultiFab& kr,
                   const amrex::Geometry& geom);
 
 ///
-/// <MGFLD>
+/// <MultigroupDiffusion>
 ///
-  int use_dkdT;
+  int use_kappa_deriv;
 
 
 ///
 /// <Shestakov-Bolstad>
 ///
-  int use_WiensLaw;
-  amrex::Real Tf_Wien;
+  int use_WienForm;
+  amrex::Real Wien_Temp_Limit;
 
 ///
 /// </ Shestakov-Bolstad>
 ///
 
 ///
-/// @param relative_in
-/// @param absolute_in
-/// @param error_er
-/// @param Er_new
-/// @param Er_pi
+/// @param relative_inner_resid
+/// @param abs_residual_in
+/// @param rad_energy_error
+/// @param rad_energy_new
+/// @param rad_energy_iter
 /// @param kappa_p
-/// @param etaTz
-/// @param temp_new
+/// @param thermal_frac_z
+/// @param temp_next
 /// @param delta_t
 ///
-  void check_convergence_er(amrex::Real& relative_in, amrex::Real& absolute_in, amrex::Real& error_er,
-                            const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
+  void check_rad_convergence(amrex::Real& relative_inner_resid, amrex::Real& abs_residual_in, amrex::Real& rad_energy_error,
+                            const amrex::MultiFab& rad_energy_new, const amrex::MultiFab& rad_energy_iter,
                             const amrex::MultiFab& kappa_p,
-                            const amrex::MultiFab& etaTz,
-                            const amrex::MultiFab& temp_new,
+                            const amrex::MultiFab& thermal_frac_z,
+                            const amrex::MultiFab& temp_next,
                             amrex::Real delta_t);
 
 ///
 /// @param rhoe_new
-/// @param rhoe_star
-/// @param rhoe_step
-/// @param Er_new
-/// @param temp_new
-/// @param temp_star
+/// @param gas_energy_star
+/// @param gas_energy_step
+/// @param rad_energy_new
+/// @param temp_next
+/// @param temp_iterate
 /// @param rho
 /// @param kappa_p
 /// @param jg
 /// @param dedT
-/// @param rel_rhoe
-/// @param abs_rhoe
-/// @param rel_FT
-/// @param abs_FT
-/// @param rel_T
-/// @param abs_T
+/// @param rel_gas_energy
+/// @param abs_gas_energy
+/// @param rel_resid
+/// @param abs_resid
+/// @param rel_temp
+/// @param abs_temp
 /// @param delta_t
 ///
-  void check_convergence_matt(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& rhoe_star,
-                              const amrex::MultiFab& rhoe_step, const amrex::MultiFab& Er_new,
-                              const amrex::MultiFab& temp_new, const amrex::MultiFab& temp_star,
+  void check_matter_convergence(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& gas_energy_star,
+                              const amrex::MultiFab& gas_energy_step, const amrex::MultiFab& rad_energy_new,
+                              const amrex::MultiFab& temp_next, const amrex::MultiFab& temp_iterate,
                               const amrex::MultiFab& rho,
                               const amrex::MultiFab& kappa_p, const amrex::MultiFab& jg,
                               const amrex::MultiFab& dedT,
-                              amrex::Real& rel_rhoe, amrex::Real& abs_rhoe,
-                              amrex::Real& rel_FT,   amrex::Real& abs_FT,
-                              amrex::Real& rel_T,    amrex::Real& abs_T,
+                              amrex::Real& rel_gas_energy, amrex::Real& abs_gas_energy,
+                              amrex::Real& rel_resid,   amrex::Real& abs_resid,
+                              amrex::Real& rel_temp,    amrex::Real& abs_temp,
                               amrex::Real delta_t);
 
 ///
-/// @param coupT
+/// @param couple_source
 /// @param kappa_p
-/// @param Er_pi
+/// @param rad_energy_iter
 /// @param jg
 ///
-  void compute_coupling(amrex::MultiFab& coupT,
-                        const amrex::MultiFab& kappa_p, const amrex::MultiFab& Er_pi,
+  void build_coupling_term(amrex::MultiFab& couple_source,
+                        const amrex::MultiFab& kappa_p, const amrex::MultiFab& rad_energy_iter,
                         const amrex::MultiFab& jg);
 
 ///
-/// @param etaT
-/// @param etaTz
-/// @param eta1
-/// @param djdT
-/// @param dkdT
+/// @param thermal_frac
+/// @param thermal_frac_z
+/// @param rest_frac
+/// @param dEmitT
+/// @param dOpacT
 /// @param dedT
-/// @param Er_star
+/// @param rad_energy_star
 /// @param rho
 /// @param delta_t
-/// @param ptc_tau
+/// @param pseudo_transient_tau
 ///
-  void compute_etat(amrex::MultiFab& etaT, amrex::MultiFab& etaTz,
-                    amrex::MultiFab& eta1, amrex::MultiFab& djdT,
-                    const amrex::MultiFab& dkdT, const amrex::MultiFab& dedT,
-                    const amrex::MultiFab& Er_star, const amrex::MultiFab& rho,
-                    amrex::Real delta_t, amrex::Real ptc_tau);
+  void compute_thermal_fraction(amrex::MultiFab& thermal_frac, amrex::MultiFab& thermal_frac_z,
+                    amrex::MultiFab& rest_frac, amrex::MultiFab& dEmitT,
+                    const amrex::MultiFab& dOpacT, const amrex::MultiFab& dedT,
+                    const amrex::MultiFab& rad_energy_star, const amrex::MultiFab& rho,
+                    amrex::Real delta_t, amrex::Real pseudo_transient_tau);
 
 ///
 /// @param S_new
-/// @param temp_new
-/// @param temp_star
+/// @param temp_next
+/// @param temp_iterate
 /// @param kappa_p
 /// @param kappa_r
 /// @param jg
-/// @param djdT
-/// @param dkdT
+/// @param dEmitT
+/// @param dOpacT
 /// @param dedT
 /// @param level
 /// @param it
 /// @param ngrow
 ///
-  void eos_opacity_emissivity(const amrex::MultiFab& S_new,
-                              const amrex::MultiFab& temp_new,
-                              const amrex::MultiFab& temp_star,
+  void eos_fill_opacity_emission(const amrex::MultiFab& S_new,
+                              const amrex::MultiFab& temp_next,
+                              const amrex::MultiFab& temp_iterate,
                               amrex::MultiFab& kappa_p, amrex::MultiFab& kappa_r, amrex::MultiFab& jg,
-                              amrex::MultiFab& djdT, amrex::MultiFab& dkdT, amrex::MultiFab& dedT,
+                              amrex::MultiFab& dEmitT, amrex::MultiFab& dOpacT, amrex::MultiFab& dedT,
                               int level, int it, int ngrow);
 
 ///
-/// @param Er_new
-/// @param Er_pi
+/// @param rad_energy_new
+/// @param rad_energy_iter
 /// @param kappa_p
 /// @param kappa_r
-/// @param etaT
-/// @param eta1
-/// @param mugT
+/// @param thermal_frac
+/// @param rest_frac
+/// @param group_weight_mf
 /// @param lambda
 /// @param solver
-/// @param mgbd
+/// @param multigroup_boundary
 /// @param grids
 /// @param level
 /// @param time
 /// @param delta_t
-/// @param ptc_tau
+/// @param pseudo_transient_tau
 ///
-  void gray_accel(amrex::MultiFab& Er_new, amrex::MultiFab& Er_pi,
+  void gray_correction(amrex::MultiFab& rad_energy_new, amrex::MultiFab& rad_energy_iter,
                   amrex::MultiFab& kappa_p, amrex::MultiFab& kappa_r,
-                  amrex::MultiFab& etaT, amrex::MultiFab& eta1,
-                  amrex::MultiFab& mugT,
+                  amrex::MultiFab& thermal_frac, amrex::MultiFab& rest_frac,
+                  amrex::MultiFab& group_weight_mf,
                   amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& lambda,
-                  RadSolve* solver, MGRadBndry& mgbd,
-                  const amrex::BoxArray& grids, int level, amrex::Real time, amrex::Real delta_t, amrex::Real ptc_tau);
+                  RadTransportSolver* solver, MultiGroupBoundary& multigroup_boundary,
+                  const amrex::BoxArray& grids, int level, amrex::Real time, amrex::Real delta_t, amrex::Real pseudo_transient_tau);
 
 ///
-/// @param Er_new
-/// @param Er_pi
+/// @param rad_energy_new
+/// @param rad_energy_iter
 /// @param kappa_p
-/// @param etaT
-/// @param mugT
+/// @param thermal_frac
+/// @param group_weight_mf
 /// @param delta_t
-/// @param ptc_tau
+/// @param pseudo_transient_tau
 ///
-  void local_accel(amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
+  void local_convergence_boost(amrex::MultiFab& rad_energy_new, const amrex::MultiFab& rad_energy_iter,
                    const amrex::MultiFab& kappa_p,
-                   const amrex::MultiFab& etaT,
-                   const amrex::MultiFab& mugT,
-                   amrex::Real delta_t, amrex::Real ptc_tau);
+                   const amrex::MultiFab& thermal_frac,
+                   const amrex::MultiFab& group_weight_mf,
+                   amrex::Real delta_t, amrex::Real pseudo_transient_tau);
 
 ///
 /// @param state
 /// @param rhoe
 /// @param temp
 /// @param grids
-/// @param derat
+/// @param energy_rel_chg
 /// @param dT
 /// @param level
 ///
-  void state_energy_update(amrex::MultiFab& state, const amrex::MultiFab& rhoe,
+  void update_state_energy(amrex::MultiFab& state, const amrex::MultiFab& rhoe,
                            const amrex::MultiFab& temp, const amrex::BoxArray& grids,
-                           amrex::Real& derat, amrex::Real& dT, int level);
+                           amrex::Real& energy_rel_chg, amrex::Real& dT, int level);
 
 ///
 /// @param rhoe_new
-/// @param temp_new
-/// @param Er_new
-/// @param Er_pi
-/// @param rhoe_star
-/// @param rhoe_step
-/// @param etaT
-/// @param etaTz
-/// @param eta1
-/// @param coupT
+/// @param temp_next
+/// @param rad_energy_new
+/// @param rad_energy_iter
+/// @param gas_energy_star
+/// @param gas_energy_step
+/// @param thermal_frac
+/// @param thermal_frac_z
+/// @param rest_frac
+/// @param couple_source
 /// @param kappa_p
 /// @param jg
-/// @param mugT
+/// @param group_weight_mf
 /// @param S_new
 /// @param level
 /// @param delta_t
-/// @param ptc_tau
+/// @param pseudo_transient_tau
 /// @param it
-/// @param conservative_update
+/// @param energy_conserving_mode
 ///
-  void update_matter(amrex::MultiFab& rhoe_new, amrex::MultiFab& temp_new,
-                     const amrex::MultiFab& Er_new, const amrex::MultiFab& Er_pi,
-                     const amrex::MultiFab& rhoe_star,
-                     const amrex::MultiFab& rhoe_step,
-                     const amrex::MultiFab& etaT, const amrex::MultiFab& etaTz,
-                     const amrex::MultiFab& eta1,
-                     const amrex::MultiFab& coupT,
+  void advance_matter(amrex::MultiFab& rhoe_new, amrex::MultiFab& temp_next,
+                     const amrex::MultiFab& rad_energy_new, const amrex::MultiFab& rad_energy_iter,
+                     const amrex::MultiFab& gas_energy_star,
+                     const amrex::MultiFab& gas_energy_step,
+                     const amrex::MultiFab& thermal_frac, const amrex::MultiFab& thermal_frac_z,
+                     const amrex::MultiFab& rest_frac,
+                     const amrex::MultiFab& couple_source,
                      const amrex::MultiFab& kappa_p, const amrex::MultiFab& jg,
-                     const amrex::MultiFab& mugT,
+                     const amrex::MultiFab& group_weight_mf,
                      const amrex::MultiFab& S_new,
                      int level, amrex::Real delta_t,
-                     amrex::Real ptc_tau, int it, bool conservative_update);
+                     amrex::Real pseudo_transient_tau, int it, bool energy_conserving_mode);
 
 ///
 /// @param rhoe_new
-/// @param temp_new
-/// @param rhoe_star
-/// @param temp_star
+/// @param temp_next
+/// @param gas_energy_star
+/// @param temp_iterate
 /// @param S_new
 /// @param grids
 /// @param level
 ///
-  void bisect_matter(amrex::MultiFab& rhoe_new, amrex::MultiFab& temp_new,
-                     const amrex::MultiFab& rhoe_star, const amrex::MultiFab& temp_star,
+  void bisect_temperature(amrex::MultiFab& rhoe_new, amrex::MultiFab& temp_next,
+                     const amrex::MultiFab& gas_energy_star, const amrex::MultiFab& temp_iterate,
                      const amrex::MultiFab& S_new, const amrex::BoxArray& grids, int level);
 
 ///
@@ -806,20 +806,20 @@ public:
 /// @param kappa_r
 /// @param state
 ///
-  void MGFLD_compute_rosseland(amrex::MultiFab& kappa_r, const amrex::MultiFab& state);
+  void MultigroupDiffusion_compute_rosseland(amrex::MultiFab& kappa_r, const amrex::MultiFab& state);
 
 ///
 /// @param kappa_r
 /// @param state
 ///
-  void MGFLD_compute_rosseland(amrex::FArrayBox& kappa_r, const amrex::FArrayBox& state);
+  void MultigroupDiffusion_compute_rosseland(amrex::FArrayBox& kappa_r, const amrex::FArrayBox& state);
 
 
 ///
 /// @param kappa_s
 /// @param state
 ///
-  void MGFLD_compute_scattering(amrex::FArrayBox& kappa_s, const amrex::FArrayBox& state);
+  void MultigroupDiffusion_compute_scattering(amrex::FArrayBox& kappa_s, const amrex::FArrayBox& state);
 
 
 ///
@@ -827,26 +827,26 @@ public:
 /// @param dt
 /// @param level
 ///
-  void rhstoEr(amrex::MultiFab& rhs, amrex::Real dt, int level);
+  void rhs_to_rad_energy(amrex::MultiFab& rhs, amrex::Real dt, int level);
 
 ///
-/// </ MGFLD>
+/// </ MultigroupDiffusion>
 ///
 /// @param level
 /// @param amrex::Array<amrex::MultiFab
 /// @param lambda
 ///
-  void save_lambda_in_plotvar(int level, const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda);
+  void store_limiter_plotvar(int level, const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda);
 
 ///
 /// @param level
 /// @param Snew
-/// @param Ecom
+/// @param comoving_energy
 /// @param F
-/// @param iflx
+/// @param flux_comp_base
 ///
-  void save_lab_Er_in_plotvar(int level, const amrex::MultiFab& Snew,
-                              const amrex::MultiFab& Ecom, const amrex::MultiFab& F, int iflx);
+  void store_lab_energy_plotvar(int level, const amrex::MultiFab& Snew,
+                              const amrex::MultiFab& comoving_energy, const amrex::MultiFab& F, int flux_comp_base);
 
 ///
 /// @param level
@@ -855,13 +855,13 @@ public:
 /// @param lambda
 /// @param Er
 /// @param F
-/// @param iflx
-/// @param lab_factor
+/// @param flux_comp_base
+/// @param frame_sign
 ///
-  void save_flux_in_plotvar(int level, const amrex::MultiFab& Snew,
+  void store_flux_plotvar(int level, const amrex::MultiFab& Snew,
                             const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda,
                             const amrex::MultiFab& Er, const amrex::MultiFab& F,
-                            int iflx, const amrex::Real lab_factor = 1.0);
+                            int flux_comp_base, const amrex::Real frame_sign = 1.0);
 
 ///
 /// @param level
@@ -870,44 +870,44 @@ public:
 /// @param lambda
 /// @param Er
 /// @param F
-/// @param iflx
+/// @param flux_comp_base
 ///
-  void save_com_flux_in_plotvar(int level, const amrex::MultiFab& Snew,
+  void store_comoving_flux(int level, const amrex::MultiFab& Snew,
                                 const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda,
-                                const amrex::MultiFab& Er, const amrex::MultiFab& F, int iflx);
+                                const amrex::MultiFab& Er, const amrex::MultiFab& F, int flux_comp_base);
 
-  amrex::Vector<amrex::Real> xnu, nugroup, dnugroup, lognugroup, dlognugroup;
+  amrex::Vector<amrex::Real> xnu, freq_center, freq_width, log_group_center, log_group_widths;
 
 protected:
 
   amrex::Amr* parent;
-  amrex::BCRec rad_bc;          ///< types defined in LO_BCTYPES.H, not BCTYPES.H
+  amrex::BCRec rad_boundary;          ///< types defined in LO_BCTYPES.H, not BCTYPES.H
   amrex::Real reltol, abstol;   ///< tolerances for implicit update loop
   amrex::Vector<amrex::Real> delta_e_rat_level, delta_T_rat_level;
 
 
 ///
 /// arrays of flux registers
-///   flux_cons[level] is a amrex::FluxRegister, which contains fluxes for all groups
+///   flux_accum_reg[level] is a amrex::FluxRegister, which contains fluxes for all groups
 ///
-  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > flux_cons;
-  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > flux_cons_old;
-  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > flux_trial;
+  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > flux_accum_reg;
+  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > conservative_register_old;
+  amrex::Vector <std::unique_ptr<amrex::FluxRegister> > flux_candidate_regs;
 
 
 ///
 /// for deferred sync
 ///
-  amrex::Vector<amrex::Real> delta_t_old;
+  amrex::Vector<amrex::Real> dt_previous;
 
 
 ///
 /// divergence of flux
 ///
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> > dflux;
+  amrex::Vector<std::unique_ptr<amrex::MultiFab> > flux_div;
 
-  std::string group_units;
-  amrex::Real group_print_factor;
+  std::string group_unit_label;
+  amrex::Real group_output_scale;
 
   amrex::IntVect spot;
 

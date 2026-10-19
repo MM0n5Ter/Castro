@@ -27,7 +27,7 @@ amr.plot_file       = plt
 amr.plot_int        = 100     # number of timesteps between plot files
 amr.derive_plot_vars = ALL
 
-amr.refinement_indicators = tempgrad_rel
+amr.refine_criteria = tempgrad_rel
 
 amr.refine.tempgrad_rel.max_level = 4
 amr.refine.tempgrad_rel.relative_gradient = 0.2
@@ -58,36 +58,36 @@ opacity.kappa_r_exp_p =  0.0e0
 # 1 = Inflow             4 = SlipWall
 # 2 = Outflow            5 = NoSlipWall
 # >>>>>>>>>>>>>  BC FLAGS <<<<<<<<<<<<<<<<
-castro.lo_bc       =  2    2    2
-castro.hi_bc       =  2    2    2
+hydrosim.lo_bc       =  2    2    2
+hydrosim.hi_bc       =  2    2    2
 
 
-castro.cfl            = 0.8     # cfl number for hyperbolic system
-castro.init_shrink    = 1.0     # scale back initial timestep
-castro.initial_dt     = 1.e-15
-#castro.fixed_dt       = 1.e-5
-castro.change_max     = 1.05
+hydrosim.cfl            = 0.8     # cfl number for hyperbolic system
+hydrosim.init_dt_shrink    = 1.0     # scale back initial timestep
+hydrosim.first_step_dt     = 1.e-15
+#hydrosim.constant_dt       = 1.e-5
+hydrosim.change_max     = 1.05
 
-castro.sum_interval   = 1       # timesteps between computing mass
-castro.do_reflux      = 1       # 1 => do refluxing
-castro.do_grav        = 0
+hydrosim.sum_step_period   = 1       # timesteps between computing mass
+hydrosim.do_reflux      = 1       # 1 => do refluxing
+hydrosim.do_gravity_flag        = 0
 
-castro.do_hydro       = 0
-castro.do_react       = 0
-castro.do_radiation   = 1
+hydrosim.do_hydro       = 0
+hydrosim.do_react       = 0
+hydrosim.do_radiative_transfer   = 1
 
 # hydro cutoff parameters
-castro.small_dens     = 1.e-20
-castro.small_temp = 0.0
+hydrosim.small_dens     = 1.e-20
+hydrosim.small_temp = 0.0
 
 # ------------------  INPUTS TO RADIATION CLASS  -------------------
 
-##### SolverType #####
+##### SolverKind #####
 # 0: single group diffusion w/o coupling to hydro
-# 5: SGFLD       6: MGFLD
-radiation.SolverType = 5
+# 5: SGFLD       6: MultigroupDiffusion
+radiation.SolverKind = 5
 
-radiation.comoving = 1
+radiation.moving_frame = 1
 
 # 0: no limiter, 2: app. LP, 12: Bruenn, 22: square root, 32: Minerbo
 radiation.limiter = 0
@@ -117,10 +117,10 @@ radiation.hi_bc     = 102 102 102
 # or use a Fortran function FORT_RADBNDRY to specify values that vary
 # in space and time.
 
-# If bcflag is 0 then bcval is used, otherwise FORT_RADBNDRY used:
+# If bc_kind is 0 then bcval is used, otherwise FORT_RADBNDRY used:
 
-radiation.lo_bcflag = 0 0 0
-radiation.hi_bcflag = 0 0 0
+radiation.lo_bc_kind = 0 0 0
+radiation.hi_bc_kind = 0 0 0
 
 # bcval is interpreted differently depending on the boundary condition
 # 101 = LO_DIRICHLET           bcval is Dirichlet value of rad energy density
@@ -128,8 +128,8 @@ radiation.hi_bcflag = 0 0 0
 # 104 = LO_MARSHAK             bcval is incident flux
 # 105 = LO_SANCHEZ_POMRANING   bcval is incident flux
 
-radiation.lo_bcval = 0.0 0.0 0.0
-radiation.hi_bcval = 0.0 0.0 0.0
+radiation.lo_bc_value = 0.0 0.0 0.0
+radiation.hi_bc_value = 0.0 0.0 0.0
 
 # delta_temp is used in computing numerical derivatives.
 # So it should be small, but not too small compared with temperature
@@ -138,12 +138,12 @@ radiation.delta_temp = 1.e-4
 
 # ------------------  INPUTS TO RADIATION SOLVER CLASS  -------------------
 
-# solver flag values <  100 use HypreABec, support symmetric matrices only
-# solver flag values >= 100 use HypreMultiABec, support nonsymmetric matrices
+# solver flag values <  100 use AlphaBetaSolver, support symmetric matrices only
+# solver flag values >= 100 use MultiLevelEllipticSolver, support nonsymmetric matrices
 #
 # PFMG does not support 1D.
 # ParCSR does not work for periodic boundaries.
-# For MGFLD with accelerate = 2, must use >=100.
+# For MultigroupDiffusion with accelerate = 2, must use >=100.
 #
 # 0     SMG
 # 1     PFMG  (>= 2D only)
@@ -156,16 +156,16 @@ radiation.delta_temp = 1.e-4
 # 1002  PCG   using ParCSR ObjectType
 # 1003  PCG   using SStruct ObjectType
 
-radsolve.level_solver_flag = 109
+radiation_solve.level_solver_kind = 109
 
-radsolve.reltol     = 1.0e-11 # relative tolerance
-radsolve.abstol     = 0.0     # absolute tolerance (often not necessary)
-radsolve.maxiter    = 200     # linear solver iteration limit
+radiation_solve.reltol     = 1.0e-11 # relative tolerance
+radiation_solve.abstol     = 0.0     # absolute tolerance (often not necessary)
+radiation_solve.maxiter    = 200     # linear solver iteration limit
 
-radsolve.v = 1      # verbosity
+radiation_solve.v = 1      # verbosity
 
-hmabec.verbose = 1  # verbosity for HypreMultiABec solvers
-habec.verbose  = 1  # verbosity for HypreABec solvers
+hmabec.verbose = 1  # verbosity for MultiLevelEllipticSolver solvers
+habec.verbose  = 1  # verbosity for AlphaBetaSolver solvers
 
 #
 # The default strategy is SFC.

@@ -4,14 +4,14 @@
 set -x
 
 DIM=1
-EXEC=./Castro${DIM}d.gnu.MPI.TRUESDC.ex
+EXEC=./HydroSim${DIM}d.gnu.MPI.TRUESDC.ex
 
 RUNPARAMS="
-castro.sdc_order=2
-castro.time_integration_method=2
-castro.ppm_type=0
-castro.sdc_solver=1
-castro.use_retry=0"
+hydrosim.sdc_accuracy_order=2
+hydrosim.time_scheme=2
+hydrosim.ppm_recon_kind=0
+hydrosim.sdc_nonlin_method=1
+hydrosim.allow_step_retry=0"
 
 mpiexec -n 8 ${EXEC} inputs.64 ${RUNPARAMS} &> 64.out
 mpiexec -n 16 ${EXEC} inputs.128 ${RUNPARAMS} &> 128.out

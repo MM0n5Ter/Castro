@@ -1,10 +1,10 @@
-#ifndef CASTRO_RECONSTRUCTION_H
-#define CASTRO_RECONSTRUCTION_H
+#ifndef HYDROSIM_RECONSTRUCTION_H
+#define HYDROSIM_RECONSTRUCTION_H
 
 #include <state_indices.H>
 
 namespace reconstruction {
-   enum slope_indices : std::uint8_t {
+   enum stencil_position : std::uint8_t {
        im2 = 0,
        im1,
        i0,
@@ -16,32 +16,32 @@ namespace reconstruction {
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-load_stencil(amrex::Array4<amrex::Real const> const& q_arr, const int idir,
+gather_stencil(amrex::Array4<amrex::Real const> const& prim_arr, const int idir,
              const int i, const int j, const int k, const int ncomp,
              amrex::Real* s) {
 
     using namespace reconstruction;
 
     if (idir == 0) {
-        s[im2] = q_arr(i-2,j,k,ncomp);
-        s[im1] = q_arr(i-1,j,k,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i+1,j,k,ncomp);
-        s[ip2] = q_arr(i+2,j,k,ncomp);
+        s[im2] = prim_arr(i-2,j,k,ncomp);
+        s[im1] = prim_arr(i-1,j,k,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i+1,j,k,ncomp);
+        s[ip2] = prim_arr(i+2,j,k,ncomp);
 
       } else if (idir == 1) {
-        s[im2] = q_arr(i,j-2,k,ncomp);
-        s[im1] = q_arr(i,j-1,k,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i,j+1,k,ncomp);
-        s[ip2] = q_arr(i,j+2,k,ncomp);
+        s[im2] = prim_arr(i,j-2,k,ncomp);
+        s[im1] = prim_arr(i,j-1,k,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i,j+1,k,ncomp);
+        s[ip2] = prim_arr(i,j+2,k,ncomp);
 
       } else {
-        s[im2] = q_arr(i,j,k-2,ncomp);
-        s[im1] = q_arr(i,j,k-1,ncomp);
-        s[i0]  = q_arr(i,j,k,ncomp);
-        s[ip1] = q_arr(i,j,k+1,ncomp);
-        s[ip2] = q_arr(i,j,k+2,ncomp);
+        s[im2] = prim_arr(i,j,k-2,ncomp);
+        s[im1] = prim_arr(i,j,k-1,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i,j,k+1,ncomp);
+        s[ip2] = prim_arr(i,j,k+2,ncomp);
 
       }
 
@@ -49,8 +49,8 @@ load_stencil(amrex::Array4<amrex::Real const> const& q_arr, const int idir,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-load_passive_stencil(amrex::Array4<amrex::Real const> const& U_arr,
-                     amrex::Array4<amrex::Real const> const& rho_inv_arr,
+fill_passive_stencil(amrex::Array4<amrex::Real const> const& field_arr,
+                     amrex::Array4<amrex::Real const> const& inv_density_arr,
                      const int idir,
                      const int i, const int j, const int k, const int ncomp,
                      amrex::Real* s) {
@@ -58,25 +58,25 @@ load_passive_stencil(amrex::Array4<amrex::Real const> const& U_arr,
     using namespace reconstruction;
 
     if (idir == 0) {
-        s[im2] = U_arr(i-2,j,k,ncomp) * rho_inv_arr(i-2,j,k);
-        s[im1] = U_arr(i-1,j,k,ncomp) * rho_inv_arr(i-1,j,k);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i+1,j,k,ncomp) * rho_inv_arr(i+1,j,k);
-        s[ip2] = U_arr(i+2,j,k,ncomp) * rho_inv_arr(i+2,j,k);
+        s[im2] = field_arr(i-2,j,k,ncomp) * inv_density_arr(i-2,j,k);
+        s[im1] = field_arr(i-1,j,k,ncomp) * inv_density_arr(i-1,j,k);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i+1,j,k,ncomp) * inv_density_arr(i+1,j,k);
+        s[ip2] = field_arr(i+2,j,k,ncomp) * inv_density_arr(i+2,j,k);
 
       } else if (idir == 1) {
-        s[im2] = U_arr(i,j-2,k,ncomp) * rho_inv_arr(i,j-2,k);
-        s[im1] = U_arr(i,j-1,k,ncomp) * rho_inv_arr(i,j-1,k);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i,j+1,k,ncomp) * rho_inv_arr(i,j+1,k);
-        s[ip2] = U_arr(i,j+2,k,ncomp) * rho_inv_arr(i,j+2,k);
+        s[im2] = field_arr(i,j-2,k,ncomp) * inv_density_arr(i,j-2,k);
+        s[im1] = field_arr(i,j-1,k,ncomp) * inv_density_arr(i,j-1,k);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i,j+1,k,ncomp) * inv_density_arr(i,j+1,k);
+        s[ip2] = field_arr(i,j+2,k,ncomp) * inv_density_arr(i,j+2,k);
 
       } else {
-        s[im2] = U_arr(i,j,k-2,ncomp) * rho_inv_arr(i,j,k-2);
-        s[im1] = U_arr(i,j,k-1,ncomp) * rho_inv_arr(i,j,k-1);
-        s[i0]  = U_arr(i,j,k,ncomp) * rho_inv_arr(i,j,k);
-        s[ip1] = U_arr(i,j,k+1,ncomp) * rho_inv_arr(i,j,k+1);
-        s[ip2] = U_arr(i,j,k+2,ncomp) * rho_inv_arr(i,j,k+2);
+        s[im2] = field_arr(i,j,k-2,ncomp) * inv_density_arr(i,j,k-2);
+        s[im1] = field_arr(i,j,k-1,ncomp) * inv_density_arr(i,j,k-1);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i,j,k+1,ncomp) * inv_density_arr(i,j,k+1);
+        s[ip2] = field_arr(i,j,k+2,ncomp) * inv_density_arr(i,j,k+2);
 
       }
 
@@ -84,7 +84,7 @@ load_passive_stencil(amrex::Array4<amrex::Real const> const& U_arr,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-add_geometric_rho_source(amrex::Array4<amrex::Real const> const& q_arr,
+add_geometric_density_source(amrex::Array4<amrex::Real const> const& prim_arr,
                          amrex::Array4<amrex::Real const> const& dloga,
                          const int i, const int j, const int k,
                          const int ncomp, amrex::Real* s) {
@@ -105,19 +105,19 @@ add_geometric_rho_source(amrex::Array4<amrex::Real const> const& q_arr,
 
     if (ncomp == QU) {
 
-        s[im2] += -dloga(i-2,j,k) * q_arr(i-2,j,k,QRHO) * q_arr(i-2,j,k,ncomp);
-        s[im1] += -dloga(i-1,j,k) * q_arr(i-1,j,k,QRHO) * q_arr(i-1,j,k,ncomp);
-        s[i0] += -dloga(i,j,k) * q_arr(i,j,k,QRHO) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i+1,j,k) * q_arr(i+1,j,k,QRHO) * q_arr(i+1,j,k,ncomp);
-        s[ip2] += -dloga(i+2,j,k) * q_arr(i+2,j,k,QRHO) * q_arr(i+2,j,k,ncomp);
+        s[im2] += -dloga(i-2,j,k) * prim_arr(i-2,j,k,QRHO) * prim_arr(i-2,j,k,ncomp);
+        s[im1] += -dloga(i-1,j,k) * prim_arr(i-1,j,k,QRHO) * prim_arr(i-1,j,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QRHO) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i+1,j,k) * prim_arr(i+1,j,k,QRHO) * prim_arr(i+1,j,k,ncomp);
+        s[ip2] += -dloga(i+2,j,k) * prim_arr(i+2,j,k,QRHO) * prim_arr(i+2,j,k,ncomp);
 
     } else if (ncomp == QV) {
 
-        s[im2] += -dloga(i,j-2,k) * q_arr(i,j-2,k,QRHO) * q_arr(i,j-2,k,ncomp);
-        s[im1] += -dloga(i,j-1,k) * q_arr(i,j-1,k,QRHO) * q_arr(i,j-1,k,ncomp);
-        s[i0] += -dloga(i,j,k) * q_arr(i,j,k,QRHO) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i,j+1,k) * q_arr(i,j+1,k,QRHO) * q_arr(i,j+1,k,ncomp);
-        s[ip2] += -dloga(i,j+2,k) * q_arr(i,j+2,k,QRHO) * q_arr(i,j+2,k,ncomp);
+        s[im2] += -dloga(i,j-2,k) * prim_arr(i,j-2,k,QRHO) * prim_arr(i,j-2,k,ncomp);
+        s[im1] += -dloga(i,j-1,k) * prim_arr(i,j-1,k,QRHO) * prim_arr(i,j-1,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QRHO) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i,j+1,k) * prim_arr(i,j+1,k,QRHO) * prim_arr(i,j+1,k,ncomp);
+        s[ip2] += -dloga(i,j+2,k) * prim_arr(i,j+2,k,QRHO) * prim_arr(i,j+2,k,ncomp);
 
     }
 
@@ -125,7 +125,7 @@ add_geometric_rho_source(amrex::Array4<amrex::Real const> const& q_arr,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-add_geometric_rhoe_source(amrex::Array4<amrex::Real const> const& q_arr,
+add_geometric_energy_source(amrex::Array4<amrex::Real const> const& prim_arr,
                           amrex::Array4<amrex::Real const> const& dloga,
                           const int i, const int j, const int k,
                           const int ncomp, amrex::Real* s) {
@@ -146,19 +146,19 @@ add_geometric_rhoe_source(amrex::Array4<amrex::Real const> const& q_arr,
 
     if (ncomp == QU) {
 
-        s[im2] += -dloga(i-2,j,k) * (q_arr(i-2,j,k,QREINT) + q_arr(i-2,j,k,QPRES)) * q_arr(i-2,j,k,ncomp);
-        s[im1] += -dloga(i-1,j,k) * (q_arr(i-1,j,k,QREINT) + q_arr(i-1,j,k,QPRES)) * q_arr(i-1,j,k,ncomp);
-        s[i0] += -dloga(i,j,k) * (q_arr(i,j,k,QREINT) + q_arr(i,j,k,QPRES)) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i+1,j,k) * (q_arr(i+1,j,k,QREINT) + q_arr(i+1,j,k,QPRES)) * q_arr(i+1,j,k,ncomp);
-        s[ip2] += -dloga(i+2,j,k) * (q_arr(i+2,j,k,QREINT) + q_arr(i+2,j,k,QPRES)) * q_arr(i+2,j,k,ncomp);
+        s[im2] += -dloga(i-2,j,k) * (prim_arr(i-2,j,k,QEINTDENS) + prim_arr(i-2,j,k,QPRES)) * prim_arr(i-2,j,k,ncomp);
+        s[im1] += -dloga(i-1,j,k) * (prim_arr(i-1,j,k,QEINTDENS) + prim_arr(i-1,j,k,QPRES)) * prim_arr(i-1,j,k,ncomp);
+        s[i0] += -dloga(i,j,k) * (prim_arr(i,j,k,QEINTDENS) + prim_arr(i,j,k,QPRES)) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i+1,j,k) * (prim_arr(i+1,j,k,QEINTDENS) + prim_arr(i+1,j,k,QPRES)) * prim_arr(i+1,j,k,ncomp);
+        s[ip2] += -dloga(i+2,j,k) * (prim_arr(i+2,j,k,QEINTDENS) + prim_arr(i+2,j,k,QPRES)) * prim_arr(i+2,j,k,ncomp);
 
     } else if (ncomp == QV) {
 
-        s[im2] += -dloga(i,j-2,k) * (q_arr(i,j-2,k,QREINT) + q_arr(i,j-2,k,QPRES)) * q_arr(i,j-2,k,ncomp);
-        s[im1] += -dloga(i,j-1,k) * (q_arr(i,j-1,k,QREINT) + q_arr(i,j-1,k,QPRES)) * q_arr(i,j-1,k,ncomp);
-        s[i0] += -dloga(i,j,k) * (q_arr(i,j,k,QREINT) + q_arr(i,j,k,QPRES)) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i,j+1,k) * (q_arr(i,j+1,k,QREINT) + q_arr(i,j+1,k,QPRES)) * q_arr(i,j+1,k,ncomp);
-        s[ip2] += -dloga(i,j+2,k) * (q_arr(i,j+2,k,QREINT) + q_arr(i,j+2,k,QPRES)) * q_arr(i,j+2,k,ncomp);
+        s[im2] += -dloga(i,j-2,k) * (prim_arr(i,j-2,k,QEINTDENS) + prim_arr(i,j-2,k,QPRES)) * prim_arr(i,j-2,k,ncomp);
+        s[im1] += -dloga(i,j-1,k) * (prim_arr(i,j-1,k,QEINTDENS) + prim_arr(i,j-1,k,QPRES)) * prim_arr(i,j-1,k,ncomp);
+        s[i0] += -dloga(i,j,k) * (prim_arr(i,j,k,QEINTDENS) + prim_arr(i,j,k,QPRES)) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i,j+1,k) * (prim_arr(i,j+1,k,QEINTDENS) + prim_arr(i,j+1,k,QPRES)) * prim_arr(i,j+1,k,ncomp);
+        s[ip2] += -dloga(i,j+2,k) * (prim_arr(i,j+2,k,QEINTDENS) + prim_arr(i,j+2,k,QPRES)) * prim_arr(i,j+2,k,ncomp);
 
     }
 
@@ -166,8 +166,8 @@ add_geometric_rhoe_source(amrex::Array4<amrex::Real const> const& q_arr,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-add_geometric_p_source(amrex::Array4<amrex::Real const> const& q_arr,
-                       amrex::Array4<amrex::Real const> const& qaux_arr,
+add_geometric_pressure_source(amrex::Array4<amrex::Real const> const& prim_arr,
+                       amrex::Array4<amrex::Real const> const& qthermo_arr,
                        amrex::Array4<amrex::Real const> const& dloga,
                        const int i, const int j, const int k,
                        const int ncomp, amrex::Real* s) {
@@ -189,19 +189,19 @@ add_geometric_p_source(amrex::Array4<amrex::Real const> const& q_arr,
 
     if (ncomp == QU) {
 
-        s[im2] += -dloga(i-2,j,k) * q_arr(i-2,j,k,QPRES) * qaux_arr(i-2,j,k,QGAMC) * q_arr(i-2,j,k,ncomp);
-        s[im1] += -dloga(i-1,j,k) * q_arr(i-1,j,k,QPRES) * qaux_arr(i-1,j,k,QGAMC) * q_arr(i-1,j,k,ncomp);
-        s[i0] += -dloga(i,j,k) * q_arr(i,j,k,QPRES) * qaux_arr(i,j,k,QGAMC) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i+1,j,k) * q_arr(i+1,j,k,QPRES) * qaux_arr(i+1,j,k,QGAMC) * q_arr(i+1,j,k,ncomp);
-        s[ip2] += -dloga(i+2,j,k) * q_arr(i+2,j,k,QPRES) * qaux_arr(i+2,j,k,QGAMC) * q_arr(i+2,j,k,ncomp);
+        s[im2] += -dloga(i-2,j,k) * prim_arr(i-2,j,k,QPRES) * qthermo_arr(i-2,j,k,QGAMMA1) * prim_arr(i-2,j,k,ncomp);
+        s[im1] += -dloga(i-1,j,k) * prim_arr(i-1,j,k,QPRES) * qthermo_arr(i-1,j,k,QGAMMA1) * prim_arr(i-1,j,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i+1,j,k) * prim_arr(i+1,j,k,QPRES) * qthermo_arr(i+1,j,k,QGAMMA1) * prim_arr(i+1,j,k,ncomp);
+        s[ip2] += -dloga(i+2,j,k) * prim_arr(i+2,j,k,QPRES) * qthermo_arr(i+2,j,k,QGAMMA1) * prim_arr(i+2,j,k,ncomp);
 
     } else if (ncomp == QV) {
 
-        s[im2] += -dloga(i,j-2,k) * q_arr(i,j-2,k,QPRES) * qaux_arr(i,j-2,k,QGAMC) * q_arr(i,j-2,k,ncomp);
-        s[im1] += -dloga(i,j-1,k) * q_arr(i,j-1,k,QPRES) * qaux_arr(i,j-1,k,QGAMC) * q_arr(i,j-1,k,ncomp);
-        s[i0] += -dloga(i,j,k) * q_arr(i,j,k,QPRES) * qaux_arr(i,j,k,QGAMC) * q_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i,j+1,k) * q_arr(i,j+1,k,QPRES) * qaux_arr(i,j+1,k,QGAMC) * q_arr(i,j+1,k,ncomp);
-        s[ip2] += -dloga(i,j+2,k) * q_arr(i,j+2,k,QPRES) * qaux_arr(i,j+2,k,QGAMC) * q_arr(i,j+2,k,ncomp);
+        s[im2] += -dloga(i,j-2,k) * prim_arr(i,j-2,k,QPRES) * qthermo_arr(i,j-2,k,QGAMMA1) * prim_arr(i,j-2,k,ncomp);
+        s[im1] += -dloga(i,j-1,k) * prim_arr(i,j-1,k,QPRES) * qthermo_arr(i,j-1,k,QGAMMA1) * prim_arr(i,j-1,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i,j+1,k) * prim_arr(i,j+1,k,QPRES) * qthermo_arr(i,j+1,k,QGAMMA1) * prim_arr(i,j+1,k,ncomp);
+        s[ip2] += -dloga(i,j+2,k) * prim_arr(i,j+2,k,QPRES) * qthermo_arr(i,j+2,k,QGAMMA1) * prim_arr(i,j+2,k,ncomp);
     }
 
 }
