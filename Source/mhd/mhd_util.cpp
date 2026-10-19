@@ -144,7 +144,6 @@ Castro::prim_half(const Box& bx,
 
     qflux(divF_q, divF, q_zone);
 
-    // Right below eq. 48
     for (int n = 0; n < NQ; n++) {
       q2D(i,j,k,n) = q_arr(i,j,k,n) - 0.5_rt * dt * divF_q[n];
     }

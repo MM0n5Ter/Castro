@@ -66,7 +66,6 @@ Castro::shock(const Box& bx,
 
   // This is a basic multi-dimensional shock detection algorithm.
   // we look for |grad P . dx| / P > 2/3 and div u < 0
-  // This is basically the method in Gronow et al. 2020
 
   const auto dx = geom.CellSizeArray();
   const auto problo = geom.ProbLoArray();
@@ -475,8 +474,7 @@ Castro::normalize_species_fluxes(const Box& bx,
                                  Array4<Real> const& flux) {
 
   // Normalize the fluxes of the mass fractions so that
-  // they sum to 0.  This is essentially the CMA procedure that is
-  // defined in Plewa & Muller, 1999, A&A, 342, 179.
+  // they sum to 0.  This is essentially the CMA procedure.
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -550,8 +548,6 @@ Castro::limit_hydro_fluxes_on_small_dens(const Box& bx,
                                          Real dt,
                                          bool scale_by_dAdt)
 {
-    // Hu, Adams, and Shu (2013), JCP, 242, 169, "Positivity-preserving method for
-    // high-order conservative schemes solving compressible Euler equations," proposes
     // a positivity-preserving advection scheme. That algorithm blends the actual
     // (second-order) hydro flux with the first-order Lax-Friedrichs flux to ensure
     // positivity. However, we demand a stronger requirement, that rho > small_dens.

@@ -132,8 +132,7 @@ Castro::ppm_mhd(const Box& bx,
         // we do a special correction here for waves that are not
         // moving toward the interface.  It doesn't make sense to
         // integrate under the parabola in this case, so we simply
-        // create a piecewise linear slope here.  See Stone et al. Eq
-        // 44 and 45
+        // create a piecewise linear slope here.
         if (lam(ii) >= 0.0_rt) {
           Ip[n][ii] = Ipt;
         } else {
@@ -162,7 +161,7 @@ Castro::ppm_mhd(const Box& bx,
 
     }
 
-    // MHD Source Terms -- from the Miniati paper, Eq. 32 and 33
+    // MHD Source Terms
     Real smhd[NEIGN];
 
     smhd[IEIGN_RHO] = 0.0_rt;
@@ -202,8 +201,7 @@ Castro::ppm_mhd(const Box& bx,
     }
 
     // Perform the characteristic projection.  Since we are using
-    // Using HLLD, we sum over all eigenvalues -- see the discussion
-    // after Eq. 31
+    // Using HLLD, we sum over all eigenvalues
 
     // right state at i-1/2
 

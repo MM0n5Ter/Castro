@@ -4,15 +4,11 @@ This problem was developed to test the convergence of the 4th order
 SDC solver with gravity, reactions, and reflecting boundary
 conditions.
 
-This was featured in the Castro SDC paper:
-https://ui.adsabs.harvard.edu/abs/2019ApJ...886..105Z
-
 
 ## Measuring convergence
 
 The script `converge_test.sh` will test the convergence for the bubble
-rising problem by running tests at 5 different resolutions (the 32**2
-resolution was not shown in the paper).
+rising problem by running tests at 5 different resolutions.
 
 * Build as:
   ```
@@ -53,7 +49,6 @@ resolution was not shown in the paper).
   $\rho X(\isotm{Fe}{56})$             35908410   3.264            3739049   3.713           285208.5
   ```
 
-  which is essentially the same values shown in table 11 of the Castro SDC paper.
 
 ## HSE convergence
 
@@ -86,7 +81,7 @@ This setup can also be used just to test HSE convergence.
 
 ## Original Cori convergence testing
 
-The results in the Castro SDC paper were run on Cori, using
+The results were run on Cori, using
 the file in `job_scripts/`.
 
 * in `Castro/Exec/reacting_tests/bubble_convergence`

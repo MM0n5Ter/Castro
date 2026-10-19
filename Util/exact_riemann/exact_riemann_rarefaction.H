@@ -257,7 +257,7 @@ rarefaction(const amrex::Real pstar,
 
     Z_s = std::sqrt(eos_state.gam1 * p / tau);
 
-    // also need W_s -- this is C&G Eq. 16.  u above is ustar_s.
+    // also need W_s.  u above is ustar_s.
 
     if (u == u_s) {
         W_s = Z_s;
@@ -281,7 +281,7 @@ rarefaction_to_u(const amrex::Real rho_s, const amrex::Real u_s, const amrex::Re
     // some intermediate u (between u_s and ustar).  This accounts for
     // the fact that we are inside the rarefaction.
     //
-    // We reformulate the system of ODEs from C&G Eq. 13 to make u the
+    // We reformulate the system of ODEs to make u the
     // dependent variable.  Now we solve:
     //
     //   dp/du =  C; dtau/du = -1/C   for the 1-wave

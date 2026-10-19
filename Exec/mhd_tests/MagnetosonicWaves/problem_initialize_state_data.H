@@ -29,7 +29,7 @@ void problem_initialize_state_data (int i, int j, int k,
 
     Real pert = 1.0e-5_rt * std::sin(2.0_rt * M_PI * (problem::k_x * x + problem::k_y * y));
 
-    // initialize using MM eq. 55
+    // initialize
     state(i,j,k,URHO) = problem::rho_0;
     state(i,j,k,UMX) = (problem::u_x + (std::sqrt(2.0_rt) * problem::cw * problem::cw *
                                         problem::u_by - problem::c_s * problem::u_ky) *

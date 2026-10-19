@@ -190,7 +190,7 @@ void get_lagrange_points (Real mass_1, Real mass_2, const Real* com_1, const Rea
 
 // Given the mass ratio q of two stars (assumed to be q = M_1 / M_2),
 // compute the effective Roche radii of the stars, normalized to unity,
-// using the approximate formula of Eggleton (1983). Optionally we can
+// using the approximate formula. Optionally we can
 // pass in a distance scale.
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE

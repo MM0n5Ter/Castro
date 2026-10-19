@@ -4,8 +4,6 @@
 # files are used to keep track of how many processors are in use at
 # any given time -- this allows for jobs of varying length to be run
 # together.
-#
-# M. Zingale
 
 #----------------------------------------------------------------------------
 # user modifiable variables:

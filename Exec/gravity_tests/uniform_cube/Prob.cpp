@@ -93,7 +93,7 @@ void Castro::problem_post_init()
 
                             Real r = std::sqrt(x[ii] * x[ii] + y[jj] * y[jj] + z[kk] * z[kk]);
 
-                            // This is Equation 20 in Katz et al. (2016). There is a special case
+                            // There is a special case
                             // where, e.g., x[ii] = y[jj] = 0, in which case z[kk] = r and the
                             // atanh will evaluate to infinity, making the product ill-defined.
                             // Handle this case by only doing the atanh evaluation away from those

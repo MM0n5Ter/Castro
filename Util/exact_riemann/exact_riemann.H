@@ -62,8 +62,6 @@ exact_riemann() {
     std::ofstream ofile;
     ofile.open("riemann.out");
 
-    // This follows from the discussion around C&G Eq. 15
-
     amrex::Real dx = (problem::xmax - problem::xmin) / static_cast<amrex::Real>(problem::npts);
 
     // loop over xi space

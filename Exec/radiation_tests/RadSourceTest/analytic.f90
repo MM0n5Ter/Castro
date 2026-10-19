@@ -1,6 +1,5 @@
 ! Compute the analytic solution for the relaxation to thermal
-! equilibrium radiation problem.  We follow the problem outline from
-! Swesty and Myra (2009), section 4.4.1.
+! equilibrium radiation problem.  We follow the problem outline.
 !
 ! This code returns the radiation energy as a function of time.
 
@@ -65,9 +64,6 @@ function f(x,beta,eta) result (fval)
 
   if (x < beta/eta) then
 
-     ! note: this form is different than what appears in Swesty and Myra,
-     ! but instead, this is the form that Doug seems to have used in his
-     ! code.
      fval = (1.e0_rt/(2.e0_rt*eta*beta**3)) * &
           (0.5e0_rt*log((beta + eta*x)/(beta - eta*x)) + &
           atan(eta*x/beta))
@@ -82,8 +78,7 @@ end function f
 
 program analytic
 
-  ! compute the analytic solution to the thermal relaxation problem,
-  ! as given by Swesty and Myra (2009), Eq. 83, 84.
+  ! compute the analytic solution to the thermal relaxation problem.
 
   ! The analytic solution provides t(rho*e) for the gas component.
 
@@ -101,19 +96,16 @@ program analytic
   integer :: n
   integer, parameter :: nsteps = 2000
 
-  ! the beta constant as implied in Swesty and Myra, eq. 81
+  ! the beta constant
   beta = (c_light*kappa_p*E_rad)**0.25e0_rt
 
-  ! specific heat at constant volume for an idea gas (Note: Swesty and
-  ! Myra work with temperature in MeV, so Boltzmann's constant, k_B,
-  ! does not appear in their derivation.
+  ! specific heat at constant volume for an idea gas
   c_v = k_B/(mu*m_p*(gamma - 1.e0_rt))
 
-  ! the eta constant as implied in Swesty and Myra, eq. 81
+  ! the eta constant
   eta = ((c_light*kappa_p*a_rad)**0.25e0_rt)/(c_v*rho_ambient)
 
-  ! final energy density (see Swesty and Myra, text just before
-  ! Eq. 82)
+  ! final energy density
   rhoe_f = beta/eta
 
   ! energy increment

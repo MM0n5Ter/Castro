@@ -4,7 +4,7 @@ This is a single mode Rayleigh-Taylor instability problem.  The
 instability is triggered by perturbing the interface between the dense
 and light fluid.
 
-This problem was used in the Castro I paper to compare different PPM
+This problem was used to compare different PPM
 types.
 
 

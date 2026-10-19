@@ -25,7 +25,6 @@ void linear_to_hybrid(const GpuArray<Real, 3>& loc,
                         std::numeric_limits<Real>::min());
     Real RInv = 1.0_rt / R;
 
-    // This conversion is Eqs. 25 and 26 in Byerly et al. 2014.
     // Note that we expect the linear momentum to be consistent
     // with which frame we're measuring the fluid quantities in.
     // So we're effectively always using the first form of those
@@ -55,7 +54,7 @@ void hybrid_to_linear(const GpuArray<Real, 3>& loc,
                         std::numeric_limits<Real>::min());
     Real RInv = 1.0_rt / R;
 
-    // This is the inverse of Byerly et al., Equations 25 and 26.
+    // This is the inverse.
 
     linear_mom[0] = hybrid_mom[0] * (loc[0] * RInv) - hybrid_mom[1] * (loc[1] * RInv * RInv);
     linear_mom[1] = hybrid_mom[1] * (loc[0] * RInv * RInv) + hybrid_mom[0] * (loc[1] * RInv);

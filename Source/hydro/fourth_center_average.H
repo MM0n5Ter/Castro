@@ -13,8 +13,7 @@ compute_laplacian(int i, int j, int k, int n,
   Real lapz = 0.0;
 
   // we use 2nd-order accurate one-sided stencils at the physical
-  // boundaries note: this differs from the suggestion in MC2011 --
-  // they just suggest using the Laplacian from +1 off the interior.
+  // boundaries
   // I like the one-sided better.
 
   if (i == domlo[0] && !lo_periodic[0]) {

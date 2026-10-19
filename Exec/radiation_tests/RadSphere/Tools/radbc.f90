@@ -34,9 +34,8 @@ function planck(nu,T) result (B)
   ! nu = frequency (Hz)
   ! T  = temperature (K)
 
-  ! see Swesty and Myra (2009), eq. 23, but note that we are working
-  ! in Hz here, so we have units of erg / cm^3 / Hz, where they
-  ! have units of erg / cm^3 / MeV.  As a result, we have one
+  ! note that we are working
+  ! in Hz here, so we have units of erg / cm^3 / Hz.  As a result, we have one
   ! less factor of h_planck.
   use constants_module
   use amrex_fort_module, only : rt => amrex_real

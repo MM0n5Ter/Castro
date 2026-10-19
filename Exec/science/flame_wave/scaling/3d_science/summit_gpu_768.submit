@@ -1,5 +1,4 @@
 #!/bin/bash
-#BSUB -P ast106
 #BSUB -W 00:15
 #BSUB -nnodes 768
 #BSUB -alloc_flags smt1

@@ -10,7 +10,7 @@ Castro::fill_rotational_psi(const Box& bx,
     amrex::ignore_unused(time);
 
   // Construct psi, which is the distance-related part of the rotation
-  // law. See e.g. Hachisu 1986a, Equation 15.  For rigid-body
+  // law.  For rigid-body
   // rotation, psi = -R^2 / 2, where R is the distance orthogonal to
   // the rotation axis. There are also v-constant and j-constant
   // rotation laws that we do not implement here. We will construct

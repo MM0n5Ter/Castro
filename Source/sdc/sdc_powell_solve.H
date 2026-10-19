@@ -19,8 +19,6 @@ namespace powell {
         amrex::ignore_unused(iflag);
 
         // This is used with the hybrid Powell solver to compute Z,
-        // from Eq 36
-
         // evaluated with x
         //
         // x is {rho X_1, rho X_2, ... rho X_N, rho e}
@@ -44,7 +42,7 @@ namespace powell {
 
         single_zone_react_source(burn_state, R_full);
 
-        // now Z (Eq. 36) is evaluated with the current guess for U
+        // now Z is evaluated with the current guess for U
         // we use ydot_a here to be U^n + dt_m C
 
         auto dt_m = burn_state.time;
@@ -69,7 +67,7 @@ namespace powell {
         amrex::ignore_unused(iflag);
 
         // This is used with the hybrid Powell solver to compute J
-        // evaluated with x.  This is Eq. 38.
+        // evaluated with x.
         //
         // x is {rho X_1, rho X_2, ... rho X_N, rho e}
         //
@@ -97,9 +95,8 @@ namespace powell {
             single_zone_react_source(burn_state, R_full);
         }
 
-        // Instead of the decomposition into dw/dU and dR/dw
-        // written out in the original paper Appendix A, we instead use the
-        // form from the simplified-SDC paper (Zingale et al. 2022).  Note:
+        // Instead of the decomposition into dw/dU and dR/dw, we instead use the
+        // form from the simplified-SDC.  Note:
         // we are not including density anymore.
 
         auto dt_m = burn_state.time;
@@ -122,7 +119,7 @@ namespace powell {
 
         // the purpose of this function is to solve the system
         //  U - dt R(U) = U_old + dt C
-        // using the hybrid-Powell solver.  This is Eq. 36 in the paper.
+        // using the hybrid-Powell solver.
         //
         // here, U_new should come in as a guess for the new U for
         // iterations > 0, it will be the solution from the previous

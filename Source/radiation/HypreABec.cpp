@@ -1014,7 +1014,7 @@ void HypreABec::setupSolver(Real _reltol, Real _abstol, int maxiter)
     HYPRE_StructPFMGSetMaxIter(solver, maxiter);
     HYPRE_StructPFMGSetRelChange(solver, 0);
     HYPRE_StructPFMGSetTol(solver, reltol);
-// in following line, Falgout says use 1 as relax type, not 2 (rbp, 9/27/05)
+// in following line, use 1 as relax type, not 2
 // weighted Jacobi = 1; red-black GS = 2
     HYPRE_StructPFMGSetRelaxType(solver, pfmg_relax_type);
     HYPRE_StructPFMGSetNumPreRelax(solver, 1);

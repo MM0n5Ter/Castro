@@ -1,6 +1,6 @@
 # Analytic Sedov solution at t = 0.1 for a cylindrical geometry with
-# gamma = 1.4.  This was created using Frank Timmes' sedov3.f routine
-# from http://www.cococubed.com/code_pages/sedov.shtml
+# gamma = 1.4.
+#
 #
 # The following parameters were set:
 #      nstep = 120

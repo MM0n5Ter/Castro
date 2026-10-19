@@ -263,8 +263,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
 
           // Do the corner coupling and the CT updates
 
-          // MM CTU Step 1
-          // Calculate Flux 1D, eq.35
+          // CTU Step 1
+          // Calculate Flux 1D
 
           // x-dir
           // [lo(1)-2, lo(2)-3, lo(3)-3] [hi(1)+3, hi(2)+3, hi(3)+3]
@@ -332,8 +332,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           PrimToCons(gbx, qz_left_arr, uz_left_arr);
           PrimToCons(gbx, qz_right_arr, uz_right_arr);
 
-          // MM CTU Step 2
-          // Use "1D" fluxes To interpolate Temporary Edge Centered Electric Fields, eq.36
+          // CTU Step 2
+          // Use "1D" fluxes To interpolate Temporary Edge Centered Electric Fields
 
           // [lo(1)-2, lo(2)-2, lo(3)-2][hi(1)+2, hi(2)+3, hi(3)+3]
           Box eebx = amrex::grow(bx, 2);
@@ -359,8 +359,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           electric_edge_z(eebz, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
 
 
-          // MM CTU Steps 3, 4, and 5
-          // Corner Couple, eq. 37, 38 and 39 Correct Conservative vars using Transverse Fluxes
+          // CTU Steps 3, 4, and 5
+          // Corner Couple, Correct Conservative vars using Transverse Fluxes
 
           // X direction
 
@@ -382,7 +382,7 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
                         flxy1D_arr, Ex_arr, Ez_arr,
                         0, 1, 2, dt);
 
-          // Calculate Flux 2D eq. 40
+          // Calculate Flux 2D
           // F^{x|y}
           flx_xy.resize(ccbx, NUM_STATE+3);
           auto flx_xy_arr = flx_xy.array();
@@ -474,9 +474,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           hlld(ccbz, qtmp_left_arr, qtmp_right_arr, flx_zy_arr, 2);
 
 
-          // MM CTU Step 6
+          // CTU Step 6
           // Use Averaged 2D fluxes to interpolate temporary Edge Centered Electric Fields, reuse "flx1D"
-          // eq. 42 and 43
 
           amrex::ParallelFor(ccbx, NUM_STATE+3,
           [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
@@ -497,7 +496,6 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           });
 
 
-          // eq. 41
           // [lo(1)-1, lo(2)-1, lo(3)-1][hi(1)+1, hi(2)+2, hi(3)+2]
           Box eebx2 = amrex::grow(bx, 1);
           eebx2.growHi(1);
@@ -522,8 +520,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           electric_edge_z(eebz2, q_arr, Ez_arr, flxx1D_arr, flxy1D_arr);
 
 
-          // MM CTU Step 7, 8, and 9
-          // Half Step conservative vars eq.44, eq.45, eq.46
+          // CTU Step 7, 8, and 9
+          // Half Step conservative vars
           // Here we reuse qtmp_left/right to denote the half-time conservative state
 
           // for x direction
@@ -537,7 +535,7 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
                     Ex_arr, Ey_arr, Ez_arr,
                     0, 1, 2, dt);
 
-          // Final Fluxes eq.47
+          // Final Fluxes
 
           // We need to compute these on a box 1 larger in the transverse directions
           // than we'd need for hydro alone due to the electric update
@@ -569,8 +567,8 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           hlld(nbz1, qtmp_left_arr, qtmp_right_arr, flux[2].array(), 2);
 
 
-          // MM CTU Step 10
-          // Primitive update eq. 48
+          // CTU Step 10
+          // Primitive update
           q2D.resize(obx, NQ);
           auto q2D_arr = q2D.array();
           auto elix_q2D = q2D.elixir();
@@ -578,7 +576,7 @@ Castro::construct_ctu_mhd_source(Real time, Real dt)
           prim_half(obx, q2D_arr, q_arr,
                     flxx1D_arr, flxy1D_arr, flxz1D_arr, dt);
 
-          // Final Electric Field Update eq.48
+          // Final Electric Field Update
 
           // [lo(1), lo(2), lo(3)][hi(1), hi(2)+1, hi(3)+1]
           Box eebxf = mfi.tilebox();

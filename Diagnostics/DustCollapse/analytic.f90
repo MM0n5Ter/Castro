@@ -1,5 +1,4 @@
-! Print out the analytic solution for the homologous dust collapse problem,
-! from Colgate and White 1966, ApJ, 143, 626.
+! Print out the analytic solution for the homologous dust collapse problem.
 !
 ! This will yield r(t) as a function of t
 
@@ -115,7 +114,7 @@ function f(r,t) result (func)
   double precision, intent(in) :: r, t
   double precision :: func
 
-  ! the analytic solution from Colgate and White, Eq. 5 (with everything moved
+  ! the analytic solution (with everything moved
   ! onto the LHS).  We use SMALL to prevent against zeros in some places.
   func = sqrt(8.d0*pi*Gconst*rho_0/3.d0)*t - &
          sqrt(1.d0 - r/r_0)*sqrt(r/r_0) - asin(sqrt(1.0 - r/r_0 + SMALL))

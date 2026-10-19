@@ -21,7 +21,7 @@ Castro::corner_couple(const Box& bx,
   // with with the transverse flux difference (corner coupling) to
   // produce ul_out and ur_out
   //
-  // This implements MM step 3 of the CTU algorithm.
+  // This implements step 3 of the CTU algorithm.
   // the normal direction (for the interface states) is d1
   // the transverse direction (for the flux difference) is d2
 
@@ -93,8 +93,7 @@ Castro::corner_couple(const Box& bx,
 
     // first the conserved state
 
-    // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state in MM notation)
-    // MM Eq. 37
+    // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state)
 
     Real utmp[NUM_STATE+3];
     Real qtmp[NQ];
@@ -111,10 +110,10 @@ Castro::corner_couple(const Box& bx,
 
     // now magnetic fields
 
-    // right state on the interface (e.g. B_{i-1/2,j,k,R} or `-` in MM notation)
+    // right state on the interface (e.g. B_{i-1/2,j,k,R} or `-` notation)
 
-    // d1 -- this is perpendicular to the face, MM Eq. 38
-    // (note MM Eq. 38 has a sign error) e.g., for d1 = x and
+    // d1 -- this is perpendicular to the face
+    // e.g., for d1 = x and
     // d2 = y, this gets updated as
     //
     // Bx|y_{i-1/2,j,k,R} = Bx_{i-1/2,j,k) -
@@ -125,7 +124,7 @@ Castro::corner_couple(const Box& bx,
     utmp[UMAGD1] = ur(i,j,k,UMAGD1) - sgn * cdtdx *
       (Ed3(i+b[0],j+b[1],k+b[2]) - Ed3(i,j,k));
 
-    // d3 -- this is in the plane of the face, MM Eq. 39
+    // d3 -- this is in the plane of the face
     // e.g.,g for d1 = x, and d2 = y, this gets updated as
     //
     // Bz|y_{i-1/2,j,k,R} = Bz_{i-1/2,j,k} + 1/2 dt/3dx
@@ -150,7 +149,7 @@ Castro::corner_couple(const Box& bx,
   });
 
 
-  // left interface (e.g., U_{i-1/2,j,k,L} or the "+" state in MM notation)
+  // left interface (e.g., U_{i-1/2,j,k,L} or the "+" state)
   // note: this uses information one zone to the left in d1
 
   cl[d1] -= 1;
@@ -184,7 +183,7 @@ Castro::corner_couple(const Box& bx,
       }
     }
 
-    // left state on the interface (e.g. B_{i-1/2,j,k,L} or `+` in MM notation)
+    // left state on the interface (e.g. B_{i-1/2,j,k,L} or `+`)
 
     utmp[UMAGD1] = ul(i,j,k,UMAGD1) - sgn * cdtdx *
       (Ed3(i+b[0],j+b[1],k+b[2]) - Ed3(i,j,k));
@@ -297,8 +296,7 @@ Castro::half_step(const Box& bx,
 
     // first the conservative state
 
-    // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state in MM notation)
-    // MM Eq. 44
+    // right interface (e.g. U_{i-1/2,j,k,R} or the "-" state)
 
     Real utmp[NUM_STATE+3];
     Real qtmp[NQ];
@@ -316,17 +314,15 @@ Castro::half_step(const Box& bx,
 
     // now the magnetic field
 
-    // right state on the interface (e.g. B_{i-1/2,j,k,R} or `-` in MM notation)
+    // right state on the interface (e.g. B_{i-1/2,j,k,R} or `-` notation)
 
-    // Bd -- this is perpendicular to the face. Note MM eq.45
-    // in Miniati has a sign error in the epsilon term
+    // Bd -- this is perpendicular to the face.
 
     utmp[UMAGD] = ur(i,j,k,UMAGD) - sgn * hdtdx *
       ((Ed1(i+a1[0],j+a1[1],k+a1[2]) - Ed1(i,j,k)) -
        (Ed2(i+a2[0],j+a2[1],k+a2[2]) - Ed2(i,j,k)));
 
     // Bd1 -- this is one of the components of B in the plane of the face d
-    // Eq.46 in Miniati
 
     utmp[UMAGD1] = ur(i,j,k,UMAGD1) + sgn * 0.5_rt * hdtdx *
       ((Ed(i+err[0],j+err[1],k+err[2]) - Ed(i+erl[0],j+erl[1],k+erl[2])) +
@@ -335,7 +331,6 @@ Castro::half_step(const Box& bx,
        (Ed2(i+e2rl[0],j+e2rl[1],k+e2rl[2]) - Ed2(i+ell[0],j+ell[1],k+ell[2])));
 
     // Bd2 -- this is the other component of B in the plane of the face d
-    // Eq. 46 in Miniati
 
     utmp[UMAGD2] = ur(i,j,k,UMAGD2) - sgn * 0.5_rt * hdtdx *
       ((Ed(i+err[0],j+err[1],k+err[2]) - Ed(i+elr[0],j+elr[1],k+elr[2])) +
@@ -361,7 +356,7 @@ Castro::half_step(const Box& bx,
     c2r[d] -= 1;
     c2l[d] -= 1;
 
-    // left state on the interface (e.g., B_{i-1/2,j,k,L} or `+` in MM notation)
+    // left state on the interface (e.g., B_{i-1/2,j,k,L} or `+`)
 
     // The in-plane B component at B_{i-1/2,j,k,L} uses the information one zone to the left
     // in direction d1
@@ -384,7 +379,7 @@ Castro::half_step(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    // left interface (e.g., U_{i+1/2,j,k,L} or the "+" state in MM notation)
+    // left interface (e.g., U_{i+1/2,j,k,L} or the "+" state)
 
     Real utmp[NUM_STATE+3];
     Real qtmp[NQ];
@@ -406,14 +401,14 @@ Castro::half_step(const Box& bx,
 
     // now the B fields
 
-    // Bd -- this is perpendicular to the face (MM Eq. 45 with sign fix)
+    // Bd -- this is perpendicular to the face (with sign fix)
 
     // this is the same face as the right state, so the update the identical
     utmp[UMAGD] = ul(i,j,k,UMAGD) - sgn * hdtdx *
       ((Ed1(i+a1[0],j+a1[1],k+a1[2]) - Ed1(i,j,k)) -
        (Ed2(i+a2[0],j+a2[1],k+a2[2]) - Ed2(i,j,k)));
 
-    // Bd1 -- first component on face d, eq. 46 in Miniati
+    // Bd1 -- first component on face d
 
     utmp[UMAGD1] = ul(i,j,k,UMAGD1) + sgn * 0.5_rt * hdtdx *
       ((Ed(i+err[0],j+err[1],k+err[2]) - Ed(i+erl[0],j+erl[1],k+erl[2])) +
@@ -421,7 +416,7 @@ Castro::half_step(const Box& bx,
        (Ed2(i+e2rr[0],j+e2rr[1],k+e2rr[2]) - Ed2(i+e2lr[0],j+e2lr[1],k+e2lr[2])) -
        (Ed2(i+e2rl[0],j+e2rl[1],k+e2rl[2]) - Ed2(i+ell[0],j+ell[1],k+ell[2])));
 
-    // Bd2 -- second component on face d, eq. 46 in Miniati
+    // Bd2 -- second component on face d
 
     utmp[UMAGD2] = ul(i,j,k,UMAGD2) - sgn * 0.5_rt * hdtdx *
       ((Ed(i+err[0],j+err[1],k+err[2]) - Ed(i+elr[0],j+elr[1],k+elr[2])) +

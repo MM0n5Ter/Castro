@@ -1,5 +1,4 @@
-Implementation of the radiating sphere problem of Graziani (2008), as
-described in Swesty and Myra (2009).
+Implementation of the radiating sphere problem.
 
 The problem puts a hot sphere inside an low temperature ambient
 medium, characteristized by an opacity that goes like 1/nu**3.  The
@@ -30,10 +29,7 @@ by dnu -- the group-bin weight to get a radiation energy density).
 
 Auxiliary files in Tools/: 
 
-  analytic.f90: computes the analytic solution, using Eqs. 76 and 77
-                from Swesty and Myra (2009).  Swesty and Myra do not
-                give their coefficient for their opacity.  The value
-                in analytic.f90 comes directly from Eric.
+  analytic.f90: computes the analytic solution.
 
   radbc.f90: compute the values for the group-dependent Dirichlet
              boundary conditions, corresponding to the hot sphere.  This
@@ -46,12 +42,4 @@ Auxiliary files in Tools/:
   fradsphere.f90: dumps out the radiation energy density for each
                   group at a specified distance from the origin.
 
-
-
-references:
-
-Graziani, F., 2008, Computational Methods in Transport: Verification
-and Validation, ed. F. Graziani (Berlin:Springer), 151
-
-Swesty, F. D. and Myra, E. S., 2009, ApJS, 181, 1.
 

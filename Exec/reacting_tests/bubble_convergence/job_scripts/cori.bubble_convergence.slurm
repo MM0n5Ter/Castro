@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=bubble_convergence
-#SBATCH --account=m3018
 #SBATCH --nodes=2
 #SBATCH --tasks-per-node=32
 #SBATCH --qos=regular

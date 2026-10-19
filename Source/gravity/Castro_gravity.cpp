@@ -512,7 +512,7 @@ void Castro::construct_new_gravity_source(MultiFab& source, MultiFab& state_old,
                 // 1: Original version ("does work")
                 // 2: Modification of type 1 that updates the U before constructing SrEcorr
                 // 3: Puts all gravitational work into KE, not (rho e)
-                // 4: Conservative gravity approach (discussed in first white dwarf merger paper).
+                // 4: Conservative gravity approach
 
                 Real rhoo    = uold(i,j,k,URHO);
                 Real rhooinv = 1.0_rt / uold(i,j,k,URHO);
@@ -624,12 +624,10 @@ void Castro::construct_new_gravity_source(MultiFab& source, MultiFab& state_old,
 
                     SrEcorr = - SrE_old;
 
-                    // For an explanation of this approach, see wdmerger paper I.
                     // The main idea is that we are evaluating the change of the
                     // potential energy at zone edges and applying that in an equal
-                    // and opposite sense to the gas energy. The physics is described
-                    // in Section 2.4; we are using a version of the formula similar to
-                    // Equation 94 in Springel (2010) based on the gradient rather than
+                    // and opposite sense to the gas energy. we are using a version of the formula
+                    // based on the gradient rather than
                     // the potential because the gradient-version works for all forms
                     // of gravity we use, some of which do not explicitly calculate phi.
 

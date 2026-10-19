@@ -1,7 +1,7 @@
 # Sedov diagnostic routines
 
 The diagnostic routines in `Diagnostics/DustCollapse` are used to construct
-the data which appears in Figure 12 in the first CASTRO paper.
+the data.
 
 The analytic maximum density has been computed from the initial density
 and the analytic r(t) using conservation of mass; this is hard-wired
@@ -46,5 +46,5 @@ a.out > analytic.txt
 ```
 ## Plotting
 
-To use gnuplot to make Figure 12, use `DustCollapse.gp` once you have created the files
+To use gnuplot, use `DustCollapse.gp` once you have created the files
 `analytic.txt`, `results_1d.txt`, `results_2d.txt` and `results_3d.txt`

@@ -8,8 +8,6 @@
 # names are arbitrary and the values of the variables can be whatever you wish.
 #
 # NOTE: After compiling the problem code it needs to be copied into each directory by hand
-#
-# Written by Blaire Ness and Michael Zingale
 
 import os
 

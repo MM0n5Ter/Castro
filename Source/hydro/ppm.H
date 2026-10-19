@@ -46,7 +46,7 @@ check_trace_source(amrex::Array4<amrex::Real const> const& srcQ, const int idir,
 
 ///
 /// Compute the coefficients of a parabolic reconstruction of the data in a zone.
-/// This uses the standard PPM limiters described in Colella & Woodward (1984)
+/// This uses the standard PPM limiters
 ///
 /// @param s      Real[nslp] the state to be reconstructed in zones i-2, i-1, i, i+1, i+2
 /// @param flatn  The flattening coefficient
@@ -123,8 +123,7 @@ ppm_reconstruct(const amrex::Real* s,
         sm = flatn * sm + (1.0_rt - flatn) * s[i0];
         sp = flatn * sp + (1.0_rt - flatn) * s[i0];
 
-        // Modify using quadratic limiters -- note this version of the limiting comes
-        // from Colella and Sekora (2008), not the original PPM paper.
+        // Modify using quadratic limiters
 
         if ((sp - s[i0]) * (s[i0] - sm) <= 0.0_rt) {
           sp = s[i0];
@@ -139,7 +138,7 @@ ppm_reconstruct(const amrex::Real* s,
 
     } else {
 
-        // unlimited PPM reconstruction  (Eq. 1.9 in the PPM paper)
+        // unlimited PPM reconstruction
 
         sm = (7.0_rt/12.0_rt) * (s[i0] + s[im1]) - (1.0_rt/12.0_rt) * (s[im2] + s[ip1]);
         sp = (7.0_rt/12.0_rt) * (s[ip1] + s[i0]) - (1.0_rt/12.0_rt) * (s[im1] + s[ip2]);
@@ -153,7 +152,7 @@ ppm_reconstruct(const amrex::Real* s,
 /// Compute the coefficients of a parabolic reconstruction of the pressure by
 /// first subtracting off the hydrostatic pressure.  This should better balance
 /// the gravitational force by only limiting on the wave-generating pressure.
-/// This uses the standard PPM limiters described in Colella & Woodward (1984)
+/// This uses the standard PPM limiters
 ///
 /// @param rho         Real[nslp] giving the density in zones i-2, i-1, i, i+1, i+2
 /// @param p           Real[nslp] giving the pressure in zones i-2, i-1, i, i+1, i+2

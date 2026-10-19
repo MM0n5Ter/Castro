@@ -101,8 +101,8 @@ shock(const amrex::Real pstar,
 
     amrex::Real rhostar_hist[riemann_constants::HISTORY_SIZE], Ws_hist[riemann_constants::HISTORY_SIZE];
 
-    // compute the Z_s function for a shock following C&G Eq. 20 and
-    // 23.  Here the "_s" variables are the state (L or R) that we are
+    // compute the Z_s function for a shock.
+    // Here the "_s" variables are the state (L or R) that we are
     // connecting to the star region through a shock.
 
     // first we need to compute W_s -- this is iterative because of
@@ -123,8 +123,8 @@ shock(const amrex::Real pstar,
     amrex::Real e_s = eos_state.e;
 
     // to kick things off, we need a guess for W_s.  We'll use the
-    // approximation from Colella & Glaz (Eq. 34), which in turn
-    // makes an approximation for gammaE_star, using equation 31.
+    // approximation from Colella & Glaz, which in turn
+    // makes an approximation for gammaE_star.
 
     amrex::Real gammaE_s = p_s / (rho_s * e_s) + 1.0_rt;
 
@@ -133,7 +133,7 @@ shock(const amrex::Real pstar,
         (pstar - p_s) / (pstar + p_s);
 
     // there is a pathological case that if p_s - pstar ~ 0, the root finding
-    // just doesn't work.  In this case, we use the ideas from CG, Eq. 35, and
+    // just doesn't work.  In this case, we use the ideas from CG, and
     // take W = sqrt(gamma p rho)
 
     if (pstar - p_s < riemann_constants::riemann_p_tol * p_s) {
@@ -173,13 +173,12 @@ shock(const amrex::Real pstar,
 
 
     // now that we have W_s, we can get rhostar from the R-H conditions
-    // (C&G Eq. 12)
 
     taustar_s = (1.0_rt / rho_s) - (pstar - p_s) / (W_s * W_s);
     rhostar_s = 1.0_rt / taustar_s;
 
-    // next we compute the derivative dW_s/dpstar -- the paper gives
-    // dW**2/dpstar (Eq. 23), so we take 1/2W of that
+    // next we compute the derivative dW_s/dpstar --
+    // dW**2/dpstar, so we take 1/2W of that
 
     amrex::Real C = std::sqrt(eos_state.gam1 * pstar * rhostar_s);
 

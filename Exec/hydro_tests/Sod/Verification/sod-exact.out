@@ -1,5 +1,5 @@
-# Exact solution for the Sod problem at t = 0.2 s, using Toro's exact Riemann
-# solver (Ch. 4).  
+# Exact solution for the Sod problem at t = 0.2 s, using exact Riemann
+# solver.
 #        x               rho             u               p                e
       0.003906        1.000000        0.000000        1.000000        2.500000
       0.011719        1.000000        0.000000        1.000000        2.500000

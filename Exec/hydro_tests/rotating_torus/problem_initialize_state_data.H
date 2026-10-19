@@ -23,13 +23,9 @@ void problem_initialize_state_data (int i, int j, int k,
     Real omega[3] = {0.0_rt, 0.0_rt, 2.0_rt * M_PI};
 #endif
 
-    // Rotating torus of Papaloizou and Pringle (1984), MNRAS, 208, 721.
-    // http://adsabs.harvard.edu/abs/1985MNRAS.213..799P
-    // This work is notable for discovering that rotating tori with constant
+    // Rotating torus of Papaloizou and Pringle.
+    // rotating tori with constant
     // specific angular momentum are unstable to non-axisymmetric perturbations.
-
-    // The inspiration for this problem comes from Byerly et al. (2014), ApJS, 212, 23.
-    // http://adsabs.harvard.edu/abs/2014ApJS..212...23B
 
     GpuArray<Real, 3> loc;
     position(i, j, k, geomdata, loc);
@@ -47,11 +43,10 @@ void problem_initialize_state_data (int i, int j, int k,
     // rho_s is the scale for the density; it satisfies that at r =
     // density_maximum_radius, rho == 1.  We guarantee this above by
     // setting the polytropic K constant to satisfy this condition.
-    // This expression is Equation 2.9 in PP84. The constant C' can be
+    // The constant C' can be
     // solved to give R_0**2 / (2 * R_- * R_+), where R_0 ==
     // density_maximum_radius, R_- == inner_radius, and R_+ ==
-    // outer_radius.  If the term inside square brackets in Equation
-    // 2.9 is negative, that means effectively that we're no longer
+    // outer_radius.  If the term inside square brackets is negative, that means effectively that we're no longer
     // inside the torus, so at that point we just use a low ambient
     // density instead.
 

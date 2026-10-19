@@ -21,8 +21,6 @@ Real Li(int n, Real z)
 {
     const int kmax = 18;
 
-    // Clark, Equation 19 / ALEGRA, Equation 2.1.64
-    //
     // z here is really exp(-h nu / kT), and nu and T are positive,
     // so it satisfies the range of convergence.
 
@@ -51,11 +49,9 @@ Real Li(int n, Real z)
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real integlarge(Real x)
 {
-    // ALEGRA, Equation 2.1.63
-    //
     // Note that since we define z == exp(-x), then
     // x = -ln(z), so the signs below are consistent
-    // with that relative to the paper (i.e. the terms
+    // with that (i.e. the terms
     // with odd powers of x have reversed sign).
     //
     // We are only evaluating this at a specific frequency,
@@ -76,8 +72,6 @@ Real integlarge(Real x)
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real integsmall(Real x)
 {
-    // ALEGRA, Equation 2.1.65
-
     Real x2 = x * x;
     Real x3 = x * x * x;
 
@@ -122,27 +116,19 @@ void BdBdTIndefInteg (Real T, Real nu, Real& B, Real& dBdT)
     // This routine evaluates the incomplete integral of the Planck function:
     // integ(x) = int_{0}^{x} b(x') dx'
     //
-    // We follow B. A. Clark, "Computing Multigroup Radiation Integrals using
-    // Polylogarithm-Based Methods," JCP (1987), 70, 311.
-    //
     // This incomplete integral can be used to recursively obtain the blackbody
-    // function for all groups using Equation 35:
+    // function for all groups using:
     // b_g = integ(x_{g+1}) - integ(x_{g})
     //
-    // The incomplete integral is defined by Equation 25 in terms of polylogarithm
-    // functions evaluated at exp(-x) where x = h * nu / k_B T. As Clark notes,
-    // we evaluate those polylogarithm functions directly when x is sufficiently
+    // The incomplete integral is defined in terms of polylogarithm
+    // functions evaluated at exp(-x) where x = h * nu / k_B T.
+    // We evaluate those polylogarithm functions directly when x is sufficiently
     // large, approximating them with a truncated infinite series; but, when x is
     // sufficiently small, we instead evaluate a series expansion of the original
     // integral. The threshold between these two approaches is set so that there
     // is no discontinuity of the Planck function at the threshold.
 
-    // Specifically, we follow Sandia Report SAND2005-6988:
-    // Advances in Radiation Modeling in ALEGRA: A Final Report for LDRD-67120,
-    // Efficient Implicit Multigroup Radiation Calculations
-    // T. A. Brunner, T. Mehlhorn, R. McClarren, & C. J. Kurecka (2005)
-    //
-    // They set the threshold at the value 2.061981, above which we evaluate the
+    // We set the threshold at the value 2.061981, above which we evaluate the
     // polylogarithm functions and below which we use the series expansion.
     //
     // We can also use this method to evaluate the derivative of the Planck function
@@ -180,11 +166,8 @@ void BdBdTIndefInteg (Real T, Real nu, Real& B, Real& dBdT)
             integ = integsmall(x);
         }
 
-        // Clark, Equation 3
-
         B = blackbody::bk_const * std::pow(T, 4) * integ;
 
-        // ALEGRA, Equation 2.1.66
         // Note that the second term in square brackets is the one
         // we care about for this group, and the third term is from
         // the recursive relationship between groups. Since we are
@@ -239,8 +222,6 @@ Real BIndefInteg(Real T, Real nu)
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real BGroup(Real T, Real nu0, Real nu1)
 {
-    // Clark, Equation 35
-
     Real B = BIndefInteg(T, nu1) - BIndefInteg(T, nu0);
 
     return B;

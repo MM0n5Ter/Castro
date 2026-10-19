@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -A AST106
 #SBATCH -J wdmerger_128nodes
 #SBATCH -o %x-%j.out
 #SBATCH -t 00:30:00

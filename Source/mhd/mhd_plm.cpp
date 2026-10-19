@@ -114,7 +114,7 @@ Castro::plm(const Box& bx,
       evecz(leig, reig, as, q_zone);
     }
 
-    // MHD Source Terms -- from the Miniati paper, Eq. 32 and 33
+    // MHD Source Terms
     Real smhd[NEIGN];
 
     smhd[IEIGN_RHO] = 0.0_rt;
@@ -192,7 +192,7 @@ Castro::plm(const Box& bx,
 
 
     // Perform the characteristic projection.  Since we are using
-    // Using HLLD, we sum over all eigenvalues -- see the discussion after Eq. 31
+    // Using HLLD, we sum over all eigenvalues
     Real summ_p[NEIGN] = {0.0_rt};
     Real summ_m[NEIGN] = {0.0_rt};
 

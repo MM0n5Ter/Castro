@@ -258,8 +258,7 @@ Castro::corrrsrc(const Box& bx,
 
     if (implicit_rotation_update == 1) {
 
-      // Coupled/implicit momentum update (wdmerger paper I; Section 2.4)
-      // http://adsabs.harvard.edu/abs/2016ApJ...819...94K
+      // Coupled/implicit momentum update
 
       // Do the full corrector step with the old contribution (subtract 1/2 times the old term) and do
       // the non-Coriolis parts of the new contribution (add 1/2 of the new term).
@@ -278,8 +277,7 @@ Castro::corrrsrc(const Box& bx,
       // assuming that the rotation vector has components along all three
       // axes, obtained using Cramer's rule (the coefficient matrix is
       // defined above). In practice the user will probably only be using
-      // one axis for rotation; if it's the z-axis, then this reduces to
-      // Equations 25 and 26 in the wdmerger paper. Note that this will
+      // one axis for rotation. Note that this will
       // have the correct form regardless of whether the state variables are
       // measured in the rotating frame or not; we handled that in the construction
       // of the dt_omega_matrix. It also has the correct form if we have disabled

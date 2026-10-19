@@ -58,9 +58,9 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
     // create an initial guess for pstar using a primitive variable
     // Riemann solver
 
-    // We follow the PVRS solver from Toro (Chapter 9)
+    // We follow the PVRS solver
 
-    // alternative: two shock solver (see Toro 9.42)
+    // alternative: two shock solver
 
     W_l = rho_l * cs_l;
     W_r = rho_r * cs_r;
@@ -79,7 +79,7 @@ riemann_star_state(const amrex::Real rho_l, const amrex::Real u_l, const amrex::
 
     // find the exact pstar and ustar
 
-    // this procedure follows directly from Colella & Glaz 1985, section 1
+    // this procedure follows directly from Colella & Glaz
     // the basic idea is that we want to find the pstar that satisfies:
     //
     //   ustar_l(pstar) - ustar_r(pstar) = 0

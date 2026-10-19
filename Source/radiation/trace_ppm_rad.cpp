@@ -322,9 +322,7 @@ Castro::trace_ppm_rad(const Box& bx,
         (idir == 2 && k >= vlo[2])) {
 
       // Set the reference state
-      // This will be the fastest moving state to the left --
-      // this is the method that Miller & Colella and Colella &
-      // Woodward use
+      // This will be the fastest moving state to the left
       Real rho_ref = Im[QRHO][0];
       Real un_ref = Im[QUN][0];
 
@@ -365,7 +363,7 @@ Castro::trace_ppm_rad(const Box& bx,
       // {rho, u, p, (rho e)} eigensystem
 
       // These are analogous to the beta's from the original PPM
-      // paper (except we work with rho instead of tau).  This is
+      // (except we work with rho instead of tau).  This is
       // simply (l . dq), where dq = qref - I(q)
 
       Real alpham = 0.5_rt*(dptotm/(rho*cc) - dum)*rho/cc;
@@ -475,7 +473,7 @@ Castro::trace_ppm_rad(const Box& bx,
       // {rho, u, p, (rho e)} eigensystem
 
       // These are analogous to the beta's from the original PPM
-      // paper (except we work with rho instead of tau).  This is
+      // (except we work with rho instead of tau).  This is
       // simply (l . dq), where dq = qref - I(q)
 
       Real alpham = 0.5_rt*(dptotm/(rho*cc) - dum)*rho/cc;

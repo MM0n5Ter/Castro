@@ -609,10 +609,7 @@ Castro::update_relaxation(Real time, Real dt) {
 
         MultiFab& S_new = getLevel(lev).get_new_data(State_Type);
 
-        // Store the non-rotation forces. The inspiration for this approach is
-        // the method of Rosswog, Speith & Wynn (2004) (which was in the context
-        // of neutron star mergers; it was extended to white dwarf mergers by Dan et al.
-        // (2011)). In that paper, the rotation force is calculated by exactly balancing
+        // Store the non-rotation forces. The rotation force is calculated by exactly balancing
         // against the gravitational and hydrodynamic forces. We will just use the
         // gravitational force, since the desired equilibrium state is for the hydrodynamic
         // forces to be zero.

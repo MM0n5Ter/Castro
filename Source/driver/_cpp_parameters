@@ -92,8 +92,7 @@ ppm_do_limiting              bool           1
 # For MHD + PLM, do we limit on characteristic or primitive variables
 mhd_limit_characteristic     bool           1
 
-# various methods of giving temperature a larger role in the
-# reconstruction---see Zingale \& Katz 2015
+# various methods of giving temperature a larger role
 ppm_temp_fix                 int           0
 
 # for piecewise linear, reconstruction order to use

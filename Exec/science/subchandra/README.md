@@ -44,23 +44,3 @@ resolution that is dx/2, where dx is the fine grid spacing.  But a
 minimum resolution is enforced, set via:
 
 * `problem.model_min_res` : minimum resolution of the initial model
-
-
-
-## Publications
-
-This setup has been used in the following papers:
-
-* Zingale et al. 2022
-  (https://ui.adsabs.harvard.edu/abs/2022ApJ...936....6Z/abstract)
-
-  This paper introduced the simplified-SDC time-integration method and
-  used the double detonation setup as a test problem.
-
-* Zingale et al. 2024
-  (https://ui.adsabs.harvard.edu/abs/2023arXiv230901802Z/abstract)
-
-  This paper showed that the simplified-SDC method can model double
-  detonations without cutting the timestep or limiting the reaction
-  rates.  It also explored disabling burning in shocks for this
-  problem.

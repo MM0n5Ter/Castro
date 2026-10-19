@@ -1,9 +1,9 @@
 #
 # 3-d flame_wave run on Summit
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/iso7
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/iso7
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 #
 # Castro       git describe: 23.04-2-gabeccccb9
 # AMReX        git describe: 23.04-9-g1e73fa8ec

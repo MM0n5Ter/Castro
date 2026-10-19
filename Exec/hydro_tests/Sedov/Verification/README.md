@@ -1,6 +1,5 @@
 The Verification directory contains the analytic solutions for the
-Sedov problem, as computed using Frank Timmes' exact Sedov routine,
-http://www.cococubed.com/codes/sedov/sedov3.f
+Sedov problem
 
 To compare Castro output, we need to radially bin the plotfile data to
 get density, total velocity, and pressure as a function of radius.
@@ -59,5 +58,5 @@ NOTES:
   * Subsampling is critical to ensure that the perturbation is as
     spherical as possible.
 
-  * It is important to use a lot of 'steps' in the sedov3.f routine to
+  * It is important to use a lot of 'steps' to
     get a good analytic solution.

@@ -87,7 +87,6 @@ evecx(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
   Real als;
 
   // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
-  // see Stone et a. 2008 comment just after Eql A17.
 
   if (std::abs(cfx - csx) <= 1e-14){
     alf = 1.0_rt;
@@ -291,7 +290,6 @@ evecy(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
   Real als;
 
   // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
-  // see Stone et a. 2008 comment just after Eql A17.
 
   if (std::abs(cfy - csy) <= 1e-14){
     alf = 1.0_rt;
@@ -492,7 +490,6 @@ evecz(Array2D<Real, 0, NEIGN-1, 0, NEIGN-1>& leig,
   Real als;
 
   // if C_f = C_s, then we are degenerate, and set the alpha's accordingly.
-  // see Stone et a. 2008 comment just after Eql A17.
 
   if (std::abs(cfz-csz) <= 1e-14){
     alf = 1.0_rt;

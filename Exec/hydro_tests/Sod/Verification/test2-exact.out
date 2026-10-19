@@ -1,6 +1,6 @@
-# Exact solution for the double rarefaction/vacuum test from Toro (test3; 
-# section 6.4) after 0.15 s.  This was computed using Toro's exact Riemann 
-# solver (Ch. 4).
+# Exact solution for the double rarefaction/vacuum test
+# after 0.15 s.  This was computed using exact Riemann
+# solver.
 #         x              rho              u               p               e
       0.003906        1.000000       -2.000000        0.400000        1.000000
       0.011719        1.000000       -2.000000        0.400000        1.000000

@@ -1,7 +1,6 @@
 # wdmerger scaling on Frontier
 
-This explores a 12.5 km resolution wdmerger simulation using the
-Pakmor initial conditions.
+This explores a 12.5 km resolution wdmerger simulation.
 
 We consider 3 different gridding strategies:
 

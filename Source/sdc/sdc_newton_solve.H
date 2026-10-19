@@ -41,7 +41,7 @@ namespace newton {
         single_zone_react_source(burn_state, R_full);
 
         // we are solving J dU = -f
-        // where f is Eq. 36 evaluated with the current guess for U
+        // where f is evaluated with the current guess for U
         // note: we store -f
 
         for (int n = 1; n <= NumSpec; ++n) {
@@ -53,9 +53,8 @@ namespace newton {
 
         // get the Jacobian.
 
-        // Instead of the decomposition into dw/dU and dR/dw written out
-        // in the original paper Appendix A, we instead use the form from
-        // the simplified-SDC paper (Zingale et al. 2022).  Note: we are
+        // Instead of the decomposition into dw/dU and dR/dw, we instead use the form from
+        // the simplified-SDC.  Note: we are
         // not including density anymore.
 
         // note: single_zone_jac assumes that the burn_state is in sync
@@ -65,7 +64,7 @@ namespace newton {
         single_zone_jac(burn_state, dt_m, Jac);
 
         // Our Jacobian has the form:  J = I - dt dR/dw dwdU
-        // (Eq. 38), so now we fix that
+        // so now we fix that
 
         Jac.mul(-dt_m);
         Jac.add_identity();
@@ -84,7 +83,7 @@ namespace newton {
 
         // the purpose of this function is to solve the system
         //  U - dt R(U) = U_old + dt C
-        // using a Newton solve.  This is Eq. 36 in the paper.
+        // using a Newton solve.
         //
         // here, U_new should come in as a guess for the new U for
         // iterations > 0, it will be the solution from the previous

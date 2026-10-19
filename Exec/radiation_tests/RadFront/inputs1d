@@ -1,4 +1,4 @@
-# The parameter is the same as Hayes & Norman 2003: epsilon = 0.1
+# The parameter: epsilon = 0.1
 
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step  = 1000000    # maximum timestep

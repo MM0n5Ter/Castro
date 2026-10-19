@@ -2,9 +2,9 @@
 #
 # build info:
 #
-# EOS: /ccs/home/zingale/Microphysics/EOS/helmholtz
-# NETWORK: /ccs/home/zingale/Microphysics/networks/he-burn/he-burn-22a
-# CONDUCTIVITY: /ccs/home/zingale/Microphysics/conductivity/stellar
+# EOS: Microphysics/EOS/helmholtz
+# NETWORK: Microphysics/networks/he-burn/he-burn-22a
+# CONDUCTIVITY: Microphysics/conductivity/stellar
 # INTEGRATOR: VODE
 # SCREENING: screen5
 #

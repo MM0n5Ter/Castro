@@ -31,13 +31,12 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
 
     // First, solve for the orbit in the reduced one-body problem, where
     // an object of mass mu orbits an object with mass M located at r = 0.
-    // For this we follow Carroll and Ostlie, Chapter 2, but many texts discuss this.
     // Note that we use the convention that phi measures angle from aphelion,
-    // which is opposite to the convention they use.
+    // which is opposite to the convention.
 
     if (period > 0.0_rt && a < 0.0_rt)
     {
-        a = std::pow(C::Gconst * M * period * period / (4.0_rt * M_PI * M_PI), 1.0_rt / 3.0_rt); // C + O, Equation 2.37
+        a = std::pow(C::Gconst * M * period * period / (4.0_rt * M_PI * M_PI), 1.0_rt / 3.0_rt);
     }
     else if (period < 0.0_rt && a > 0.0_rt)
     {
@@ -47,18 +46,18 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
         amrex::Error("Error: overspecified Kepler's third law calculation.");
     }
 
-    Real r = a * (1.0_rt - eccentricity * eccentricity) / (1.0_rt - eccentricity * std::cos(phi)); // C + O, Equation 2.3
+    Real r = a * (1.0_rt - eccentricity * eccentricity) / (1.0_rt - eccentricity * std::cos(phi));
 
     // To get the radial and azimuthal velocity, we take the appropriate derivatives of the above.
     // v_r = dr / dt = dr / d(phi) * d(phi) / dt, with d(phi) / dt being derived from
-    // C + O, Equation 2.30 for the angular momentum, and the fact that L = mu * r**2 * d(phi) / dt.
+    // the angular momentum, and the fact that L = mu * r**2 * d(phi) / dt.
 
     Real v_r   = -2.0_rt * M_PI * a * eccentricity * std::sin(phi) /
                   (period * std::sqrt(1.0_rt - eccentricity * eccentricity));
     Real v_phi =  2.0_rt * M_PI * a * (1.0_rt - eccentricity * std::cos(phi)) /
                   (period * std::sqrt(1.0_rt - eccentricity * eccentricity));
 
-    // Now convert everything back to the binary frame, using C+O, Equation 2.23 and 2.24. This applies
+    // Now convert everything back to the binary frame. This applies
     // to the velocities as well as the positions because the factor in front of r_1 and r_2 is constant.
 
     r_1  = -(mu / mass_1) * r;
@@ -88,7 +87,7 @@ void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec]
 
     envelope_mass = 0.0_rt;
 
-    // Here we follow the prescription of Dan et al. 2012.
+    // Here we follow the prescription.
 
     if (mass > 0.0_rt && mass < problem::max_he_wd_mass) {
 
