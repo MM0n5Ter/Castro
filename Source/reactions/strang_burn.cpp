@@ -88,13 +88,12 @@ HydroSim::zones_are_burnable(const MultiFab& State)
     if (small_size > 0) {
         amrex::ParallelDescriptor::ReduceRealMin(lower_limit_values.dataPtr(), small_size);
 
+        int slot = 0;
         if (limit_dens_lower) {
-            dens_lower = lower_limit_values[0];
-            if (limit_temp_lower) {
-                temp_lower = lower_limit_values[1];
-            }
-        } else {
-            temp_lower = lower_limit_values[0];
+            dens_lower = lower_limit_values[slot++];
+        }
+        if (limit_temp_lower) {
+            temp_lower = lower_limit_values[slot++];
         }
     }
 
@@ -103,13 +102,12 @@ HydroSim::zones_are_burnable(const MultiFab& State)
     if (large_size > 0) {
         amrex::ParallelDescriptor::ReduceRealMax(upper_limit_values.dataPtr(), large_size);
 
+        int slot = 0;
         if (limit_dens_upper) {
-            dens_upper = upper_limit_values[0];
-            if (limit_temp_upper) {
-                temp_upper = upper_limit_values[1];
-            }
-        } else {
-            temp_upper = upper_limit_values[0];
+            dens_upper = upper_limit_values[slot++];
+        }
+        if (limit_temp_upper) {
+            temp_upper = upper_limit_values[slot++];
         }
     }
 

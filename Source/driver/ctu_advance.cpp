@@ -258,18 +258,15 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
         if (allow_step_retry) {
 
 
-            if (rerun_advance_ctu(dt_cycle_step, status)) {
-                do_swap = false;
-                for (int lev = level; lev <= top_level_to_advance; ++lev) {
-                    getLevel(lev).retry_active = true;
-                }
+            const bool retry = rerun_advance_ctu(dt_cycle_step, status);
 
-                continue;
+            for (int lev = level; lev <= top_level_to_advance; ++lev) {
+                getLevel(lev).retry_active = retry;
             }
-            else {
-                for (int lev = level; lev <= top_level_to_advance; ++lev) {
-                    getLevel(lev).retry_active = false;
-                }
+
+            if (retry) {
+                do_swap = false;
+                continue;
             }
 
         }
@@ -423,79 +420,73 @@ HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
 {
     BL_PROFILE("HydroSim::rerun_advance_ctu()");
 
-    bool retry_needed = false;
-
-    if (!status.success) {
-        retry_needed = true;
+    if (status.success) {
+        return false;
     }
 
-    if (retry_needed) {
+    const int top_level_to_advance = last_level_in_step();
 
-        const int top_level_to_advance = last_level_in_step();
+    for (int lev = level; lev <= top_level_to_advance; ++lev) {
+        if (status.proposed_dt > 0.0_rt && status.proposed_dt < dt) {
+            getLevel(lev).dt_cycle_step = status.proposed_dt;
+        } else {
+            getLevel(lev).dt_cycle_step = std::min(dt, getLevel(lev).dt_cycle_step) * subcycle_backoff_factor;
+        }
+    }
 
-        for (int lev = level; lev <= top_level_to_advance; ++lev) {
-            if (status.proposed_dt > 0.0_rt && status.proposed_dt < dt) {
-                getLevel(lev).dt_cycle_step = status.proposed_dt;
-            } else {
-                getLevel(lev).dt_cycle_step = std::min(dt, getLevel(lev).dt_cycle_step) * subcycle_backoff_factor;
-            }
+    if (verbose && ParallelDescriptor::IOProcessor()) {
+        std::cout << std::endl;
+        std::cout << Font::Bold << FGColor::Red;
+        std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
+        std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_cycle_step << std::endl;
+        std::cout << ResetDisplay;
+        std::cout << std::endl;
+    }
+
+
+    for (int lev = level; lev <= top_level_to_advance; ++lev) {
+        getLevel(lev).snapshot_for_rerun();
+
+
+        for (int dir = 0; dir < 3; ++dir) {
+            getLevel(lev).fluxes[dir]->setVal(0.0);
         }
 
-        if (verbose && ParallelDescriptor::IOProcessor()) {
-            std::cout << std::endl;
-            std::cout << Font::Bold << FGColor::Red;
-            std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
-            std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_cycle_step << std::endl;
-            std::cout << ResetDisplay;
-            std::cout << std::endl;
+        for (int dir = 0; dir < 3; ++dir) {
+            getLevel(lev).mass_face_flux[dir]->setVal(0.0);
         }
-
-
-        for (int lev = level; lev <= top_level_to_advance; ++lev) {
-            getLevel(lev).snapshot_for_rerun();
-
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).fluxes[dir]->setVal(0.0);
-            }
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).mass_face_flux[dir]->setVal(0.0);
-            }
 
 #if (AMREX_SPACEDIM <= 2)
-            if (!Geom().IsCartesian()) {
-                getLevel(lev).Pressure_radial.setVal(0.0);
-            }
+        if (!Geom().IsCartesian()) {
+            getLevel(lev).Pressure_radial.setVal(0.0);
+        }
 #endif
 
 #ifdef RADIATION
-            if (Radiation::rad_hydro_coupled) {
-                for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                    getLevel(lev).rad_face_flux[dir]->setVal(0.0);
-                }
+        if (Radiation::rad_hydro_coupled) {
+            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+                getLevel(lev).rad_face_flux[dir]->setVal(0.0);
             }
+        }
 #endif
 
 #ifdef REACTIONS
-            if (hydrosim::keep_burn_weights) {
-                getLevel(lev).burn_split_data.setVal(0.0);
-            }
+        if (hydrosim::keep_burn_weights) {
+            getLevel(lev).burn_split_data.setVal(0.0);
+        }
 #endif
 
 
-            if (time_scheme == SimplifiedIterCorrection) {
-                getLevel(lev).forcing_corrector.setVal(0.0, getLevel(lev).forcing_corrector.nGrow());
+        if (time_scheme == SimplifiedIterCorrection) {
+            getLevel(lev).forcing_corrector.setVal(0.0, getLevel(lev).forcing_corrector.nGrow());
 
 #ifdef REACTIONS
-                MultiFab& SDC_burn_new = getLevel(lev).get_new_data(Burn_Corr_Type);
-                SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
+            MultiFab& SDC_burn_new = getLevel(lev).get_new_data(Burn_Corr_Type);
+            SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
 #endif
-            }
-
         }
 
     }
 
-    return retry_needed;
+    return true;
 }

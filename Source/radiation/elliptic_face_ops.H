@@ -127,26 +127,26 @@ namespace ELLIPTIC_OPS
 
         amrex::LoopOnCpu(reg, [=] (int i, int j, int k) noexcept
         {
-            if (mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp)) {
-                if (mask(i+nb.icp,j+nb.jcp,k+nb.kcp) > 0) {
-                    int bct;
-                    if (bctype == -1) {
-                        bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
-                    }
-                    else {
-                        bct = bctype;
-                    }
-                    if (bct == AMREX_LO_DIRICHLET) {
-                        Real d_sign = 1.0_rt;
-                        if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
-                            d_sign = -1.0_rt;
-                        }
-                        bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = d(i+nb.iep,j+nb.jep,k+nb.kep) * d_sign * (er(i,j,k) - bcval(i+nb.icp,j+nb.jcp,k+nb.kcp)) / (0.5_rt * nb.h + bcl);
-                    }
-                    else if (bct == AMREX_LO_NEUMANN && bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) == 0.0_rt) {
-                        bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = 0.0_rt;
-                    }
+            if (!mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp) || mask(i+nb.icp,j+nb.jcp,k+nb.kcp) <= 0) {
+                return;
+            }
+
+            int bct;
+            if (bctype == -1) {
+                bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
+            }
+            else {
+                bct = bctype;
+            }
+            if (bct == AMREX_LO_DIRICHLET) {
+                Real d_sign = 1.0_rt;
+                if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
+                    d_sign = -1.0_rt;
                 }
+                bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = d(i+nb.iep,j+nb.jep,k+nb.kep) * d_sign * (er(i,j,k) - bcval(i+nb.icp,j+nb.jcp,k+nb.kcp)) / (0.5_rt * nb.h + bcl);
+            }
+            else if (bct == AMREX_LO_NEUMANN && bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) == 0.0_rt) {
+                bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = 0.0_rt;
             }
         });
     }
@@ -360,71 +360,71 @@ namespace ELLIPTIC_OPS
             Real bfv, bfm, stencil_weight_second, h2, th2;
             int bct;
 
-            if (mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp)) {
-                if (mask(i+nb.icp,j+nb.jcp,k+nb.kcp) > 0) {
-                    if (bctype == -1) {
-                        bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
-                    }
-                    else {
-                        bct = bctype;
-                    }
-                    if (bct == AMREX_LO_DIRICHLET) {
-                        if (bho >= 1) {
-                            h2 = 0.5e0_rt * nb.h;
-                            th2 = 3.e0_rt * h2;
-                            bfv = 2.e0_rt * beta * nb.h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
-                            bfm = (beta / nb.h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                            stencil_weight_second = (beta / nb.h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
-                        }
-                        else {
-                            bfv = beta / (0.5e0_rt * nb.h + bcl) * b(i,j,k);
-                            bfm = bfv;
-                        }
-                    }
-                    else if (bct == AMREX_LO_NEUMANN) {
-                        bfv  = beta * r;
-                        bfm  = 0.e0_rt;
-                        stencil_weight_second = 0.e0_rt;
-                    }
-                    else if (bct == AMREX_LO_MARSHAK) {
-                        bfv = 2.e0_rt * beta * r;
-                        if (bho >= 1) {
-                            bfm  =  0.375e0_rt * c * bfv;
-                            stencil_weight_second = -0.125e0_rt * c * bfv;
-                        }
-                        else {
-                            bfm = 0.25e0_rt * c * bfv;
-                        }
-                    }
-                    else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                        bfv = 2.e0_rt * beta * r;
-                        if (bho >= 1) {
-                            bfm =   1.5e0_rt * spa(i,j,k) * c * bfv;
-                            stencil_weight_second = -0.5e0_rt * spa(i,j,k) * c * bfv;
-                        }
-                        else {
-                            bfm = spa(i,j,k) * c * bfv;
-                        }
-                    }
-                    else {
-                        amrex::Error("face_flux_3d: unsupported boundary type");
-                    }
-                    if (bc_variant == 0) {
-                        bfv = 0.e0_rt;
-                    }
+            if (!mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp) || mask(i+nb.icp,j+nb.jcp,k+nb.kcp) <= 0) {
+                return;
+            }
 
-                    Real face_normal_sign = 1.0_rt;
-                    if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
-                        face_normal_sign = -1.0_rt;
-                    }
-
-                    flux(i+nb.iep,j+nb.jep,k+nb.kep) = face_normal_sign * (bfv * bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) - bfm * er(i,j,k));
-
-                    if (bho >= 1) {
-                        Real df = -stencil_weight_second * er(i-nb.icp,j-nb.jcp,k-nb.kcp);
-                        flux(i+nb.iep,j+nb.jep,k+nb.kep) -= face_normal_sign * df;
-                    }
+            if (bctype == -1) {
+                bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
+            }
+            else {
+                bct = bctype;
+            }
+            if (bct == AMREX_LO_DIRICHLET) {
+                if (bho >= 1) {
+                    h2 = 0.5e0_rt * nb.h;
+                    th2 = 3.e0_rt * h2;
+                    bfv = 2.e0_rt * beta * nb.h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
+                    bfm = (beta / nb.h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                    stencil_weight_second = (beta / nb.h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
                 }
+                else {
+                    bfv = beta / (0.5e0_rt * nb.h + bcl) * b(i,j,k);
+                    bfm = bfv;
+                }
+            }
+            else if (bct == AMREX_LO_NEUMANN) {
+                bfv  = beta * r;
+                bfm  = 0.e0_rt;
+                stencil_weight_second = 0.e0_rt;
+            }
+            else if (bct == AMREX_LO_MARSHAK) {
+                bfv = 2.e0_rt * beta * r;
+                if (bho >= 1) {
+                    bfm  =  0.375e0_rt * c * bfv;
+                    stencil_weight_second = -0.125e0_rt * c * bfv;
+                }
+                else {
+                    bfm = 0.25e0_rt * c * bfv;
+                }
+            }
+            else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
+                bfv = 2.e0_rt * beta * r;
+                if (bho >= 1) {
+                    bfm =   1.5e0_rt * spa(i,j,k) * c * bfv;
+                    stencil_weight_second = -0.5e0_rt * spa(i,j,k) * c * bfv;
+                }
+                else {
+                    bfm = spa(i,j,k) * c * bfv;
+                }
+            }
+            else {
+                amrex::Error("face_flux_3d: unsupported boundary type");
+            }
+            if (bc_variant == 0) {
+                bfv = 0.e0_rt;
+            }
+
+            Real face_normal_sign = 1.0_rt;
+            if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
+                face_normal_sign = -1.0_rt;
+            }
+
+            flux(i+nb.iep,j+nb.jep,k+nb.kep) = face_normal_sign * (bfv * bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) - bfm * er(i,j,k));
+
+            if (bho >= 1) {
+                Real df = -stencil_weight_second * er(i-nb.icp,j-nb.jcp,k-nb.kcp);
+                flux(i+nb.iep,j+nb.jep,k+nb.kep) -= face_normal_sign * df;
             }
         });
     }

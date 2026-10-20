@@ -166,12 +166,10 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                     Real temp_zone;
                     if (hse_temp_extrap == 1) {
                         temp_zone = 2*adv(ii+1,j,k,UTEMP) - adv(ii+2,j,k,UTEMP);
+                    } else if (hse_bound_temp > 0.0_rt) {
+                        temp_zone = hse_bound_temp;
                     } else {
-                        if (hse_bound_temp > 0.0_rt) {
-                            temp_zone = hse_bound_temp;
-                        } else {
-                            temp_zone = temperature_above;
-                        }
+                        temp_zone = temperature_above;
                     }
 
                     Real p_want;
@@ -204,19 +202,16 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                        adv(ii,j,k,UMY) = 0.0_rt;
                        adv(ii,j,k,UMZ) = 0.0_rt;
 
+                   } else if (hse_mirror_vel == 1) {
+                       int ioff = domlo[0]-ii-1;
+                       adv(ii,j,k,UMX) = -dens_zone * (adv(domlo[0]+ioff,j,k,UMX) / adv(domlo[0]+ioff,j,k,URHO));
+
+                       adv(ii,j,k,UMY) = dens_zone * (adv(domlo[0],j,k,UMY) / density_base);
+                       adv(ii,j,k,UMZ) = dens_zone * (adv(domlo[0],j,k,UMZ) / density_base);
                    } else {
-
-                      if (hse_mirror_vel == 1) {
-                          int ioff = domlo[0]-ii-1;
-                          adv(ii,j,k,UMX) = -dens_zone * (adv(domlo[0]+ioff,j,k,UMX) / adv(domlo[0]+ioff,j,k,URHO));
-
-                          adv(ii,j,k,UMY) = dens_zone * (adv(domlo[0],j,k,UMY) / density_base);
-                          adv(ii,j,k,UMZ) = dens_zone * (adv(domlo[0],j,k,UMZ) / density_base);
-                      } else {
-                          adv(ii,j,k,UMX) = dens_zone * (adv(domlo[0],j,k,UMX) / density_base);
-                          adv(ii,j,k,UMY) = dens_zone * (adv(domlo[0],j,k,UMY) / density_base);
-                          adv(ii,j,k,UMZ) = dens_zone * (adv(domlo[0],j,k,UMZ) / density_base);
-                      }
+                       adv(ii,j,k,UMX) = dens_zone * (adv(domlo[0],j,k,UMX) / density_base);
+                       adv(ii,j,k,UMY) = dens_zone * (adv(domlo[0],j,k,UMY) / density_base);
+                       adv(ii,j,k,UMZ) = dens_zone * (adv(domlo[0],j,k,UMZ) / density_base);
                    }
 
                    eos_state.rho = dens_zone;
@@ -302,12 +297,10 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                     Real temp_zone;
                     if (hse_temp_extrap == 1) {
                         temp_zone = 2*adv(ii-1,j,k,UTEMP) - adv(ii-2,j,k,UTEMP);
+                    } else if (hse_bound_temp > 0.0_rt) {
+                        temp_zone = hse_bound_temp;
                     } else {
-                        if (hse_bound_temp > 0.0_rt) {
-                            temp_zone = hse_bound_temp;
-                        } else {
-                            temp_zone = temperature_below;
-                        }
+                        temp_zone = temperature_below;
                     }
 
                     Real p_want;
@@ -340,19 +333,16 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                        adv(ii,j,k,UMY) = 0.0_rt;
                        adv(ii,j,k,UMZ) = 0.0_rt;
 
+                   } else if (hse_mirror_vel == 1) {
+                       int ioff = ii-domhi[0]-1;
+                       adv(ii,j,k,UMX) = -dens_zone * (adv(domhi[0]-ioff,j,k,UMX) / adv(domhi[0]-ioff,j,k,URHO));
+
+                       adv(ii,j,k,UMY) = dens_zone * (adv(domhi[0],j,k,UMY) / density_base);
+                       adv(ii,j,k,UMZ) = dens_zone * (adv(domhi[0],j,k,UMZ) / density_base);
                    } else {
-
-                       if (hse_mirror_vel == 1) {
-                           int ioff = ii-domhi[0]-1;
-                           adv(ii,j,k,UMX) = -dens_zone * (adv(domhi[0]-ioff,j,k,UMX) / adv(domhi[0]-ioff,j,k,URHO));
-
-                           adv(ii,j,k,UMY) = dens_zone * (adv(domhi[0],j,k,UMY) / density_base);
-                           adv(ii,j,k,UMZ) = dens_zone * (adv(domhi[0],j,k,UMZ) / density_base);
-                       } else {
-                           adv(ii,j,k,UMX) = dens_zone * (adv(domhi[0],j,k,UMX) / density_base);
-                           adv(ii,j,k,UMY) = dens_zone * (adv(domhi[0],j,k,UMY) / density_base);
-                           adv(ii,j,k,UMZ) = dens_zone * (adv(domhi[0],j,k,UMZ) / density_base);
-                       }
+                       adv(ii,j,k,UMX) = dens_zone * (adv(domhi[0],j,k,UMX) / density_base);
+                       adv(ii,j,k,UMY) = dens_zone * (adv(domhi[0],j,k,UMY) / density_base);
+                       adv(ii,j,k,UMZ) = dens_zone * (adv(domhi[0],j,k,UMZ) / density_base);
                    }
 
                    eos_state.rho = dens_zone;
@@ -441,12 +431,10 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                     Real temp_zone;
                     if (hse_temp_extrap == 1) {
                         temp_zone = 2*adv(i,jj+1,k,UTEMP) - adv(i,jj+2,k,UTEMP);
+                    } else if (hse_bound_temp > 0.0_rt) {
+                        temp_zone = hse_bound_temp;
                     } else {
-                        if (hse_bound_temp > 0.0_rt) {
-                            temp_zone = hse_bound_temp;
-                        } else {
-                            temp_zone = temperature_above;
-                        }
+                        temp_zone = temperature_above;
                     }
 
                     Real p_want;
@@ -479,19 +467,16 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                        adv(i,jj,k,UMY) = 0.0_rt;
                        adv(i,jj,k,UMZ) = 0.0_rt;
 
+                   } else if (hse_mirror_vel == 1) {
+                       int joff = domlo[1]-jj-1;
+                       adv(i,jj,k,UMY) = -dens_zone*(adv(i,domlo[1]+joff,k,UMY) / adv(i,domlo[1]+joff,k,URHO));
+
+                       adv(i,jj,k,UMX) = dens_zone*(adv(i,domlo[1],k,UMX) / density_base);
+                       adv(i,jj,k,UMZ) = dens_zone*(adv(i,domlo[1],k,UMZ) / density_base);
                    } else {
-
-                       if (hse_mirror_vel == 1) {
-                           int joff = domlo[1]-jj-1;
-                           adv(i,jj,k,UMY) = -dens_zone*(adv(i,domlo[1]+joff,k,UMY) / adv(i,domlo[1]+joff,k,URHO));
-
-                           adv(i,jj,k,UMX) = dens_zone*(adv(i,domlo[1],k,UMX) / density_base);
-                           adv(i,jj,k,UMZ) = dens_zone*(adv(i,domlo[1],k,UMZ) / density_base);
-                       } else {
-                           adv(i,jj,k,UMX) = dens_zone * (adv(i,domlo[1],k,UMX) / density_base);
-                           adv(i,jj,k,UMY) = dens_zone * (adv(i,domlo[1],k,UMY) / density_base);
-                           adv(i,jj,k,UMZ) = dens_zone * (adv(i,domlo[1],k,UMZ) / density_base);
-                       }
+                       adv(i,jj,k,UMX) = dens_zone * (adv(i,domlo[1],k,UMX) / density_base);
+                       adv(i,jj,k,UMY) = dens_zone * (adv(i,domlo[1],k,UMY) / density_base);
+                       adv(i,jj,k,UMZ) = dens_zone * (adv(i,domlo[1],k,UMZ) / density_base);
                    }
 
                    eos_state.rho = dens_zone;
@@ -578,12 +563,10 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                     Real temp_zone;
                     if (hse_temp_extrap == 1) {
                         temp_zone = 2*adv(i,jj-1,k,UTEMP) - adv(i,jj-2,k,UTEMP);
+                    } else if (hse_bound_temp > 0.0_rt) {
+                        temp_zone = hse_bound_temp;
                     } else {
-                        if (hse_bound_temp > 0.0_rt) {
-                            temp_zone = hse_bound_temp;
-                        } else {
-                            temp_zone = temperature_below;
-                        }
+                        temp_zone = temperature_below;
                     }
 
                     Real p_want;
@@ -616,19 +599,16 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                        adv(i,jj,k,UMY) = 0.0_rt;
                        adv(i,jj,k,UMZ) = 0.0_rt;
 
+                   } else if (hse_mirror_vel == 1) {
+                       int joff = jj-domhi[1]-1;
+                       adv(i,jj,k,UMY) = -dens_zone * (adv(i,domhi[1]-joff,k,UMY) / adv(i,domhi[1]-joff,k,URHO));
+
+                       adv(i,jj,k,UMX) = dens_zone * (adv(i,domhi[1],k,UMX) / density_base);
+                       adv(i,jj,k,UMZ) = dens_zone * (adv(i,domhi[1],k,UMZ) / density_base);
                    } else {
-
-                       if (hse_mirror_vel == 1) {
-                           int joff = jj-domhi[1]-1;
-                           adv(i,jj,k,UMY) = -dens_zone * (adv(i,domhi[1]-joff,k,UMY) / adv(i,domhi[1]-joff,k,URHO));
-
-                           adv(i,jj,k,UMX) = dens_zone * (adv(i,domhi[1],k,UMX) / density_base);
-                           adv(i,jj,k,UMZ) = dens_zone * (adv(i,domhi[1],k,UMZ) / density_base);
-                       } else {
-                           adv(i,jj,k,UMX) = dens_zone * (adv(i,domhi[1],k,UMX) / density_base);
-                           adv(i,jj,k,UMY) = dens_zone * (adv(i,domhi[1],k,UMY) / density_base);
-                           adv(i,jj,k,UMZ) = dens_zone * (adv(i,domhi[1],k,UMZ) / density_base);
-                       }
+                       adv(i,jj,k,UMX) = dens_zone * (adv(i,domhi[1],k,UMX) / density_base);
+                       adv(i,jj,k,UMY) = dens_zone * (adv(i,domhi[1],k,UMY) / density_base);
+                       adv(i,jj,k,UMZ) = dens_zone * (adv(i,domhi[1],k,UMZ) / density_base);
                    }
 
                    eos_state.rho = dens_zone;
@@ -716,12 +696,10 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                     Real temp_zone;
                     if (hse_temp_extrap == 1) {
                         temp_zone = 2*adv(i,j,kk+1,UTEMP) - adv(i,j,kk+2,UTEMP);
+                    } else if (hse_bound_temp > 0.0_rt) {
+                        temp_zone = hse_bound_temp;
                     } else {
-                        if (hse_bound_temp > 0.0_rt) {
-                            temp_zone = hse_bound_temp;
-                        } else {
-                            temp_zone = temperature_above;
-                        }
+                        temp_zone = temperature_above;
                     }
 
                     Real p_want;
@@ -754,19 +732,16 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                        adv(i,j,kk,UMY) = 0.0_rt;
                        adv(i,j,kk,UMZ) = 0.0_rt;
 
+                   } else if (hse_mirror_vel == 1) {
+                       int koff = domlo[2]-kk-1;
+                       adv(i,j,kk,UMZ) = -dens_zone * (adv(i,j,domlo[2]+koff,UMZ) / adv(i,j,domlo[2]+koff,URHO));
+
+                       adv(i,j,kk,UMX) = dens_zone * (adv(i,j,domlo[2],UMX) / density_base);
+                       adv(i,j,kk,UMY) = dens_zone * (adv(i,j,domlo[2],UMY) / density_base);
                    } else {
-
-                       if (hse_mirror_vel == 1) {
-                           int koff = domlo[2]-kk-1;
-                           adv(i,j,kk,UMZ) = -dens_zone * (adv(i,j,domlo[2]+koff,UMZ) / adv(i,j,domlo[2]+koff,URHO));
-
-                           adv(i,j,kk,UMX) = dens_zone * (adv(i,j,domlo[2],UMX) / density_base);
-                           adv(i,j,kk,UMY) = dens_zone * (adv(i,j,domlo[2],UMY) / density_base);
-                       } else {
-                           adv(i,j,kk,UMX) = dens_zone * (adv(i,j,domlo[2],UMX) / density_base);
-                           adv(i,j,kk,UMY) = dens_zone * (adv(i,j,domlo[2],UMY) / density_base);
-                           adv(i,j,kk,UMZ) = dens_zone * (adv(i,j,domlo[2],UMZ) / density_base);
-                       }
+                       adv(i,j,kk,UMX) = dens_zone * (adv(i,j,domlo[2],UMX) / density_base);
+                       adv(i,j,kk,UMY) = dens_zone * (adv(i,j,domlo[2],UMY) / density_base);
+                       adv(i,j,kk,UMZ) = dens_zone * (adv(i,j,domlo[2],UMZ) / density_base);
                    }
 
                    eos_state.rho = dens_zone;

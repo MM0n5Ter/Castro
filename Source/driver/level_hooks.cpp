@@ -453,40 +453,41 @@ HydroSim::post_timestep (int cycle_index)
     }
 #endif
 
-    if (!hydrosim::stop_field_name.empty() && level == 0) {
-        Real peak_field_value = std::numeric_limits<Real>::min();
+    if (hydrosim::stop_field_name.empty() || level != 0) {
+        return;
+    }
 
-        for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
-            auto mf = getLevel(lev).derive(hydrosim::stop_field_name, state[State_Type].curTime(), 0);
-            peak_field_value = std::max(peak_field_value, mf->max(0));
-        }
+    Real peak_field_value = std::numeric_limits<Real>::min();
 
-        int to_stop = (peak_field_value >= hydrosim::stop_field_threshold);
+    for (int lev = 0; lev <= parent->finestLevel(); ++lev) {
+        auto mf = getLevel(lev).derive(hydrosim::stop_field_name, state[State_Type].curTime(), 0);
+        peak_field_value = std::max(peak_field_value, mf->max(0));
+    }
 
-        amrex::ParallelDescriptor::ReduceIntMax(to_stop);
+    int to_stop = (peak_field_value >= hydrosim::stop_field_threshold);
 
-        if (to_stop) {
+    amrex::ParallelDescriptor::ReduceIntMax(to_stop);
 
-            amrex::Print() << std::endl
-                           << "Ending simulation because we are above the user-specified stopping criterion threshold."
-                           << std::endl;
+    if (!to_stop) {
+        return;
+    }
 
-            stopRequested = true;
+    amrex::Print() << std::endl
+                   << "Ending simulation because we are above the user-specified stopping criterion threshold."
+                   << std::endl;
 
-            if (amrex::ParallelDescriptor::IOProcessor()) {
-                std::ofstream stop_flag_file;
-                stop_flag_file.open("dump_and_stop", std::ofstream::out);
-                stop_flag_file.close();
-            }
+    stopRequested = true;
 
-            if (amrex::ParallelDescriptor::IOProcessor()) {
-                std::ofstream runDoneFile;
-                runDoneFile.open("jobIsDone", std::ofstream::out);
-                runDoneFile.close();
-            }
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        std::ofstream stop_flag_file;
+        stop_flag_file.open("dump_and_stop", std::ofstream::out);
+        stop_flag_file.close();
+    }
 
-        }
-
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        std::ofstream runDoneFile;
+        runDoneFile.open("jobIsDone", std::ofstream::out);
+        runDoneFile.close();
     }
 }
 

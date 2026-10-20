@@ -64,41 +64,40 @@ void
 parabolic_reconstruct(const amrex::Real* s,
                 const amrex::Real flatten_factor, amrex::Real& sm, amrex::Real& sp) {
 
-    if (ppm_parabola_clip) {
-
-        amrex::Real van_leer_slope_left = van_leer_slope(s[im2], s[im1], s[i0]);
-        amrex::Real van_leer_slope_right = van_leer_slope(s[im1], s[i0], s[ip1]);
-
-        sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
-
-        sm = amrex::Clamp(sm, std::min(s[i0], s[im1]), std::max(s[i0], s[im1]));
-
-        van_leer_slope_left = van_leer_slope(s[im1], s[i0], s[ip1]);
-        van_leer_slope_right = van_leer_slope(s[i0], s[ip1], s[ip2]);
-
-        sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
-
-        sp = amrex::Clamp(sp, std::min(s[ip1], s[i0]), std::max(s[ip1], s[i0]));
-
-        sm = flatten_factor * sm + (1.0_rt - flatten_factor) * s[i0];
-        sp = flatten_factor * sp + (1.0_rt - flatten_factor) * s[i0];
-
-        if ((sp - s[i0]) * (s[i0] - sm) <= 0.0_rt) {
-          sp = s[i0];
-          sm = s[i0];
-
-        } else if (std::abs(sp - s[i0]) >= 2.0_rt * std::abs(sm - s[i0])) {
-          sp = 3.0_rt * s[i0] - 2.0_rt * sm;
-
-        } else if (std::abs(sm - s[i0]) >= 2.0_rt * std::abs(sp - s[i0])) {
-          sm = 3.0_rt * s[i0] - 2.0_rt * sp;
-        }
-
-    } else {
+    if (!ppm_parabola_clip) {
 
         sm = (7.0_rt/12.0_rt) * (s[i0] + s[im1]) - (1.0_rt/12.0_rt) * (s[im2] + s[ip1]);
         sp = (7.0_rt/12.0_rt) * (s[ip1] + s[i0]) - (1.0_rt/12.0_rt) * (s[im1] + s[ip2]);
 
+        return;
+    }
+
+    amrex::Real van_leer_slope_left = van_leer_slope(s[im2], s[im1], s[i0]);
+    amrex::Real van_leer_slope_right = van_leer_slope(s[im1], s[i0], s[ip1]);
+
+    sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
+
+    sm = amrex::Clamp(sm, std::min(s[i0], s[im1]), std::max(s[i0], s[im1]));
+
+    van_leer_slope_left = van_leer_slope(s[im1], s[i0], s[ip1]);
+    van_leer_slope_right = van_leer_slope(s[i0], s[ip1], s[ip2]);
+
+    sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
+
+    sp = amrex::Clamp(sp, std::min(s[ip1], s[i0]), std::max(s[ip1], s[i0]));
+
+    sm = flatten_factor * sm + (1.0_rt - flatten_factor) * s[i0];
+    sp = flatten_factor * sp + (1.0_rt - flatten_factor) * s[i0];
+
+    if ((sp - s[i0]) * (s[i0] - sm) <= 0.0_rt) {
+      sp = s[i0];
+      sm = s[i0];
+
+    } else if (std::abs(sp - s[i0]) >= 2.0_rt * std::abs(sm - s[i0])) {
+      sp = 3.0_rt * s[i0] - 2.0_rt * sm;
+
+    } else if (std::abs(sm - s[i0]) >= 2.0_rt * std::abs(sp - s[i0])) {
+      sm = 3.0_rt * s[i0] - 2.0_rt * sp;
     }
 
 }

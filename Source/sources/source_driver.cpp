@@ -315,47 +315,26 @@ HydroSim::source_enabled(int src)
 
 #ifdef SPONGE
     case damping_src:
-        if (do_damping_zone) {
-            return true;
-        } else {
-            return false;
-        }
+        return do_damping_zone != 0;
 #endif
 
     case external_source:
-        if (enable_extra_source) {
-            return true;
-        } else {
-            return false;
-        }
+        return enable_extra_source != 0;
 #ifndef MHD
     case thermodynamic_src:
-        if (time_scheme == IterativeCorrection) {
-            return true;
-        } else {
-          return false;
-        }
+        return time_scheme == IterativeCorrection;
 #else
     case thermodynamic_src:
         return true;
 #endif
 
     case geometry_source:
-        if (!(geom.Coord() == 0 || use_curvilinear_src == 0)) {
-          return true;
-        } else {
-          return false;
-        }
+        return !(geom.Coord() == 0 || use_curvilinear_src == 0);
 
 #ifdef DIFFUSION
     case conduction_src:
-        if (conduction_enabled &&
-            !(time_scheme == IterativeCorrection)) {
-          return true;
-        }
-        else {
-          return false;
-        }
+        return conduction_enabled &&
+            !(time_scheme == IterativeCorrection);
 #endif
 
 #ifdef HYBRID_MOMENTUM
@@ -365,20 +344,12 @@ HydroSim::source_enabled(int src)
 
 #ifdef GRAVITY
     case gravity_src:
-        if (do_gravity_flag) {
-            return true;
-        } else {
-            return false;
-        }
+        return do_gravity_flag != 0;
 #endif
 
 #ifdef ROTATION
     case rotation_src:
-        if (do_frame_spin) {
-            return true;
-        } else {
-            return false;
-        }
+        return do_frame_spin != 0;
 #endif
 
     default:

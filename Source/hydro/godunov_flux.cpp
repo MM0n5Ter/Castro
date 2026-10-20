@@ -365,40 +365,42 @@ HydroSim::compute_godunov_flux(const Box& bx,
 #endif
         }
 
-        if (shock_flux_switch == 1) {
+        if (shock_flux_switch != 1) {
+            return;
+        }
 
-            const int il = i - (idir == 0);
-            const int jl = j - (idir == 1);
-            const int kl = k - (idir == 2);
+        const int il = i - (idir == 0);
+        const int jl = j - (idir == 1);
+        const int kl = k - (idir == 2);
 
-            int shock_count = static_cast<int>(shk(il,jl,kl) + shk(i,j,k));
+        int shock_count = static_cast<int>(shk(il,jl,kl) + shk(i,j,k));
 
-            if (shock_count >= 1) {
+        if (shock_count < 1) {
+            return;
+        }
 
-                Real cl = qthermo_arr(il,jl,kl,QC);
-                Real cr = qthermo_arr(i,j,k,QC);
+        Real cl = qthermo_arr(il,jl,kl,QC);
+        Real cr = qthermo_arr(i,j,k,QC);
 
-                Real zone_left_state[NQ];
-                Real zone_right_state[NQ];
-                Real zone_flux_vec[NUM_STATE];
+        Real zone_left_state[NQ];
+        Real zone_right_state[NQ];
+        Real zone_flux_vec[NUM_STATE];
 
-                for (int n = 0; n < NQ; n++) {
-                    zone_left_state[n] = qm(i,j,k,n);
-                    zone_right_state[n] = qp(i,j,k,n);
-                }
+        for (int n = 0; n < NQ; n++) {
+            zone_left_state[n] = qm(i,j,k,n);
+            zone_right_state[n] = qp(i,j,k,n);
+        }
 
-                for (int n = 0; n < NUM_STATE; n++) {
-                    zone_flux_vec[n] = flx(i,j,k,n);
-                }
+        for (int n = 0; n < NUM_STATE; n++) {
+            zone_flux_vec[n] = flx(i,j,k,n);
+        }
 
-                HLL::HLL(zone_left_state, zone_right_state, cl, cr,
-                         idir, coord,
-                         zone_flux_vec);
+        HLL::HLL(zone_left_state, zone_right_state, cl, cr,
+                 idir, coord,
+                 zone_flux_vec);
 
-                for (int n = 0; n < NUM_STATE; n++) {
-                    flx(i,j,k,n) = zone_flux_vec[n];
-                }
-            }
+        for (int n = 0; n < NUM_STATE; n++) {
+            flx(i,j,k,n) = zone_flux_vec[n];
         }
     });
 

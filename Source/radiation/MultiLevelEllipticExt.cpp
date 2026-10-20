@@ -797,79 +797,82 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
     for (MFIter mfi(rhs); mfi.isValid(); ++mfi) {
       int i = mfi.index();
       Box reg = amrex::adjCell(grids[level][i], ori);
-      if (grids[level][i][ori] == domain[ori] || level == crse_level) {
-        RadBoundaryCondition     bct = bd[level]->bndryConds(ori)[i];
-        const Real      &bcl = bd[level]->bndryLocs(ori)[i];
-        const FArrayBox &fs  = bd[level]->bndryValues(ori)[mfi];
-        const Mask      &msk = bd[level]->bndryMasks(ori,i);
+      if (!(grids[level][i][ori] == domain[ori] || level == crse_level)) {
+        continue;
+      }
+
+      RadBoundaryCondition     bct = bd[level]->bndryConds(ori)[i];
+      const Real      &bcl = bd[level]->bndryLocs(ori)[i];
+      const FArrayBox &fs  = bd[level]->bndryValues(ori)[mfi];
+      const Mask      &msk = bd[level]->bndryMasks(ori,i);
 
 
-        reg.shift(-vin);
-        for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-          if (msk(v+vin) != RadBoundaryData::covered) {
-            if (reg[ori] == domain[ori] && bd[level]->isMixedFace(ori)) {
-              bct = (*(bd[level]->boundaryTypes(ori)[i]))(v+vin);
-            }
-            if (bct == AMREX_LO_DIRICHLET) {
-              Real dirichlet_scale, dirichlet_weight;
-              if (bho == 1) {
-                dirichlet_scale = 1.0 / ((bcl + h2) * (bcl + th2));
-                dirichlet_weight = h2 * th2 * dirichlet_scale;
-                dirichlet_scale *= 2.0 * h;
-              }
-              else {
-                dirichlet_scale = 1.0 / (bcl + h2);
-                dirichlet_weight = h2 * dirichlet_scale;
-              }
-              if (bcoefs[level]) {
-                Real tmp = ((dirichlet_scale / h) * fs(v+vin,bc_component) *
-                            beta * (*bcoefs[level])[idir][mfi](v+ves));
-                HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-              }
-              if (aux_mass_coefs[level]) {
-                Real tmp = ((-0.5 * dirichlet_weight) * fs(v+vin,bc_component) *
-                            alpha2 * (*aux_mass_coefs[level])[idir][mfi](v+ves));
-                HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-              }
-              if (cell_coefs[level]) {
-
-
-
-                Real fac = gamma * ofh;
-                int  i0  = ori.isLow();
-                Real tmp = (-fac * (2.0 * h2) / (bcl + h2) * fs(v+vin,bc_component)
-                            * (*cell_coefs[level])[idir][mfi](v+ves,i0));
-
-                HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-              }
-              if (gradient_coefs1[level]) {
-                Real tmp = ((-0.5 * dirichlet_scale) * fs(v+vin,bc_component) *
-                            delta1 * face_sign * (*gradient_coefs1[level])[idir][mfi](v));
-                HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-              }
-              if (gradient_coefs2[level]) {
-                Real tmp = ((-0.5 * dirichlet_scale) * fs(v+vin,bc_component) *
-                            delta2 * face_sign * (*gradient_coefs2[level])[idir][mfi](v+ves));
-                HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-              }
-            }
-            else if (bct == AMREX_LO_NEUMANN) {
-              Real speed_factor = 1.0;
-              Real xi = 0.0;
-              Real tmp = beta / h;
-              tmp = ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
-                     speed_factor * fs(v+vin,bc_component));
-              HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-            }
-            else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-              Real speed_factor = 1.0;
-              Real xi = 0.0;
-              Real tmp = beta / h;
-              tmp = 2.0 * ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
-                           speed_factor * fs(v+vin,bc_component));
-              HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
-            }
+      reg.shift(-vin);
+      for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
+        if (msk(v+vin) == RadBoundaryData::covered) {
+          continue;
+        }
+        if (reg[ori] == domain[ori] && bd[level]->isMixedFace(ori)) {
+          bct = (*(bd[level]->boundaryTypes(ori)[i]))(v+vin);
+        }
+        if (bct == AMREX_LO_DIRICHLET) {
+          Real dirichlet_scale, dirichlet_weight;
+          if (bho == 1) {
+            dirichlet_scale = 1.0 / ((bcl + h2) * (bcl + th2));
+            dirichlet_weight = h2 * th2 * dirichlet_scale;
+            dirichlet_scale *= 2.0 * h;
           }
+          else {
+            dirichlet_scale = 1.0 / (bcl + h2);
+            dirichlet_weight = h2 * dirichlet_scale;
+          }
+          if (bcoefs[level]) {
+            Real tmp = ((dirichlet_scale / h) * fs(v+vin,bc_component) *
+                        beta * (*bcoefs[level])[idir][mfi](v+ves));
+            HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+          }
+          if (aux_mass_coefs[level]) {
+            Real tmp = ((-0.5 * dirichlet_weight) * fs(v+vin,bc_component) *
+                        alpha2 * (*aux_mass_coefs[level])[idir][mfi](v+ves));
+            HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+          }
+          if (cell_coefs[level]) {
+
+
+
+            Real fac = gamma * ofh;
+            int  i0  = ori.isLow();
+            Real tmp = (-fac * (2.0 * h2) / (bcl + h2) * fs(v+vin,bc_component)
+                        * (*cell_coefs[level])[idir][mfi](v+ves,i0));
+
+            HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+          }
+          if (gradient_coefs1[level]) {
+            Real tmp = ((-0.5 * dirichlet_scale) * fs(v+vin,bc_component) *
+                        delta1 * face_sign * (*gradient_coefs1[level])[idir][mfi](v));
+            HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+          }
+          if (gradient_coefs2[level]) {
+            Real tmp = ((-0.5 * dirichlet_scale) * fs(v+vin,bc_component) *
+                        delta2 * face_sign * (*gradient_coefs2[level])[idir][mfi](v+ves));
+            HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+          }
+        }
+        else if (bct == AMREX_LO_NEUMANN) {
+          Real speed_factor = 1.0;
+          Real xi = 0.0;
+          Real tmp = beta / h;
+          tmp = ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
+                 speed_factor * fs(v+vin,bc_component));
+          HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
+        }
+        else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
+          Real speed_factor = 1.0;
+          Real xi = 0.0;
+          Real tmp = beta / h;
+          tmp = 2.0 * ((tmp - 0.5 * (delta1 + delta2) * face_sign * xi) *
+                       speed_factor * fs(v+vin,bc_component));
+          HYPRE_SStructVectorAddToValues(b, part, cellIndex1(v), 0, &tmp);
         }
       }
     }

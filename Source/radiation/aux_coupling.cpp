@@ -194,29 +194,31 @@ void CoarseBoundaryAuxStore::rebuild_links(Location loc)
 void CoarseBoundaryAuxStore::link_secondary_entries(Location loc)
 {
 
-  if (loc == OUTSIDE_GRID) {
-    for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
-      for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
-        Orientation om = outer_orient_iter();
-        for (OrientationIter inner_orient_iter(om); ++inner_orient_iter; ) {
-          Orientation os = inner_orient_iter();
+  if (loc != OUTSIDE_GRID) {
+    return;
+  }
 
-          for (int jm = 0; jm < aux[om][i].size(); jm++) {
-            const Box& bm = aux[om][i][jm]->box();
-            for (int js = 0; js < aux[os][i].size(); js++) {
-                const Box& bs = aux[os][i][js]->box();
+  for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
+    for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
+      Orientation om = outer_orient_iter();
+      for (OrientationIter inner_orient_iter(om); ++inner_orient_iter; ) {
+        Orientation os = inner_orient_iter();
 
-              if (bm.intersects(bs)) {
-                Box reg = (bm & bs);
-                for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-                    (*aux[om][i][jm])(v).add_secondary_link(&(*aux[os][i][js])(v));
-                }
+        for (int jm = 0; jm < aux[om][i].size(); jm++) {
+          const Box& bm = aux[om][i][jm]->box();
+          for (int js = 0; js < aux[os][i].size(); js++) {
+              const Box& bs = aux[os][i][js]->box();
+
+            if (bm.intersects(bs)) {
+              Box reg = (bm & bs);
+              for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
+                  (*aux[om][i][jm])(v).add_secondary_link(&(*aux[os][i][js])(v));
               }
-
             }
-          }
 
+          }
         }
+
       }
     }
   }

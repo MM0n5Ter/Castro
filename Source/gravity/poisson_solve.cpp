@@ -519,9 +519,9 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 
     if (fine_level > gravity::solve_level_cap) {
         return;
-    } else {
-        fine_level = amrex::min(fine_level, gravity::solve_level_cap);
     }
+
+    fine_level = amrex::min(fine_level, gravity::solve_level_cap);
 
     BL_ASSERT(parent->finestLevel()>crse_level);
     if (gravity::verbose > 1 && ParallelDescriptor::IOProcessor()) {

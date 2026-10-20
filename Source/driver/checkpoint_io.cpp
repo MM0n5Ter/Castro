@@ -71,76 +71,70 @@ HydroSim::checkPoint(const std::string& dir,
   ParticleSaveRestart(dir);
 #endif
 
-  if (level == 0 && ParallelDescriptor::IOProcessor())
-    {
-        {
-            std::ofstream HydroSimHeaderFile;
-            HydroSimHeaderFile.open(checkpoint_entry(dir, "CastroHeader").c_str(), std::ios::out);
+  if (level != 0 || !ParallelDescriptor::IOProcessor()) {
+      return;
+  }
 
-            HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
-            HydroSimHeaderFile.close();
+  std::ofstream HydroSimHeaderFile;
+  HydroSimHeaderFile.open(checkpoint_entry(dir, "CastroHeader").c_str(), std::ios::out);
 
-            writeRunRecord(dir, write_seconds);
+  HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
+  HydroSimHeaderFile.close();
 
-            std::ofstream VarNameListFile;
-            VarNameListFile.open(checkpoint_entry(dir, "state_names.txt").c_str(), std::ios::out);
+  writeRunRecord(dir, write_seconds);
 
-            for (int n = 0; n < NUM_STATE; n++) {
-              VarNameListFile << desc_lst[State_Type].name(n) << "\n";
-            }
-            VarNameListFile.close();
-        }
+  std::ofstream VarNameListFile;
+  VarNameListFile.open(checkpoint_entry(dir, "state_names.txt").c_str(), std::ios::out);
 
-        if (lastDtWriteLimited == 1) {
+  for (int n = 0; n < NUM_STATE; n++) {
+    VarNameListFile << desc_lst[State_Type].name(n) << "\n";
+  }
+  VarNameListFile.close();
 
-            std::ofstream timestepFile;
-            timestepFile.open(checkpoint_entry(dir, "dtHeader").c_str(), std::ios::out);
+  if (lastDtWriteLimited == 1) {
 
-            timestepFile << lastDtBeforeWriteLimit << std::endl;
-            timestepFile.close();
+      std::ofstream timestepFile;
+      timestepFile.open(checkpoint_entry(dir, "dtHeader").c_str(), std::ios::out);
 
-        }
+      timestepFile << lastDtBeforeWriteLimit << std::endl;
+      timestepFile.close();
 
-        {
-            std::ofstream CpuTimeFile;
-            CpuTimeFile.open(checkpoint_entry(dir, "CPUtime").c_str(), std::ios::out);
+  }
 
-            CpuTimeFile << std::setprecision(17) << getCpuSeconds();
-            CpuTimeFile.close();
-        }
+  std::ofstream CpuTimeFile;
+  CpuTimeFile.open(checkpoint_entry(dir, "CPUtime").c_str(), std::ios::out);
+
+  CpuTimeFile << std::setprecision(17) << getCpuSeconds();
+  CpuTimeFile.close();
 
 #ifdef GRAVITY
-        if (use_central_mass) {
+  if (use_central_mass) {
 
-            std::ofstream PointMassFile;
-            PointMassFile.open(checkpoint_entry(dir, "point_mass").c_str(), std::ios::out);
+      std::ofstream PointMassFile;
+      PointMassFile.open(checkpoint_entry(dir, "point_mass").c_str(), std::ios::out);
 
-            PointMassFile << std::setprecision(17) << point_mass << std::endl;
+      PointMassFile << std::setprecision(17) << point_mass << std::endl;
 
-            PointMassFile.close();
+      PointMassFile.close();
 
-        }
+  }
 #endif
 
 #ifdef ROTATION
-        if (do_frame_spin) {
-            std::ofstream SpinPeriodFile;
-            SpinPeriodFile.open(checkpoint_entry(dir, "Rotation").c_str(), std::ios::out);
+  if (do_frame_spin) {
+      std::ofstream SpinPeriodFile;
+      SpinPeriodFile.open(checkpoint_entry(dir, "Rotation").c_str(), std::ios::out);
 
-            SpinPeriodFile << std::scientific;
-            SpinPeriodFile.precision(19);
+      SpinPeriodFile << std::scientific;
+      SpinPeriodFile.precision(19);
 
-            SpinPeriodFile << std::setw(30) << hydrosim::spin_period << std::endl;
+      SpinPeriodFile << std::setw(30) << hydrosim::spin_period << std::endl;
 
-            SpinPeriodFile.close();
-        }
+      SpinPeriodFile.close();
+  }
 #endif
 
-        {
-            user_checkpoint(dir);
-        }
-    }
-
+  user_checkpoint(dir);
 }
 
 void
