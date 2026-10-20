@@ -129,22 +129,21 @@ HydroSim::define_tracked_center(const MultiFab& S, Real time)
             snapped_center[d] = geom.ProbLo(d) +  (static_cast<Real>(mi[d]) + 0.5_rt) * dx[d];
         }
 
-        Real a = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) + data(mi[0]-1, mi[1], mi[2]));
-        Real b = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) - data(mi[0]-1, mi[1], mi[2]));
-        Real x = -b / (2.0_rt * a);
-        problem::center[0] = snapped_center[0] + x * dx[0];
+        auto vertex_offset = [&] (int dir) {
+            int plus[3] = {mi[0], mi[1], mi[2]};
+            int minus[3] = {mi[0], mi[1], mi[2]};
+            plus[dir] += 1;
+            minus[dir] -= 1;
+            Real p = data(plus[0], plus[1], plus[2]);
+            Real m = data(minus[0], minus[1], minus[2]);
+            Real a = 0.5_rt * (p + m);
+            Real b = 0.5_rt * (p - m);
+            return -b / (2.0_rt * a);
+        };
 
-        a = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) + data(mi[0], mi[1]-1, mi[2]));
-        b = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) - data(mi[0], mi[1]-1, mi[2]));
-        Real y = -b / (2.0_rt * a);
-        problem::center[1] = snapped_center[1] + y * dx[1];
-
-#if AMREX_SPACEDIM == 3
-        a = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) + data(mi[0], mi[1], mi[2]-1));
-        b = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) - data(mi[0], mi[1], mi[2]-1));
-        Real z = -b / (2.0_rt * a);
-        problem::center[2] = snapped_center[2] + z * dx[2];
-#endif
+        for (int d = 0; d < AMREX_SPACEDIM; d++) {
+            problem::center[d] = snapped_center[d] + vertex_offset(d) * dx[d];
+        }
 
 #endif
 
@@ -477,6 +476,31 @@ HydroSim::tally_integrated_quantities ()
     int fixed_column_width     = 25;
     int integer_column_width     = 12;
 
+    auto write_step_and_time = [=] (std::ostream& log) {
+        log << std::fixed;
+
+        log << std::setw(integer_column_width)                                    << timestep;
+
+        if (time < 1.e-4_rt || time > 1.e4_rt) {
+            log << std::scientific;
+        } else {
+            log << std::fixed;
+        }
+
+        log << std::setw(fixed_column_width) << std::setprecision(output_precision) << time;
+    };
+
+    auto write_column_numbers = [=] (std::ostream& log, int n) {
+        log << std::setw(integer_column_width) << "#   COLUMN 1";
+        log << std::setw(fixed_column_width) << 2;
+
+        for (int icol = 3; icol <= n; ++icol) {
+            log << std::setw(sci_column_width) << icol;
+        }
+
+        log << std::endl;
+    };
+
     for (int lev = 0; lev <= finest_level; lev++)
     {
         HydroSim& hs_level = getLevel(lev);
@@ -774,29 +798,12 @@ HydroSim::tally_integrated_quantities ()
 
                header << std::endl;
 
-               primary_data_log << std::setw(integer_column_width) << "#   COLUMN 1";
-               primary_data_log << std::setw(fixed_column_width) << 2;
-
-               for (int icol = 3; icol <= n; ++icol) {
-                   primary_data_log << std::setw(sci_column_width) << icol;
-               }
-
-               primary_data_log << std::endl;
+               write_column_numbers(primary_data_log, n);
 
                primary_data_log << header.str();
            }
 
-           primary_data_log << std::fixed;
-
-           primary_data_log << std::setw(integer_column_width) <<  timestep;
-
-           if (time < 1.e-4_rt || time > 1.e4_rt) {
-               primary_data_log << std::scientific;
-           } else {
-               primary_data_log << std::fixed;
-           }
-
-           primary_data_log << std::setw(fixed_column_width) <<  std::setprecision(output_precision) << time;
+           write_step_and_time(primary_data_log);
 
            primary_data_log << std::scientific;
 
@@ -904,31 +911,13 @@ HydroSim::tally_integrated_quantities ()
 
                 header << std::endl;
 
-                log << std::setw(integer_column_width) << "#   COLUMN 1";
-                log << std::setw(fixed_column_width) << 2;
-
-                for (int i = 3; i <= n; ++i) {
-                    log << std::setw(sci_column_width) << i;
-                }
-
-                log << std::endl;
+                write_column_numbers(log, n);
 
                 log << header.str();
 
             }
 
-            log << std::fixed;
-
-            log << std::setw(integer_column_width)                                    << timestep;
-
-            if (time < 1.e-4_rt || time > 1.e4_rt) {
-                log << std::scientific;
-            }
-            else {
-                log << std::fixed;
-            }
-
-            log << std::setw(fixed_column_width) << std::setprecision(output_precision) << time;
+            write_step_and_time(log);
 
             log << std::scientific;
 
@@ -999,30 +988,13 @@ HydroSim::tally_integrated_quantities ()
 
                 header << std::endl;
 
-                log << std::setw(integer_column_width) << "#   COLUMN 1";
-                log << std::setw(fixed_column_width) << 2;
-
-                for (int i = 3; i <= n; ++i) {
-                    log << std::setw(sci_column_width) << i;
-                }
-
-                log << std::endl;
+                write_column_numbers(log, n);
 
                 log << header.str();
 
             }
 
-            log << std::fixed;
-
-            log << std::setw(integer_column_width)                                    << timestep;
-
-            if (time < 1.e-4_rt || time > 1.e4_rt) {
-                log << std::scientific;
-            } else {
-                log << std::fixed;
-            }
-
-            log << std::setw(fixed_column_width) << std::setprecision(output_precision) << time;
+            write_step_and_time(log);
 
             log << std::scientific;
 
@@ -1105,17 +1077,7 @@ HydroSim::tally_integrated_quantities ()
 
             }
 
-            log << std::fixed;
-
-            log << std::setw(integer_column_width)                                    << timestep;
-
-            if (time < 1.e-4_rt || time > 1.e4_rt) {
-                log << std::scientific;
-            } else {
-                log << std::fixed;
-            }
-
-            log << std::setw(fixed_column_width) << std::setprecision(output_precision) << time;
+            write_step_and_time(log);
 
             log << std::fixed;
 

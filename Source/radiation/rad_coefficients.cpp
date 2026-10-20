@@ -346,6 +346,21 @@ void Radiation::computeFluxLimiter(int level,
     }
 }
 
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real transverse_difference (Real em, Real e0, Real ep)
+{
+    Real d = ep - em;
+
+    if (em == -1.e0_rt) {
+        d = 2.e0_rt * (ep - e0);
+    }
+    else if (ep == -1.e0_rt) {
+        d = 2.e0_rt * (e0 - em);
+    }
+
+    return d;
+}
+
 void Radiation::evaluateGradientRatio(int level,
                                Array<MultiFab, AMREX_SPACEDIM>& R,
                                MultiFab& kappa_r, int kcomp,
@@ -421,52 +436,16 @@ void Radiation::evaluateGradientRatio(int level,
                       if (cross_term_flag == 1)
                       {
 #if (AMREX_SPACEDIM >= 2)
-                          dal = rad_eden_arr(i-1,j+1,k) - rad_eden_arr(i-1,j-1,k);
-                          dar = rad_eden_arr(i  ,j+1,k) - rad_eden_arr(i  ,j-1,k);
-
-                          if      (rad_eden_arr(i-1,j-1,k) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i-1,j+1,k) - rad_eden_arr(i-1,j  ,k));
-                          }
-                          else if (rad_eden_arr(i-1,j+1,k) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i-1,j  ,k) - rad_eden_arr(i-1,j-1,k));
-                          }
-
-                          if      (rad_eden_arr(i  ,j-1,k) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i  ,j+1,k) - rad_eden_arr(i  ,j  ,k));
-                          }
-                          else if (rad_eden_arr(i  ,j+1,k) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i  ,j  ,k) - rad_eden_arr(i  ,j-1,k));
-                          }
+                          dal = transverse_difference(rad_eden_arr(i-1,j-1,k), rad_eden_arr(i-1,j  ,k), rad_eden_arr(i-1,j+1,k));
+                          dar = transverse_difference(rad_eden_arr(i  ,j-1,k), rad_eden_arr(i  ,j  ,k), rad_eden_arr(i  ,j+1,k));
 #else
                           dal = 0.e0_rt;
                           dar = 0.e0_rt;
 #endif
 
 #if (AMREX_SPACEDIM == 3)
-                          dbl = rad_eden_arr(i-1,j,k+1) - rad_eden_arr(i-1,j,k-1);
-                          dbr = rad_eden_arr(i  ,j,k+1) - rad_eden_arr(i  ,j,k-1);
-
-                          if      (rad_eden_arr(i-1,j,k-1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i-1,j,k+1) - rad_eden_arr(i-1,j,k  ));
-                          }
-                          else if (rad_eden_arr(i-1,j,k+1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i-1,j,k  ) - rad_eden_arr(i-1,j,k-1));
-                          }
-
-                          if      (rad_eden_arr(i  ,j,k-1) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j,k+1) - rad_eden_arr(i  ,j,k  ));
-                          }
-                          else if (rad_eden_arr(i  ,j,k+1) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j,k  ) - rad_eden_arr(i  ,j,k-1));
-                          }
+                          dbl = transverse_difference(rad_eden_arr(i-1,j,k-1), rad_eden_arr(i-1,j,k  ), rad_eden_arr(i-1,j,k+1));
+                          dbr = transverse_difference(rad_eden_arr(i  ,j,k-1), rad_eden_arr(i  ,j,k  ), rad_eden_arr(i  ,j,k+1));
 #else
                           dbl = 0.e0_rt;
                           dbr = 0.e0_rt;
@@ -510,48 +489,12 @@ void Radiation::evaluateGradientRatio(int level,
                   {
                       if (cross_term_flag == 1)
                       {
-                          dal = rad_eden_arr(i+1,j-1,k  ) - rad_eden_arr(i-1,j-1,k  );
-                          dar = rad_eden_arr(i+1,j  ,k  ) - rad_eden_arr(i-1,j  ,k  );
-
-                          if      (rad_eden_arr(i-1,j-1,k  ) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i+1,j-1,k  ) - rad_eden_arr(i  ,j-1,k  ));
-                          }
-                          else if (rad_eden_arr(i+1,j-1,k  ) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i  ,j-1,k  ) - rad_eden_arr(i-1,j-1,k  ));
-                          }
-
-                          if      (rad_eden_arr(i-1,j  ,k  ) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i+1,j  ,k  ) - rad_eden_arr(i  ,j  ,k  ));
-                          }
-                          else if (rad_eden_arr(i+1,j  ,k  ) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i  ,j  ,k  ) - rad_eden_arr(i-1,j  ,k  ));
-                          }
+                          dal = transverse_difference(rad_eden_arr(i-1,j-1,k  ), rad_eden_arr(i  ,j-1,k  ), rad_eden_arr(i+1,j-1,k  ));
+                          dar = transverse_difference(rad_eden_arr(i-1,j  ,k  ), rad_eden_arr(i  ,j  ,k  ), rad_eden_arr(i+1,j  ,k  ));
 
 #if (AMREX_SPACEDIM == 3)
-                          dbl = rad_eden_arr(i  ,j-1,k+1) - rad_eden_arr(i  ,j-1,k-1);
-                          dbr = rad_eden_arr(i  ,j  ,k+1) - rad_eden_arr(i  ,j  ,k-1);
-
-                          if      (rad_eden_arr(i  ,j-1,k-1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i  ,j-1,k+1) - rad_eden_arr(i  ,j-1,k  ));
-                          }
-                          else if (rad_eden_arr(i  ,j-1,k+1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i  ,j-1,k  ) - rad_eden_arr(i  ,j-1,k-1));
-                          }
-
-                          if      (rad_eden_arr(i  ,j  ,k-1) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j  ,k+1) - rad_eden_arr(i  ,j,  k  ));
-                          }
-                          else if (rad_eden_arr(i  ,j  ,k+1) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j  ,k  ) - rad_eden_arr(i  ,j,  k-1));
-                          }
+                          dbl = transverse_difference(rad_eden_arr(i  ,j-1,k-1), rad_eden_arr(i  ,j-1,k  ), rad_eden_arr(i  ,j-1,k+1));
+                          dbr = transverse_difference(rad_eden_arr(i  ,j  ,k-1), rad_eden_arr(i  ,j  ,k  ), rad_eden_arr(i  ,j  ,k+1));
 #else
                           dbl = 0.e0_rt;
                           dbr = 0.e0_rt;
@@ -593,47 +536,11 @@ void Radiation::evaluateGradientRatio(int level,
                   {
                       if (cross_term_flag == 1)
                       {
-                          dal = rad_eden_arr(i+1,j  ,k-1) - rad_eden_arr(i-1,j  ,k-1);
-                          dar = rad_eden_arr(i+1,j  ,k  ) - rad_eden_arr(i-1,j  ,k  );
+                          dal = transverse_difference(rad_eden_arr(i-1,j  ,k-1), rad_eden_arr(i  ,j  ,k-1), rad_eden_arr(i+1,j  ,k-1));
+                          dar = transverse_difference(rad_eden_arr(i-1,j  ,k  ), rad_eden_arr(i  ,j  ,k  ), rad_eden_arr(i+1,j  ,k  ));
 
-                          if      (rad_eden_arr(i-1,j  ,k-1) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i+1,j  ,k-1) - rad_eden_arr(i  ,j  ,k-1));
-                          }
-                          else if (rad_eden_arr(i+1,j  ,k-1) == -1.e0_rt)
-                          {
-                              dal = 2.e0_rt * (rad_eden_arr(i  ,j  ,k-1) - rad_eden_arr(i-1,j  ,k-1));
-                          }
-
-                          if      (rad_eden_arr(i-1,j  ,k  ) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i+1,j  ,k  ) - rad_eden_arr(i  ,j  ,k  ));
-                          }
-                          else if (rad_eden_arr(i+1,j  ,k  ) == -1.e0_rt)
-                          {
-                              dar = 2.e0_rt * (rad_eden_arr(i  ,j  ,k  ) - rad_eden_arr(i-1,j  ,k  ));
-                          }
-
-                          dbl = rad_eden_arr(i  ,j+1,k-1) - rad_eden_arr(i  ,j-1,k-1);
-                          dbr = rad_eden_arr(i  ,j+1,k  ) - rad_eden_arr(i  ,j-1,k  );
-
-                          if      (rad_eden_arr(i  ,j-1,k-1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i  ,j+1,k-1) - rad_eden_arr(i  ,j  ,k-1));
-                          }
-                          else if (rad_eden_arr(i  ,j+1,k-1) == -1.e0_rt)
-                          {
-                              dbl = 2.e0_rt * (rad_eden_arr(i  ,j  ,k-1) - rad_eden_arr(i  ,j-1,k-1));
-                          }
-
-                          if      (rad_eden_arr(i  ,j-1,k  ) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j+1,k  ) - rad_eden_arr(i  ,j,  k  ));
-                          }
-                          else if (rad_eden_arr(i  ,j+1,k  ) == -1.e0_rt)
-                          {
-                              dbr = 2.e0_rt * (rad_eden_arr(i  ,j  ,k  ) - rad_eden_arr(i  ,j-1,k  ));
-                          }
+                          dbl = transverse_difference(rad_eden_arr(i  ,j-1,k-1), rad_eden_arr(i  ,j  ,k-1), rad_eden_arr(i  ,j+1,k-1));
+                          dbr = transverse_difference(rad_eden_arr(i  ,j-1,k  ), rad_eden_arr(i  ,j  ,k  ), rad_eden_arr(i  ,j+1,k  ));
                       }
                       else
                       {

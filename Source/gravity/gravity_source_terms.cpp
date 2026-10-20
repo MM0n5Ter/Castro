@@ -9,6 +9,12 @@
 
 using namespace amrex;
 
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real zone_kinetic_energy (const GpuArray<Real, NUM_STATE>& s, Real rhoInv)
+{
+    return 0.5_rt * (s[UMX] * s[UMX] + s[UMY] * s[UMY] + s[UMZ] * s[UMZ]) * rhoInv;
+}
+
 void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old, MultiFab& field_new,
                                           Real time, Real dt)
 {
@@ -78,7 +84,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
                     snew[n] = unew(i,j,k,n);
                 }
 
-                Real kinetic_energy_old = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
+                Real kinetic_energy_old = zone_kinetic_energy(snew, rho_new_inv);
 
 
                 GpuArray<Real, 3> vold;
@@ -156,7 +162,7 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
                 } else if (hydrosim::gravity_source_mode == 3) {
 
 
-                    Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
+                    Real kinetic_energy_updated = zone_kinetic_energy(snew, rho_new_inv);
                     energy_source_corr = kinetic_energy_updated - kinetic_energy_old;
 
                 } else if (hydrosim::gravity_source_mode == 4) {
@@ -276,7 +282,7 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
                 snew[n] = uold(i,j,k,n);
             }
 
-            Real kinetic_energy_old = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
+            Real kinetic_energy_old = zone_kinetic_energy(snew, rhoInv);
 
             GpuArray<Real, 3> Sr;
             for (int n = 0; n < 3; ++n) {
@@ -313,7 +319,7 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             } else if (hydrosim::gravity_source_mode == 3) {
 
-                Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
+                Real kinetic_energy_updated = zone_kinetic_energy(snew, rhoInv);
                 SrE = kinetic_energy_updated - kinetic_energy_old;
 
             } else if (hydrosim::gravity_source_mode == 4) {

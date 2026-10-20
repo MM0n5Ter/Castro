@@ -79,6 +79,19 @@
 
 using namespace amrex;
 
+static std::string zone_index_label ()
+{
+    std::string index_label = "(i";
+#if AMREX_SPACEDIM >= 2
+    index_label += ",j";
+#endif
+#if AMREX_SPACEDIM == 3
+    index_label += ",k";
+#endif
+    index_label += ")";
+    return index_label;
+}
+
 Real
 HydroSim::estTimeStep (int use_new_state)
 {
@@ -141,16 +154,7 @@ HydroSim::estTimeStep (int use_new_state)
           dtlimit_hydro = amrex::min(dtlimit_hydro, cfl_timestep.value) * cfl;
           if (verbose) {
               amrex::Print() << "...estimated hydro-limited timestep at level " << level << ": " << dtlimit_hydro << std::endl;
-              std::string index_label = "(i";
-#if AMREX_SPACEDIM >= 2
-              index_label += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-              index_label += ",k";
-#endif
-              index_label += ")";
-
-              amrex::Print() << "...hydro-limited CFL timestep constrained at " << index_label << " = " << cfl_timestep.index << std::endl;
+              amrex::Print() << "...hydro-limited CFL timestep constrained at " << zone_index_label() << " = " << cfl_timestep.index << std::endl;
           }
 
 #ifdef RADIATION
@@ -176,16 +180,7 @@ HydroSim::estTimeStep (int use_new_state)
 
         if (verbose) {
             amrex::Print() << "...estimated diffusion-limited timestep at level " << level << ": " << dtlimit_diffusion << std::endl;
-            std::string index_label = "(i";
-#if AMREX_SPACEDIM >= 2
-            index_label += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            index_label += ",k";
-#endif
-            index_label += ")";
-
-            amrex::Print() << "...diffusion-limited timestep constrained at " << index_label << " = " << diffusion_dt.index << std::endl;
+            amrex::Print() << "...diffusion-limited timestep constrained at " << zone_index_label() << " = " << diffusion_dt.index << std::endl;
 
         }
     }
@@ -208,16 +203,7 @@ HydroSim::estTimeStep (int use_new_state)
 
         if (verbose) {
             amrex::Print() << "...estimated burning-limited timestep at level " << level << ": " << dtlimit_burn << std::endl;
-            std::string index_label = "(i";
-#if AMREX_SPACEDIM >= 2
-            index_label += ",j";
-#endif
-#if AMREX_SPACEDIM == 3
-            index_label += ",k";
-#endif
-            index_label += ")";
-
-            amrex::Print() << "...burning-limited timestep constrained at " << index_label << " = " << burn_timestep.index << std::endl;
+            amrex::Print() << "...burning-limited timestep constrained at " << zone_index_label() << " = " << burn_timestep.index << std::endl;
         }
 
         if (dtlimit_burn < estdt) {
@@ -347,76 +333,45 @@ HydroSim::computeNewDt (int                    finest_level,
         dt_0 = std::min(dt_0,n_factor*dt_min[i]);
     }
 
-    if (plot_interval_exact) {
+    auto clip_to_next_output = [&] (Real period, const char* what) {
 
-        const Real plot_per = parent->plotPer();
-
-        if (plot_per > 0.0) {
+        if (period > 0.0) {
 
             const Real cur_time = state[State_Type].curTime();
 
-            const Real phaseOffset = std::fmod(cur_time, plot_per);
+            const Real phaseOffset = std::fmod(cur_time, period);
 
-            Real nextPlotDt;
+            Real nextOutputDt;
 
-            if (std::abs(phaseOffset - plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                nextPlotDt = plot_per + (plot_per - phaseOffset);
+            if (std::abs(phaseOffset - period) <= std::numeric_limits<Real>::epsilon() * cur_time) {
+                nextOutputDt = period + (period - phaseOffset);
             }
             else {
-                nextPlotDt = plot_per - phaseOffset;
+                nextOutputDt = period - phaseOffset;
             }
 
-            if (nextPlotDt < dt_0) {
+            if (nextOutputDt < dt_0) {
                 lastDtWriteLimited = 1;
                 lastDtBeforeWriteLimit = dt_0;
-                dt_0 = nextPlotDt;
+                dt_0 = nextOutputDt;
 
                 const Real dtFloor = 1.e-4 * lastDtBeforeWriteLimit;
                 dt_0 = std::max(dt_0, dtFloor);
 
                 if (verbose) {
-                  amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next plot interval.\n";
+                    amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next " << what << " interval.\n";
                 }
             }
 
         }
+    };
 
+    if (plot_interval_exact) {
+        clip_to_next_output(parent->plotPer(), "plot");
     }
 
     if (small_interval_exact) {
-
-        const Real small_plot_per = parent->smallplotPer();
-
-        if (small_plot_per > 0.0) {
-
-            const Real cur_time = state[State_Type].curTime();
-
-            const Real phaseOffset = std::fmod(cur_time, small_plot_per);
-
-            Real nextSmallPlotDt;
-
-            if (std::abs(phaseOffset - small_plot_per) <= std::numeric_limits<Real>::epsilon() * cur_time) {
-                nextSmallPlotDt = small_plot_per + (small_plot_per - phaseOffset);
-            }
-            else {
-                nextSmallPlotDt = small_plot_per - phaseOffset;
-            }
-
-            if (nextSmallPlotDt < dt_0) {
-                lastDtWriteLimited = 1;
-                lastDtBeforeWriteLimit = dt_0;
-                dt_0 = nextSmallPlotDt;
-
-                const Real dtFloor = 1.e-4 * lastDtBeforeWriteLimit;
-                dt_0 = std::max(dt_0, dtFloor);
-
-                if (verbose) {
-                    amrex::Print() << " ... limiting dt to " << dt_0 << " to hit the next smallplot interval.\n";
-                }
-            }
-
-        }
-
+        clip_to_next_output(parent->smallplotPer(), "smallplot");
     }
 
     const Real eps = std::numeric_limits<Real>::epsilon();

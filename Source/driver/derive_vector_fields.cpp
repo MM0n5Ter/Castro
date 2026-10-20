@@ -26,6 +26,65 @@ void face_to_cell_average(const Box& bx, FArrayBox& derfab, const FArrayBox& dat
 }
 #endif
 
+void angular_momentum_component(const Box& bx, FArrayBox& derfab, const FArrayBox& datfab,
+                                const Geometry& geom, int idir)
+{
+    auto dx     = geom.CellSizeArray();
+    auto problo = geom.ProbLoArray();
+
+    auto const dat = datfab.array();
+    auto const L = derfab.array();
+
+    amrex::ParallelFor(bx,
+                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                       {
+                         Real loc[3];
+
+                         loc[0] = problo[0] + (0.5_rt + i) * dx[0];
+
+#if AMREX_SPACEDIM >= 2
+                         loc[1] = problo[1] + (0.5_rt + j) * dx[1];
+#else
+                         loc[1] = 0.0_rt;
+#endif
+
+#if AMREX_SPACEDIM == 3
+                         loc[2] = problo[2] + (0.5_rt + k) * dx[2];
+#else
+                         loc[2] = 0.0_rt;
+#endif
+
+                         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+                           loc[dir] -= problem::center[dir];
+                         }
+
+                         if (idir == 0) {
+                           L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
+                         }
+                         else if (idir == 1) {
+                           L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
+                         }
+                         else {
+                           L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
+                         }
+
+                       });
+}
+
+void vector_magnitude(const Box& bx, FArrayBox& derfab, const FArrayBox& datfab)
+{
+  auto const dat = datfab.array();
+  auto const der = derfab.array();
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    der(i,j,k,0) = std::sqrt(dat(i,j,k,0)*dat(i,j,k,0) +
+                             dat(i,j,k,1)*dat(i,j,k,1) +
+                             dat(i,j,k,2)*dat(i,j,k,2));
+  });
+}
+
 }
 
 #ifdef __cplusplus
@@ -72,18 +131,7 @@ extern "C"
                     Real  , const int*  , int  )
   {
 
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                       {
-
-                         der(i,j,k,0) = std::sqrt(dat(i,j,k,0)*dat(i,j,k,0) +
-                                                  dat(i,j,k,1)*dat(i,j,k,1) +
-                                                  dat(i,j,k,2)*dat(i,j,k,2));
-
-                       });
+    vector_magnitude(bx, derfab, datfab);
   }
 
     void derive_radial_velocity(const Box& bx, FArrayBox& derfab, int  , int  ,
@@ -185,146 +233,21 @@ extern "C"
                       const FArrayBox& datfab, const Geometry& geom,
                       Real  , const int*  , int  )
   {
-
-    int idir = 0;
-    auto dx     = geom.CellSizeArray();
-    auto problo = geom.ProbLoArray();
-
-    auto const dat = datfab.array();
-    auto const L = derfab.array();
-
-    amrex::ParallelFor(bx,
-                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                       {
-                         Real loc[3];
-
-                         loc[0] = problo[0] + (0.5_rt + i) * dx[0];
-
-#if AMREX_SPACEDIM >= 2
-                         loc[1] = problo[1] + (0.5_rt + j) * dx[1];
-#else
-                         loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-                         loc[2] = problo[2] + (0.5_rt + k) * dx[2];
-#else
-                         loc[2] = 0.0_rt;
-#endif
-
-                         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                           loc[dir] -= problem::center[dir];
-                         }
-
-                         if (idir == 0) {
-                           L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
-                         }
-                         else if (idir == 1) {
-                           L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
-                         }
-                         else {
-                           L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
-                         }
-
-                       });
-
+    angular_momentum_component(bx, derfab, datfab, geom, 0);
   }
 
   void derive_ang_momentum_y (const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real  , const int*  , int  )
   {
-
-    int idir = 1;
-    auto dx     = geom.CellSizeArray();
-    auto problo = geom.ProbLoArray();
-
-    auto const dat = datfab.array();
-    auto const L = derfab.array();
-
-    amrex::ParallelFor(bx,
-                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                       {
-                         Real loc[3];
-
-                         loc[0] = problo[0] + (0.5_rt + i) * dx[0];
-
-#if AMREX_SPACEDIM >= 2
-                         loc[1] = problo[1] + (0.5_rt + j) * dx[1];
-#else
-                         loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-                         loc[2] = problo[2] + (0.5_rt + k) * dx[2];
-#else
-                         loc[2] = 0.0_rt;
-#endif
-                         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                           loc[dir] -= problem::center[dir];
-                         }
-
-                         if (idir == 0) {
-                           L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
-                         }
-                         else if (idir == 1) {
-                           L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
-                         }
-                         else {
-                           L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
-                         }
-
-                       });
-
+    angular_momentum_component(bx, derfab, datfab, geom, 1);
   }
 
   void derive_ang_momentum_z (const Box& bx, FArrayBox& derfab, int  , int  ,
                       const FArrayBox& datfab, const Geometry& geom,
                       Real  , const int*  , int  )
   {
-
-    int idir = 2;
-    auto dx     = geom.CellSizeArray();
-    auto problo = geom.ProbLoArray();
-
-    auto const dat = datfab.array();
-    auto const L = derfab.array();
-
-    amrex::ParallelFor(bx,
-                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                       {
-                         Real loc[3];
-
-                         loc[0] = problo[0] + (0.5_rt + i) * dx[0];
-
-#if AMREX_SPACEDIM >= 2
-                         loc[1] = problo[1] + (0.5_rt + j) * dx[1];
-#else
-                         loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-                         loc[2] = problo[2] + (0.5_rt + k) * dx[2];
-#else
-                         loc[2] = 0.0_rt;
-#endif
-
-                         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                           loc[dir] -= problem::center[dir];
-                         }
-
-                         if (idir == 0) {
-                           L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
-                         }
-                         else if (idir == 1) {
-                           L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
-                         }
-                         else {
-                           L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
-                         }
-
-                       });
-
+    angular_momentum_component(bx, derfab, datfab, geom, 2);
   }
 
   void derive_vorticity(const Box& bx, FArrayBox& derfab, int  , int  ,
@@ -513,18 +436,7 @@ extern "C"
                        Real  , const int*  , int  )
     {
 
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-        der(i,j,k,0) = std::sqrt(dat(i,j,k,0)*dat(i,j,k,0) +
-                                 dat(i,j,k,1)*dat(i,j,k,1) +
-                                 dat(i,j,k,2)*dat(i,j,k,2));
-
-      });
+      vector_magnitude(bx, derfab, datfab);
     }
 
 #ifdef MHD

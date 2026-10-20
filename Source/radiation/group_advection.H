@@ -12,6 +12,18 @@ MC(const Real r) {
   return amrex::max(0.0_rt, amrex::min(2.0_rt * r, 0.5_rt * (1.0_rt + r), 2.0_rt));
 }
 
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real
+mc_face_left(const Real qmm, const Real qm, const Real q0) {
+  return qm + 0.5_rt * (q0 - qm) * MC((qm - qmm) / (q0 - qm + 1.e-50_rt));
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real
+mc_face_right(const Real qm, const Real q0, const Real qp) {
+  return q0 - 0.5_rt * (qp - q0) * MC((q0 - qm) / (qp - q0 + 1.e-50_rt));
+}
+
 template <typename T>
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 T
@@ -114,19 +126,15 @@ dudt(Real* u, Real* a, const Real* dx, const int n, Real* rhs_buffer) {
     f(0) = 0.0_rt;
 
     for (int i = 1; i < n; i++) {
-      Real r = (ug(i-1) - ug(i-2)) / (ug(i) - ug(i-1) + 1.e-50_rt);
-      Real ul = ug(i-1) + 0.5_rt * (ug(i) - ug(i-1)) * MC(r);
+      Real ul = mc_face_left(ug(i-2), ug(i-1), ug(i));
 
-      r = (ag(i-1) - ag(i-2)) / (ag(i) - ag(i-1) + 1.e-50_rt);
-      Real al = ag(i-1) + 0.5_rt * (ag(i) - ag(i-1)) * MC(r);
+      Real al = mc_face_left(ag(i-2), ag(i-1), ag(i));
 
       Real fl = al*ul;
 
-      r = (ug(i) - ug(i-1)) / (ug(i+1) - ug(i) + 1.e-50_rt);
-      Real ur = ug(i) - 0.5_rt * (ug(i+1) - ug(i)) * MC(r);
+      Real ur = mc_face_right(ug(i-1), ug(i), ug(i+1));
 
-      r = (ag(i) - ag(i-1)) / (ag(i+1) - ag(i) + 1.e-50_rt);
-      Real ar = ag(i) - 0.5_rt * (ag(i+1) - ag(i)) * MC(r);
+      Real ar = mc_face_right(ag(i-1), ag(i), ag(i+1));
 
       Real fr = ar*ur;
 

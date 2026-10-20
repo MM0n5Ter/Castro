@@ -41,6 +41,11 @@ namespace
 {
     int restart_format = -1;
     int current_version = 12;
+
+    std::string checkpoint_entry(const std::string& dir, const char* leaf)
+    {
+        return dir + "/" + leaf;
+    }
 }
 
 void
@@ -70,9 +75,7 @@ HydroSim::checkPoint(const std::string& dir,
     {
         {
             std::ofstream HydroSimHeaderFile;
-            std::string FullPathHydroSimHeaderFile = dir;
-            FullPathHydroSimHeaderFile += "/CastroHeader";
-            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
+            HydroSimHeaderFile.open(checkpoint_entry(dir, "CastroHeader").c_str(), std::ios::out);
 
             HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
             HydroSimHeaderFile.close();
@@ -80,9 +83,7 @@ HydroSim::checkPoint(const std::string& dir,
             writeRunRecord(dir, write_seconds);
 
             std::ofstream VarNameListFile;
-            std::string FullPathVarNameList = dir;
-            FullPathVarNameList += "/state_names.txt";
-            VarNameListFile.open(FullPathVarNameList.c_str(), std::ios::out);
+            VarNameListFile.open(checkpoint_entry(dir, "state_names.txt").c_str(), std::ios::out);
 
             for (int n = 0; n < NUM_STATE; n++) {
               VarNameListFile << desc_lst[State_Type].name(n) << "\n";
@@ -93,9 +94,7 @@ HydroSim::checkPoint(const std::string& dir,
         if (lastDtWriteLimited == 1) {
 
             std::ofstream timestepFile;
-            std::string FullPathTimestepFile = dir;
-            FullPathTimestepFile += "/dtHeader";
-            timestepFile.open(FullPathTimestepFile.c_str(), std::ios::out);
+            timestepFile.open(checkpoint_entry(dir, "dtHeader").c_str(), std::ios::out);
 
             timestepFile << lastDtBeforeWriteLimit << std::endl;
             timestepFile.close();
@@ -104,9 +103,7 @@ HydroSim::checkPoint(const std::string& dir,
 
         {
             std::ofstream CpuTimeFile;
-            std::string FullPathCpuTimeFile = dir;
-            FullPathCpuTimeFile += "/CPUtime";
-            CpuTimeFile.open(FullPathCpuTimeFile.c_str(), std::ios::out);
+            CpuTimeFile.open(checkpoint_entry(dir, "CPUtime").c_str(), std::ios::out);
 
             CpuTimeFile << std::setprecision(17) << getCpuSeconds();
             CpuTimeFile.close();
@@ -116,9 +113,7 @@ HydroSim::checkPoint(const std::string& dir,
         if (use_central_mass) {
 
             std::ofstream PointMassFile;
-            std::string FullPathPointMassFile = dir;
-            FullPathPointMassFile += "/point_mass";
-            PointMassFile.open(FullPathPointMassFile.c_str(), std::ios::out);
+            PointMassFile.open(checkpoint_entry(dir, "point_mass").c_str(), std::ios::out);
 
             PointMassFile << std::setprecision(17) << point_mass << std::endl;
 
@@ -130,9 +125,7 @@ HydroSim::checkPoint(const std::string& dir,
 #ifdef ROTATION
         if (do_frame_spin) {
             std::ofstream SpinPeriodFile;
-            std::string FullPathSpinPeriodFile = dir;
-            FullPathSpinPeriodFile += "/Rotation";
-            SpinPeriodFile.open(FullPathSpinPeriodFile.c_str(), std::ios::out);
+            SpinPeriodFile.open(checkpoint_entry(dir, "Rotation").c_str(), std::ios::out);
 
             SpinPeriodFile << std::scientific;
             SpinPeriodFile.precision(19);
@@ -166,9 +159,7 @@ HydroSim::restart (Amr&     papa,
     if (restart_format == -1) {
         if (ParallelDescriptor::IOProcessor()) {
             std::ifstream HydroSimHeaderFile;
-            std::string FullPathHydroSimHeaderFile = papa.theRestartFile();
-            FullPathHydroSimHeaderFile += "/CastroHeader";
-            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::in);
+            HydroSimHeaderFile.open(checkpoint_entry(papa.theRestartFile(), "CastroHeader").c_str(), std::ios::in);
             if (HydroSimHeaderFile.good()) {
                 char foo[256];
                 HydroSimHeaderFile.getline(foo, 256, ':');
@@ -188,9 +179,7 @@ HydroSim::restart (Amr&     papa,
     if (ParallelDescriptor::IOProcessor()) {
 
         std::ifstream timestepFile;
-        std::string FullPathTimestepFile = papa.theRestartFile();
-        FullPathTimestepFile += "/dtHeader";
-        timestepFile.open(FullPathTimestepFile.c_str(), std::ios::in);
+        timestepFile.open(checkpoint_entry(papa.theRestartFile(), "dtHeader").c_str(), std::ios::in);
 
         if (timestepFile.good()) {
 
@@ -205,9 +194,7 @@ HydroSim::restart (Amr&     papa,
     if (ParallelDescriptor::IOProcessor()) {
 
       std::ifstream VarNameListFile;
-      std::string FullPathVarNameList = papa.theRestartFile();
-      FullPathVarNameList += "/state_names.txt";
-      VarNameListFile.open(FullPathVarNameList.c_str(), std::ios::in);
+      VarNameListFile.open(checkpoint_entry(papa.theRestartFile(), "state_names.txt").c_str(), std::ios::in);
 
       if (VarNameListFile.good()) {
         std::string var;
@@ -233,9 +220,7 @@ HydroSim::restart (Amr&     papa,
     if (level == 0 && ParallelDescriptor::IOProcessor())
     {
       std::ifstream CpuTimeFile;
-      std::string FullPathCpuTimeFile = parent->theRestartFile();
-      FullPathCpuTimeFile += "/CPUtime";
-      CpuTimeFile.open(FullPathCpuTimeFile.c_str(), std::ios::in);
+      CpuTimeFile.open(checkpoint_entry(parent->theRestartFile(), "CPUtime").c_str(), std::ios::in);
 
       if (CpuTimeFile.good()) {
 
@@ -253,9 +238,7 @@ HydroSim::restart (Amr&     papa,
     {
 
         std::ifstream PointMassFile;
-        std::string FullPathPointMassFile = parent->theRestartFile();
-        FullPathPointMassFile += "/point_mass";
-        PointMassFile.open(FullPathPointMassFile.c_str(), std::ios::in);
+        PointMassFile.open(checkpoint_entry(parent->theRestartFile(), "point_mass").c_str(), std::ios::in);
 
         if (PointMassFile.good()) {
             PointMassFile >> point_mass;
@@ -269,9 +252,7 @@ HydroSim::restart (Amr&     papa,
     if (do_frame_spin && level == 0)
     {
         std::ifstream SpinPeriodFile;
-        std::string FullPathSpinPeriodFile = parent->theRestartFile();
-        FullPathSpinPeriodFile += "/Rotation";
-        SpinPeriodFile.open(FullPathSpinPeriodFile.c_str(), std::ios::in);
+        SpinPeriodFile.open(checkpoint_entry(parent->theRestartFile(), "Rotation").c_str(), std::ios::in);
 
         if (SpinPeriodFile.is_open()) {
             SpinPeriodFile >> hydrosim::spin_period;

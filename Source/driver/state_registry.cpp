@@ -351,15 +351,15 @@ HydroSim::variableSetUp ()
   bcs[URHO] = bc;
   name[URHO] = "density";
 
-  set_x_vel_bc(bc, phys_bc);
+  set_vel_bc(bc, phys_bc, 0);
   bcs[UMX] = bc;
   name[UMX] = "xmom";
 
-  set_y_vel_bc(bc, phys_bc);
+  set_vel_bc(bc, phys_bc, 1);
   bcs[UMY] = bc;
   name[UMY] = "ymom";
 
-  set_z_vel_bc(bc, phys_bc);
+  set_vel_bc(bc, phys_bc, 2);
   bcs[UMZ] = bc;
   name[UMZ] = "zmom";
 
@@ -469,13 +469,13 @@ HydroSim::variableSetUp ()
   set_scalar_bc(bc,phys_bc);
   swap_inflow_bc(bc);
   desc_lst.setComponent(Potential_Type,0,"phiGrav",bc,genericBoundaryFunc);
-  set_x_vel_bc(bc,phys_bc);
+  set_vel_bc(bc, phys_bc, 0);
   swap_inflow_bc(bc);
   desc_lst.setComponent(Accel_Type,0,"grav_x",bc,genericBoundaryFunc);
-  set_y_vel_bc(bc,phys_bc);
+  set_vel_bc(bc, phys_bc, 1);
   swap_inflow_bc(bc);
   desc_lst.setComponent(Accel_Type,1,"grav_y",bc,genericBoundaryFunc);
-  set_z_vel_bc(bc,phys_bc);
+  set_vel_bc(bc, phys_bc, 2);
   swap_inflow_bc(bc);
   desc_lst.setComponent(Accel_Type,2,"grav_z",bc,genericBoundaryFunc);
 #endif
@@ -609,43 +609,38 @@ HydroSim::variableSetUp ()
 
   num_field_types = desc_lst.size();
 
-  derive_lst.add("pressure",IndexType::TheCellType(),1,derive_pressure,the_same_box);
-  derive_lst.addComponent("pressure",desc_lst,State_Type, URHO, NUM_STATE);
+  auto add_full_state_derive = [&] (const char* nm, auto func, auto box_map) {
+    derive_lst.add(nm,IndexType::TheCellType(),1,func,box_map);
+    derive_lst.addComponent(nm,desc_lst,State_Type,URHO,NUM_STATE);
+  };
+
+  add_full_state_derive("pressure", derive_pressure, the_same_box);
 
   derive_lst.add("kineng",IndexType::TheCellType(),1,derive_kinetic_energy,the_same_box);
   derive_lst.addComponent("kineng",desc_lst,State_Type, URHO, 1);
   derive_lst.addComponent("kineng",desc_lst,State_Type, UMX, 3);
 
-  derive_lst.add("soundspeed",IndexType::TheCellType(),1,derive_sound_speed,the_same_box);
-  derive_lst.addComponent("soundspeed",desc_lst,State_Type, URHO, NUM_STATE);
+  add_full_state_derive("soundspeed", derive_sound_speed, the_same_box);
 
-  derive_lst.add("Gamma_1",IndexType::TheCellType(),1,derive_adiabatic_index,the_same_box);
-  derive_lst.addComponent("Gamma_1",desc_lst,State_Type, URHO, NUM_STATE);
+  add_full_state_derive("Gamma_1", derive_adiabatic_index, the_same_box);
 
-  derive_lst.add("MachNumber",IndexType::TheCellType(),1,derive_mach_ratio,the_same_box);
-  derive_lst.addComponent("MachNumber",desc_lst,State_Type, URHO, NUM_STATE);
+  add_full_state_derive("MachNumber", derive_mach_ratio, the_same_box);
 
 #if (AMREX_SPACEDIM == 1)
-  derive_lst.add("uplusc",IndexType::TheCellType(),1,derive_u_plus_c,the_same_box);
-  derive_lst.addComponent("uplusc",desc_lst,State_Type, URHO, NUM_STATE);
+  add_full_state_derive("uplusc", derive_u_plus_c, the_same_box);
 
-  derive_lst.add("uminusc",IndexType::TheCellType(),1,derive_u_minus_c,the_same_box);
-  derive_lst.addComponent("uminusc",desc_lst,State_Type, URHO, NUM_STATE);
+  add_full_state_derive("uminusc", derive_u_minus_c, the_same_box);
 #endif
 
-  derive_lst.add("entropy",IndexType::TheCellType(),1,derive_entropy,the_same_box);
-  derive_lst.addComponent("entropy",desc_lst,State_Type,URHO,NUM_STATE);
+  add_full_state_derive("entropy", derive_entropy, the_same_box);
 
 #ifdef DIFFUSION
   if (conduction_enabled) {
-    derive_lst.add("thermal_cond",IndexType::TheCellType(),1,derive_conductivity,the_same_box);
-    derive_lst.addComponent("thermal_cond",desc_lst,State_Type,URHO,NUM_STATE);
+    add_full_state_derive("thermal_cond", derive_conductivity, the_same_box);
 
-    derive_lst.add("diff_coeff",IndexType::TheCellType(),1,derive_diffusivity,the_same_box);
-    derive_lst.addComponent("diff_coeff",desc_lst,State_Type,URHO,NUM_STATE);
+    add_full_state_derive("diff_coeff", derive_diffusivity, the_same_box);
 
-    derive_lst.add("diffusion_term",IndexType::TheCellType(),1,derive_diffusion_term,grow_box_by_one);
-    derive_lst.addComponent("diffusion_term",desc_lst,State_Type,URHO,NUM_STATE);
+    add_full_state_derive("diffusion_term", derive_diffusion_term, grow_box_by_one);
 
   }
 #endif
@@ -660,14 +655,11 @@ HydroSim::variableSetUp ()
   derive_lst.addComponent("divu",desc_lst,State_Type,URHO,1);
   derive_lst.addComponent("divu",desc_lst,State_Type,UMX,3);
 
-  derive_lst.add("eint_E",IndexType::TheCellType(),1,derive_internal_from_total,the_same_box);
-  derive_lst.addComponent("eint_E",desc_lst,State_Type,URHO,NUM_STATE);
+  add_full_state_derive("eint_E", derive_internal_from_total, the_same_box);
 
-  derive_lst.add("eint_e",IndexType::TheCellType(),1,derive_internal_from_stored,the_same_box);
-  derive_lst.addComponent("eint_e",desc_lst,State_Type,URHO,NUM_STATE);
+  add_full_state_derive("eint_e", derive_internal_from_stored, the_same_box);
 
-  derive_lst.add("logden",IndexType::TheCellType(),1,derive_log_density,the_same_box);
-  derive_lst.addComponent("logden",desc_lst,State_Type,URHO,NUM_STATE);
+  add_full_state_derive("logden", derive_log_density, the_same_box);
 
   derive_lst.add("StateErr",IndexType::TheCellType(),3,derive_state_error,grow_box_by_one);
   derive_lst.addComponent("StateErr",desc_lst,State_Type,URHO,1);

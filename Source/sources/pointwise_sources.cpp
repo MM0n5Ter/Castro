@@ -9,6 +9,14 @@
 using namespace amrex;
 
 #ifdef SPONGE
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real cosine_ramp (Real x, Real x_ref, Real span)
+{
+  return damping_lower_factor +
+    0.5_rt * (damping_upper_factor - damping_lower_factor) *
+    (1.0_rt - std::cos(std::numbers::pi * (x - x_ref) / span));
+}
+
 void
 HydroSim::add_damping_term(const Box& bx,
                      Array4<Real const> const& state_in,
@@ -68,9 +76,7 @@ HydroSim::add_damping_term(const Box& bx,
         damping_strength = damping_lower_factor;
 
       } else if (rad >= damping_lower_radius && rad <= damping_upper_radius) {
-        damping_strength = damping_lower_factor +
-          0.5_rt * (damping_upper_factor - damping_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (rad - damping_lower_radius) / delta_r));
+        damping_strength = cosine_ramp(rad, damping_lower_radius, delta_r);
 
       } else {
         damping_strength = damping_upper_factor;
@@ -84,9 +90,7 @@ HydroSim::add_damping_term(const Box& bx,
         damping_strength = damping_lower_factor;
 
       } else if (rho <= damping_upper_density && rho >= damping_lower_density) {
-        damping_strength = damping_lower_factor +
-          0.5_rt * (damping_upper_factor - damping_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (rho - damping_upper_density) / density_span));
+        damping_strength = cosine_ramp(rho, damping_upper_density, density_span);
 
       } else {
         damping_strength = damping_upper_factor;
@@ -118,9 +122,7 @@ HydroSim::add_damping_term(const Box& bx,
         damping_strength = damping_lower_factor;
 
       } else if (p <= damping_upper_pressure && p >= damping_lower_pressure) {
-        damping_strength = damping_lower_factor +
-          0.5_rt * (damping_upper_factor - damping_lower_factor) *
-          (1.0_rt - std::cos(std::numbers::pi * (p - damping_upper_pressure) / delta_p));
+        damping_strength = cosine_ramp(p, damping_upper_pressure, delta_p);
 
       } else {
         damping_strength = damping_upper_factor;

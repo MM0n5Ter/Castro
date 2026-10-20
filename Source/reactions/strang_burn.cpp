@@ -9,6 +9,26 @@ using std::string;
 using namespace amrex;
 
 #ifndef TRUE_SDC
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void store_burned_zone (Array4<Real> const& U, int i, int j, int k, const burn_t& burn_state)
+{
+#ifdef NSE_NET
+    U(i,j,k,UPROTON_MU) = burn_state.mu_p;
+    U(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
+#endif
+    for (int n = 0; n < NumSpec; ++n) {
+        U(i,j,k,UFS+n) = U(i,j,k,URHO) * burn_state.xn[n];
+    }
+#if NAUX_NET > 0
+    for (int n = 0; n < NumAux; ++n) {
+        U(i,j,k,UFX+n) = U(i,j,k,URHO) * burn_state.aux[n];
+    }
+#endif
+    Real internal_energy_old = U(i,j,k,UEINT);
+    U(i,j,k,UEINT) = U(i,j,k,URHO) * burn_state.e;
+    U(i,j,k,UEDEN) += U(i,j,k,UEINT) - internal_energy_old;
+}
+
 bool
 HydroSim::zones_are_burnable(const MultiFab& State)
 {
@@ -323,21 +343,7 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 #endif
                 }
 
-#ifdef NSE_NET
-                U(i,j,k,UPROTON_MU) = burn_state.mu_p;
-                U(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
-#endif
-                for (int n = 0; n < NumSpec; ++n) {
-                    U(i,j,k,UFS+n) = U(i,j,k,URHO) * burn_state.xn[n];
-                }
-#if NAUX_NET > 0
-                for (int n = 0; n < NumAux; ++n) {
-                    U(i,j,k,UFX+n) = U(i,j,k,URHO) * burn_state.aux[n];
-                }
-#endif
-                Real internal_energy_old = U(i,j,k,UEINT);
-                U(i,j,k,UEINT) = U(i,j,k,URHO) * burn_state.e;
-                U(i,j,k,UEDEN) += U(i,j,k,UEINT) - internal_energy_old;
+                store_burned_zone(U, i, j, k, burn_state);
 
             } else {
 

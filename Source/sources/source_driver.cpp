@@ -124,6 +124,24 @@ HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& field_old, Mu
     }
 }
 
+static void report_source_timing (const char* routine, Real start, int lev)
+{
+    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+    amrex::Real run_time = ParallelDescriptor::second() - start;
+    amrex::Real level_real = lev;
+
+#ifdef BL_LAZY
+    Lazy::QueueReduction( [=] () mutable {
+#endif
+    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+
+    amrex::Print() << "HydroSim::" << routine << "() time = " << run_time
+                   << " on level " << level_real << "\n" << "\n";
+#ifdef BL_LAZY
+    });
+#endif
+}
+
 void
 HydroSim::run_old_sources(
 #ifdef MHD
@@ -167,20 +185,7 @@ HydroSim::run_old_sources(
 
     if (verbose > 0)
     {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real level_real = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::run_old_sources() time = " << run_time
-                       << " on level " << level_real << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+        report_source_timing("run_old_sources", strt_time, level);
     }
 }
 
@@ -247,19 +252,7 @@ HydroSim::run_new_sources(
 
     if (verbose > 0)
     {
-        const int IOProc = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real level_real = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::run_new_sources() time = " << run_time << " on level " << level_real << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+        report_source_timing("run_new_sources", strt_time, level);
     }
 
 }

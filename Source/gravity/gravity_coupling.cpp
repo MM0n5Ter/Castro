@@ -31,6 +31,10 @@ HydroSim::assemble_old_gravity (Real time)
 
     }
 
+    auto composite_fix_applies = [&] () {
+        return gravity->CompositeFixEnabled() && level < parent->finestLevel() && level <= gravity->get_solve_level_cap();
+    };
+
     bool solve_at_old_time = true;
 
     if (parent->subcyclingMode() == "None" || parent->finestLevel() == 0) {
@@ -43,7 +47,7 @@ HydroSim::assemble_old_gravity (Real time)
         MultiFab comp_phi;
         Vector<std::unique_ptr<MultiFab> > composite_grad_phi(AMREX_SPACEDIM);
 
-        if (gravity->CompositeFixEnabled() && level < parent->finestLevel() && level <= gravity->get_solve_level_cap()) {
+        if (composite_fix_applies()) {
 
             comp_phi.define(phi_old.boxArray(), phi_old.DistributionMap(), phi_old.nComp(), phi_old.nGrow());
             MultiFab::Copy(comp_phi, phi_old, 0, 0, phi_old.nComp(), phi_old.nGrow());
@@ -66,7 +70,7 @@ HydroSim::assemble_old_gravity (Real time)
                                amrex::GetVecOfPtrs(gravity->get_potential_gradient_prev(level)),
                                use_new_state);
 
-        if (gravity->CompositeFixEnabled() && level < parent->finestLevel() && level <= gravity->get_solve_level_cap()) {
+        if (composite_fix_applies()) {
 
             gravity->build_composite_excess_grad(level,
                                                       comp_phi,
@@ -250,6 +254,46 @@ HydroSim::assemble_new_gravity (Real time)
     }
 }
 
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+bool in_central_window (int i, int j, int k, const Box& bx,
+                        GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                        GpuArray<Real, AMREX_SPACEDIM> const& dx)
+{
+    const Real eps = 1.e-8_rt;
+
+    int center_i = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
+#if AMREX_SPACEDIM >= 2
+    int center_j = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
+#endif
+#if AMREX_SPACEDIM == 3
+    int center_k = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
+#endif
+
+
+    const int box_size = 2;
+
+    int istart = amrex::max(center_i - box_size, bx.smallEnd(0));
+    int iend = amrex::min(center_i + box_size - 1, bx.bigEnd(0));
+#if AMREX_SPACEDIM >= 2
+    int jstart = amrex::max(center_j - box_size, bx.smallEnd(1));
+    int jend = amrex::min(center_j + box_size - 1, bx.bigEnd(1));
+#else
+    int jstart = 0;
+    int jend = 0;
+#endif
+#if AMREX_SPACEDIM == 3
+    int k_window_lo = amrex::max(center_k - box_size, bx.smallEnd(2));
+    int kend = amrex::min(center_k + box_size - 1, bx.bigEnd(2));
+#else
+    int k_window_lo = 0;
+    int kend = 0;
+#endif
+
+    return i >= istart && i <= iend &&
+           j >= jstart && j <= jend &&
+           k >= k_window_lo && k <= kend;
+}
+
 void
 HydroSim::centralmass_update(Real time, Real dt)
 {
@@ -286,41 +330,9 @@ HydroSim::centralmass_update(Real time, Real dt)
             reduce_op.eval(bx, reduce_data,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
             {
-                const Real eps = 1.e-8_rt;
-
-                int center_i = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
-#if AMREX_SPACEDIM >= 2
-                int center_j = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
-#endif
-#if AMREX_SPACEDIM == 3
-                int center_k = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
-#endif
-
-
-                const int box_size = 2;
-
-                int istart = amrex::max(center_i - box_size, bx.smallEnd(0));
-                int iend = amrex::min(center_i + box_size - 1, bx.bigEnd(0));
-#if AMREX_SPACEDIM >= 2
-                int jstart = amrex::max(center_j - box_size, bx.smallEnd(1));
-                int jend = amrex::min(center_j + box_size - 1, bx.bigEnd(1));
-#else
-                int jstart = 0;
-                int jend = 0;
-#endif
-#if AMREX_SPACEDIM == 3
-                int k_window_lo = amrex::max(center_k - box_size, bx.smallEnd(2));
-                int kend = amrex::min(center_k + box_size - 1, bx.bigEnd(2));
-#else
-                int k_window_lo = 0;
-                int kend = 0;
-#endif
-
                 Real partial_mass_delta = 0.0_rt;
 
-                if (i >= istart && i <= iend &&
-                    j >= jstart && j <= jend &&
-                    k >= k_window_lo && k <= kend) {
+                if (in_central_window(i, j, k, bx, problo, dx)) {
 
                     partial_mass_delta = vol(i,j,k) * (uout(i,j,k,URHO) - uin(i,j,k,URHO));
 
@@ -361,41 +373,7 @@ HydroSim::centralmass_update(Real time, Real dt)
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
 
-                    const Real eps = 1.e-8_rt;
-
-                    int center_i = static_cast<int>(std::floor((problem::center[0] - problo[0]) / dx[0] + eps));
-#if AMREX_SPACEDIM >= 2
-                    int center_j = static_cast<int>(std::floor((problem::center[1] - problo[1]) / dx[1] + eps));
-#endif
-#if AMREX_SPACEDIM == 3
-                    int center_k = static_cast<int>(std::floor((problem::center[2] - problo[2]) / dx[2] + eps));
-#endif
-
-
-                    const int box_size = 2;
-
-                    int istart = amrex::max(center_i - box_size, bx.smallEnd(0));
-                    int iend = amrex::min(center_i + box_size - 1, bx.bigEnd(0));
-
-#if AMREX_SPACEDIM >= 2
-                    int jstart = amrex::max(center_j - box_size, bx.smallEnd(1));
-                    int jend = amrex::min(center_j + box_size - 1, bx.bigEnd(1));
-#else
-                    int jstart = 0;
-                    int jend = 0;
-#endif
-
-# if AMREX_SPACEDIM == 3
-                    int k_window_lo = amrex::max(center_k - box_size, bx.smallEnd(2));
-                    int kend = amrex::min(center_k + box_size - 1, bx.bigEnd(2));
-#else
-                    int k_window_lo = 0;
-                    int kend = 0;
-#endif
-
-                    if (i >= istart && i <= iend &&
-                        j >= jstart && j <= jend &&
-                        k >= k_window_lo && k <= kend) {
+                    if (in_central_window(i, j, k, bx, problo, dx)) {
 
                         for (int n = 0; n < NUM_STATE; ++n) {
                             uout(i,j,k,n) = uin(i,j,k,n);

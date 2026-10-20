@@ -302,15 +302,17 @@ void binary_setup ()
 
     if (!(AMREX_SPACEDIM == 2 && HydroSim::physbc().lo(1) == amrex::PhysBCType::symmetry)) {
 
-        if ((0.5_rt * (probhi[0] - problo[0]) < problem::radius_P) ||
-            (0.5_rt * (probhi[1] - problo[1]) < problem::radius_P) ||
-            (0.5_rt * (probhi[2] - problo[2]) < problem::radius_P && AMREX_SPACEDIM == 3)) {
+        auto exceeds_half_domain = [&] (Real radius) {
+            return (0.5_rt * (probhi[0] - problo[0]) < radius) ||
+                   (0.5_rt * (probhi[1] - problo[1]) < radius) ||
+                   (0.5_rt * (probhi[2] - problo[2]) < radius && AMREX_SPACEDIM == 3);
+        };
+
+        if (exceeds_half_domain(problem::radius_P)) {
             amrex::Error("Primary does not fit inside the domain.");
         }
 
-        if ((0.5_rt * (probhi[0] - problo[0]) < problem::radius_S) ||
-            (0.5_rt * (probhi[1] - problo[1]) < problem::radius_S) ||
-            (0.5_rt * (probhi[2] - problo[2]) < problem::radius_S && AMREX_SPACEDIM == 3) ) {
+        if (exceeds_half_domain(problem::radius_S)) {
             amrex::Error("Secondary does not fit inside the domain.");
         }
 

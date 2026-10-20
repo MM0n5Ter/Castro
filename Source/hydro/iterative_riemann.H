@@ -75,14 +75,18 @@ namespace ShockPairSolver {
       amrex::Real fp = 0.5_rt*(1.0_rt + sgnm);
       amrex::Real fm = 0.5_rt*(1.0_rt - sgnm);
 
-      amrex::Real ro = fp * ql.rho + fm * qr.rho;
-      amrex::Real uo = fp * ql.un + fm * qr.un;
-      amrex::Real po = fp * ql.p + fm * qr.p;
-      amrex::Real reo = fp * ql.rhoe + fm * qr.rhoe;
-      amrex::Real upwind_gamma1 = fp * ql.gamma1_cell + fm * qr.gamma1_cell;
+      auto upwind_mix = [=] (amrex::Real l, amrex::Real r) {
+          return fp * l + fm * r;
+      };
+
+      amrex::Real ro = upwind_mix(ql.rho, qr.rho);
+      amrex::Real uo = upwind_mix(ql.un, qr.un);
+      amrex::Real po = upwind_mix(ql.p, qr.p);
+      amrex::Real reo = upwind_mix(ql.rhoe, qr.rhoe);
+      amrex::Real upwind_gamma1 = upwind_mix(ql.gamma1_cell, qr.gamma1_cell);
     #ifdef RADIATION
       for (int g = 0; g < NGROUPS; g++) {
-          interface_state.lam[g] = fp * ql.lam[g] + fm * qr.lam[g];
+          interface_state.lam[g] = upwind_mix(ql.lam[g], qr.lam[g]);
       }
 
       if (ustar == 0) {
@@ -91,15 +95,15 @@ namespace ShockPairSolver {
           }
       }
 
-      amrex::Real upwind_pressure_gas = fp * ql.p_g + fm * qr.p_g;
+      amrex::Real upwind_pressure_gas = upwind_mix(ql.p_g, qr.p_g);
       amrex::Real upwind_energy_density_group[NGROUPS];
       amrex::Real upwind_pressure_group[NGROUPS];
       for (int g = 0; g < NGROUPS; g++) {
-          upwind_energy_density_group[g] = fp * ql.er[g] + fm * qr.er[g];
+          upwind_energy_density_group[g] = upwind_mix(ql.er[g], qr.er[g]);
           upwind_pressure_group[g] = interface_state.lam[g] * upwind_energy_density_group[g];
       }
-      amrex::Real upwind_energy_density_gas = fp * ql.energy_density_gas + fm * qr.energy_density_gas;
-      amrex::Real gamma1_upwind_gas = fp * ql.gamma1_gas + fm * qr.gamma1_gas;
+      amrex::Real upwind_energy_density_gas = upwind_mix(ql.energy_density_gas, qr.energy_density_gas);
+      amrex::Real gamma1_upwind_gas = upwind_mix(ql.gamma1_gas, qr.gamma1_gas);
     #endif
 
       ro = amrex::max(small_dens, ro);
@@ -111,8 +115,8 @@ namespace ShockPairSolver {
       amrex::Real inv_sound_squared = 1.0_rt / (co*co);
 
 
-      interface_state.ut = fp * ql.ut + fm * qr.ut;
-      interface_state.utt = fp * ql.utt + fm * qr.utt;
+      interface_state.ut = upwind_mix(ql.ut, qr.ut);
+      interface_state.utt = upwind_mix(ql.utt, qr.utt);
 
 
       amrex::Real drho = (pstar - po)*inv_sound_squared;

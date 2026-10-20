@@ -35,41 +35,28 @@ integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const am
                 const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
                 amrex::Real* Ip, amrex::Real* Im) {
 
-  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
+  const amrex::Real speeds[3] = {u - c, u, u + c};
 
-  Real speed = u - c;
-  Real sigma = std::abs(speed) * dtdx;
-
-  if (speed <= 0.0_rt) {
-    Ip[0] = sp;
-    Im[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[0] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[0] = sm;
+  for (int n = 0; n < 3; n++) {
+    integrate_parabolic_profile_single(sm, sp, sc, speeds[n], dtdx, Ip[n], Im[n]);
   }
 
-  speed = u;
-  sigma = std::abs(speed) * dtdx;
+}
 
-  if (speed <= 0.0_rt) {
-    Ip[1] = sp;
-    Im[1] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[1] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[1] = sm;
-  }
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real
+van_leer_slope(amrex::Real sl, amrex::Real sc, amrex::Real sr) {
 
-  speed = u + c;
-  sigma = std::abs(speed) * dtdx;
+    amrex::Real dsl = 2.0_rt * (sc - sl);
+    amrex::Real dsr = 2.0_rt * (sr - sc);
 
-  if (speed <= 0.0_rt) {
-    Ip[2] = sp;
-    Im[2] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[2] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[2] = sm;
-  }
+    amrex::Real slope = 0.0_rt;
+    if (dsl*dsr > 0.0_rt) {
+      amrex::Real dsc = 0.5_rt * (sr - sl);
+      slope = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
+    }
 
+    return slope;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -79,45 +66,15 @@ parabolic_reconstruct(const amrex::Real* s,
 
     if (ppm_parabola_clip) {
 
-        amrex::Real dsl = 2.0_rt * (s[im1] - s[im2]);
-        amrex::Real dsr = 2.0_rt * (s[i0] - s[im1]);
-
-        amrex::Real van_leer_slope_left = 0.0_rt;
-        if (dsl*dsr > 0.0_rt) {
-          amrex::Real dsc = 0.5_rt * (s[i0] - s[im2]);
-          van_leer_slope_left = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
-        }
-
-        dsl = 2.0_rt * (s[i0] - s[im1]);
-        dsr = 2.0_rt * (s[ip1] - s[i0]);
-
-        amrex::Real van_leer_slope_right = 0.0_rt;
-        if (dsl*dsr > 0.0_rt) {
-          amrex::Real dsc = 0.5_rt * (s[ip1] - s[im1]);
-          van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl),std::abs(dsr));
-        }
+        amrex::Real van_leer_slope_left = van_leer_slope(s[im2], s[im1], s[i0]);
+        amrex::Real van_leer_slope_right = van_leer_slope(s[im1], s[i0], s[ip1]);
 
         sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
         sm = amrex::Clamp(sm, std::min(s[i0], s[im1]), std::max(s[i0], s[im1]));
 
-        dsl = 2.0_rt * (s[i0] - s[im1]);
-        dsr = 2.0_rt * (s[ip1] - s[i0]);
-
-        van_leer_slope_left = 0.0_rt;
-        if (dsl*dsr > 0.0_rt) {
-            amrex::Real dsc = 0.5_rt * (s[ip1] - s[im1]);
-            van_leer_slope_left = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
-        }
-
-        dsl = 2.0_rt * (s[ip1] - s[i0]);
-        dsr = 2.0_rt * (s[ip2] - s[ip1]);
-
-        van_leer_slope_right = 0.0_rt;
-        if (dsl*dsr > 0.0_rt) {
-            amrex::Real dsc = 0.5_rt * (s[ip2] - s[i0]);
-            van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
-        }
+        van_leer_slope_left = van_leer_slope(s[im1], s[i0], s[ip1]);
+        van_leer_slope_right = van_leer_slope(s[i0], s[ip1], s[ip2]);
 
         sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 

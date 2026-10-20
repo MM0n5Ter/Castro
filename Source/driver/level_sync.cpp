@@ -54,6 +54,16 @@
 
 using namespace amrex;
 
+static void gather_register_faces (const FluxRegister& reg, int dir, MultiFab& dest)
+{
+    for (OrientationIter fi; fi.isValid(); ++fi) {
+        const FabSet& fs = reg[fi()];
+        if (fi().coordDir() == dir) {
+            fs.copyTo(dest, 0, 0, 0, dest.nComp());
+        }
+    }
+}
+
 void
 HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 {
@@ -117,12 +127,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             scratch_fluxes[idir].setVal(0.0);
 
-            for (OrientationIter fi; fi.isValid(); ++fi) {
-                const FabSet& fs = (*reg)[fi()];
-                if (fi().coordDir() == idir) {
-                    fs.copyTo(scratch_fluxes[idir], 0, 0, 0, scratch_fluxes[idir].nComp());
-                }
-            }
+            gather_register_faces(*reg, idir, scratch_fluxes[idir]);
 
         }
 
@@ -226,13 +231,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
                 scratch_radial_fluxes.setVal(0.0);
 
-                for (OrientationIter fi; fi.isValid(); ++fi)
-                {
-                    const FabSet& fs = (*reg)[fi()];
-                    if (fi().coordDir() == 0) {
-                        fs.copyTo(scratch_radial_fluxes, 0, 0, 0, scratch_radial_fluxes.nComp());
-                    }
-                }
+                gather_register_faces(*reg, 0, scratch_radial_fluxes);
 
                 MultiFab::Add(crse_lev.Pressure_radial, scratch_radial_fluxes, 0, 0, crse_lev.Pressure_radial.nComp(), 0);
 
@@ -263,12 +262,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
                     scratch_fluxes.setVal(0.0);
 
-                    for (OrientationIter fi; fi.isValid(); ++fi) {
-                        const FabSet& fs = (*reg)[fi()];
-                        if (fi().coordDir() == idir) {
-                            fs.copyTo(scratch_fluxes, 0, 0, 0, scratch_fluxes.nComp());
-                        }
-                    }
+                    gather_register_faces(*reg, idir, scratch_fluxes);
 
                     MultiFab::Add(*crse_lev.rad_face_flux[idir], scratch_fluxes, 0, 0, crse_lev.rad_face_flux[idir]->nComp(), 0);
 

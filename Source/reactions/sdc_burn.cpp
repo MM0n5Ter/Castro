@@ -172,18 +172,22 @@ HydroSim::burn_over_state(Real time, Real dt)
 
             Real invTimestep = 1.0_rt / dt;
 
-            burn_state.ydot_a[SRHO] = (cons_new(i,j,k,URHO) - Conserved_old(i,j,k,URHO)) * invTimestep;
-            burn_state.ydot_a[SMX] = (cons_new(i,j,k,UMX) - Conserved_old(i,j,k,UMX)) * invTimestep;
-            burn_state.ydot_a[SMY] = (cons_new(i,j,k,UMY) - Conserved_old(i,j,k,UMY)) * invTimestep;
-            burn_state.ydot_a[SMZ] = (cons_new(i,j,k,UMZ) - Conserved_old(i,j,k,UMZ)) * invTimestep;
-            burn_state.ydot_a[SEDEN] = (cons_new(i,j,k,UEDEN) - Conserved_old(i,j,k,UEDEN)) * invTimestep;
-            burn_state.ydot_a[SEINT] = (cons_new(i,j,k,UEINT) - Conserved_old(i,j,k,UEINT)) * invTimestep;
+            auto advective_rate = [&] (int comp) {
+                return (cons_new(i,j,k,comp) - Conserved_old(i,j,k,comp)) * invTimestep;
+            };
+
+            burn_state.ydot_a[SRHO] = advective_rate(URHO);
+            burn_state.ydot_a[SMX] = advective_rate(UMX);
+            burn_state.ydot_a[SMY] = advective_rate(UMY);
+            burn_state.ydot_a[SMZ] = advective_rate(UMZ);
+            burn_state.ydot_a[SEDEN] = advective_rate(UEDEN);
+            burn_state.ydot_a[SEINT] = advective_rate(UEINT);
             for (int n = 0; n < NumSpec; n++) {
-                burn_state.ydot_a[SFS+n] = (cons_new(i,j,k,UFS+n) - Conserved_old(i,j,k,UFS+n)) * invTimestep;
+                burn_state.ydot_a[SFS+n] = advective_rate(UFS+n);
             }
 #if NAUX_NET > 0
             for (int n = 0; n < NumAux; n++) {
-                burn_state.ydot_a[SFX+n] = (cons_new(i,j,k,UFX+n) - Conserved_old(i,j,k,UFX+n)) * invTimestep;
+                burn_state.ydot_a[SFX+n] = advective_rate(UFX+n);
             }
 #endif
 
@@ -235,15 +239,15 @@ HydroSim::burn_over_state(Real time, Real dt)
 
                 if (reaction_source_arr.contains(i,j,k)) {
 
-                    reaction_source_arr(i,j,k,0) = (cons_new(i,j,k,UEINT) - Conserved_old(i,j,k,UEINT)) * invTimestep - burn_state.ydot_a[SEINT];
+                    reaction_source_arr(i,j,k,0) = advective_rate(UEINT) - burn_state.ydot_a[SEINT];
 
                     if (keep_omegadot) {
                         for (int n = 0; n < NumSpec; ++n) {
-                            reaction_source_arr(i,j,k,1+n) = (cons_new(i,j,k,UFS+n) - Conserved_old(i,j,k,UFS+n)) * invTimestep - burn_state.ydot_a[SFS+n];
+                            reaction_source_arr(i,j,k,1+n) = advective_rate(UFS+n) - burn_state.ydot_a[SFS+n];
                         }
 #if NAUX_NET > 0
                         for (int n = 0; n < NumAux; ++n) {
-                            reaction_source_arr(i,j,k,1+n+NumSpec) = (cons_new(i,j,k,UFX+n) - Conserved_old(i,j,k,UFX+n)) * invTimestep - burn_state.ydot_a[SFX+n];
+                            reaction_source_arr(i,j,k,1+n+NumSpec) = advective_rate(UFX+n) - burn_state.ydot_a[SFX+n];
                         }
 #endif
                     }

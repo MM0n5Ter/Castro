@@ -260,7 +260,8 @@ HydroSim::apply_tangential_pass(const Box& bx,
 #endif
 
         bool state_was_reset = false;
-        if (density_reset_enabled && density_new < 0.0_rt) {
+
+        auto revert_to_input_zone = [&] () {
             density_new = rrn;
             momentum_x_new = run;
             momentum_y_new = rvn;
@@ -276,27 +277,17 @@ HydroSim::apply_tangential_pass(const Box& bx,
             }
 #endif
             state_was_reset = true;
+        };
+
+        if (density_reset_enabled && density_new < 0.0_rt) {
+            revert_to_input_zone();
         }
 
 
         for (int n = 0; n < NumSpec; ++n) {
             if (q_out_arr(i,j,k,n+QFS) > 1.0_rt + species_fraction_tol ||
                 q_out_arr(i,j,k,n+QFS) < -species_fraction_tol) {
-                density_new = rrn;
-                momentum_x_new = run;
-                momentum_y_new = rvn;
-                momentum_z_new = rwn;
-                energy_new = ren;
-                for (int passive_index = 0; passive_index < npassive; ++passive_index) {
-                    int nqp = passive_prim_index(passive_index);
-                    q_out_arr(i,j,k,nqp) = prim_arr(i,j,k,nqp);
-                }
-#ifdef RADIATION
-                for (int g = 0; g < NGROUPS; ++g) {
-                    rad_energy_new_group[g] = ern[g];
-                }
-#endif
-                state_was_reset = true;
+                revert_to_input_zone();
                 break;
             }
         }
@@ -478,21 +469,22 @@ HydroSim::apply_tangential_correction(const Box& bx,
         }
 
 
+        auto corrected = [&] (Real base, int comp) {
+            return base - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,comp) -
+                                              flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,comp))
+                        - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,comp) -
+                                              flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,comp));
+        };
+
         const Real rrn = prim_arr(i,j,k,QRHO);
-        const Real density_partial = rrn - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,URHO) -
-                                        flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,URHO))
-                          - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,URHO) -
-                                        flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,URHO));
+        const Real density_partial = corrected(rrn, URHO);
 
         for (int passive_index = 0; passive_index < npassive; ++passive_index) {
             const int n = passive_cons_index(passive_index);
             const int nqp = passive_prim_index(passive_index);
 
             Real passive_cons_base = rrn * prim_arr(i,j,k,nqp);
-            Real passive_cons_next = passive_cons_base - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,n) -
-                                              flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,n))
-                                - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,n) -
-                                              flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,n));
+            Real passive_cons_next = corrected(passive_cons_base, n);
 
             q_out_arr(i,j,k,nqp) = passive_cons_next / density_partial;
         }
@@ -601,22 +593,10 @@ HydroSim::apply_tangential_correction(const Box& bx,
 #endif
 
         Real density_new = density_partial;
-        Real momentum_x_new = run - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UMX) -
-                                        flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UMX))
-                          - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,UMX) -
-                                        flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,UMX));
-        Real momentum_y_new = rvn - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UMY) -
-                                        flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UMY))
-                          - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,UMY) -
-                                        flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,UMY));
-        Real momentum_z_new = rwn - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UMZ) -
-                                        flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UMZ))
-                          - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,UMZ) -
-                                        flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,UMZ));
-        Real energy_new = ren - third_dt_dx_tan1 * (flux_tan1(trans1_right_i,trans1_right_j,trans1_right_k,UEDEN) -
-                                        flux_tan1(trans1_left_i,trans1_left_j,trans1_left_k,UEDEN))
-                          - third_dt_dx_tan2 * (flux_tan2(trans2_right_i,trans2_right_j,trans2_right_k,UEDEN) -
-                                        flux_tan2(trans2_left_i,trans2_left_j,trans2_left_k,UEDEN));
+        Real momentum_x_new = corrected(run, UMX);
+        Real momentum_y_new = corrected(rvn, UMY);
+        Real momentum_z_new = corrected(rwn, UMZ);
+        Real energy_new = corrected(ren, UEDEN);
 #ifdef RADIATION
         if (idir_normal == 0) {
             momentum_y_new = momentum_y_new + mom_delta_trans1;

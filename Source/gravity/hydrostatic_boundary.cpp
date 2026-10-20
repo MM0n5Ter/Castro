@@ -16,6 +16,76 @@ namespace hse
 constexpr int EXTERNAL_UNDEFINED = -1;
 constexpr int EXTERNAL_HYDROSTATIC = 1;
 
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+bool
+hse_solve_zone_density(eos_rep_t& eos_state, Real& dens_zone, Real temp_zone,
+                       Real dens_ref, Real p_ref, Real dx_dir,
+                       bool below_domain, Real& p_want, Real& drho)
+{
+    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
+
+        if (below_domain) {
+            p_want = p_ref -
+                dx_dir * 0.5_rt * (dens_zone + dens_ref) * gravity::uniform_accel;
+        } else {
+            p_want = p_ref +
+                dx_dir * 0.5_rt * (dens_zone + dens_ref) * gravity::uniform_accel;
+        }
+
+        eos_state.rho = dens_zone;
+        eos_state.T = temp_zone;
+
+        eos(eos_input_rt, eos_state);
+
+        Real pressure_zone = eos_state.p;
+        Real dpdr = eos_state.dpdr;
+
+        Real A = p_want - pressure_zone;
+        if (below_domain) {
+            drho = A / (dpdr + 0.5_rt * dx_dir * gravity::uniform_accel);
+        } else {
+            drho = A / (dpdr - 0.5_rt * dx_dir * gravity::uniform_accel);
+        }
+
+        dens_zone = amrex::max(0.9_rt*dens_zone,
+                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
+
+        if (std::abs(drho) < hse::TOL * dens_zone) {
+            return true;
+        }
+
+    }
+
+    return false;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+store_hse_zone(Array4<Real> const& adv, int i, int j, int k,
+               Real dens_zone, Real eint, Real temp_zone,
+               const Real* zone_mass_frac
+#if NAUX_NET > 0
+               , const Real* zone_aux_vars
+#endif
+               )
+{
+    adv(i,j,k,URHO) = dens_zone;
+    adv(i,j,k,UEINT) = dens_zone * eint;
+    adv(i,j,k,UEDEN) = dens_zone * eint +
+        0.5_rt * (adv(i,j,k,UMX) * adv(i,j,k,UMX) +
+                  adv(i,j,k,UMY) * adv(i,j,k,UMY) +
+                  adv(i,j,k,UMZ) * adv(i,j,k,UMZ)) / dens_zone;
+    adv(i,j,k,UTEMP) = temp_zone;
+    for (int n = 0; n < NumSpec; n++) {
+        adv(i,j,k,UFS+n) = dens_zone * zone_mass_frac[n];
+    }
+#if NAUX_NET > 0
+    for (int n = 0; n < NumAux; n++) {
+        adv(i,j,k,UFX+n) = dens_zone * zone_aux_vars[n];
+    }
+#endif
+}
+
 void
 hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
               Geometry const& geom, const Vector<BCRec>& bcr,
@@ -104,39 +174,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                         }
                     }
 
-                    [[maybe_unused]] bool hydrostatic_converged = false;
-
                     Real p_want;
                     Real drho;
 
-                    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
-
-
-                        p_want = pressure_above -
-                            dx[0] * 0.5_rt * (dens_zone + density_above) * gravity::uniform_accel;
-
-
-                        eos_state.rho = dens_zone;
-                        eos_state.T = temp_zone;
-
-                        eos(eos_input_rt, eos_state);
-
-                        Real pressure_zone = eos_state.p;
-                        Real dpdr = eos_state.dpdr;
-
-                        Real A = p_want - pressure_zone;
-                        drho = A / (dpdr + 0.5_rt * dx[0] * gravity::uniform_accel);
-
-                        dens_zone = amrex::max(0.9_rt*dens_zone,
-                                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
-
-
-                        if (std::abs(drho) < hse::TOL * dens_zone) {
-                            hydrostatic_converged = true;
-                            break;
-                        }
-
-                    }
+                    [[maybe_unused]] bool hydrostatic_converged =
+                        hse_solve_zone_density(eos_state, dens_zone, temp_zone, density_above, pressure_above,
+                                               dx[0], true, p_want, drho);
 
 #ifndef AMREX_USE_GPU
                     if (! hydrostatic_converged) {
@@ -185,21 +228,11 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   adv(ii,j,k,URHO) = dens_zone;
-                   adv(ii,j,k,UEINT) = dens_zone * eint;
-                   adv(ii,j,k,UEDEN) = dens_zone * eint +
-                       0.5_rt * (adv(ii,j,k,UMX) * adv(ii,j,k,UMX) +
-                                 adv(ii,j,k,UMY) * adv(ii,j,k,UMY) +
-                                 adv(ii,j,k,UMZ) * adv(ii,j,k,UMZ)) / dens_zone;
-                   adv(ii,j,k,UTEMP) = temp_zone;
-                   for (int n = 0; n < NumSpec; n++) {
-                       adv(ii,j,k,UFS+n) = dens_zone * zone_mass_frac[n];
-                   }
+                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac
 #if NAUX_NET > 0
-                   for (int n = 0; n < NumAux; n++) {
-                       adv(ii,j,k,UFX+n) = dens_zone * zone_aux_vars[n];
-                   }
+                                 , zone_aux_vars
 #endif
+                                 );
 
 
                    density_above = dens_zone;
@@ -277,38 +310,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                         }
                     }
 
-                    [[maybe_unused]] bool hydrostatic_converged = false;
-
                     Real p_want;
                     Real drho;
 
-                    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
-
-                        p_want = pressure_below +
-                            dx[0] * 0.5_rt * (dens_zone + density_below) * gravity::uniform_accel;
-
-
-                        eos_state.rho = dens_zone;
-                        eos_state.T = temp_zone;
-
-                        eos(eos_input_rt, eos_state);
-
-                        Real pressure_zone = eos_state.p;
-                        Real dpdr = eos_state.dpdr;
-
-                        Real A = p_want - pressure_zone;
-                        drho = A / (dpdr - 0.5_rt * dx[0] * gravity::uniform_accel);
-
-                        dens_zone = amrex::max(0.9_rt*dens_zone,
-                                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
-
-
-                        if (std::abs(drho) < hse::TOL * dens_zone) {
-                            hydrostatic_converged = true;
-                            break;
-                        }
-
-                    }
+                    [[maybe_unused]] bool hydrostatic_converged =
+                        hse_solve_zone_density(eos_state, dens_zone, temp_zone, density_below, pressure_below,
+                                               dx[0], false, p_want, drho);
 
 #ifndef AMREX_USE_GPU
                    if (! hydrostatic_converged) {
@@ -357,21 +364,11 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   adv(ii,j,k,URHO) = dens_zone;
-                   adv(ii,j,k,UEINT) = dens_zone * eint;
-                   adv(ii,j,k,UEDEN) = dens_zone * eint +
-                       0.5_rt * (adv(ii,j,k,UMX) * adv(ii,j,k,UMX) +
-                                 adv(ii,j,k,UMY) * adv(ii,j,k,UMY) +
-                                 adv(ii,j,k,UMZ) * adv(ii,j,k,UMZ)) / dens_zone;
-                   adv(ii,j,k,UTEMP) = temp_zone;
-                   for (int n = 0; n < NumSpec; n++) {
-                       adv(ii,j,k,UFS+n) = dens_zone * zone_mass_frac[n];
-                   }
+                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac
 #if NAUX_NET > 0
-                   for (int n = 0; n < NumAux; n++) {
-                       adv(ii,j,k,UFX+n) = dens_zone * zone_aux_vars[n];
-                   }
+                                 , zone_aux_vars
 #endif
+                                 );
 
 
                    density_below = dens_zone;
@@ -452,39 +449,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                         }
                     }
 
-                    [[maybe_unused]] bool hydrostatic_converged = false;
-
                     Real p_want;
                     Real drho;
 
-                    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
-
-
-                        p_want = pressure_above -
-                            dx[1] * 0.5_rt * (dens_zone + density_above) * gravity::uniform_accel;
-
-
-                        eos_state.rho = dens_zone;
-                        eos_state.T = temp_zone;
-
-                        eos(eos_input_rt, eos_state);
-
-                        Real pressure_zone = eos_state.p;
-                        Real dpdr = eos_state.dpdr;
-
-                        Real A = p_want - pressure_zone;
-                        drho = A / (dpdr + 0.5_rt * dx[1] * gravity::uniform_accel);
-
-                        dens_zone = amrex::max(0.9_rt*dens_zone,
-                                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
-
-
-                        if (std::abs(drho) < hse::TOL * dens_zone) {
-                            hydrostatic_converged = true;
-                            break;
-                        }
-
-                    }
+                    [[maybe_unused]] bool hydrostatic_converged =
+                        hse_solve_zone_density(eos_state, dens_zone, temp_zone, density_above, pressure_above,
+                                               dx[1], true, p_want, drho);
 
 #ifndef AMREX_USE_GPU
                    if (! hydrostatic_converged) {
@@ -533,21 +503,11 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   adv(i,jj,k,URHO) = dens_zone;
-                   adv(i,jj,k,UEINT) = dens_zone * eint;
-                   adv(i,jj,k,UEDEN) = dens_zone * eint +
-                       0.5_rt * (adv(i,jj,k,UMX) * adv(i,jj,k,UMX) +
-                                 adv(i,jj,k,UMY) * adv(i,jj,k,UMY) +
-                                 adv(i,jj,k,UMZ) * adv(i,jj,k,UMZ)) / dens_zone;
-                   adv(i,jj,k,UTEMP) = temp_zone;
-                   for (int n = 0; n < NumSpec; n++) {
-                       adv(i,jj,k,UFS+n) = dens_zone * zone_mass_frac[n];
-                   }
+                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac
 #if NAUX_NET > 0
-                   for (int n = 0; n < NumAux; n++) {
-                       adv(i,jj,k,UFX+n) = dens_zone * zone_aux_vars[n];
-                   }
+                                 , zone_aux_vars
 #endif
+                                 );
 
 
                    density_above = dens_zone;
@@ -626,38 +586,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                         }
                     }
 
-                    [[maybe_unused]] bool hydrostatic_converged = false;
-
                     Real p_want;
                     Real drho;
 
-                    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
-
-                        p_want = pressure_below +
-                            dx[1] * 0.5_rt * (dens_zone + density_below) * gravity::uniform_accel;
-
-
-                        eos_state.rho = dens_zone;
-                        eos_state.T = temp_zone;
-
-                        eos(eos_input_rt, eos_state);
-
-                        Real pressure_zone = eos_state.p;
-                        Real dpdr = eos_state.dpdr;
-
-                        Real A = p_want - pressure_zone;
-                        drho = A / (dpdr - 0.5_rt * dx[1] * gravity::uniform_accel);
-
-                        dens_zone = amrex::max(0.9_rt*dens_zone,
-                                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
-
-
-                        if (std::abs(drho) < hse::TOL * dens_zone) {
-                            hydrostatic_converged = true;
-                            break;
-                        }
-
-                    }
+                    [[maybe_unused]] bool hydrostatic_converged =
+                        hse_solve_zone_density(eos_state, dens_zone, temp_zone, density_below, pressure_below,
+                                               dx[1], false, p_want, drho);
 
 #ifndef AMREX_USE_GPU
                    if (! hydrostatic_converged) {
@@ -706,21 +640,11 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   adv(i,jj,k,URHO) = dens_zone;
-                   adv(i,jj,k,UEINT) = dens_zone * eint;
-                   adv(i,jj,k,UEDEN) = dens_zone * eint +
-                       0.5_rt * (adv(i,jj,k,UMX) * adv(i,jj,k,UMX) +
-                                 adv(i,jj,k,UMY) * adv(i,jj,k,UMY) +
-                                 adv(i,jj,k,UMZ) * adv(i,jj,k,UMZ)) / dens_zone;
-                   adv(i,jj,k,UTEMP) = temp_zone;
-                   for (int n = 0; n < NumSpec; n++) {
-                       adv(i,jj,k,UFS+n) = dens_zone * zone_mass_frac[n];
-                   }
+                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac
 #if NAUX_NET > 0
-                   for (int n = 0; n < NumAux; n++) {
-                       adv(i,jj,k,UFX+n) = dens_zone * zone_aux_vars[n];
-                   }
+                                 , zone_aux_vars
 #endif
+                                 );
 
 
                    density_below = dens_zone;
@@ -800,39 +724,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                         }
                     }
 
-                    [[maybe_unused]] bool hydrostatic_converged = false;
-
                     Real p_want;
                     Real drho;
 
-                    for (int iter = 0; iter < hse::MAX_ITER; iter++) {
-
-
-                        p_want = pressure_above -
-                            dx[2] * 0.5_rt * (dens_zone + density_above) * gravity::uniform_accel;
-
-
-                        eos_state.rho = dens_zone;
-                        eos_state.T = temp_zone;
-
-                        eos(eos_input_rt, eos_state);
-
-                        Real pressure_zone = eos_state.p;
-                        Real dpdr = eos_state.dpdr;
-
-                        Real A = p_want - pressure_zone;
-                        drho = A / (dpdr + 0.5_rt * dx[2] * gravity::uniform_accel);
-
-                        dens_zone = amrex::max(0.9_rt*dens_zone,
-                                               amrex::min(dens_zone + drho, 1.1_rt*dens_zone));
-
-
-                        if (std::abs(drho) < hse::TOL * dens_zone) {
-                            hydrostatic_converged = true;
-                            break;
-                        }
-
-                    }
+                    [[maybe_unused]] bool hydrostatic_converged =
+                        hse_solve_zone_density(eos_state, dens_zone, temp_zone, density_above, pressure_above,
+                                               dx[2], true, p_want, drho);
 
 #ifndef AMREX_USE_GPU
                    if (! hydrostatic_converged) {
@@ -881,21 +778,11 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   adv(i,j,kk,URHO) = dens_zone;
-                   adv(i,j,kk,UEINT) = dens_zone * eint;
-                   adv(i,j,kk,UEDEN) = dens_zone * eint +
-                       0.5_rt * (adv(i,j,kk,UMX) * adv(i,j,kk,UMX) +
-                                 adv(i,j,kk,UMY) * adv(i,j,kk,UMY) +
-                                 adv(i,j,kk,UMZ) * adv(i,j,kk,UMZ)) / dens_zone;
-                   adv(i,j,kk,UTEMP) = temp_zone;
-                   for (int n = 0; n < NumSpec; n++) {
-                       adv(i,j,kk,UFS+n) = dens_zone * zone_mass_frac[n];
-                   }
+                   store_hse_zone(adv, i, j, kk, dens_zone, eint, temp_zone, zone_mass_frac
 #if NAUX_NET > 0
-                   for (int n = 0; n < NumAux; n++) {
-                       adv(i,j,kk,UFX+n) = dens_zone * zone_aux_vars[n];
-                   }
+                                 , zone_aux_vars
 #endif
+                                 );
 
 
                    density_above = dens_zone;

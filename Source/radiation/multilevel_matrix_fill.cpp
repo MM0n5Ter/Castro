@@ -533,6 +533,68 @@ MultiLevelEllipticSolver::fillLevelMat (const Box& bx,
     Gpu::synchronize();
 }
 
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void boundary_face_weights (int bct, int bho, Real fac, Real beta, Real h, Real bcl, Real c, Real r,
+                            Real b_face, Array4<Real const> const& spa, int i, int j, int k,
+                            Real& bfm, Real& stencil_weight_second)
+{
+    Real bfv, h2, th2;
+
+    if (bct == AMREX_LO_DIRICHLET) {
+
+        if (bho >= 1) {
+            h2 = 0.5e0_rt * h;
+            th2 = 3.e0_rt * h2;
+            bfm = fac * (th2 - bcl) / (bcl + h2)  * b_face;
+            stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b_face;
+        }
+        else {
+            bfv = (beta / h) / (0.5e0_rt * h + bcl);
+            bfm = bfv * b_face;
+        }
+
+    }
+    else if (bct == AMREX_LO_NEUMANN) {
+
+        bfm  = 0.e0_rt;
+        stencil_weight_second = 0.e0_rt;
+
+    }
+    else if (bct == AMREX_LO_MARSHAK) {
+
+        bfv = 2.e0_rt * c * beta * r / h;
+
+        if (bho >= 1) {
+            bfm  =  0.375e0_rt * bfv;
+            stencil_weight_second = -0.125e0_rt * bfv;
+        }
+        else {
+            bfm = 0.25e0_rt * bfv;
+        }
+
+    }
+    else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
+
+        bfv = 2.e0_rt * c * beta * r / h;
+
+        if (bho >= 1) {
+            bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
+            stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
+        }
+        else {
+            bfm = spa(i,j,k) * bfv;
+        }
+
+    }
+#ifndef AMREX_USE_GPU
+    else {
+
+        amrex::Error("fillLevelMat3: unsupported boundary type");
+
+    }
+#endif
+}
+
 void
 MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                         int side_is_low, int idir,
@@ -636,8 +698,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
         Real r;
         face_geometry_factors(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, side_is_low, r);
 
-        Real bfm, bfv;
-        Real stencil_weight_second, h2, th2;
+        Real bfm;
+        Real stencil_weight_second;
         int bct;
 
         if (mask.contains(i-1,j,k)) {
@@ -651,59 +713,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
-                    }
-                    else  {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i,j,k), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
@@ -725,59 +736,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i+1,j,k);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i+1,j,k);
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i+1,j,k);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i+1,j,k), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i+1,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
@@ -799,59 +759,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i,j,k), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[3] = 0.e0_rt;
@@ -873,59 +782,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j+1,k);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i,j+1,k);
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j+1,k);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i,j+1,k), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i,j+1,k);
                 mat(i,j,k)[4] = 0.e0_rt;
@@ -947,59 +805,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i,j,k);
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i,j,k), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[5] = 0.e0_rt;
@@ -1021,59 +828,8 @@ MultiLevelEllipticSolver::fillLevelMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfm = fac * (th2 - bcl) / (bcl + h2)  * b(i,j,k+1);
-                        stencil_weight_second = fac * (bcl - h2) / (bcl + th2) * b(i,j,k+1);
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                        bfm = bfv * b(i,j,k+1);
-                    }
-
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-
-                    bfm  = 0.e0_rt;
-                    stencil_weight_second = 0.e0_rt;
-
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  0.375e0_rt * bfv;
-                        stencil_weight_second = -0.125e0_rt * bfv;
-                    }
-                    else {
-                        bfm = 0.25e0_rt * bfv;
-                    }
-
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-
-                    bfv = 2.e0_rt * c * beta * r / h;
-
-                    if (bho >= 1) {
-                        bfm  =  1.5e0_rt * spa(i,j,k) * bfv;
-                        stencil_weight_second = -0.5e0_rt * spa(i,j,k) * bfv;
-                    }
-                    else {
-                        bfm = spa(i,j,k) * bfv;
-                    }
-
-                }
-#ifndef AMREX_USE_GPU
-                else {
-
-                    amrex::Error("fillLevelMat3: unsupported boundary type");
-
-                }
-#endif
+                boundary_face_weights(bct, bho, fac, beta, h, bcl, c, r,
+                                      b(i,j,k+1), spa, i, j, k, bfm, stencil_weight_second);
 
                 mat(i,j,k)[0] += bfm - fac * b(i,j,k+1);
                 mat(i,j,k)[6] = 0.e0_rt;
@@ -1146,6 +902,51 @@ void MultiLevelEllipticSolver::commitMatrix()
   HYPRE_SStructMatrixAssemble(A);
 }
 
+void MultiLevelEllipticSolver::addBoundaryRhs(int level, const MFIter& mfi, const Box& reg,
+                                      Array4<Real> const& vec)
+{
+  int i = mfi.index();
+  const Box& domain = bd[level]->getDomain();
+  for (OrientationIter oitr; oitr; oitr++) {
+    int cdir(oitr());
+    int idim = oitr().coordDir();
+    const RadBoundaryCondition &bct = bd[level]->bndryConds(oitr())[i];
+    const Real      &bcl = bd[level]->bndryLocs(oitr())[i];
+    const FArrayBox       &fs  = bd[level]->bndryValues(oitr())[mfi];
+    const Mask      &msk = bd[level]->bndryMasks(oitr(), i);
+
+    if (reg[oitr()] == domain[oitr()] || level == crse_level) {
+
+      if (reg[oitr()] == domain[oitr()]) {
+        Array4<const int> tfp{};
+        int bctype = bct;
+        if (bd[level]->isMixedFace(oitr())) {
+          const BaseFab<int> &tf = *(bd[level]->boundaryTypes(oitr())[i]);
+          tfp = tf.array();
+          bctype = -1;
+        }
+        AlphaBetaSolver::fillBcVec3(reg,
+                          oitr().isLow(), idim,
+                          vec,
+                          cdir, bctype,
+                          tfp,
+                          bho, bcl,
+                          fs.array(bc_component),
+                          msk.array(),
+                          (*bcoefs[level])[idim][mfi].array(),
+                          beta, geom[level].data());
+      }
+      else {
+        AlphaBetaSolver::fillBcVec(reg, vec,
+                         cdir, bct, bho, bcl,
+                         fs.array(bc_component), msk.array(),
+                         (*bcoefs[level])[idim][mfi].array(),
+                         beta, geom[level].CellSize());
+      }
+    }
+  }
+}
+
 void MultiLevelEllipticSolver::fillLevelRhs(int level,
                                       MultiFab& rhs,
                                       BoundaryMode bc_variant)
@@ -1172,45 +973,7 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
     Real* vec = f->dataPtr();
 
     if (bc_variant) {
-      const Box& domain = bd[level]->getDomain();
-      for (OrientationIter oitr; oitr; oitr++) {
-        int cdir(oitr());
-        int idim = oitr().coordDir();
-        const RadBoundaryCondition &bct = bd[level]->bndryConds(oitr())[i];
-        const Real      &bcl = bd[level]->bndryLocs(oitr())[i];
-        const FArrayBox       &fs  = bd[level]->bndryValues(oitr())[mfi];
-        const Mask      &msk = bd[level]->bndryMasks(oitr(), i);
-        const Box &bbox = (*bcoefs[level])[idim][mfi].box();
-        const Box &msb  = msk.box();
-        if (reg[oitr()] == domain[oitr()] || level == crse_level) {
-
-          if (!(reg[oitr()] == domain[oitr()])) {
-              AlphaBetaSolver::fillBcVec(reg, f->array(),
-                               cdir, bct, bho, bcl,
-                               fs.array(bc_component), msk.array(),
-                               (*bcoefs[level])[idim][mfi].array(),
-                               beta, geom[level].CellSize());
-          } else {
-            Array4<const int> tfp{};
-            int bctype = bct;
-            if (bd[level]->isMixedFace(oitr())) {
-              const BaseFab<int> &tf = *(bd[level]->boundaryTypes(oitr())[i]);
-              tfp = tf.array();
-              bctype = -1;
-            }
-            AlphaBetaSolver::fillBcVec3(reg,
-                              oitr().isLow(), idim,
-                              f->array(),
-                              cdir, bctype,
-                              tfp,
-                              bho, bcl,
-                              fs.array(bc_component),
-                              msk.array(),
-                              (*bcoefs[level])[idim][mfi].array(),
-                              beta, geom[level].data());
-          }
-        }
-      }
+      addBoundaryRhs(level, mfi, reg, f->array());
     }
 
     writeVectorBox(b, part, reg, subgrids[level][i], vec);
@@ -1253,46 +1016,7 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
     f->copy<RunOn::Device>(rhs[mfi], 0, fcomp, 1);
 
     if (bc_variant) {
-      const Box& domain = bd[level]->getDomain();
-      for (OrientationIter oitr; oitr; oitr++) {
-        int cdir(oitr());
-        int idim = oitr().coordDir();
-        const RadBoundaryCondition &bct = bd[level]->bndryConds(oitr())[i];
-        const Real      &bcl = bd[level]->bndryLocs(oitr())[i];
-        const FArrayBox       &fs  = bd[level]->bndryValues(oitr())[mfi];
-        const Mask      &msk = bd[level]->bndryMasks(oitr(), i);
-        const Box &bbox = (*bcoefs[level])[idim][mfi].box();
-
-        if (reg[oitr()] == domain[oitr()] || level == crse_level) {
-
-          if (reg[oitr()] == domain[oitr()]) {
-            Array4<const int> tfp{};
-            int bctype = bct;
-            if (bd[level]->isMixedFace(oitr())) {
-              const BaseFab<int> &tf = *(bd[level]->boundaryTypes(oitr())[i]);
-              tfp = tf.array();
-              bctype = -1;
-            }
-            AlphaBetaSolver::fillBcVec3(reg,
-                              oitr().isLow(), idim,
-                              f->array(fcomp),
-                              cdir, bctype,
-                              tfp,
-                              bho, bcl,
-                              fs.array(bc_component),
-                              msk.array(),
-                              (*bcoefs[level])[idim][mfi].array(),
-                              beta, geom[level].data());
-          }
-          else {
-              AlphaBetaSolver::fillBcVec(reg, f->array(fcomp),
-                               cdir, bct, bho, bcl,
-                               fs.array(bc_component), msk.array(),
-                               (*bcoefs[level])[idim][mfi].array(),
-                               beta, geom[level].CellSize());
-          }
-        }
-      }
+      addBoundaryRhs(level, mfi, reg, f->array(fcomp));
     }
 
     writeVectorBox(b, part, reg, subgrids[level][i], vec);

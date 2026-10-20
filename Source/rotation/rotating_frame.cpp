@@ -6,6 +6,23 @@
 #endif
 #include <HydroSim_math.H>
 
+static void print_rotation_timing (const char* label, Real strt_time, Real level_real)
+{
+    const int IOProc   = ParallelDescriptor::IOProcessorNumber();
+    Real run_time = ParallelDescriptor::second() - strt_time;
+
+#ifdef BL_LAZY
+    Lazy::QueueReduction( [=] () mutable {
+#endif
+    ParallelDescriptor::ReduceRealMax(run_time,IOProc);
+
+    amrex::Print() << "HydroSim::" << label << "() time = " << run_time
+                   << " on level " << level_real << "\n" << "\n";
+#ifdef BL_LAZY
+    });
+#endif
+}
+
 void
 HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Real time, Real dt)
 {
@@ -35,20 +52,7 @@ HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Rea
 
     if (verbose > 1)
     {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        amrex::Real run_time = ParallelDescriptor::second() - strt_time;
-        amrex::Real level_real = level;
-
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_old_rotation_source() time = " << run_time
-                       << " on level " << level_real << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+        print_rotation_timing("assemble_old_rotation_source", strt_time, level);
     }
 }
 
@@ -87,18 +91,7 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& field_old, Mu
 
     if (verbose > 1)
     {
-        const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-        Real      run_time = ParallelDescriptor::second() - strt_time;
-        Real level_real = level;
-#ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-        amrex::Print() << "HydroSim::assemble_new_rotation_source() time = " << run_time << " on level " << level_real << "\n" << "\n";
-#ifdef BL_LAZY
-        });
-#endif
+        print_rotation_timing("assemble_new_rotation_source", strt_time, level);
     }
 }
 

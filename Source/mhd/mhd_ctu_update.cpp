@@ -89,6 +89,16 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
           const Box& ghost_box = amrex::grow(bx, NUM_GROW);
 
+          auto emf_edge_box = [&] (int ngrow, int edge_dir) {
+              Box edge_box = amrex::grow(bx, ngrow);
+              for (int d = 0; d < 3; ++d) {
+                  if (d != edge_dir) {
+                      edge_box.growHi(d);
+                  }
+              }
+              return edge_box;
+          };
+
           FArrayBox &statein  = Sborder[mfi];
           auto state_view = statein.array();
 
@@ -312,23 +322,17 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           PrimitiveToConserved(gbx, prim_z_right_arr, cons_z_right_arr);
 
 
-          Box emf_box_x_wide = amrex::grow(bx, 2);
-          emf_box_x_wide.growHi(1);
-          emf_box_x_wide.growHi(2);
+          Box emf_box_x_wide = emf_edge_box(2, 0);
 
           edge_emf_x(emf_box_x_wide, prim_arr, emf_x_arr, flux_y_1d_arr, flux_z_1d_arr);
 
 
-          Box emf_box_y_wide = amrex::grow(bx, 2);
-          emf_box_y_wide.growHi(0);
-          emf_box_y_wide.growHi(2);
+          Box emf_box_y_wide = emf_edge_box(2, 1);
 
           edge_emf_y(emf_box_y_wide, prim_arr, emf_y_arr, flux_x_1d_arr, flux_z_1d_arr);
 
 
-          Box emf_box_z_wide = amrex::grow(bx, 2);
-          emf_box_z_wide.growHi(0);
-          emf_box_z_wide.growHi(1);
+          Box emf_box_z_wide = emf_edge_box(2, 2);
 
           edge_emf_z(emf_box_z_wide, prim_arr, emf_z_arr, flux_x_1d_arr, flux_y_1d_arr);
 
@@ -447,23 +451,17 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           });
 
 
-          Box emf_box_x_narrow = amrex::grow(bx, 1);
-          emf_box_x_narrow.growHi(1);
-          emf_box_x_narrow.growHi(2);
+          Box emf_box_x_narrow = emf_edge_box(1, 0);
 
           edge_emf_x(emf_box_x_narrow, prim_arr, emf_x_arr, flux_y_1d_arr, flux_z_1d_arr);
 
 
-          Box emf_box_y_narrow = amrex::grow(bx, 1);
-          emf_box_y_narrow.growHi(0);
-          emf_box_y_narrow.growHi(2);
+          Box emf_box_y_narrow = emf_edge_box(1, 1);
 
           edge_emf_y(emf_box_y_narrow, prim_arr, emf_y_arr, flux_x_1d_arr, flux_z_1d_arr);
 
 
-          Box emf_box_z_narrow = amrex::grow(bx, 1);
-          emf_box_z_narrow.growHi(0);
-          emf_box_z_narrow.growHi(1);
+          Box emf_box_z_narrow = emf_edge_box(1, 2);
 
           edge_emf_z(emf_box_z_narrow, prim_arr, emf_z_arr, flux_x_1d_arr, flux_y_1d_arr);
 
@@ -513,21 +511,15 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
                     flux_x_1d_arr, flux_y_1d_arr, flux_z_1d_arr, dt);
 
 
-          Box emf_box_x_final = mfi.tilebox();
-          emf_box_x_final.growHi(1, 1);
-          emf_box_x_final.growHi(2, 1);
+          Box emf_box_x_final = emf_edge_box(0, 0);
 
           edge_emf_x(emf_box_x_final, prim_half_state_arr, emf_x_arr, flux_y_arr, flux_z_arr);
 
-          Box emf_box_y_final = mfi.tilebox();
-          emf_box_y_final.growHi(0, 1);
-          emf_box_y_final.growHi(2, 1);
+          Box emf_box_y_final = emf_edge_box(0, 1);
 
           edge_emf_y(emf_box_y_final, prim_half_state_arr, emf_y_arr, flux_x_arr, flux_z_arr);
 
-          Box emf_box_z_final = mfi.tilebox();
-          emf_box_z_final.growHi(0, 1);
-          emf_box_z_final.growHi(1, 1);
+          Box emf_box_z_final = emf_edge_box(0, 2);
 
           edge_emf_z(emf_box_z_final, prim_half_state_arr, emf_z_arr, flux_x_arr, flux_y_arr);
 

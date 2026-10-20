@@ -13,6 +13,24 @@
 
 using namespace amrex;
 
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void fall_back_to_one_sided_slope (bool lo_covered, bool hi_covered,
+                                   Real c_lo, Real c_mid, Real c_hi,
+                                   Real& slope, Real& curvature)
+{
+    if (lo_covered) {
+        slope = c_hi - c_mid;
+        curvature = 0.0_rt;
+    }
+    if (hi_covered) {
+        slope = c_mid - c_lo;
+        curvature = 0.0_rt;
+    }
+    if (lo_covered && hi_covered) {
+        slope = 0.0_rt;
+    }
+}
+
 RadBoundaryData::RadBoundaryData(const BoxArray& _grids, const DistributionMapping& _dmap,
                            int _ncomp, const GeometryStandIn& _geom)
     : BndryRegister(), geom(_geom)
@@ -305,48 +323,27 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
 #endif
 
                                 if (dir != 0) {
-                                    if (mask_arr(i-1,j,k) != is_not_covered) {
-                                        slope_x = crse_arr(ic+1,jc,kc,n) - crse_arr(ic,jc,kc,n);
-                                        curvature_x = 0.0_rt;
-                                    }
-                                    if (mask_arr(i+ratio_x,j,k) != is_not_covered) {
-                                        slope_x = crse_arr(ic,jc,kc,n) - crse_arr(ic-1,jc,kc,n);
-                                        curvature_x = 0.0_rt;
-                                    }
-                                    if (mask_arr(i-1,j,k) != is_not_covered && mask_arr(i+ratio_x,j,k) != is_not_covered) {
-                                        slope_x = 0.0_rt;
-                                    }
+                                    fall_back_to_one_sided_slope(mask_arr(i-1,j,k) != is_not_covered,
+                                                                 mask_arr(i+ratio_x,j,k) != is_not_covered,
+                                                                 crse_arr(ic-1,jc,kc,n), crse_arr(ic,jc,kc,n), crse_arr(ic+1,jc,kc,n),
+                                                                 slope_x, curvature_x);
                                 }
 
 #if AMREX_SPACEDIM >= 2
                                 if (dir != 1) {
-                                    if (mask_arr(i,j-1,k) != is_not_covered) {
-                                        slope_y = crse_arr(ic,jc+1,kc,n) - crse_arr(ic,jc,kc,n);
-                                        curvature_y = 0.0_rt;
-                                    }
-                                    if (mask_arr(i,j+ratio_y,k) != is_not_covered) {
-                                        slope_y = crse_arr(ic,jc,kc,n) - crse_arr(ic,jc-1,kc,n);
-                                        curvature_y = 0.0_rt;
-                                    }
-                                    if (mask_arr(i,j-1,k) != is_not_covered && mask_arr(i,j+ratio_y,k) != is_not_covered) {
-                                        slope_y = 0.0_rt;
-                                    }
+                                    fall_back_to_one_sided_slope(mask_arr(i,j-1,k) != is_not_covered,
+                                                                 mask_arr(i,j+ratio_y,k) != is_not_covered,
+                                                                 crse_arr(ic,jc-1,kc,n), crse_arr(ic,jc,kc,n), crse_arr(ic,jc+1,kc,n),
+                                                                 slope_y, curvature_y);
                                 }
 #endif
 
 #if AMREX_SPACEDIM == 3
                                 if (dir != 2) {
-                                    if (mask_arr(i,j,k-1) != is_not_covered) {
-                                        slope_z = crse_arr(ic,jc,kc+1,n) - crse_arr(ic,jc,kc,n);
-                                        curvature_z = 0.0_rt;
-                                    }
-                                    if (mask_arr(i,j,k+ratio_z) != is_not_covered) {
-                                        slope_z = crse_arr(ic,jc,kc,n) - crse_arr(ic,jc,kc-1,n);
-                                        curvature_z = 0.0_rt;
-                                    }
-                                    if (mask_arr(i,j,k-1) != is_not_covered && mask_arr(i,j,k+ratio_z) != is_not_covered) {
-                                        slope_z = 0.0_rt;
-                                    }
+                                    fall_back_to_one_sided_slope(mask_arr(i,j,k-1) != is_not_covered,
+                                                                 mask_arr(i,j,k+ratio_z) != is_not_covered,
+                                                                 crse_arr(ic,jc,kc-1,n), crse_arr(ic,jc,kc,n), crse_arr(ic,jc,kc+1,n),
+                                                                 slope_z, curvature_z);
                                 }
 #endif
 

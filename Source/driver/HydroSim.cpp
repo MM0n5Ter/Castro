@@ -760,31 +760,25 @@ HydroSim::read_params ()
 
        run_logs.resize(4);
 
-       run_logs[0] = std::make_unique<std::fstream>();
-       run_logs[0]->open("grid_diag.out", std::ios::out | std::ios::app);
-       if (!run_logs[0]->good()) {
-           amrex::FileOpenFailed("grid_diag.out");
-       }
+       auto open_diag_log = [] (int slot, const char* file) {
+           run_logs[slot] = std::make_unique<std::fstream>();
+           run_logs[slot]->open(file, std::ios::out | std::ios::app);
+           if (!run_logs[slot]->good()) {
+               amrex::FileOpenFailed(file);
+           }
+       };
 
-       run_logs[1] = std::make_unique<std::fstream>();
+       open_diag_log(0, "grid_diag.out");
+
 #ifdef GRAVITY
-       run_logs[1]->open("gravity_diag.out", std::ios::out | std::ios::app);
-       if (!run_logs[1]->good()) {
-           amrex::FileOpenFailed("gravity_diag.out");
-       }
+       open_diag_log(1, "gravity_diag.out");
+#else
+       run_logs[1] = std::make_unique<std::fstream>();
 #endif
 
-       run_logs[2] = std::make_unique<std::fstream>();
-       run_logs[2]->open("species_diag.out", std::ios::out | std::ios::app);
-       if (!run_logs[2]->good()) {
-           amrex::FileOpenFailed("species_diag.out");
-       }
+       open_diag_log(2, "species_diag.out");
 
-       run_logs[3] = std::make_unique<std::fstream>();
-       run_logs[3]->open("amr_diag.out", std::ios::out | std::ios::app);
-       if (!run_logs[3]->good()) {
-           amrex::FileOpenFailed("amr_diag.out");
-       }
+       open_diag_log(3, "amr_diag.out");
 
    }
 

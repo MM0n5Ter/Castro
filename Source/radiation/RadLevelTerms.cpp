@@ -23,77 +23,13 @@ void RadTransportSolver::levelFaceCoeffs(int level,
   BL_PROFILE("RadTransportSolver::levelFaceCoeffs");
   BL_ASSERT(kappa_r.nGrow() == 1);
 
-  auto geomdata = parent->Geom(level).data();
-  auto dx = parent->Geom(level).CellSizeArray();
-
   for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
 
     MultiFab bcoefs(lambda[idim].boxArray(), lambda[idim].DistributionMap(), 1, 0);
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(lambda[idim], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.tilebox();
+    computeFaceCoeffs(bcoefs, idim, kappa_r, kcomp, lambda[idim], limiter_comp, c, parent->Geom(level));
 
-        auto dir_coef_arr = bcoefs[mfi].array();
-        auto limiter_arr = lambda[idim][mfi].array(limiter_comp);
-        auto kappa_ross_arr = kappa_r[mfi].array(kcomp);
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-        {
-            if (idim == 0) {
-
-                Real r, s;
-                edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-                if (AMREX_SPACEDIM == 1) {
-                    s = 1.e0_rt;
-                }
-
-                Real kap = face_opacity_average(kappa_ross_arr(i-1,j,k), kappa_ross_arr(i,j,k), dx[0], -1);
-                dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
-            }
-            else if (idim == 1) {
-
-                Real r, s;
-                edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-                if (AMREX_SPACEDIM == 1) {
-                    s = 1.e0_rt;
-                }
-
-                Real kap = face_opacity_average(kappa_ross_arr(i,j-1,k), kappa_ross_arr(i,j,k), dx[1], -1);
-                dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
-            }
-            else {
-
-                Real r, s;
-                edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-                if (AMREX_SPACEDIM == 1) {
-                    s = 1.e0_rt;
-                }
-
-                Real kap = face_opacity_average(kappa_ross_arr(i,j,k-1), kappa_ross_arr(i,j,k), dx[2], -1);
-                dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
-            }
-        });
-    }
-
-    if (hd) {
-        hd->setFaceCoefficients(bcoefs, idim);
-    }
-    else if (hm) {
-      hm->setFaceCoefficients(level, bcoefs, idim);
-    }
-    else if (hem) {
-      hem->setFaceCoefficients(level, bcoefs, idim);
-    }
+    setLevelFaceCoeffs(level, bcoefs, idim);
   }
 }
 
@@ -108,6 +44,10 @@ void RadTransportSolver::computeFaceCoeffs(MultiFab& bcoefs, int idim,
   auto geomdata = geom.data();
   auto dx = geom.CellSizeArray();
 
+  const int di = (idim == 0);
+  const int dj = (idim == 1);
+  const int dk = (idim == 2);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -121,45 +61,15 @@ void RadTransportSolver::computeFaceCoeffs(MultiFab& bcoefs, int idim,
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
       {
-          if (idim == 0) {
+          Real r, s;
+          edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
 
-              Real r, s;
-              edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-              if (AMREX_SPACEDIM == 1) {
-                  s = 1.e0_rt;
-              }
-
-              Real kap = face_opacity_average(kappa_ross_arr(i-1,j,k), kappa_ross_arr(i,j,k), dx[0], -1);
-              dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
+          if (AMREX_SPACEDIM == 1) {
+              s = 1.e0_rt;
           }
-          else if (idim == 1) {
 
-              Real r, s;
-              edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-              if (AMREX_SPACEDIM == 1) {
-                  s = 1.e0_rt;
-              }
-
-              Real kap = face_opacity_average(kappa_ross_arr(i,j-1,k), kappa_ross_arr(i,j,k), dx[1], -1);
-              dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
-          }
-          else {
-
-              Real r, s;
-              edge_center_geometry_factors(i, j, k, idim, geomdata, r, s);
-
-              if (AMREX_SPACEDIM == 1) {
-                  s = 1.e0_rt;
-              }
-
-              Real kap = face_opacity_average(kappa_ross_arr(i,j,k-1), kappa_ross_arr(i,j,k), dx[2], -1);
-              dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
-
-          }
+          Real kap = face_opacity_average(kappa_ross_arr(i-di,j-dj,k-dk), kappa_ross_arr(i,j,k), dx[idim], -1);
+          dir_coef_arr(i,j,k) = r * s * c * limiter_arr(i,j,k) / kap;
       });
   }
 }

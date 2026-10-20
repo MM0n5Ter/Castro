@@ -23,6 +23,18 @@ static int ispow2(int i)
   return (i == 1) ? 1 : (((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2));
 }
 
+static int query_struct_method_id ()
+{
+    ParmParse pp("hmabec");
+#if (AMREX_SPACEDIM == 1)
+    int struct_method_id = 0;
+#else
+    int struct_method_id = 1;
+#endif
+    pp.query("struct_method_id", struct_method_id);
+    return struct_method_id;
+}
+
 Real MultiLevelEllipticSolver::flux_scale = 1.0;
 
 #if (AMREX_SPACEDIM == 1)
@@ -915,12 +927,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
   else if (solver_choice == 106) {
     ParmParse pp("hmabec");
     int struct_solve_iters = 1; pp.query("struct_solve_iters", struct_solve_iters);
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     static int first = 1;
     if (verbose >= 1 && first && ParallelDescriptor::IOProcessor()) {
       first = 0;
@@ -960,12 +967,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     int gmres_restart = 5; pp.query("gmres_restart", gmres_restart);
     int split_precond_iters  = 1; pp.query("split_precond_iters",  split_precond_iters);
     int struct_solve_iters = 1; pp.query("struct_solve_iters", struct_solve_iters);
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     static int first = 1;
     if (verbose >= 1 && first && ParallelDescriptor::IOProcessor()) {
       first = 0;
@@ -1022,12 +1024,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_StructSolver& struct_solve_handle = *(HYPRE_StructSolver*)&solver;
 
     ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     static int first = 1;
     if (struct_method_id == 0) {
       if (verbose >= 1 && first && ParallelDescriptor::IOProcessor()) {
@@ -1075,12 +1072,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
 
     ParmParse pp("hmabec");
     int gmres_restart = 5; pp.query("gmres_restart", gmres_restart);
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
 
     HYPRE_StructGMRESCreate(MPI_COMM_WORLD, &struct_solve_handle);
     HYPRE_GMRESSetKDim((HYPRE_Solver) struct_solve_handle, gmres_restart);
@@ -1262,13 +1254,7 @@ void MultiLevelEllipticSolver::releaseSolver()
     HYPRE_SStructSplitDestroy(split_preconditioner);
   }
   else if (solver_choice == 108) {
-    ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     if (struct_method_id == 0) {
       HYPRE_StructSMGDestroy((HYPRE_StructSolver) solver);
     }
@@ -1277,13 +1263,7 @@ void MultiLevelEllipticSolver::releaseSolver()
     }
   }
   else if (solver_choice == 109) {
-    ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     HYPRE_StructGMRESDestroy((HYPRE_StructSolver) solver);
     if (!(struct_method_id == 0)) {
       HYPRE_StructPFMGDestroy((HYPRE_StructSolver) precond);
@@ -1356,13 +1336,7 @@ void MultiLevelEllipticSolver::solve()
         HYPRE_SStructSplitSetTol(solver_handle, reltol_new);
       }
       else if (solver_choice == 108) {
-        ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-        int struct_method_id = 0;
-#else
-        int struct_method_id = 1;
-#endif
-        pp.query("struct_method_id", struct_method_id);
+        int struct_method_id = query_struct_method_id();
         if (!(struct_method_id == 0)) {
           HYPRE_StructPFMGSetTol((HYPRE_StructSolver) solver, reltol_new);
         } else {
@@ -1446,13 +1420,7 @@ void MultiLevelEllipticSolver::solve()
     HYPRE_SStructMatrixGetObject(A, (void**) &s_A);
     HYPRE_SStructVectorGetObject(b, (void**) &s_b);
     HYPRE_SStructVectorGetObject(x, (void**) &s_x);
-    ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     if (!(struct_method_id == 0)) {
       HYPRE_StructPFMGSolve((HYPRE_StructSolver) solver, s_A, s_b, s_x);
     } else {
@@ -1571,13 +1539,7 @@ void MultiLevelEllipticSolver::solve()
       HYPRE_SStructSplitGetFinalRelativeResidualNorm(solver_handle, &res);
     }
     else if (solver_choice == 108) {
-      ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-      int struct_method_id = 0;
-#else
-      int struct_method_id = 1;
-#endif
-      pp.query("struct_method_id", struct_method_id);
+      int struct_method_id = query_struct_method_id();
       HYPRE_StructSolver& struct_solve_handle = *(HYPRE_StructSolver*)&solver;
       if (!(struct_method_id == 0)) {
         HYPRE_StructPFMGGetNumIterations(struct_solve_handle, &num_iterations);
@@ -1698,13 +1660,7 @@ Real MultiLevelEllipticSolver::currentResidualNorm()
     HYPRE_SStructSplitGetFinalRelativeResidualNorm(solver_handle, &res);
   }
   else if (solver_choice == 108) {
-    ParmParse pp("hmabec");
-#if (AMREX_SPACEDIM == 1)
-    int struct_method_id = 0;
-#else
-    int struct_method_id = 1;
-#endif
-    pp.query("struct_method_id", struct_method_id);
+    int struct_method_id = query_struct_method_id();
     HYPRE_StructSolver& struct_solve_handle = *(HYPRE_StructSolver*)&solver;
     if (!(struct_method_id == 0)) {
       HYPRE_StructPFMGGetFinalRelativeResidualNorm(struct_solve_handle, &res);

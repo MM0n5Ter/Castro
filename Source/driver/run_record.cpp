@@ -37,6 +37,72 @@
 using std::string;
 using namespace amrex;
 
+static void write_build_details (std::ostream& out)
+{
+  out << "build date:    " << buildInfoGetBuildDate() << "\n";
+  out << "build machine: " << buildInfoGetBuildMachine() << "\n";
+  out << "build dir:     " << buildInfoGetBuildDir() << "\n";
+  out << "AMReX dir:     " << buildInfoGetAMReXDir() << "\n";
+
+  out << "\n";
+
+  out << "make flags:    " << buildInfoGetMakeFlags() << "\n";
+
+  out << "\n";
+
+  out << "COMP:          " << buildInfoGetComp() << "\n";
+  out << "COMP version:  " << buildInfoGetCompVersion() << "\n";
+
+  out << "\n";
+
+#ifdef AMREX_USE_CUDA
+  out << "CUDA version:  " << buildInfoGetCUDAVersion() << "\n";
+  out << "\n";
+#endif
+
+  out << "C++ compiler:  " << buildInfoGetCXXName() << "\n";
+  out << "C++ flags:     " << buildInfoGetCXXFlags() << "\n";
+
+  out << "\n";
+
+  out << "Fortran comp:  " << buildInfoGetFName() << "\n";
+  out << "Fortran flags: " << buildInfoGetFFlags() << "\n";
+
+  out << "\n";
+
+  out << "Link flags:    " << buildInfoGetLinkFlags() << "\n";
+  out << "Libraries:     " << buildInfoGetLibraries() << "\n";
+
+  out << "\n";
+
+  for (int n = 1; n <= buildInfoGetNumModules(); n++) {
+    out << buildInfoGetModuleName(n) << ": " << buildInfoGetModuleVal(n) << "\n";
+  }
+
+  out << "\n";
+
+  const char* githash1 = buildInfoGetGitHash(1);
+  const char* githash2 = buildInfoGetGitHash(2);
+  const char* physics_lib_rev = buildInfoGetGitHash(3);
+  if (strlen(githash1) > 0) {
+    out << "HydroSim       git describe: " << githash1 << "\n";
+  }
+  if (strlen(githash2) > 0) {
+    out << "AMReX        git describe: " << githash2 << "\n";
+  }
+  if (strlen(physics_lib_rev) > 0) {
+    out << "Microphysics git describe: " << physics_lib_rev << "\n";
+  }
+
+  const char* build_rev_hash = buildInfoGetBuildGitHash();
+  const char* build_rev_name = buildInfoGetBuildGitName();
+  if (strlen(build_rev_hash) > 0){
+    out << build_rev_name << " git describe: " << build_rev_hash << "\n";
+  }
+
+  out << "\n\n";
+}
+
 void
 HydroSim::writeBuildRecord ()
 {
@@ -46,68 +112,7 @@ HydroSim::writeBuildRecord ()
   std::cout << " HydroSim Build Information\n";
   std::cout << PrettyLine;
 
-  std::cout << "build date:    " << buildInfoGetBuildDate() << "\n";
-  std::cout << "build machine: " << buildInfoGetBuildMachine() << "\n";
-  std::cout << "build dir:     " << buildInfoGetBuildDir() << "\n";
-  std::cout << "AMReX dir:     " << buildInfoGetAMReXDir() << "\n";
-
-  std::cout << "\n";
-
-  std::cout << "make flags:    " << buildInfoGetMakeFlags() << "\n";
-
-  std::cout << "\n";
-
-  std::cout << "COMP:          " << buildInfoGetComp() << "\n";
-  std::cout << "COMP version:  " << buildInfoGetCompVersion() << "\n";
-
-  std::cout << "\n";
-
-#ifdef AMREX_USE_CUDA
-  std::cout << "CUDA version:  " << buildInfoGetCUDAVersion() << "\n";
-  std::cout << "\n";
-#endif
-
-  std::cout << "C++ compiler:  " << buildInfoGetCXXName() << "\n";
-  std::cout << "C++ flags:     " << buildInfoGetCXXFlags() << "\n";
-
-  std::cout << "\n";
-
-  std::cout << "Fortran comp:  " << buildInfoGetFName() << "\n";
-  std::cout << "Fortran flags: " << buildInfoGetFFlags() << "\n";
-
-  std::cout << "\n";
-
-  std::cout << "Link flags:    " << buildInfoGetLinkFlags() << "\n";
-  std::cout << "Libraries:     " << buildInfoGetLibraries() << "\n";
-
-  std::cout << "\n";
-
-  for (int n = 1; n <= buildInfoGetNumModules(); n++) {
-    std::cout << buildInfoGetModuleName(n) << ": " << buildInfoGetModuleVal(n) << "\n";
-  }
-
-  std::cout << "\n";
-
-  const char* githash1 = buildInfoGetGitHash(1);
-  const char* githash2 = buildInfoGetGitHash(2);
-  const char* physics_lib_rev = buildInfoGetGitHash(3);
-  if (strlen(githash1) > 0) {
-    std::cout << "HydroSim       git describe: " << githash1 << "\n";
-  }
-  if (strlen(githash2) > 0) {
-    std::cout << "AMReX        git describe: " << githash2 << "\n";
-  }
-  if (strlen(physics_lib_rev) > 0) {
-    std::cout << "Microphysics git describe: " << physics_lib_rev << "\n";
-  }
-
-  const char* build_rev_hash = buildInfoGetBuildGitHash();
-  const char* build_rev_name = buildInfoGetBuildGitName();
-  if (strlen(build_rev_hash) > 0){
-    std::cout << build_rev_name << " git describe: " << build_rev_hash << "\n";
-  }
-
-  std::cout << "\n\n";
+  write_build_details(std::cout);
 }
 
 void
@@ -178,68 +183,7 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   jobInfoFile << " Build Information\n";
   jobInfoFile << PrettyLine;
 
-  jobInfoFile << "build date:    " << buildInfoGetBuildDate() << "\n";
-  jobInfoFile << "build machine: " << buildInfoGetBuildMachine() << "\n";
-  jobInfoFile << "build dir:     " << buildInfoGetBuildDir() << "\n";
-  jobInfoFile << "AMReX dir:     " << buildInfoGetAMReXDir() << "\n";
-
-  jobInfoFile << "\n";
-
-  jobInfoFile << "make flags:    " << buildInfoGetMakeFlags() << "\n";
-
-  jobInfoFile << "\n";
-
-  jobInfoFile << "COMP:          " << buildInfoGetComp() << "\n";
-  jobInfoFile << "COMP version:  " << buildInfoGetCompVersion() << "\n";
-
-  jobInfoFile << "\n";
-
-#ifdef AMREX_USE_CUDA
-  jobInfoFile << "CUDA version:  " << buildInfoGetCUDAVersion() << "\n";
-  jobInfoFile << "\n";
-#endif
-
-  jobInfoFile << "C++ compiler:  " << buildInfoGetCXXName() << "\n";
-  jobInfoFile << "C++ flags:     " << buildInfoGetCXXFlags() << "\n";
-
-  jobInfoFile << "\n";
-
-  jobInfoFile << "Fortran comp:  " << buildInfoGetFName() << "\n";
-  jobInfoFile << "Fortran flags: " << buildInfoGetFFlags() << "\n";
-
-  jobInfoFile << "\n";
-
-  jobInfoFile << "Link flags:    " << buildInfoGetLinkFlags() << "\n";
-  jobInfoFile << "Libraries:     " << buildInfoGetLibraries() << "\n";
-
-  jobInfoFile << "\n";
-
-  for (int n = 1; n <= buildInfoGetNumModules(); n++) {
-    jobInfoFile << buildInfoGetModuleName(n) << ": " << buildInfoGetModuleVal(n) << "\n";
-  }
-
-  jobInfoFile << "\n";
-
-  const char* githash1 = buildInfoGetGitHash(1);
-  const char* githash2 = buildInfoGetGitHash(2);
-  const char* physics_lib_rev = buildInfoGetGitHash(3);
-  if (strlen(githash1) > 0) {
-    jobInfoFile << "HydroSim       git describe: " << githash1 << "\n";
-  }
-  if (strlen(githash2) > 0) {
-    jobInfoFile << "AMReX        git describe: " << githash2 << "\n";
-  }
-  if (strlen(physics_lib_rev) > 0) {
-    jobInfoFile << "Microphysics git describe: " << physics_lib_rev << "\n";
-  }
-
-  const char* build_rev_hash = buildInfoGetBuildGitHash();
-  const char* build_rev_name = buildInfoGetBuildGitName();
-  if (strlen(build_rev_hash) > 0){
-    jobInfoFile << build_rev_name << " git describe: " << build_rev_hash << "\n";
-  }
-
-  jobInfoFile << "\n\n";
+  write_build_details(jobInfoFile);
 
   jobInfoFile << PrettyLine;
   jobInfoFile << " Grid Information\n";

@@ -357,6 +357,23 @@ HydroSim::initData ()
        }
 
 #ifdef TRUE_SDC
+       auto convert_to_fourth_order = [&] (MultiFab& mf, const MultiFab& layout, const Box& domain) {
+           auto domain_lo = domain.loVect3d();
+           auto domain_hi = domain.hiVect3d();
+
+           FArrayBox tmp;
+
+           for (MFIter mfi(layout); mfi.isValid(); ++mfi)
+             {
+               const Box& box = mfi.validbox();
+
+               tmp.resize(box, 1, The_Async_Arena());
+               auto tmp_arr = tmp.array();
+
+               build_fourth_in_place(box, mf.array(mfi), tmp_arr, domain_lo, domain_hi);
+             }
+       };
+
        if (init_cell_averaged == 0) {
 
          reconcile_energy(
@@ -370,20 +387,7 @@ HydroSim::initData ()
            Sborder.define(grids, dmap, NUM_STATE, NUM_GROW);
            AmrLevel::FillPatch(*this, Sborder, NUM_GROW, cur_time, State_Type, 0, NUM_STATE);
 
-           auto domain_lo = geom.Domain().loVect3d();
-           auto domain_hi = geom.Domain().hiVect3d();
-
-           FArrayBox tmp;
-
-           for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
-             {
-               const Box& box = mfi.validbox();
-
-               tmp.resize(box, 1, The_Async_Arena());
-               auto tmp_arr = tmp.array();
-
-               build_fourth_in_place(box, Sborder.array(mfi), tmp_arr, domain_lo, domain_hi);
-             }
+           convert_to_fourth_order(Sborder, S_new, geom.Domain());
 
            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
            Sborder.clear();
@@ -445,15 +449,7 @@ HydroSim::initData ()
              });
            }
 
-         for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
-           {
-             const Box& box = mfi.validbox();
-
-             tmp.resize(box, 1, The_Async_Arena());
-             auto tmp_arr = tmp.array();
-
-             build_fourth_in_place(box, Sborder.array(mfi), tmp_arr, domain_lo, domain_hi);
-           }
+         convert_to_fourth_order(Sborder, S_new, geom.Domain());
 
          MultiFab::Copy(S_new, Sborder, UEINT, UEINT, 1, 0);
          MultiFab::Copy(S_new, Sborder, UTEMP, UTEMP, 1, 0);

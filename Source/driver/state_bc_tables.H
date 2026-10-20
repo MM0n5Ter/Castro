@@ -49,54 +49,16 @@ namespace {
     Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
 
     void
-    set_x_vel_bc(BCRec& bc, const BCRec& phys_bc)
+    set_vel_bc(BCRec& bc, const BCRec& phys_bc, int normal_dir)
     {
         const int* lo_bc = phys_bc.lo();
         const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,norm_vel_bc[lo_bc[0]]);
-        bc.setHi(0,norm_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-    void
-    set_y_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,norm_vel_bc[lo_bc[1]]);
-        bc.setHi(1,norm_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,tang_vel_bc[lo_bc[2]]);
-        bc.setHi(2,tang_vel_bc[hi_bc[2]]);
-#endif
-    }
-
-    void
-    set_z_vel_bc(BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        bc.setLo(0,tang_vel_bc[lo_bc[0]]);
-        bc.setHi(0,tang_vel_bc[hi_bc[0]]);
-#if (AMREX_SPACEDIM >= 2)
-        bc.setLo(1,tang_vel_bc[lo_bc[1]]);
-        bc.setHi(1,tang_vel_bc[hi_bc[1]]);
-#endif
-#if (AMREX_SPACEDIM == 3)
-        bc.setLo(2,norm_vel_bc[lo_bc[2]]);
-        bc.setHi(2,norm_vel_bc[hi_bc[2]]);
-#endif
+        for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+        {
+            const auto& table = (dir == normal_dir) ? norm_vel_bc : tang_vel_bc;
+            bc.setLo(dir,table[lo_bc[dir]]);
+            bc.setHi(dir,table[hi_bc[dir]]);
+        }
     }
 
     void

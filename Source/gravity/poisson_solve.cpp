@@ -25,6 +25,38 @@ using namespace amrex;
 
 const Real FourPiG = 4.0 * std::numbers::pi * C::Gconst;
 
+static void fill_coarse_boundary_phi (Gravity& grav, int crse_level, int fine_level,
+                                      const Vector<MultiFab*>& rhs, MultiFab& phi)
+{
+#if (AMREX_SPACEDIM == 3)
+    if ( gravity::boundary_direct_sum ) {
+        grav.fill_direct_sum_boundaries(crse_level, fine_level, rhs, phi);
+    } else {
+        grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+    }
+#elif (AMREX_SPACEDIM == 2)
+    grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+#else
+    grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+#endif
+}
+
+static MultiFab& potential_field_at (AmrLevel* lev, int use_new_state)
+{
+    if (use_new_state == 1) {
+        return lev->get_new_data(Potential_Type);
+    }
+    return lev->get_old_data(Potential_Type);
+}
+
+static Real potential_time_at (AmrLevel* lev, int use_new_state)
+{
+    if (use_new_state == 1) {
+        return lev->get_state_data(Potential_Type).curTime();
+    }
+    return lev->get_state_data(Potential_Type).prevTime();
+}
+
 void
 Gravity::solve_potential_level (int               level,
                         MultiFab&         phi,
@@ -43,12 +75,7 @@ Gravity::solve_potential_level (int               level,
         sanity_check(level);
     }
 
-    Real time;
-    if (use_new_state == 1) {
-      time = LevelTable[level]->get_state_data(Potential_Type).curTime();
-    } else {
-      time = LevelTable[level]->get_state_data(Potential_Type).prevTime();
-    }
+    Real time = potential_time_at(LevelTable[level], use_new_state);
 
 
     if (level <= gravity::solve_level_cap) {
@@ -153,11 +180,7 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
     for (int ilev = 0; ilev < nlevels; ilev++)
     {
         int amr_lev = ilev + crse_level;
-        if (use_new_state == 1) {
-            phi_ptrs[ilev] = &LevelTable[amr_lev]->get_new_data(Potential_Type);
-        } else {
-            phi_ptrs[ilev] = &LevelTable[amr_lev]->get_old_data(Potential_Type);
-        }
+        phi_ptrs[ilev] = &potential_field_at(LevelTable[amr_lev], use_new_state);
     }
 
     const auto& poisson_rhs = fetch_poisson_rhs(crse_level, nlevels, use_new_state);
@@ -169,12 +192,7 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
         phi_gradient_ptrs[ilev] = phi_gradient[amr_lev];
     }
 
-    Real time;
-    if (use_new_state == 1) {
-        time = LevelTable[crse_level]->get_state_data(Potential_Type).curTime();
-    } else {
-        time = LevelTable[crse_level]->get_state_data(Potential_Type).prevTime();
-    }
+    Real time = potential_time_at(LevelTable[crse_level], use_new_state);
 
     int fine_level = amrex::min(highest_level_in, gravity::solve_level_cap);
 
@@ -188,18 +206,9 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--)
         {
             const IntVect& ratio = parent->refRatio(amr_lev-1);
-            if (use_new_state == 1)
-            {
-                amrex::average_down(LevelTable[amr_lev  ]->get_new_data(Potential_Type),
-                                    LevelTable[amr_lev-1]->get_new_data(Potential_Type),
-                                    0, 1, ratio);
-            }
-            else if (use_new_state == 0)
-            {
-                amrex::average_down(LevelTable[amr_lev  ]->get_old_data(Potential_Type),
-                                    LevelTable[amr_lev-1]->get_old_data(Potential_Type),
-                                    0, 1, ratio);
-            }
+            amrex::average_down(potential_field_at(LevelTable[amr_lev  ], use_new_state),
+                                potential_field_at(LevelTable[amr_lev-1], use_new_state),
+                                0, 1, ratio);
         }
 
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--) {
@@ -212,20 +221,9 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
     for (int amr_lev = gravity::solve_level_cap+1; amr_lev <= highest_level_in; amr_lev++) {
 
 
-        if (use_new_state == 1) {
+        MultiFab& phi = potential_field_at(LevelTable[amr_lev], use_new_state);
 
-            MultiFab& phi = LevelTable[amr_lev]->get_new_data(Potential_Type);
-
-            LevelTable[amr_lev]->FillCoarsePatch(phi,0,time,Potential_Type,0,1,1);
-
-        }
-        else {
-
-            MultiFab& phi = LevelTable[amr_lev]->get_old_data(Potential_Type);
-
-            LevelTable[amr_lev]->FillCoarsePatch(phi,0,time,Potential_Type,0,1,1);
-
-        }
+        LevelTable[amr_lev]->FillCoarsePatch(phi,0,time,Potential_Type,0,1,1);
 
 
 
@@ -339,17 +337,7 @@ Gravity::solve_potential_mlmg (int crse_level, int fine_level,
             amrex::Print() << " ... Making bc's for phi at level 0\n";
         }
 
-#if (AMREX_SPACEDIM == 3)
-        if ( gravity::boundary_direct_sum ) {
-            fill_direct_sum_boundaries(crse_level, fine_level, poisson_rhs, *phi[0]);
-        } else {
-            fill_multipole_boundaries(crse_level, fine_level, poisson_rhs, *phi[0]);
-        }
-#elif (AMREX_SPACEDIM == 2)
-        fill_multipole_boundaries(crse_level, fine_level, poisson_rhs, *phi[0]);
-#else
-        fill_multipole_boundaries(crse_level, fine_level, poisson_rhs, *phi[0]);
-#endif
+        fill_coarse_boundary_phi(*this, crse_level, fine_level, poisson_rhs, *phi[0]);
     }
 
     for (int ilev = 0; ilev < nlevs; ++ilev)
@@ -584,17 +572,7 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
             amrex::Print() << " ... Making bc's for delta_phi at crse_level 0"  << std::endl;
         }
 
-#if (AMREX_SPACEDIM == 3)
-      if ( gravity::boundary_direct_sum )
-          fill_direct_sum_boundaries(crse_level,fine_level,amrex::GetVecOfPtrs(poisson_rhs),*delta_phi[crse_level]);
-      else {
-          fill_multipole_boundaries(crse_level,fine_level,amrex::GetVecOfPtrs(poisson_rhs),*delta_phi[crse_level]);
-      }
-#elif (AMREX_SPACEDIM == 2)
-      fill_multipole_boundaries(crse_level,fine_level,amrex::GetVecOfPtrs(poisson_rhs),*delta_phi[crse_level]);
-#else
-      fill_multipole_boundaries(crse_level,fine_level,amrex::GetVecOfPtrs(poisson_rhs),*delta_phi[crse_level]);
-#endif
+      fill_coarse_boundary_phi(*this, crse_level, fine_level, amrex::GetVecOfPtrs(poisson_rhs), *delta_phi[crse_level]);
 
     }
 
@@ -730,6 +708,26 @@ Gravity::update_max_density()
 
 }
 
+static void set_uniform_gravity (MultiFab& gravity_view, const Geometry& geom, int ng)
+{
+    if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
+        gravity_view.setVal(gravity::uniform_accel, 0, 1, ng);
+    } else {
+        gravity_view.setVal(gravity::uniform_accel, AMREX_SPACEDIM-1, 1, ng);
+    }
+}
+
+static void widen_to_three_components (MultiFab& out, const MultiFab& view, int ng)
+{
+    for (int dir = 0; dir < 3; dir++) {
+        if (dir < AMREX_SPACEDIM) {
+            MultiFab::Copy(out, view, dir, dir, 1, ng);
+        } else {
+            out.setVal(0.,dir,1,ng);
+        }
+    }
+}
+
 void
 Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real time)
 {
@@ -754,11 +752,7 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
 
     if (gravity::gravity_model_name == "ConstantGrav") {
 
-        if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            gravity_view.setVal(gravity::uniform_accel, 0, 1, ng);
-        } else {
-            gravity_view.setVal(gravity::uniform_accel, AMREX_SPACEDIM-1, 1, ng);
-        }
+        set_uniform_gravity(gravity_view, geom, ng);
 
     } else if (gravity::gravity_model_name == "MonopoleGrav") {
 
@@ -776,13 +770,7 @@ Gravity::read_old_gravity_field(int level, MultiFab& gravity_field_out, Real tim
     }
 
 
-    for (int dir = 0; dir < 3; dir++) {
-        if (dir < AMREX_SPACEDIM) {
-            MultiFab::Copy(gravity_field_out, gravity_view, dir, dir, 1, ng);
-        } else {
-            gravity_field_out.setVal(0.,dir,1,ng);
-        }
-    }
+    widen_to_three_components(gravity_field_out, gravity_view, ng);
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_model_name != "ConstantGrav") {
@@ -821,11 +809,7 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
 
     if (gravity::gravity_model_name == "ConstantGrav") {
 
-        if (AMREX_SPACEDIM == 2 && geom.Coord() == 2) {
-            gravity_view.setVal(gravity::uniform_accel, 0, 1, ng);
-        } else {
-            gravity_view.setVal(gravity::uniform_accel, AMREX_SPACEDIM-1, 1, ng);
-        }
+        set_uniform_gravity(gravity_view, geom, ng);
 
     } else if (gravity::gravity_model_name == "MonopoleGrav") {
 
@@ -843,13 +827,7 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
     }
 
 
-    for (int dir = 0; dir < 3; dir++) {
-        if (dir < AMREX_SPACEDIM) {
-            MultiFab::Copy(gravity_field_out, gravity_view, dir, dir, 1, ng);
-        } else {
-            gravity_field_out.setVal(0.,dir,1,ng);
-        }
-    }
+    widen_to_three_components(gravity_field_out, gravity_view, ng);
 
 #if (AMREX_SPACEDIM > 1)
     if (gravity::gravity_model_name != "ConstantGrav" && ng>0) {

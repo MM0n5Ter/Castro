@@ -178,6 +178,24 @@ void RadTransportSolver::levelSolveSystem(int level,
     hem->setScalars(radiation_solve::alpha, radiation_solve::beta);
   }
 
+  auto solve_on_hierarchy = [&] (auto& solver) {
+    solver.assembleMatrix();
+    solver.commitMatrix();
+    solver.fillLevelVectors(level, Er, rad_group_idx, rhs, Nonzero_BC);
+    solver.commitVectors();
+    solver.configureSolver(radiation_solve::reltol, radiation_solve::abstol, radiation_solve::maxiter);
+    solver.solve();
+    solver.getSolution(level, Er, rad_group_idx);
+    Real res = solver.currentResidualNorm();
+    if (verbose >= 2 && ParallelDescriptor::IOProcessor()) {
+      int oldprec = std::cout.precision(20);
+      std::cout << "Absolute residual = " << res << std::endl;
+      std::cout.precision(oldprec);
+    }
+    res *= sync_residual_scale;
+    solver.releaseSolver();
+  };
+
   if (hd) {
     hd->configureSolver(radiation_solve::reltol, radiation_solve::abstol, radiation_solve::maxiter);
     hd->solve(Er, rad_group_idx, rhs, Nonzero_BC);
@@ -191,38 +209,10 @@ void RadTransportSolver::levelSolveSystem(int level,
     hd->releaseSolver();
   }
   else if (hm) {
-    hm->assembleMatrix();
-    hm->commitMatrix();
-    hm->fillLevelVectors(level, Er, rad_group_idx, rhs, Nonzero_BC);
-    hm->commitVectors();
-    hm->configureSolver(radiation_solve::reltol, radiation_solve::abstol, radiation_solve::maxiter);
-    hm->solve();
-    hm->getSolution(level, Er, rad_group_idx);
-    Real res = hm->currentResidualNorm();
-    if (verbose >= 2 && ParallelDescriptor::IOProcessor()) {
-      int oldprec = std::cout.precision(20);
-      std::cout << "Absolute residual = " << res << std::endl;
-      std::cout.precision(oldprec);
-    }
-    res *= sync_residual_scale;
-    hm->releaseSolver();
+    solve_on_hierarchy(*hm);
   }
   else if (hem) {
-    hem->assembleMatrix();
-    hem->commitMatrix();
-    hem->fillLevelVectors(level, Er, rad_group_idx, rhs, Nonzero_BC);
-    hem->commitVectors();
-    hem->configureSolver(radiation_solve::reltol, radiation_solve::abstol, radiation_solve::maxiter);
-    hem->solve();
-    hem->getSolution(level, Er, rad_group_idx);
-    Real res = hem->currentResidualNorm();
-    if (verbose >= 2 && ParallelDescriptor::IOProcessor()) {
-      int oldprec = std::cout.precision(20);
-      std::cout << "Absolute residual = " << res << std::endl;
-      std::cout.precision(oldprec);
-    }
-    res *= sync_residual_scale;
-    hem->releaseSolver();
+    solve_on_hierarchy(*hem);
   }
 }
 

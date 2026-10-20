@@ -14,6 +14,25 @@
 using namespace amrex;
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void radial_damping_acceleration (int i, int j, int k,
+                                  GeometryData const& geomdata, const Real time,
+                                  const Real* star_vel, const Real v_init, const Real a_curr,
+                                  GpuArray<Real, 3>& acceleration)
+{
+    GpuArray<Real, 3> v = {0.0_rt};
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        v[dir] = star_vel[dir];
+    }
+    if (hydrosim::do_frame_spin == 1) {
+        frame_to_inertial_velocity(i, j, k, geomdata, time, v);
+    }
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        acceleration[dir] = -0.5_rt * (problem::radial_damping_velocity_factor * v_init / a_curr) * v[dir];
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void user_source (int i, int j, int k,
                      GeometryData const& geomdata,
                      Array4<const Real> const& state,
@@ -91,30 +110,10 @@ void user_source (int i, int j, int k,
         Real v_init = 2.0_rt * M_PI * problem::a / hydrosim::spin_period;
 
         if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), true) > 0.0_rt) {
-            GpuArray<Real, 3> v = {0.0_rt};
-            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                v[dir] = problem::vel_P[dir];
-            }
-            if (hydrosim::do_frame_spin == 1) {
-                frame_to_inertial_velocity(i, j, k, geomdata, time, v);
-            }
-
-            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                acceleration[dir] = -0.5_rt * (problem::radial_damping_velocity_factor * v_init / a_curr) * v[dir];
-            }
+            radial_damping_acceleration(i, j, k, geomdata, time, problem::vel_P, v_init, a_curr, acceleration);
         }
         else if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), false) > 0.0_rt) {
-            GpuArray<Real, 3> v = {0.0_rt};
-            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                v[dir] = problem::vel_S[dir];
-            }
-            if (hydrosim::do_frame_spin == 1) {
-                frame_to_inertial_velocity(i, j, k, geomdata, time, v);
-            }
-
-            for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                acceleration[dir] = -0.5_rt * (problem::radial_damping_velocity_factor * v_init / a_curr) * v[dir];
-            }
+            radial_damping_acceleration(i, j, k, geomdata, time, problem::vel_S, v_init, a_curr, acceleration);
         }
 
         GpuArray<Real, 3> Sr = {0.0};

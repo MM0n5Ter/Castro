@@ -17,6 +17,15 @@
 
 using namespace amrex;
 
+int
+HydroSim::last_level_in_step () const
+{
+    if (parent->subcyclingMode() == "None" && level == 0) {
+        return parent->finestLevel();
+    }
+    return level;
+}
+
 Real
 HydroSim::advance (Real time,
                  Real dt,
@@ -39,11 +48,7 @@ HydroSim::advance (Real time,
 
     Real dt_new = dt;
 
-    int top_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        top_level_to_advance = parent->finestLevel();
-    }
+    const int top_level_to_advance = last_level_in_step();
 
     for (int lev = level; lev <= top_level_to_advance; ++lev) {
         getLevel(lev).begin_advance(time, dt, amr_pass);
@@ -112,11 +117,7 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     sub_pass = 0;
 
-    int top_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        top_level_to_advance = parent->finestLevel();
-    }
+    const int top_level_to_advance = last_level_in_step();
 
 
     Real eps = 1.0e-14;
@@ -341,11 +342,7 @@ HydroSim::run_advance_ctu (Real time, Real dt)
 #ifndef TRUE_SDC
 
 
-    int top_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        top_level_to_advance = parent->finestLevel();
-    }
+    const int top_level_to_advance = last_level_in_step();
 
     const Real prev_time = state[State_Type].prevTime();
     const Real  cur_time = state[State_Type].curTime();
@@ -445,11 +442,7 @@ HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
 
     if (retry_needed) {
 
-        int top_level_to_advance = level;
-
-        if (parent->subcyclingMode() == "None" && level == 0) {
-            top_level_to_advance = parent->finestLevel();
-        }
+        const int top_level_to_advance = last_level_in_step();
 
         for (int lev = level; lev <= top_level_to_advance; ++lev) {
             if (status.proposed_dt > 0.0_rt && status.proposed_dt < dt) {

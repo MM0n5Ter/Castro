@@ -60,20 +60,3 @@ void HydroSim::hs_deferred_compute_initial_guess(const Box& bx,
     }
 
 }
-
-#ifdef REACTIONS
-void
-HydroSim::hs_deferred_conservative_update(const Box& bx, Real const substep_dt,
-                                   Array4<const Real> const& Conserved_old,
-                                   Array4<Real> const& cons_new,
-                                   Array4<const Real> const& C,
-                                   Array4<const Real> const& react_new)
-{
-
-    amrex::ParallelFor(bx, cons_new.nComp(),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-    {
-        cons_new(i,j,k,n) = Conserved_old(i,j,k,n) + substep_dt * react_new(i,j,k,n) + substep_dt * C(i,j,k,n);
-    });
-}
-#endif

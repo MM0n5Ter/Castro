@@ -217,6 +217,14 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     Real entropy_transv1_right = trace_coef_entropy*entropy_amp_transv1;
     Real entropy_transv2_right = trace_coef_entropy*entropy_amp_transv2;
 
+    auto qm_upper = [&] (int n) -> Real& {
+      return qm(i+(idir==0), j+(idir==1), k+(idir==2), n);
+    };
+
+    const bool has_upper_face = (idir == 0 && i <= vhi[0]) ||
+                                (idir == 1 && j <= vhi[1]) ||
+                                (idir == 2 && k <= vhi[2]);
+
     if ((idir == 0 && i >= vlo[0]) ||
         (idir == 1 && j >= vlo[1]) ||
         (idir == 2 && k >= vlo[2])) {
@@ -259,50 +267,20 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     Real entropy_transv1_left = trace_coef_entropy*entropy_amp_transv1;
     Real entropy_transv2_left = trace_coef_entropy*entropy_amp_transv2;
 
-    if (idir == 0 && i <= vhi[0]) {
-      qm(i+1,j,k,QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_plus_left + acoustic_minus_left + entropy_density_left);
-      qm(i+1,j,k,QUN) = ref_normal_velocity + (acoustic_plus_left - acoustic_minus_left)*cc/rho;
-      qm(i+1,j,k,QUT) = ref_transv1_velocity + entropy_transv1_left;
-      qm(i+1,j,k,QTRANSV2) = ref_transv2_velocity + entropy_transv2_left;
-      qm(i+1,j,k,QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
-      qm(i+1,j,k,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
+    if (has_upper_face) {
+      qm_upper(QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_plus_left + acoustic_minus_left + entropy_density_left);
+      qm_upper(QUN) = ref_normal_velocity + (acoustic_plus_left - acoustic_minus_left)*cc/rho;
+      qm_upper(QUT) = ref_transv1_velocity + entropy_transv1_left;
+      qm_upper(QTRANSV2) = ref_transv2_velocity + entropy_transv2_left;
+      qm_upper(QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
+      qm_upper(QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
 
-      qm(i+1,j,k,QRHO) = amrex::max(ldensity_floor, qm(i+1,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      qm(i+1,j,k,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
-      qm(i+1,j,k,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
-      qm(i+1,j,k,QTRANSV2) += 0.5_rt*dt*prim_source(i,j,k,QTRANSV2);
-      qm(i+1,j,k,QEINTDENS) += 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-      qm(i+1,j,k,QPRES) += 0.5_rt*dt*prim_source(i,j,k,QPRES);
-
-    } else if (idir == 1 && j <= vhi[1]) {
-      qm(i,j+1,k,QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_plus_left + acoustic_minus_left + entropy_density_left);
-      qm(i,j+1,k,QUN) = ref_normal_velocity + (acoustic_plus_left - acoustic_minus_left)*cc/rho;
-      qm(i,j+1,k,QUT) = ref_transv1_velocity + entropy_transv1_left;
-      qm(i,j+1,k,QTRANSV2) = ref_transv2_velocity + entropy_transv2_left;
-      qm(i,j+1,k,QPRES) = max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
-      qm(i,j+1,k,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
-
-      qm(i,j+1,k,QRHO) = amrex::max(ldensity_floor, qm(i,j+1,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      qm(i,j+1,k,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
-      qm(i,j+1,k,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
-      qm(i,j+1,k,QTRANSV2) += 0.5_rt*dt*prim_source(i,j,k,QTRANSV2);
-      qm(i,j+1,k,QEINTDENS) += 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-      qm(i,j+1,k,QPRES) += 0.5_rt*dt*prim_source(i,j,k,QPRES);
-
-    } else if (idir == 2 && k <= vhi[2]) {
-      qm(i,j,k+1,QRHO) = amrex::max(ldensity_floor, ref_density + acoustic_plus_left + acoustic_minus_left + entropy_density_left);
-      qm(i,j,k+1,QUN) = ref_normal_velocity + (acoustic_plus_left - acoustic_minus_left)*cc/rho;
-      qm(i,j,k+1,QUT) = ref_transv1_velocity + entropy_transv1_left;
-      qm(i,j,k+1,QTRANSV2) = ref_transv2_velocity + entropy_transv2_left;
-      qm(i,j,k+1,QPRES) = amrex::max(local_pressure_floor, ref_pressure + (acoustic_plus_left + acoustic_minus_left)*csq);
-      qm(i,j,k+1,QEINTDENS) = ref_energy_density + (acoustic_plus_left + acoustic_minus_left)*enth*csq + entropy_energy_left;
-
-      qm(i,j,k+1,QRHO) = amrex::max(ldensity_floor, qm(i,j,k+1,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      qm(i,j,k+1,QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
-      qm(i,j,k+1,QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
-      qm(i,j,k+1,QTRANSV2) += 0.5_rt*dt*prim_source(i,j,k,QTRANSV2);
-      qm(i,j,k+1,QEINTDENS) += 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-      qm(i,j,k+1,QPRES) += 0.5_rt*dt*prim_source(i,j,k,QPRES);
+      qm_upper(QRHO) = amrex::max(ldensity_floor, qm_upper(QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
+      qm_upper(QUN) += 0.5_rt*dt*prim_source(i,j,k,QUN);
+      qm_upper(QUT) += 0.5_rt*dt*prim_source(i,j,k,QUT);
+      qm_upper(QTRANSV2) += 0.5_rt*dt*prim_source(i,j,k,QTRANSV2);
+      qm_upper(QEINTDENS) += 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+      qm_upper(QPRES) += 0.5_rt*dt*prim_source(i,j,k,QPRES);
 
     }
 
@@ -316,18 +294,11 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       Real source_pressure = source_density*csq;
       Real source = source_pressure*enth;
 
-      if (idir == 0 && i <= vhi[0]) {
-        qm(i+1,j,k,QRHO) += source_density;
-        qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), ldensity_floor);
-        qm(i+1,j,k,QPRES) += source_pressure;
-        qm(i+1,j,k,QEINTDENS) += source;
-      }
-
-      if (idir == 1 && j <= vhi[1]) {
-        qm(i,j+1,k,QRHO) += source_density;
-        qm(i,j+1,k,QRHO) = amrex::max(qm(i,j+1,k,QRHO), ldensity_floor);
-        qm(i,j+1,k,QPRES) += source_pressure;
-        qm(i,j+1,k,QEINTDENS) += source;
+      if (has_upper_face) {
+        qm_upper(QRHO) += source_density;
+        qm_upper(QRHO) = amrex::max(qm_upper(QRHO), ldensity_floor);
+        qm_upper(QPRES) += source_pressure;
+        qm_upper(QEINTDENS) += source;
       }
 
       if ((idir == 0 && i >= vlo[0]) ||
@@ -361,12 +332,8 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
       Real zero_speed_factor = un >= 0.0_rt ? un*dt_over_dx : 1.0_rt;
       Real advect_correction_left = 0.5_rt*(1.0_rt - zero_speed_factor )*dX;
 
-      if (idir == 0 && i <= vhi[0]) {
-        qm(i+1,j,k,n) = s[i0] + advect_correction_left;
-      } else if (idir == 1 && j <= vhi[1]) {
-        qm(i,j+1,k,n) = s[i0] + advect_correction_left;
-      } else if (idir == 2 && k <= vhi[2]) {
-        qm(i,j,k+1,n) = s[i0] + advect_correction_left;
+      if (has_upper_face) {
+        qm_upper(n) = s[i0] + advect_correction_left;
       }
 
     }
@@ -740,6 +707,10 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
     Real trace_p_passive;
     Real trace_m_passive;
 
+    const int ip = i + (idir == 0);
+    const int jp = j + (idir == 1);
+    const int kp = k + (idir == 2);
+
     for (int passive_index = 0; passive_index < npassive; passive_index++) {
 
         const int nc = passive_cons_index(passive_index);
@@ -758,12 +729,10 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
             qp(i,j,k,n) = trace_m_passive;
         }
 
-        if (idir == 0 && i <= vhi[0]) {
-            qm(i+1,j,k,n) = trace_p_passive;
-        } else if (idir == 1 && j <= vhi[1]) {
-            qm(i,j+1,k,n) = trace_p_passive;
-        } else if (idir == 2 && k <= vhi[2]) {
-            qm(i,j,k+1,n) = trace_p_passive;
+        if ((idir == 0 && i <= vhi[0]) ||
+            (idir == 1 && j <= vhi[1]) ||
+            (idir == 2 && k <= vhi[2])) {
+            qm(ip,jp,kp,n) = trace_p_passive;
         }
     }
 
@@ -877,36 +846,14 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
       entropy_amp_density = un > 0.0_rt ? -entropy_amp_density : 0.0_rt;
       entropy_amp_energy_gas = un > 0.0_rt ? -entropy_amp_energy_gas : 0.0_rt;
 
-      if (idir == 0) {
-        qm(i+1,j,k,QRHO) = std::max(ldensity_floor, ref_density +  acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
-        qm(i+1,j,k,QUN) = ref_normal_velocity + (acoustic_amp_plus - acoustic_amp_minus)*ref_sound_speed*ref_density_inv;
-        qm(i+1,j,k,QEINTDENS) = std::max(hydrosim::small_dens * hydrosim::eint_floor,
-                                        ref_energy_density_gas + (acoustic_amp_plus + acoustic_amp_minus)*ref_enthalpy_gas + entropy_amp_energy_gas);
-        qm(i+1,j,k,QPRES) = std::max(local_pressure_floor, p_plus_hydrostatic + ref_pressure + (acoustic_amp_plus + acoustic_amp_minus)*ref_sound_speed_sq);
-
-        qm(i+1,j,k,QUT) = trace_p_transv1_vel_1 + hdt*trace_p_src_transv1_vel_1;
-        qm(i+1,j,k,QTRANSV2) = trace_p_transv2_vel_1 + hdt*trace_p_src_transv2_vel_1;
-
-      } else if (idir == 1) {
-        qm(i,j+1,k,QRHO) = std::max(ldensity_floor, ref_density +  acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
-        qm(i,j+1,k,QUN) = ref_normal_velocity + (acoustic_amp_plus - acoustic_amp_minus)*ref_sound_speed*ref_density_inv;
-        qm(i,j+1,k,QEINTDENS) = std::max(hydrosim::small_dens * hydrosim::eint_floor,
+      qm(ip,jp,kp,QRHO) = std::max(ldensity_floor, ref_density +  acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
+      qm(ip,jp,kp,QUN) = ref_normal_velocity + (acoustic_amp_plus - acoustic_amp_minus)*ref_sound_speed*ref_density_inv;
+      qm(ip,jp,kp,QEINTDENS) = std::max(hydrosim::small_dens * hydrosim::eint_floor,
                                       ref_energy_density_gas + (acoustic_amp_plus + acoustic_amp_minus)*ref_enthalpy_gas + entropy_amp_energy_gas);
-        qm(i,j+1,k,QPRES) = std::max(local_pressure_floor, p_plus_hydrostatic + ref_pressure + (acoustic_amp_plus + acoustic_amp_minus)*ref_sound_speed_sq);
+      qm(ip,jp,kp,QPRES) = std::max(local_pressure_floor, p_plus_hydrostatic + ref_pressure + (acoustic_amp_plus + acoustic_amp_minus)*ref_sound_speed_sq);
 
-        qm(i,j+1,k,QUT) = trace_p_transv1_vel_1 + hdt*trace_p_src_transv1_vel_1;
-        qm(i,j+1,k,QTRANSV2) = trace_p_transv2_vel_1 + hdt*trace_p_src_transv2_vel_1;
-
-      } else if (idir == 2) {
-        qm(i,j,k+1,QRHO) = std::max(ldensity_floor, ref_density +  acoustic_amp_plus + acoustic_amp_minus + entropy_amp_density);
-        qm(i,j,k+1,QUN) = ref_normal_velocity + (acoustic_amp_plus - acoustic_amp_minus)*ref_sound_speed*ref_density_inv;
-        qm(i,j,k+1,QEINTDENS) = std::max(hydrosim::small_dens * hydrosim::eint_floor,
-                                        ref_energy_density_gas + (acoustic_amp_plus + acoustic_amp_minus)*ref_enthalpy_gas + entropy_amp_energy_gas);
-        qm(i,j,k+1,QPRES) = std::max(local_pressure_floor, p_plus_hydrostatic + ref_pressure + (acoustic_amp_plus + acoustic_amp_minus)*ref_sound_speed_sq);
-
-        qm(i,j,k+1,QUT) = trace_p_transv1_vel_1 + hdt*trace_p_src_transv1_vel_1;
-        qm(i,j,k+1,QTRANSV2) = trace_p_transv2_vel_1 + hdt*trace_p_src_transv2_vel_1;
-      }
+      qm(ip,jp,kp,QUT) = trace_p_transv1_vel_1 + hdt*trace_p_src_transv1_vel_1;
+      qm(ip,jp,kp,QTRANSV2) = trace_p_transv2_vel_1 + hdt*trace_p_src_transv2_vel_1;
 
     }
 

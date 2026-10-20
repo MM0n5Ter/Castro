@@ -127,11 +127,20 @@ HydroSim::writeSnapshot(const std::string& dir,
   ParticleOutputFile(dir);
 #endif
 
+    auto wants_state_var = [&] (const std::string& name) {
+        return (parent->isStatePlotVar(name) && is_small == 0) ||
+               (parent->isStateSmallPlotVar(name) && is_small == 1);
+    };
+
+    auto wants_derived_var = [&] (const std::string& name) {
+        return (parent->isDerivePlotVar(name) && is_small == 0) ||
+               (parent->isDeriveSmallPlotVar(name) && is_small == 1);
+    };
+
     std::vector<std::pair<int,int> > plot_var_map;
     for (int typ = 0; typ < desc_lst.size(); typ++) {
       for (int comp = 0; comp < desc_lst[typ].nComp(); comp++) {
-        if (((parent->isStatePlotVar(desc_lst[typ].name(comp)) && is_small == 0) ||
-             (parent->isStateSmallPlotVar(desc_lst[typ].name(comp)) && is_small == 1)) &&
+        if (wants_state_var(desc_lst[typ].name(comp)) &&
             desc_lst[typ].getType() == IndexType::TheCellType()) {
             plot_var_map.emplace_back(typ, comp);
         }
@@ -144,8 +153,7 @@ HydroSim::writeSnapshot(const std::string& dir,
 
     for (const auto & dd : dlist) {
 
-        if ((parent->isDerivePlotVar(dd.name()) && is_small == 0) ||
-            (parent->isDeriveSmallPlotVar(dd.name()) && is_small == 1))
+        if (wants_derived_var(dd.name()))
         {
 #ifdef AMREX_PARTICLES
             if (dd.name() == "particle_count" ||
@@ -318,8 +326,7 @@ HydroSim::writeSnapshot(const std::string& dir,
     {
         for (const auto & dd : dlist) {
 
-            if ((parent->isDerivePlotVar(dd.name()) && is_small == 0) ||
-                (parent->isDeriveSmallPlotVar(dd.name()) && is_small == 1)) {
+            if (wants_derived_var(dd.name())) {
 
                 auto derived_mf = derive(dd.variableName(0), cur_time, nGrow);
                 MultiFab::Copy(plotMF, *derived_mf, 0, cnt, dd.numDerive(), nGrow);

@@ -108,13 +108,6 @@ void hs_deferred_compute_correction_o4_radau(const amrex::Box& bx,
                              amrex::Array4<const amrex::Real> const& React_3_old,
                              amrex::Array4<amrex::Real> const& C,
                              int m_start);
-
-static
-void hs_deferred_conservative_update(const amrex::Box& bx, amrex::Real const substep_dt,
-                                amrex::Array4<const amrex::Real> const& Conserved_old,
-                                amrex::Array4<amrex::Real> const& cons_new,
-                                amrex::Array4<const amrex::Real> const& C,
-                                amrex::Array4<const amrex::Real> const& react_new);
 #endif
 
 static

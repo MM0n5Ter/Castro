@@ -68,19 +68,20 @@ void user_initialize_state_data (int i, int j, int k,
             rho_S = interpolate_3d(pos_S, dx, model::idens, problem::nsub, 1);
         }
 
+        auto load_model_zone = [&] (const Real* pos, int model_index, eos_t& zone) {
+            zone.T   = interpolate_3d(pos, dx, model::itemp, problem::nsub, model_index);
+            for (int n = 0; n < NumSpec; ++n) {
+                zone.xn[n] = interpolate_3d(pos, dx, model::ispec + n, problem::nsub, model_index);
+            }
+        };
+
         if (rho_P > rho_S) {
             zone_state.rho = rho_P;
-            zone_state.T   = interpolate_3d(pos_P, dx, model::itemp, problem::nsub, 0);
-            for (int n = 0; n < NumSpec; ++n) {
-                zone_state.xn[n] = interpolate_3d(pos_P, dx, model::ispec + n, problem::nsub, 0);
-            }
+            load_model_zone(pos_P, 0, zone_state);
 
         } else {
             zone_state.rho = rho_S;
-            zone_state.T   = interpolate_3d(pos_S, dx, model::itemp, problem::nsub, 1);
-            for (int n = 0; n < NumSpec; ++n) {
-                zone_state.xn[n] = interpolate_3d(pos_S, dx, model::ispec + n, problem::nsub, 1);
-            }
+            load_model_zone(pos_S, 1, zone_state);
         }
 
 #ifdef AUX_THERMO

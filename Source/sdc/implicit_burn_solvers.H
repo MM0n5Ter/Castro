@@ -35,6 +35,43 @@ namespace newton_outcome {
     };
 }
 
+#ifdef REACTIONS
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+begin_implicit_burn(const Real substep_dt,
+                    GpuArray<Real, NUM_STATE> const& Conserved_old,
+                    GpuArray<Real, NUM_STATE> & cons_new,
+                    GpuArray<Real, NUM_STATE> const& C,
+                    burn_t& burn_state) {
+
+    cons_new[URHO] = Conserved_old[URHO] + substep_dt * C[URHO];
+
+    for (int n = 0; n < 3; ++n) {
+        cons_new[UMX+n] = Conserved_old[UMX+n] + substep_dt * C[UMX+n];
+    }
+
+    fill_burn_type_from_conserved(cons_new, burn_state);
+    burn_state.rho = cons_new[URHO];
+
+    for (int n = 0; n < NumSpec; ++n) {
+        burn_state.ydot_a[SFS + n] = Conserved_old[UFS + n] + substep_dt * C[UFS + n];
+    }
+    burn_state.ydot_a[SEINT] = Conserved_old[UEINT] + substep_dt * C[UEINT];
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+finish_implicit_burn(const Real substep_dt,
+                     GpuArray<Real, NUM_STATE> const& Conserved_old,
+                     GpuArray<Real, NUM_STATE> & cons_new,
+                     GpuArray<Real, NUM_STATE> const& C) {
+
+    Real rho_Sdot = (cons_new[UEINT] - Conserved_old[UEINT]) / substep_dt - C[UEINT];
+
+    cons_new[UEDEN] = Conserved_old[UEDEN] + substep_dt * (C[UEDEN] + rho_Sdot);
+}
+#endif
+
 namespace newton {
     constexpr int MAX_ITER = 100;
     constexpr int MAX_SUBSTEPS = 64;
@@ -94,22 +131,9 @@ namespace newton {
         ierr = newton_outcome::success;
 
 
-        cons_new[URHO] = Conserved_old[URHO] + substep_dt * C[URHO];
-
-        for (int n = 0; n < 3; ++n) {
-            cons_new[UMX+n] = Conserved_old[UMX+n] + substep_dt * C[UMX+n];
-        }
-
         burn_t burn_state;
 
-        fill_burn_type_from_conserved(cons_new, burn_state);
-        burn_state.rho = cons_new[URHO];
-
-
-        for (int n = 0; n < NumSpec; ++n) {
-            burn_state.ydot_a[SFS + n] = Conserved_old[UFS + n] + substep_dt * C[UFS + n];
-        }
-        burn_state.ydot_a[SEINT] = Conserved_old[UEINT] + substep_dt * C[UEINT];
+        begin_implicit_burn(substep_dt, Conserved_old, cons_new, C, burn_state);
 
 
         int iter = 0;
@@ -184,9 +208,7 @@ namespace newton {
         cons_new[UEINT] = burn_state.y[SEINT];
 
 
-        Real rho_Sdot = (cons_new[UEINT] - Conserved_old[UEINT]) / substep_dt - C[UEINT];
-
-        cons_new[UEDEN] = Conserved_old[UEDEN] + substep_dt * (C[UEDEN] + rho_Sdot);
+        finish_implicit_burn(substep_dt, Conserved_old, cons_new, C);
 
     }
 
@@ -334,21 +356,9 @@ namespace powell {
 
         amrex::ignore_unused(correction_iter);
 
-        cons_new[URHO] = Conserved_old[URHO] + substep_dt * C[URHO];
-
-        for (int n = 0; n < 3; ++n) {
-            cons_new[UMX+n] = Conserved_old[UMX+n] + substep_dt * C[UMX+n];
-        }
-
         burn_t burn_state;
 
-        fill_burn_type_from_conserved(cons_new, burn_state);
-        burn_state.rho = cons_new[URHO];
-
-        for (int n = 0; n < NumSpec; ++n) {
-            burn_state.ydot_a[SFS + n] = Conserved_old[UFS + n] + substep_dt * C[UFS + n];
-        }
-        burn_state.ydot_a[SEINT] = Conserved_old[UEINT] + substep_dt * C[UEINT];
+        begin_implicit_burn(substep_dt, Conserved_old, cons_new, C, burn_state);
 
         burn_state.time = substep_dt;
 
@@ -374,9 +384,7 @@ namespace powell {
 
         cons_new[UEINT] = hj.x(NumSpec+1);
 
-        Real rho_Sdot = (cons_new[UEINT] - Conserved_old[UEINT]) / substep_dt - C[UEINT];
-
-        cons_new[UEDEN] = Conserved_old[UEDEN] + substep_dt * (C[UEDEN] + rho_Sdot);
+        finish_implicit_burn(substep_dt, Conserved_old, cons_new, C);
 
     }
 #endif

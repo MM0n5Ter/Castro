@@ -5,6 +5,17 @@
 
 using namespace amrex;
 
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real
+upwind_emf_slope(Real mass_flux, Real a, Real b) {
+  if (mass_flux > 0.0_rt) {
+    return a;
+  } else if (mass_flux < 0.0_rt) {
+    return b;
+  }
+  return 0.5_rt * (a + b);
+}
+
 void
 HydroSim::corner_coupling(const Box& bx,
                       Array4<Real> const& right_state_out,
@@ -383,14 +394,7 @@ HydroSim::edge_emf_z(const Box& bx,
     Real b = 2.0_rt * (-flxx(i,j,k,UBY) - EmfCenter);
 
 
-    Real d1 = 0.0_rt;
-    if ( flxy(i-1,j,k,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxy(i-1,j,k,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.50_rt * (a + b);
-    }
+    Real d1 = upwind_emf_slope(flxy(i-1,j,k,URHO), a, b);
 
 
 
@@ -408,14 +412,7 @@ HydroSim::edge_emf_z(const Box& bx,
     b = 2.0_rt * (EmfCenter + flxx(i,j,k,UBY));
 
 
-    Real d2 = 0.0_rt;
-    if (flxy(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxy(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    Real d2 = upwind_emf_slope(flxy(i,j,k,URHO), a, b);
 
 
     Real dd1 = 0.125_rt * (d1 - d2);
@@ -437,13 +434,7 @@ HydroSim::edge_emf_z(const Box& bx,
     b = 2.0_rt * (flxy(i,j,k,UBX) - EmfCenter);
 
 
-    if (flxx(i,j-1,k,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxx(i,j-1,k,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.5_rt * (a + b);
-    }
+    d1 = upwind_emf_slope(flxx(i,j-1,k,URHO), a, b);
 
 
 
@@ -461,13 +452,7 @@ HydroSim::edge_emf_z(const Box& bx,
     b = 2.0_rt * (EmfCenter - flxy(i,j,k,UBX));
 
 
-    if (flxx(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxx(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    d2 = upwind_emf_slope(flxx(i,j,k,URHO), a, b);
 
 
     Real dd2 = 0.125_rt * (d1 - d2);
@@ -512,13 +497,7 @@ HydroSim::edge_emf_y(const Box& bx,
 
 
     Real d1 = 0.0;
-    if (flxx(i,j,k-1,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxx(i,j,k-1,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.5_rt * (a + b);
-    }
+    d1 = upwind_emf_slope(flxx(i,j,k-1,URHO), a, b);
 
 
 
@@ -537,13 +516,7 @@ HydroSim::edge_emf_y(const Box& bx,
 
 
     Real d2 = 0.0;
-    if (flxx(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxx(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    d2 = upwind_emf_slope(flxx(i,j,k,URHO), a, b);
 
 
     Real dd1 = 0.125_rt * (d1 - d2);
@@ -565,13 +538,7 @@ HydroSim::edge_emf_y(const Box& bx,
     b = 2.0_rt * (flxx(i,j,k,UBZ) - EmfCenter);
 
 
-    if (flxz(i-1,j,k,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxz(i-1,j,k,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.5_rt * (a + b);
-    }
+    d1 = upwind_emf_slope(flxz(i-1,j,k,URHO), a, b);
 
 
 
@@ -589,13 +556,7 @@ HydroSim::edge_emf_y(const Box& bx,
     b = 2.0_rt * (EmfCenter - flxx(i,j,k,UBZ));
 
 
-    if (flxz(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxz(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    d2 = upwind_emf_slope(flxz(i,j,k,URHO), a, b);
 
 
     Real dd2 = 0.125_rt * (d1 - d2);
@@ -640,13 +601,7 @@ HydroSim::edge_emf_x(const Box& bx,
 
 
     Real d1 = 0.0;
-    if (flxz(i,j-1,k,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxz(i,j-1,k,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.5_rt * (a + b);
-    }
+    d1 = upwind_emf_slope(flxz(i,j-1,k,URHO), a, b);
 
 
 
@@ -665,13 +620,7 @@ HydroSim::edge_emf_x(const Box& bx,
 
 
     Real d2 = 0.0;
-    if (flxz(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxz(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    d2 = upwind_emf_slope(flxz(i,j,k,URHO), a, b);
 
 
     Real dd1 = 0.125_rt * (d1 - d2);
@@ -693,13 +642,7 @@ HydroSim::edge_emf_x(const Box& bx,
     b = 2.0_rt * (flxz(i,j,k,UBY) - EmfCenter);
 
 
-    if (flxy(i,j,k-1,URHO) > 0.0_rt) {
-      d1 = a;
-    } else if (flxy(i,j,k-1,URHO) < 0.0_rt) {
-      d1 = b;
-    } else {
-      d1 = 0.5_rt * (a + b);
-    }
+    d1 = upwind_emf_slope(flxy(i,j,k-1,URHO), a, b);
 
 
 
@@ -717,13 +660,7 @@ HydroSim::edge_emf_x(const Box& bx,
     b = 2.0_rt * (EmfCenter - flxz(i,j,k,UBY));
 
 
-    if (flxy(i,j,k,URHO) > 0.0_rt) {
-      d2 = a;
-    } else if (flxy(i,j,k,URHO) < 0.0_rt) {
-      d2 = b;
-    } else {
-      d2 = 0.5_rt * (a + b);
-    }
+    d2 = upwind_emf_slope(flxy(i,j,k,URHO), a, b);
 
 
     Real dd2 = 0.125_rt * (d1 - d2);

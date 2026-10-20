@@ -44,6 +44,14 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
   MultiFab& state_new_border = fill_patch_new.get_mf();
 
   Array<MultiFab, AMREX_SPACEDIM> lambda;
+
+  auto refresh_group_limiters = [&] (MultiFab& kappa, MultiFab& Er) {
+    for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
+      evaluateGradientRatio(level, lambda, kappa, rad_group_idx, Er, rad_group_idx, 1, rad_group_idx);
+      computeFluxLimiter(level, lambda, rad_group_idx);
+    }
+  };
+
   if (radiation::limiter > 0) {
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
         lambda[idim].define(hydrosim->getEdgeBoxArray(idim), dmap, nGroups, 0);
@@ -61,10 +69,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       MultiFab kappa_ross_lagged(grids,dmap,nGroups,1);
       MultigroupDiffusion_compute_rosseland(kappa_ross_lagged, state_lagged);
 
-      for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
-        evaluateGradientRatio(level, lambda, kappa_ross_lagged, rad_group_idx, rad_energy_lagged, rad_group_idx, 1, rad_group_idx);
-        computeFluxLimiter(level, lambda, rad_group_idx);
-      }
+      refresh_group_limiters(kappa_ross_lagged, rad_energy_lagged);
     }
   }
   else {
@@ -200,10 +205,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
     if (radiation::limiter>0 && inner_limiter_update_iters==0) {
       rad_energy_star.FillBoundary(parent->Geom(level).periodicity());
 
-      for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
-        evaluateGradientRatio(level, lambda, kappa_r, rad_group_idx, rad_energy_star, rad_group_idx, 1, rad_group_idx);
-        computeFluxLimiter(level, lambda, rad_group_idx);
-      }
+      refresh_group_limiters(kappa_r, rad_energy_star);
     }
 
     compute_thermal_fraction(thermal_frac, thermal_frac_z,
@@ -226,10 +228,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
         if (innerIterCount <= inner_limiter_update_iters) {
           rad_energy_iter.FillBoundary(parent->Geom(level).periodicity());
 
-          for (int rad_group_idx=0; rad_group_idx<nGroups; ++rad_group_idx) {
-            evaluateGradientRatio(level, lambda, kappa_r, rad_group_idx, rad_energy_iter, rad_group_idx, 1, rad_group_idx);
-            computeFluxLimiter(level, lambda, rad_group_idx);
-          }
+          refresh_group_limiters(kappa_r, rad_energy_iter);
         }
       }
 

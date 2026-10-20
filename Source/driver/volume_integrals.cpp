@@ -132,6 +132,30 @@ HydroSim::volPairTotal (const MultiFab& mf1,
     return sum;
 }
 
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+GpuArray<Real, 3> zone_center (int i, int j, int k,
+                               GpuArray<Real, AMREX_SPACEDIM> const& problo,
+                               GpuArray<Real, AMREX_SPACEDIM> const& dx)
+{
+    GpuArray<Real, 3> loc;
+
+    loc[0] = problo[0] + (0.5_rt + i) * dx[0];
+
+#if AMREX_SPACEDIM >= 2
+    loc[1] = problo[1] + (0.5_rt + j) * dx[1];
+#else
+    loc[1] = 0.0_rt;
+#endif
+
+#if AMREX_SPACEDIM == 3
+    loc[2] = problo[2] + (0.5_rt + k) * dx[2];
+#else
+    loc[2] = 0.0_rt;
+#endif
+
+    return loc;
+}
+
 Real
 HydroSim::locWeightedSum (const std::string& name, Real time, int idir, bool local)
 {
@@ -175,21 +199,7 @@ HydroSim::locWeightedSum (const MultiFab& mf, int comp, int idir, bool local)
         {
             Real zoneWeight = fine_mask_present ? mask(i,j,k) : 1.0_rt;
 
-            Real loc[3];
-
-            loc[0] = problo[0] + (0.5_rt + i) * dx[0];
-
-#if AMREX_SPACEDIM >= 2
-            loc[1] = problo[1] + (0.5_rt + j) * dx[1];
-#else
-            loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-            loc[2] = problo[2] + (0.5_rt + k) * dx[2];
-#else
-            loc[2] = 0.0_rt;
-#endif
+            GpuArray<Real, 3> loc = zone_center(i, j, k, problo, dx);
 
             Real ds;
 
@@ -256,21 +266,7 @@ HydroSim::locDistSquaredTotal (const std::string& name,
         {
             Real zoneWeight = fine_mask_present ? mask(i,j,k) : 1.0_rt;
 
-            Real loc[3];
-
-            loc[0] = problo[0] + (0.5_rt + i) * dx[0];
-
-#if AMREX_SPACEDIM >= 2
-            loc[1] = problo[1] + (0.5_rt + j) * dx[1];
-#else
-            loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-            loc[2] = problo[2] + (0.5_rt + k) * dx[2];
-#else
-            loc[2] = 0.0_rt;
-#endif
+            GpuArray<Real, 3> loc = zone_center(i, j, k, problo, dx);
 
             Real ds;
 

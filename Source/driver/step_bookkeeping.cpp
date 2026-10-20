@@ -78,6 +78,14 @@
 using std::string;
 using namespace amrex;
 
+static std::pair<Real, std::string> quiet_dt_estimate (HydroSim& lev, int use_new_state)
+{
+    StdoutCapture redirection;
+    Real dt_estimate = lev.estTimeStep(use_new_state);
+    std::string captured = redirection.getBufferedText();
+    return {dt_estimate, captured};
+}
+
 void
 HydroSim::begin_advance(Real time, Real dt, int amr_pass)
 {
@@ -369,15 +377,7 @@ HydroSim::begin_step_advance (Real time, Real dt)
     if (hydrosim::dt_validity_before_advance && !is_opening_step_on_level) {
         int use_new_state = 0;
 
-        std::string dtEstimate_output;
-
-        Real dt_old_estimate;
-
-        {
-            StdoutCapture redirection;
-            dt_old_estimate = estTimeStep(use_new_state);
-            dtEstimate_output = redirection.getBufferedText();
-        }
+        const auto [dt_old_estimate, dtEstimate_output] = quiet_dt_estimate(*this, use_new_state);
 
         if (hydrosim::change_max * dt_old_estimate < dt) {
             status.success = false;
@@ -447,15 +447,7 @@ HydroSim::end_step_advance (Real time, Real dt)
             if (do_step_validation) {
                 int use_new_state = 1;
 
-                std::string dtEstimate_output;
-
-                Real candidate_dt;
-
-                {
-                    StdoutCapture redirection;
-                    candidate_dt = estTimeStep(use_new_state);
-                    dtEstimate_output = redirection.getBufferedText();
-                }
+                const auto [candidate_dt, dtEstimate_output] = quiet_dt_estimate(*this, use_new_state);
 
                 if (hydrosim::change_max * candidate_dt < dt) {
                     status.success = false;

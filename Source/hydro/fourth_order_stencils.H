@@ -3,6 +3,21 @@
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real
+second_difference_along(Array4<Real const> const& a, int i, int j, int k, int n,
+                  int di, int dj, int dk, bool lo_edge, bool hi_edge) {
+
+  if (lo_edge) {
+    return 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i+di,j+dj,k+dk,n) + 4.0_rt*a(i+2*di,j+2*dj,k+2*dk,n) - a(i+3*di,j+3*dj,k+3*dk,n);
+
+  } else if (hi_edge) {
+    return 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i-di,j-dj,k-dk,n) + 4.0_rt*a(i-2*di,j-2*dj,k-2*dk,n) - a(i-3*di,j-3*dj,k-3*dk,n);
+
+  }
+  return a(i+di,j+dj,k+dk,n) - 2.0_rt*a(i,j,k,n) + a(i-di,j-dj,k-dk,n);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real
 laplacian_at(int i, int j, int k, int n,
                   Array4<Real const> const& a,
                   GpuArray<bool, AMREX_SPACEDIM> const& lo_wrap, GpuArray<bool, AMREX_SPACEDIM> const& hi_wrap,
@@ -13,38 +28,17 @@ laplacian_at(int i, int j, int k, int n,
   Real second_deriv_z = 0.0;
 
 
-  if (i == domlo[0] && !lo_wrap[0]) {
-    second_deriv_x = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i+1,j,k,n) + 4.0_rt*a(i+2,j,k,n) - a(i+3,j,k,n);
-
-  } else if (i == domhi[0] && !hi_wrap[0]) {
-    second_deriv_x = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i-1,j,k,n) + 4.0_rt*a(i-2,j,k,n) - a(i-3,j,k,n);
-
-  } else {
-    second_deriv_x = a(i+1,j,k,n) - 2.0_rt*a(i,j,k,n) + a(i-1,j,k,n);
-  }
+  second_deriv_x = second_difference_along(a, i, j, k, n, 1, 0, 0,
+                                              i == domlo[0] && !lo_wrap[0], i == domhi[0] && !hi_wrap[0]);
 
 #if AMREX_SPACEDIM >= 2
-  if (j == domlo[1] && !lo_wrap[1]) {
-    second_deriv_y = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j+1,k,n) + 4.0_rt*a(i,j+2,k,n) - a(i,j+3,k,n);
-
-  } else if (j == domhi[1] && !hi_wrap[1]) {
-    second_deriv_y = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j-1,k,n) + 4.0_rt*a(i,j-2,k,n) - a(i,j-3,k,n);
-
-  } else {
-    second_deriv_y = a(i,j+1,k,n) - 2.0_rt*a(i,j,k,n) + a(i,j-1,k,n);
-  }
+  second_deriv_y = second_difference_along(a, i, j, k, n, 0, 1, 0,
+                                              j == domlo[1] && !lo_wrap[1], j == domhi[1] && !hi_wrap[1]);
 #endif
 
 #if AMREX_SPACEDIM == 3
-  if (k == domlo[2] && !lo_wrap[2]) {
-    second_deriv_z = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j,k+1,n) + 4.0_rt*a(i,j,k+2,n) - a(i,j,k+3,n);
-
-  } else if (k == domhi[2] && !hi_wrap[2]) {
-    second_deriv_z = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j,k-1,n) + 4.0_rt*a(i,j,k-2,n) - a(i,j,k-3,n);
-
-  } else {
-    second_deriv_z = a(i,j,k+1,n) - 2.0_rt*a(i,j,k,n) + a(i,j,k-1,n);
-  }
+  second_deriv_z = second_difference_along(a, i, j, k, n, 0, 0, 1,
+                                              k == domlo[2] && !lo_wrap[2], k == domhi[2] && !hi_wrap[2]);
 #endif
 
   return second_deriv_x + second_deriv_y + second_deriv_z;
@@ -64,44 +58,23 @@ tangential_laplacian(int i, int j, int k, int n,
 
   if (idir != 0) {
 
-    if (i == domlo[0] && !lo_wrap[0]) {
-      second_deriv_x = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i+1,j,k,n) + 4.0_rt*a(i+2,j,k,n) - a(i+3,j,k,n);
-
-    } else if (i == domhi[0] && !hi_wrap[0]) {
-      second_deriv_x = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i-1,j,k,n) + 4.0_rt*a(i-2,j,k,n) - a(i-3,j,k,n);
-
-    } else {
-      second_deriv_x = a(i+1,j,k,n) - 2.0_rt*a(i,j,k,n) + a(i-1,j,k,n);
-    }
+    second_deriv_x = second_difference_along(a, i, j, k, n, 1, 0, 0,
+                                                i == domlo[0] && !lo_wrap[0], i == domhi[0] && !hi_wrap[0]);
   }
 
 #if AMREX_SPACEDIM >= 2
   if (idir != 1) {
 
-    if (j == domlo[1] && !lo_wrap[1]) {
-      second_deriv_y = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j+1,k,n) + 4.0_rt*a(i,j+2,k,n) - a(i,j+3,k,n);
-
-    } else if (j == domhi[1] && !hi_wrap[1]) {
-      second_deriv_y = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j-1,k,n) + 4.0_rt*a(i,j-2,k,n) - a(i,j-3,k,n);
-
-    } else {
-      second_deriv_y = a(i,j+1,k,n) - 2.0_rt*a(i,j,k,n) + a(i,j-1,k,n);
-    }
+    second_deriv_y = second_difference_along(a, i, j, k, n, 0, 1, 0,
+                                                j == domlo[1] && !lo_wrap[1], j == domhi[1] && !hi_wrap[1]);
   }
 #endif
 
 #if AMREX_SPACEDIM == 3
   if (idir != 2) {
 
-    if (k == domlo[2] && !lo_wrap[2]) {
-      second_deriv_z = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j,k+1,n) + 4.0_rt*a(i,j,k+2,n) - a(i,j,k+3,n);
-
-    } else if (k == domhi[2] && !hi_wrap[2]) {
-      second_deriv_z = 2.0_rt*a(i,j,k,n) - 5.0_rt*a(i,j,k-1,n) + 4.0_rt*a(i,j,k-2,n) - a(i,j,k-3,n);
-
-    } else {
-      second_deriv_z = a(i,j,k+1,n) - 2.0_rt*a(i,j,k,n) + a(i,j,k-1,n);
-    }
+    second_deriv_z = second_difference_along(a, i, j, k, n, 0, 0, 1,
+                                                k == domlo[2] && !lo_wrap[2], k == domhi[2] && !hi_wrap[2]);
   }
 #endif
 

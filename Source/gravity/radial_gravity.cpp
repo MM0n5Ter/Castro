@@ -23,6 +23,39 @@
 
 using namespace amrex;
 
+static void combine_level_bins (Real* total, const Vector<RealVector>& bins, int level, int n1d, Amr* parent)
+{
+    const Real* const target_bins = bins[level].dataPtr();
+
+    amrex::ParallelFor(n1d,
+    [=] AMREX_GPU_DEVICE (int i) noexcept
+    {
+        total[i] = target_bins[i];
+    });
+
+    if (level > 0)
+    {
+        int ratio = parent->refRatio(level-1)[0];
+        for (int lev = level-1; lev >= 0; lev--)
+        {
+            if (lev < level-1) {
+                ratio *= parent->refRatio(lev)[0];
+            }
+
+            const Real* const cur_bins = bins[lev].dataPtr();
+
+            amrex::ParallelFor(n1d/ratio,
+            [=] AMREX_GPU_DEVICE (int i) noexcept
+            {
+                for (int n = 0; n < ratio; n++)
+                {
+                    total[ratio*i+n] += 1./double(ratio) * cur_bins[i];
+                }
+            });
+        }
+    }
+}
+
 void
 Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
 {
@@ -211,36 +244,9 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     int n1d = static_cast<int>(radial_shell_mass[level].size());
     RealVector radial_mass_total(n1d,0);
 
-    const Real* const target_mass_bins = radial_shell_mass[level].dataPtr();
     Real* const mass_total = radial_mass_total.dataPtr();
 
-    amrex::ParallelFor(n1d,
-    [=] AMREX_GPU_DEVICE (int i) noexcept
-    {
-        mass_total[i] = target_mass_bins[i];
-    });
-
-    if (level > 0)
-    {
-        int ratio = parent->refRatio(level-1)[0];
-        for (int lev = level-1; lev >= 0; lev--)
-        {
-            if (lev < level-1) {
-                ratio *= parent->refRatio(lev)[0];
-            }
-
-            const Real* const cur_mass_bins = radial_shell_mass[lev].dataPtr();
-
-            amrex::ParallelFor(n1d/ratio,
-            [=] AMREX_GPU_DEVICE (int i) noexcept
-            {
-                for (int n = 0; n < ratio; n++)
-                {
-                    mass_total[ratio*i+n] += 1./double(ratio) * cur_mass_bins[i];
-                }
-            });
-        }
-    }
+    combine_level_bins(mass_total, radial_shell_mass, level, n1d, parent);
 
     if (diag_print_on > 0 && ParallelDescriptor::IOProcessor())
     {
@@ -270,35 +276,7 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     Real* const vol_total = radial_vol_total.dataPtr();
     Real* const density_total = radial_density_total.dataPtr();
 
-    const Real* const level_vol = radial_shell_vol[level].dataPtr();
-
-    amrex::ParallelFor(n1d,
-    [=] AMREX_GPU_DEVICE (int i) noexcept
-    {
-        vol_total[i] = level_vol[i];
-    });
-
-    if (level > 0)
-    {
-        int ratio = parent->refRatio(level-1)[0];
-        for (int lev = level-1; lev >= 0; lev--)
-        {
-            if (lev < level-1) {
-                ratio *= parent->refRatio(lev)[0];
-            }
-
-            const Real* cur_vol_bins = radial_shell_vol[lev].dataPtr();
-
-            amrex::ParallelFor(n1d/ratio,
-            [=] AMREX_GPU_DEVICE (int i) noexcept
-            {
-                for (int n = 0; n < ratio; n++)
-                {
-                    vol_total[ratio*i+n]  += 1./double(ratio) * cur_vol_bins[i];
-                }
-            });
-        }
-    }
+    combine_level_bins(vol_total, radial_shell_vol, level, n1d, parent);
 
     amrex::ParallelFor(n1d,
     [=] AMREX_GPU_DEVICE (int i) noexcept
@@ -313,32 +291,8 @@ Gravity::build_radial_field(int level, Real time, RealVector& radial_field)
     RealVector radial_pres_total(n1d,0);
 
     Real* const pres_total = radial_pres_total.dataPtr();
-    Real* const target_pres_bins = radial_shell_pres[level].dataPtr();
 
-    amrex::ParallelFor(n1d,
-    [=] AMREX_GPU_DEVICE (int i) noexcept
-    {
-        pres_total[i] = target_pres_bins[i];
-    });
-
-    if (level > 0)
-    {
-        int ratio = parent->refRatio(level-1)[0];
-        for (int lev = level-1; lev >= 0; lev--)
-        {
-            if (lev < level-1) ratio *= parent->refRatio(lev)[0];
-
-            const Real* cur_pres_bins = radial_shell_pres[lev].dataPtr();
-
-            amrex::ParallelFor(n1d/ratio,
-            [=] AMREX_GPU_DEVICE (int i) noexcept
-            {
-                for (int n = 0; n < ratio; n++) {
-                    pres_total[ratio*i+n] += 1./double(ratio) * cur_pres_bins[i];
-                }
-            });
-        }
-    }
+    combine_level_bins(pres_total, radial_shell_pres, level, n1d, parent);
 
     amrex::ParallelFor(n1d,
     [=] AMREX_GPU_DEVICE (int i) noexcept

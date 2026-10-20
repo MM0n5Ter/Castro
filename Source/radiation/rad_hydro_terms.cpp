@@ -19,6 +19,28 @@
 
 using namespace amrex;
 
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real cell_centered_limiter (int i, int j, int k, int g,
+                            AMREX_D_DECL(Array4<Real const> const& qx,
+                                         Array4<Real const> const& qy,
+                                         Array4<Real const> const& qz))
+{
+  Real lamc;
+#if AMREX_SPACEDIM == 1
+  lamc = 0.5_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g));
+#endif
+#if AMREX_SPACEDIM == 2
+  lamc = 0.25_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
+                    qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g));
+#endif
+#if AMREX_SPACEDIM == 3
+  lamc = (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
+          qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g) +
+          qz(i,j,k,GDFLUXLIM+g) + qz(i,j,k+1,GDFLUXLIM+g)) / 6.0_rt;
+#endif
+  return lamc;
+}
+
 void
 HydroSim::rad_cons_update(const Box& bx,
                        Array4<Real> const& cons_new,
@@ -93,18 +115,7 @@ HydroSim::rad_cons_update(const Box& bx,
     Real lamc = 0.0;
     for (int g = 0; g < NGROUPS; g++) {
 
-#if AMREX_SPACEDIM == 1
-      lamc = 0.5_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g));
-#endif
-#if AMREX_SPACEDIM == 2
-      lamc = 0.25_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
-                        qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g));
-#endif
-#if AMREX_SPACEDIM == 3
-      lamc = (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
-              qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g) +
-              qz(i,j,k,GDFLUXLIM+g) + qz(i,j,k+1,GDFLUXLIM+g)) / 6.0_rt;
-#endif
+      lamc = cell_centered_limiter(i, j, k, g, AMREX_D_DECL(qx, qy, qz));
 
       radiation_pressure_grad_x = radiation_pressure_grad_x + lamc * (qx(i+1,j,k,GDRADENG+g) - qx(i,j,k,GDRADENG+g))/dx[0];
 #if AMREX_SPACEDIM >= 2
@@ -218,18 +229,7 @@ HydroSim::rad_cons_update(const Box& bx,
           (energy_grad[0] * energy_grad[0] + energy_grad[1] * energy_grad[1] + energy_grad[2] * energy_grad[2] + 1.e-50_rt);
 
         Real lamc;
-#if AMREX_SPACEDIM == 1
-        lamc = 0.5_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g));
-#endif
-#if AMREX_SPACEDIM == 2
-        lamc = 0.25_rt * (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
-                          qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g));
-#endif
-#if AMREX_SPACEDIM == 3
-        lamc = (qx(i,j,k,GDFLUXLIM+g) + qx(i+1,j,k,GDFLUXLIM+g) +
-                qy(i,j,k,GDFLUXLIM+g) + qy(i,j+1,k,GDFLUXLIM+g) +
-                qz(i,j,k,GDFLUXLIM+g) + qz(i,j,k+1,GDFLUXLIM+g) ) / 6.0_rt;
-#endif
+        lamc = cell_centered_limiter(i, j, k, g, AMREX_D_DECL(qx, qy, qz));
 
         Real RadClosure = Eddington_factor(lamc);
         Real f1 = (1.0_rt - RadClosure) * 0.5_rt;
@@ -316,6 +316,28 @@ HydroSim::rad_cons_update(const Box& bx,
 
   }
 }
+
+#if (AMREX_SPACEDIM < 3)
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void add_area_source_terms (Array4<Real> const& q, int i, int j, int k,
+                            Real source_density, Real source_pressure, Real source,
+                            const Real* rad_source_terms, const Real* lam, Real ldensity_floor)
+{
+  q(i,j,k,QRHO) = q(i,j,k,QRHO) + source_density;
+  q(i,j,k,QRHO) = amrex::max(q(i,j,k,QRHO), ldensity_floor);
+  q(i,j,k,QPRES) = q(i,j,k,QPRES) + source_pressure;
+  q(i,j,k,QEINTDENS) = q(i,j,k,QEINTDENS) + source;
+  for (int g = 0; g < NGROUPS; g++) {
+    q(i,j,k,QRADENG+g) += rad_source_terms[g];
+  }
+  q(i,j,k,QPTOTAL) = q(i,j,k,QPTOTAL) + source_pressure;
+  q(i,j,k,QETOTDENS) = q(i,j,k,QEINTDENS);
+  for (int g = 0; g < NGROUPS; g++) {
+    q(i,j,k,QPTOTAL) += lam[g]*rad_source_terms[g];
+    q(i,j,k,QETOTDENS) += q(i,j,k,QRADENG+g);
+  }
+}
+#endif
 
 void
 HydroSim::trace_parabolic_radiative(const Box& bx,
@@ -836,35 +858,13 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
       }
 
       if (i <= vhi[0]) {
-        qm(i+1,j,k,QRHO) = qm(i+1,j,k,QRHO) + source_density;
-        qm(i+1,j,k,QRHO) = amrex::max(qm(i+1,j,k,QRHO), ldensity_floor);
-        qm(i+1,j,k,QPRES ) = qm(i+1,j,k,QPRES ) + source_pressure;
-        qm(i+1,j,k,QEINTDENS) = qm(i+1,j,k,QEINTDENS) + source;
-        for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QRADENG+g) += rad_source_terms[g];
-        }
-        qm(i+1,j,k,QPTOTAL) = qm(i+1,j,k,QPTOTAL) + source_pressure;
-        qm(i+1,j,k,QETOTDENS) = qm(i+1,j,k,QEINTDENS);
-        for (int g = 0; g < NGROUPS; g++) {
-          qm(i+1,j,k,QPTOTAL) += limiter_minus[g]*rad_source_terms[g];
-          qm(i+1,j,k,QETOTDENS) += qm(i+1,j,k,QRADENG+g);
-          }
+        add_area_source_terms(qm, i+1, j, k, source_density, source_pressure, source,
+                              rad_source_terms, limiter_minus, ldensity_floor);
       }
 
       if (i >= vlo[0]) {
-        qp(i,j,k,QRHO) = qp(i,j,k,QRHO) + source_density;
-        qp(i,j,k,QRHO) = amrex::max(qp(i,j,k,QRHO), ldensity_floor);
-        qp(i,j,k,QPRES) = qp(i,j,k,QPRES) + source_pressure;
-        qp(i,j,k,QEINTDENS) = qp(i,j,k,QEINTDENS) + source;
-        for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QRADENG+g) += rad_source_terms[g];
-        }
-        qp(i,j,k,QPTOTAL) = qp(i,j,k,QPTOTAL) + source_pressure;
-        qp(i,j,k,QETOTDENS) = qp(i,j,k,QEINTDENS);
-        for (int g = 0; g < NGROUPS; g++) {
-          qp(i,j,k,QPTOTAL) += lamp[g]*rad_source_terms[g];
-          qp(i,j,k,QETOTDENS) += qp(i,j,k,QRADENG+g);
-        }
+        add_area_source_terms(qp, i, j, k, source_density, source_pressure, source,
+                              rad_source_terms, lamp, ldensity_floor);
       }
     }
 #endif

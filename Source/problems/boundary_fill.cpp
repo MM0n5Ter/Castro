@@ -109,6 +109,40 @@ void hs_statefill(Box const& bx, FArrayBox& data,
     });
 }
 
+static GpuArray<bool, 2*AMREX_SPACEDIM> ambient_faces (const BCRec& bc)
+{
+    GpuArray<bool, 2*AMREX_SPACEDIM> faces;
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        const bool on_axis = (hydrosim::ambient_bc_axis == dir || hydrosim::ambient_bc_axis == -1);
+        faces[2*dir] = on_axis &&
+                       (bc.lo(dir) == amrex::BCType::foextrap || bc.lo(dir) == amrex::BCType::hoextrap);
+        faces[2*dir+1] = on_axis &&
+                         (bc.hi(dir) == amrex::BCType::foextrap || bc.hi(dir) == amrex::BCType::hoextrap);
+    }
+
+    return faces;
+}
+
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+bool in_ambient_ghost (int i, int j, int k, GpuArray<bool, 2*AMREX_SPACEDIM> const& faces,
+                       GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi)
+{
+    return (faces[0] && i < domlo[0]) ||
+           (faces[1] && i > domhi[0])
+#if AMREX_SPACEDIM >= 2
+           ||
+           (faces[2] && j < domlo[1]) ||
+           (faces[3] && j > domhi[1])
+#endif
+#if AMREX_SPACEDIM == 3
+           ||
+           (faces[4] && k < domlo[2]) ||
+           (faces[5] && k > domhi[2])
+#endif
+           ;
+}
+
 void
 ambient_density_fill(const Box& bx, Array4<Real> const& state,
                 Geometry const& geom, const Vector<BCRec>& bcr)
@@ -124,42 +158,13 @@ ambient_density_fill(const Box& bx, Array4<Real> const& state,
     const auto domlo = geom.Domain().loVect3d();
     const auto domhi = geom.Domain().hiVect3d();
 
-    const bool ambient_face_x_lo = (hydrosim::ambient_bc_axis == 0 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(0) == amrex::BCType::foextrap || bc.lo(0) == amrex::BCType::hoextrap);
-    const bool ambient_face_x_hi = (hydrosim::ambient_bc_axis == 0 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(0) == amrex::BCType::foextrap || bc.hi(0) == amrex::BCType::hoextrap);
-
-#if AMREX_SPACEDIM >= 2
-    const bool ambient_face_y_lo = (hydrosim::ambient_bc_axis == 1 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(1) == amrex::BCType::foextrap || bc.lo(1) == amrex::BCType::hoextrap);
-    const bool ambient_face_y_hi = (hydrosim::ambient_bc_axis == 1 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(1) == amrex::BCType::foextrap || bc.hi(1) == amrex::BCType::hoextrap);
-#endif
-
-#if AMREX_SPACEDIM == 3
-    const bool ambient_face_z_lo = (hydrosim::ambient_bc_axis == 2 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(2) == amrex::BCType::foextrap || bc.lo(2) == amrex::BCType::hoextrap);
-    const bool ambient_face_z_hi = (hydrosim::ambient_bc_axis == 2 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(2) == amrex::BCType::foextrap || bc.hi(2) == amrex::BCType::hoextrap);
-#endif
+    const auto ambient_faces_arr = ambient_faces(bc);
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        if ((ambient_face_x_lo && i < domlo[0]) ||
-            (ambient_face_x_hi && i > domhi[0])
-#if AMREX_SPACEDIM >= 2
-            ||
-            (ambient_face_y_lo && j < domlo[1]) ||
-            (ambient_face_y_hi && j > domhi[1])
-#endif
-#if AMREX_SPACEDIM == 3
-            ||
-            (ambient_face_z_lo && k < domlo[2]) ||
-            (ambient_face_z_hi && k > domhi[2])
-#endif
-          ) {
+        if (in_ambient_ghost(i, j, k, ambient_faces_arr, domlo, domhi)) {
           state(i,j,k) = ambient::ambient_reference_state[URHO];
         }
     });
@@ -180,42 +185,13 @@ ambient_region_fill(const Box& bx, Array4<Real> const& state,
     const auto domlo = geom.Domain().loVect3d();
     const auto domhi = geom.Domain().hiVect3d();
 
-    const bool ambient_face_x_lo = (hydrosim::ambient_bc_axis == 0 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(0) == amrex::BCType::foextrap || bc.lo(0) == amrex::BCType::hoextrap);
-    const bool ambient_face_x_hi = (hydrosim::ambient_bc_axis == 0 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(0) == amrex::BCType::foextrap || bc.hi(0) == amrex::BCType::hoextrap);
-
-#if AMREX_SPACEDIM >= 2
-    const bool ambient_face_y_lo = (hydrosim::ambient_bc_axis == 1 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(1) == amrex::BCType::foextrap || bc.lo(1) == amrex::BCType::hoextrap);
-    const bool ambient_face_y_hi = (hydrosim::ambient_bc_axis == 1 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(1) == amrex::BCType::foextrap || bc.hi(1) == amrex::BCType::hoextrap);
-#endif
-
-#if AMREX_SPACEDIM == 3
-    const bool ambient_face_z_lo = (hydrosim::ambient_bc_axis == 2 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.lo(2) == amrex::BCType::foextrap || bc.lo(2) == amrex::BCType::hoextrap);
-    const bool ambient_face_z_hi = (hydrosim::ambient_bc_axis == 2 || hydrosim::ambient_bc_axis == -1) &&
-                              (bc.hi(2) == amrex::BCType::foextrap || bc.hi(2) == amrex::BCType::hoextrap);
-#endif
+    const auto ambient_faces_arr = ambient_faces(bc);
 
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
-        if ((ambient_face_x_lo && i < domlo[0]) ||
-            (ambient_face_x_hi && i > domhi[0])
-#if AMREX_SPACEDIM >= 2
-            ||
-            (ambient_face_y_lo && j < domlo[1]) ||
-            (ambient_face_y_hi && j > domhi[1])
-#endif
-#if AMREX_SPACEDIM == 3
-            ||
-            (ambient_face_z_lo && k < domlo[2]) ||
-            (ambient_face_z_hi && k > domhi[2])
-#endif
-          ) {
+        if (in_ambient_ghost(i, j, k, ambient_faces_arr, domlo, domhi)) {
             for (int n = 0; n < NUM_STATE; ++n) {
                 state(i,j,k,n) = ambient::ambient_reference_state[n];
             }

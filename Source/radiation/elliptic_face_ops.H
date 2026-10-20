@@ -10,6 +10,79 @@ using namespace amrex;
 
 namespace ELLIPTIC_OPS
 {
+    struct BoundaryFaceStencil {
+        Real h;
+        int icp, jcp, kcp;
+        int iep, jep, kep;
+    };
+
+    AMREX_GPU_HOST_DEVICE AMREX_INLINE
+    BoundaryFaceStencil boundary_face_stencil (int cdir, const Real* dx)
+    {
+        BoundaryFaceStencil nb{};
+
+#if AMREX_SPACEDIM == 1
+        if (cdir == 0) {
+            nb.h = dx[0];
+            nb.icp = -1;
+        }
+        else if (cdir == 1) {
+            nb.h = dx[0];
+            nb.icp = 1;
+            nb.iep = 1;
+        }
+#elif AMREX_SPACEDIM == 2
+        if (cdir == 0) {
+            nb.h = dx[0];
+            nb.icp = -1;
+        }
+        else if (cdir == 2) {
+            nb.h = dx[0];
+            nb.icp = 1;
+            nb.iep = 1;
+        }
+        else if (cdir == 1) {
+            nb.h = dx[1];
+            nb.jcp = -1;
+        }
+        else if (cdir == 3) {
+            nb.h = dx[1];
+            nb.jcp = 1;
+            nb.jep = 1;
+        }
+#else
+        if (cdir == 0) {
+            nb.h = dx[0];
+            nb.icp = -1;
+        }
+        else if (cdir == 3) {
+            nb.h = dx[0];
+            nb.icp = 1;
+            nb.iep = 1;
+        }
+        else if (cdir == 1) {
+            nb.h = dx[1];
+            nb.jcp = -1;
+        }
+        else if (cdir == 4) {
+            nb.h = dx[1];
+            nb.jcp = 1;
+            nb.jep = 1;
+        }
+        else if (cdir == 2) {
+            nb.h = dx[2];
+            nb.kcp = -1;
+        }
+        else if (cdir == 5) {
+            nb.h = dx[2];
+            nb.kcp = 1;
+            nb.kep = 1;
+        }
+#endif
+
+        return nb;
+    }
+
     AMREX_INLINE
     void face_bc_term (Array4<Real> const bc_term,
                  Array4<Real> const er,
@@ -20,86 +93,18 @@ namespace ELLIPTIC_OPS
                  Array4<Real const> const d,
                  const Real* dx)
     {
-        Real h;
-
-
-        int icp = 0;
-        int jcp = 0;
-        int kcp = 0;
-
-        int iep = 0;
-        int jep = 0;
-        int kep = 0;
-
-#if AMREX_SPACEDIM == 1
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 1) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-#elif AMREX_SPACEDIM == 2
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 2) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-#else
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 4) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-        else if (cdir == 2) {
-            h = dx[2];
-            kcp = -1;
-        }
-        else if (cdir == 5) {
-            h = dx[2];
-            kcp = 1;
-            kep = 1;
-        }
-#endif
+        const BoundaryFaceStencil nb = boundary_face_stencil(cdir, dx);
 
         amrex::LoopOnCpu(reg, [=] (int i, int j, int k) noexcept
         {
-            if (mask.contains(i+icp,j+jcp,k+kcp)) {
-                if (mask(i+icp,j+jcp,k+kcp) > 0) {
+            if (mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp)) {
+                if (mask(i+nb.icp,j+nb.jcp,k+nb.kcp) > 0) {
                     if (bct == AMREX_LO_DIRICHLET) {
                         Real d_sign = 1.0_rt;
-                        if (iep != 0 || jep != 0 || kep != 0) {
+                        if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
                             d_sign = -1.0_rt;
                         }
-                        bc_term(i+iep,j+jep,k+kep) = d(i+iep,j+jep,k+kep) * d_sign * (er(i,j,k) - bcval(i+icp,j+jcp,k+kcp)) / (0.5_rt * h + bcl);
+                        bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = d(i+nb.iep,j+nb.jep,k+nb.kep) * d_sign * (er(i,j,k) - bcval(i+nb.icp,j+nb.jcp,k+nb.kcp)) / (0.5_rt * nb.h + bcl);
                     }
                 }
             }
@@ -118,96 +123,28 @@ namespace ELLIPTIC_OPS
                   Array4<Real const> const d,
                   const Real* const dx)
     {
-        Real h;
-
-
-        int icp = 0;
-        int jcp = 0;
-        int kcp = 0;
-
-        int iep = 0;
-        int jep = 0;
-        int kep = 0;
-
-#if AMREX_SPACEDIM == 1
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 1) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-#elif AMREX_SPACEDIM == 2
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 2) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-#else
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 4) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-        else if (cdir == 2) {
-            h = dx[2];
-            kcp = -1;
-        }
-        else if (cdir == 5) {
-            h = dx[2];
-            kcp = 1;
-            kep = 1;
-        }
-#endif
+        const BoundaryFaceStencil nb = boundary_face_stencil(cdir, dx);
 
         amrex::LoopOnCpu(reg, [=] (int i, int j, int k) noexcept
         {
-            if (mask.contains(i+icp,j+jcp,k+kcp)) {
-                if (mask(i+icp,j+jcp,k+kcp) > 0) {
+            if (mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp)) {
+                if (mask(i+nb.icp,j+nb.jcp,k+nb.kcp) > 0) {
                     int bct;
                     if (bctype == -1) {
-                        bct = tf(i+icp,j+jcp,k+kcp);
+                        bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
                     }
                     else {
                         bct = bctype;
                     }
                     if (bct == AMREX_LO_DIRICHLET) {
                         Real d_sign = 1.0_rt;
-                        if (iep != 0 || jep != 0 || kep != 0) {
+                        if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
                             d_sign = -1.0_rt;
                         }
-                        bc_term(i+iep,j+jep,k+kep) = d(i+iep,j+jep,k+kep) * d_sign * (er(i,j,k) - bcval(i+icp,j+jcp,k+kcp)) / (0.5_rt * h + bcl);
+                        bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = d(i+nb.iep,j+nb.jep,k+nb.kep) * d_sign * (er(i,j,k) - bcval(i+nb.icp,j+nb.jcp,k+nb.kcp)) / (0.5_rt * nb.h + bcl);
                     }
-                    else if (bct == AMREX_LO_NEUMANN && bcval(i+icp,j+jcp,k+kcp) == 0.0_rt) {
-                        bc_term(i+iep,j+jep,k+kep) = 0.0_rt;
+                    else if (bct == AMREX_LO_NEUMANN && bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) == 0.0_rt) {
+                        bc_term(i+nb.iep,j+nb.jep,k+nb.kep) = 0.0_rt;
                     }
                 }
             }
@@ -413,75 +350,7 @@ namespace ELLIPTIC_OPS
                  const GeometryData& geomdata, int bc_variant,
                  Array4<Real const> const spa)
     {
-        Real h;
-
-
-        int icp = 0;
-        int jcp = 0;
-        int kcp = 0;
-
-        int iep = 0;
-        int jep = 0;
-        int kep = 0;
-
-#if AMREX_SPACEDIM == 1
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 1) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-#elif AMREX_SPACEDIM == 2
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 2) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-#else
-        if (cdir == 0) {
-            h = dx[0];
-            icp = -1;
-        }
-        else if (cdir == 3) {
-            h = dx[0];
-            icp = 1;
-            iep = 1;
-        }
-        else if (cdir == 1) {
-            h = dx[1];
-            jcp = -1;
-        }
-        else if (cdir == 4) {
-            h = dx[1];
-            jcp = 1;
-            jep = 1;
-        }
-        else if (cdir == 2) {
-            h = dx[2];
-            kcp = -1;
-        }
-        else if (cdir == 5) {
-            h = dx[2];
-            kcp = 1;
-            kep = 1;
-        }
-#endif
+        const BoundaryFaceStencil nb = boundary_face_stencil(cdir, dx);
 
         amrex::LoopOnCpu(reg, [=] (int i, int j, int k) noexcept
         {
@@ -491,24 +360,24 @@ namespace ELLIPTIC_OPS
             Real bfv, bfm, stencil_weight_second, h2, th2;
             int bct;
 
-            if (mask.contains(i+icp,j+jcp,k+kcp)) {
-                if (mask(i+icp,j+jcp,k+kcp) > 0) {
+            if (mask.contains(i+nb.icp,j+nb.jcp,k+nb.kcp)) {
+                if (mask(i+nb.icp,j+nb.jcp,k+nb.kcp) > 0) {
                     if (bctype == -1) {
-                        bct = tf(i+icp,j+jcp,k+kcp);
+                        bct = tf(i+nb.icp,j+nb.jcp,k+nb.kcp);
                     }
                     else {
                         bct = bctype;
                     }
                     if (bct == AMREX_LO_DIRICHLET) {
                         if (bho >= 1) {
-                            h2 = 0.5e0_rt * h;
+                            h2 = 0.5e0_rt * nb.h;
                             th2 = 3.e0_rt * h2;
-                            bfv = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
-                            bfm = (beta / h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
-                            stencil_weight_second = (beta / h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
+                            bfv = 2.e0_rt * beta * nb.h / ((bcl + h2) * (bcl + th2)) * b(i,j,k);
+                            bfm = (beta / nb.h) * (th2 - bcl) / (bcl + h2)  * b(i,j,k);
+                            stencil_weight_second = (beta / nb.h) * (bcl - h2) / (bcl + th2) * b(i,j,k);
                         }
                         else {
-                            bfv = beta / (0.5e0_rt * h + bcl) * b(i,j,k);
+                            bfv = beta / (0.5e0_rt * nb.h + bcl) * b(i,j,k);
                             bfm = bfv;
                         }
                     }
@@ -545,15 +414,15 @@ namespace ELLIPTIC_OPS
                     }
 
                     Real face_normal_sign = 1.0_rt;
-                    if (iep != 0 || jep != 0 || kep != 0) {
+                    if (nb.iep != 0 || nb.jep != 0 || nb.kep != 0) {
                         face_normal_sign = -1.0_rt;
                     }
 
-                    flux(i+iep,j+jep,k+kep) = face_normal_sign * (bfv * bcval(i+icp,j+jcp,k+kcp) - bfm * er(i,j,k));
+                    flux(i+nb.iep,j+nb.jep,k+nb.kep) = face_normal_sign * (bfv * bcval(i+nb.icp,j+nb.jcp,k+nb.kcp) - bfm * er(i,j,k));
 
                     if (bho >= 1) {
-                        Real df = -stencil_weight_second * er(i-icp,j-jcp,k-kcp);
-                        flux(i+iep,j+jep,k+kep) -= face_normal_sign * df;
+                        Real df = -stencil_weight_second * er(i-nb.icp,j-nb.jcp,k-nb.kcp);
+                        flux(i+nb.iep,j+nb.jep,k+nb.kep) -= face_normal_sign * df;
                     }
                 }
             }

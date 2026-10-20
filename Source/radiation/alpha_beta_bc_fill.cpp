@@ -171,6 +171,36 @@ void AlphaBetaSolver::fillBcMat (const Box& bx,
     Gpu::synchronize();
 }
 
+static AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real boundary_diagonal_term (int bct, Real fac, Real h, Real bcl, Real beta, Real r, Real c,
+                             Real b_face, Array4<Real const> const& spa, int i, int j, int k)
+{
+    Real bfm, bfv;
+
+    if (bct == AMREX_LO_DIRICHLET) {
+        bfv = fac * h / (0.5e0_rt * h + bcl);
+        bfm = bfv * b_face;
+    }
+    else if (bct == AMREX_LO_NEUMANN) {
+        bfm = 0.e0_rt;
+    }
+    else if (bct == AMREX_LO_MARSHAK) {
+        bfv = 2.e0_rt * beta * r / h;
+        bfm = 0.25e0_rt * c * bfv;
+    }
+    else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
+        bfv = 2.e0_rt * beta * r / h;
+        bfm = spa(i,j,k) * c * bfv;
+    }
+#ifndef AMREX_USE_GPU
+    else {
+        amrex::Error("fillBcMat3: unsupported boundary type");
+    }
+#endif
+
+    return bfm;
+}
+
 void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                         int side_is_low, int idir,
                         Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
@@ -275,7 +305,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
         face_geometry_factors(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, side_is_low, r);
 
         int bct;
-        Real bfm, bfv;
+        Real bfm;
 
         if (mask.contains(i-1,j,k)) {
 
@@ -288,26 +318,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i,j,k), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[0] = 0.e0_rt;
@@ -326,26 +337,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i+1,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i+1,j,k), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i+1,j,k);
 
@@ -363,26 +355,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i,j,k), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[1] = 0.e0_rt;
@@ -401,26 +374,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j+1,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i,j+1,k), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j+1,k);
 
@@ -439,26 +393,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i,j,k), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k);
                 mat(i,j,k)[2] = 0.e0_rt;
@@ -477,26 +412,7 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    bfv = fac * h / (0.5e0_rt * h + bcl);
-                    bfm = bfv * b(i,j,k+1);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfm = 0.e0_rt;
-                }
-                else if (bct == AMREX_LO_MARSHAK) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = 0.25e0_rt * c * bfv;
-                }
-                else if (bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                    bfm = spa(i,j,k) * c * bfv;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcMat3: unsupported boundary type");
-                }
-#endif
+                bfm = boundary_diagonal_term(bct, fac, h, bcl, beta, r, c, b(i,j,k+1), spa, i, j, k);
 
                 mat(i,j,k)[AMREX_SPACEDIM] += bfm - fac * b(i,j,k+1);
 
@@ -770,7 +686,36 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
         face_geometry_factors(i, j, k, bx.loVect()[0], bx.hiVect()[0], geomdata, idir, side_is_low, r);
 
         int bct;
-        Real bfv, h2, th2;
+
+        auto boundary_rhs_coef = [&] (int bct_kind, Real b_face) {
+            Real bfv, h2, th2;
+
+            if (bct_kind == AMREX_LO_DIRICHLET) {
+                if (bho >= 1) {
+                    h2 = 0.5e0_rt * h;
+                    th2 = 3.e0_rt * h2;
+                    bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
+                }
+                else {
+                    bfv = (beta / h) / (0.5e0_rt * h + bcl);
+                }
+
+                bfv = bfv * b_face;
+            }
+            else if (bct_kind == AMREX_LO_NEUMANN) {
+                bfv = beta * r / h;
+            }
+            else if (bct_kind == AMREX_LO_MARSHAK || bct_kind == AMREX_LO_SANCHEZ_POMRANING) {
+                bfv = 2.e0_rt * beta * r / h;
+            }
+#ifndef AMREX_USE_GPU
+            else {
+                amrex::Error("fillBcVec3: unsupported boundary type");
+            }
+#endif
+
+            return bfv;
+        };
 
         if (mask.contains(i-1,j,k)) {
 
@@ -783,31 +728,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i-1,j,k);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i,j,k)) * bcval(i-1,j,k);
 
             }
 
@@ -823,31 +744,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i+1,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i+1,j,k);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i+1,j,k)) * bcval(i+1,j,k);
 
             }
 
@@ -863,31 +760,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j-1,k);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i,j,k)) * bcval(i,j-1,k);
 
             }
 
@@ -903,31 +776,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i,j+1,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j+1,k);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i,j+1,k)) * bcval(i,j+1,k);
 
             }
 
@@ -943,31 +792,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i,j,k);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j,k-1);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i,j,k)) * bcval(i,j,k-1);
 
             }
 
@@ -983,31 +808,7 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
                     bct = bctype;
                 }
 
-                if (bct == AMREX_LO_DIRICHLET) {
-                    if (bho >= 1) {
-                        h2 = 0.5e0_rt * h;
-                        th2 = 3.e0_rt * h2;
-                        bfv = 2.e0_rt * beta / ((bcl + h2) * (bcl + th2));
-                    }
-                    else {
-                        bfv = (beta / h) / (0.5e0_rt * h + bcl);
-                    }
-
-                    bfv = bfv * b(i,j,k+1);
-                }
-                else if (bct == AMREX_LO_NEUMANN) {
-                    bfv = beta * r / h;
-                }
-                else if (bct == AMREX_LO_MARSHAK || bct == AMREX_LO_SANCHEZ_POMRANING) {
-                    bfv = 2.e0_rt * beta * r / h;
-                }
-#ifndef AMREX_USE_GPU
-                else {
-                    amrex::Error("fillBcVec3: unsupported boundary type");
-                }
-#endif
-
-                vec(i,j,k) = vec(i,j,k) + bfv * bcval(i,j,k+1);
+                vec(i,j,k) = vec(i,j,k) + boundary_rhs_coef(bct, b(i,j,k+1)) * bcval(i,j,k+1);
 
             }
 

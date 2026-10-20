@@ -18,6 +18,37 @@
 
 using namespace amrex;
 
+static std::unique_ptr<Mask> make_face_mask (const Box& face, int normal_dir,
+                                             const BoxArray& coarse, const BoxArray& fine)
+{
+  Box mask_region = face;
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+    if (dir == normal_dir)
+      continue;
+    mask_region.grow(dir,1);
+  }
+  std::unique_ptr<Mask> mask(new Mask(mask_region));
+
+  mask->setVal<RunOn::Host>(RadBoundaryData::outside_domain);
+
+
+  for (int k = 0; k < coarse.size(); k++) {
+    if (coarse[k].intersects(mask_region)) {
+        mask->setVal<RunOn::Host>(RadBoundaryData::not_covered,
+                                  (coarse[k] & mask_region), 0);
+    }
+  }
+
+  for (int k = 0; k < fine.size(); k++) {
+    if (fine[k].intersects(mask_region)) {
+        mask->setVal<RunOn::Host>(RadBoundaryData::covered,
+                                  (fine[k] & mask_region), 0);
+    }
+  }
+
+  return mask;
+}
+
 CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
                                  const DistributionMapping& _coarse_dmap,
                                  const BoxArray& _fine_boxes, Location loc)
@@ -59,30 +90,7 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
       j = 0;
       for (std::list<Box>::iterator it = bl.begin(); it != bl.end(); ++it) {
         aux[ori][i][j].reset(new BoxAuxStorage(*it));
-        Box mask_region = *it;
-        for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
-          if (dir == ori.coordDir())
-            continue;
-          mask_region.grow(dir,1);
-        }
-        msk[ori][i][j].reset(new Mask(mask_region));
-
-        msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::outside_domain);
-
-
-        for (int k = 0; k < coarse_boxes.size(); k++) {
-          if (coarse_boxes[k].intersects(mask_region)) {
-              msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::not_covered,
-                                                  (coarse_boxes[k] & mask_region), 0);
-          }
-        }
-
-        for (int k = 0; k < fgrids.size(); k++) {
-          if (fgrids[k].intersects(mask_region)) {
-              msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::covered,
-                                                  (fgrids[k] & mask_region), 0);
-          }
-        }
+        msk[ori][i][j] = make_face_mask(*it, ori.coordDir(), coarse_boxes, fgrids);
 
         j++;
       }
@@ -156,30 +164,7 @@ CoarseBoundaryAuxStore::CoarseBoundaryAuxStore(const BoxArray& _coarse_boxes,
         Box face = amrex::adjCell(fgrids[fine_map[ori][i][j]], ori);
         aux[ori][i][j].reset(new BoxAuxStorage(face & coarse_boxes[i]));
 
-        Box mask_region = aux[ori][i][j]->box();
-        for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
-          if (dir == ori.coordDir())
-            continue;
-          mask_region.grow(dir,1);
-        }
-        msk[ori][i][j].reset(new Mask(mask_region));
-
-        msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::outside_domain);
-
-
-        for (int k = 0; k < coarse_boxes.size(); k++) {
-          if (coarse_boxes[k].intersects(mask_region)) {
-              msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::not_covered,
-                                                  (coarse_boxes[k] & mask_region), 0);
-          }
-        }
-
-        for (int k = 0; k < fgrids.size(); k++) {
-          if (fgrids[k].intersects(mask_region)) {
-              msk[ori][i][j]->setVal<RunOn::Host>(RadBoundaryData::covered,
-                                                  (fgrids[k] & mask_region), 0);
-          }
-        }
+        msk[ori][i][j] = make_face_mask(aux[ori][i][j]->box(), ori.coordDir(), coarse_boxes, fgrids);
 
       }
     }

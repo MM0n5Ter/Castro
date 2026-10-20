@@ -4,6 +4,34 @@
 
 using namespace amrex;
 
+struct MhdAxis {
+  int QBNORM, QBPERP1, QBPERP2;
+  int QVNORM, QVPERP1, QVPERP2;
+  int UMN, UMPERP1, UMPERP2;
+  int UBNORM, UBPERP1, UBPERP2;
+};
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+mhd_normal_flux(const Array1D<Real, 0, NQ-1>& q, const Array1D<Real, 0, NUM_STATE+2>& u,
+                const Real B2, const Real UB, const MhdAxis& axis,
+                Array1D<Real, 0, NUM_STATE+2>& F) {
+
+    F(URHO) = q(QRHO) * q(axis.QVNORM);
+    F(axis.UMN) = q(QRHO) * q(axis.QVNORM) * q(axis.QVNORM) + (q(QPRES) + 0.5_rt * B2) - q(axis.QBNORM) * q(axis.QBNORM);
+    F(axis.UMPERP1) = q(QRHO) * q(axis.QVNORM) * q(axis.QVPERP1) - q(axis.QBNORM) * q(axis.QBPERP1);
+    F(axis.UMPERP2) = q(QRHO) * q(axis.QVNORM) * q(axis.QVPERP2) - q(axis.QBNORM) * q(axis.QBPERP2);
+    F(UEDEN) = q(axis.QVNORM) * (u(UEDEN) + (q(QPRES) + 0.5_rt * B2)) - q(axis.QBNORM) * UB;
+    F(axis.UBNORM) = 0.0;
+    F(axis.UBPERP1) = q(axis.QVNORM) * q(axis.QBPERP1) - q(axis.QVPERP1) * q(axis.QBNORM);
+    F(axis.UBPERP2) = q(axis.QVNORM) * q(axis.QBPERP2) - q(axis.QVPERP2) * q(axis.QBNORM);
+    for (int n = 0; n < NumSpec; n++) {
+      F(UFS+n) = q(axis.QVNORM) * u(UFS+n);
+    }
+    F(UEINT) = q(axis.QVNORM) * u(UEINT);
+    F(UTEMP) = 0.0_rt;
+}
+
 void
 HydroSim::mhd_riemann_flux(const Box& bx,
              Array4<Real const> const& prim_left,
@@ -63,6 +91,11 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     UBPERP2 = UBY;
   }
 
+  const MhdAxis axis{QBNORM, QBPERP1, QBPERP2,
+                     QVNORM, QVPERP1, QVPERP2,
+                     UMN, UMPERP1, UMPERP2,
+                     UBNORM, UBPERP1, UBPERP2};
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
@@ -90,19 +123,7 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     Real UBL = qL(QBFIELDX) * qL(QU) + qL(QBFIELDY) * qL(QV) + qL(QBFIELDZ) * qL(QW);
     Array1D<Real, 0, NUM_STATE+2> FL;
 
-    FL(URHO) = qL(QRHO) * qL(QVNORM);
-    FL(UMN) = qL(QRHO) * qL(QVNORM) * qL(QVNORM) + (qL(QPRES) + 0.5_rt * BL2) - qL(QBNORM) * qL(QBNORM);
-    FL(UMPERP1) = qL(QRHO) * qL(QVNORM) * qL(QVPERP1) - qL(QBNORM) * qL(QBPERP1);
-    FL(UMPERP2) = qL(QRHO) * qL(QVNORM) * qL(QVPERP2) - qL(QBNORM) * qL(QBPERP2);
-    FL(UEDEN) = qL(QVNORM) * (uL(UEDEN) + (qL(QPRES) + 0.5_rt * BL2)) - qL(QBNORM) * UBL;
-    FL(UBNORM) = 0.0;
-    FL(UBPERP1) = qL(QVNORM) * qL(QBPERP1) - qL(QVPERP1) * qL(QBNORM);
-    FL(UBPERP2) = qL(QVNORM) * qL(QBPERP2) - qL(QVPERP2) * qL(QBNORM);
-    for (int n = 0; n < NumSpec; n++) {
-      FL(UFS+n) = qL(QVNORM) * uL(UFS+n);
-    }
-    FL(UEINT) = qL(QVNORM) * uL(UEINT);
-    FL(UTEMP) = 0.0_rt;
+    mhd_normal_flux(qL, uL, BL2, UBL, axis, FL);
 
     Array1D<Real, 0, NUM_STATE+2> uR;
     Real gamma1_R;
@@ -114,19 +135,7 @@ HydroSim::mhd_riemann_flux(const Box& bx,
 
     Array1D<Real, 0, NUM_STATE+2> FR;
 
-    FR(URHO) = qR(QRHO) * qR(QVNORM);
-    FR(UMN) = qR(QRHO) * qR(QVNORM) * qR(QVNORM) + (qR(QPRES) + 0.5_rt * BR2) - qR(QBNORM) * qR(QBNORM);
-    FR(UMPERP1) = qR(QRHO) * qR(QVNORM) * qR(QVPERP1) - qR(QBNORM) * qR(QBPERP1);
-    FR(UMPERP2) = qR(QRHO) * qR(QVNORM) * qR(QVPERP2) - qR(QBNORM) * qR(QBPERP2);
-    FR(UEDEN) = qR(QVNORM) * (uR(UEDEN) + (qR(QPRES) + 0.5_rt * BR2)) - qR(QBNORM) * UBR;
-    FR(UBNORM) = 0.0;
-    FR(UBPERP1) = qR(QVNORM) * qR(QBPERP1) - qR(QVPERP1) * qR(QBNORM);
-    FR(UBPERP2) = qR(QVNORM) * qR(QBPERP2) - qR(QVPERP2) * qR(QBNORM);
-    for (int n = 0; n < NumSpec; n++) {
-      FR(UFS+n) = qR(QVNORM) * uR(UFS+n);
-    }
-    FR(UEINT) = qR(QVNORM) * uR(UEINT);
-    FR(UTEMP) = 0.0_rt;
+    mhd_normal_flux(qR, uR, BR2, UBR, axis, FR);
 
     Real asL = gamma1_L * qL(QPRES) / qL(QRHO);
     Real asR = gamma1_R * qR(QPRES) / qR(QRHO);

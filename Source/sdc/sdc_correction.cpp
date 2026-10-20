@@ -438,8 +438,11 @@ HydroSim::do_sdc_correct(int m_start, int m_end, Real dt)
 
             build_fourth_in_place(bx, react_new_arr, laplacian_work_arr, domain_lo, domain_hi);
 
-            hs_deferred_conservative_update(bx, substep_dt, node_state_new_start_arr, node_state_new_end_arr,
-                                       Correction_source_arr, react_new_arr);
+            amrex::ParallelFor(bx, node_state_new_end_arr.nComp(),
+            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+            {
+                node_state_new_end_arr(i,j,k,n) = node_state_new_start_arr(i,j,k,n) + substep_dt * react_new_arr(i,j,k,n) + substep_dt * Correction_source_arr(i,j,k,n);
+            });
 
         }
 #else

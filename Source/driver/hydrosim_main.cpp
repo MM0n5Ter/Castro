@@ -93,21 +93,23 @@ main (int   argc,
     }
 
 
-    time_t time_type;
+    auto print_utc_stamp = [] (const char* label) {
+        time_t time_type;
 
-    const struct tm* wall_tm_ptr = nullptr;
+        time(&time_type);
 
-    time(&time_type);
+        const struct tm* wall_tm_ptr = gmtime(&time_type);
 
-    wall_tm_ptr = gmtime(&time_type);
+        amrex::Print() << std::setfill('0') << "\n" << label << " run at "
+                       << std::setw(2) << wall_tm_ptr->tm_hour << ":"
+                       << std::setw(2) << wall_tm_ptr->tm_min << ":"
+                       << std::setw(2) << wall_tm_ptr->tm_sec << " UTC on "
+                       << wall_tm_ptr->tm_year + 1900 << "-"
+                       << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
+                       << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
+    };
 
-    amrex::Print() << std::setfill('0') << "\nStarting run at "
-                   << std::setw(2) << wall_tm_ptr->tm_hour << ":"
-                   << std::setw(2) << wall_tm_ptr->tm_min << ":"
-                   << std::setw(2) << wall_tm_ptr->tm_sec << " UTC on "
-                   << wall_tm_ptr->tm_year + 1900 << "-"
-                   << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
-                   << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
+    print_utc_stamp("Starting");
 
 
     Amr* amr_obj = new Amr(getLevelBld());
@@ -157,17 +159,7 @@ main (int   argc,
     long coarse_zone_count = amr_obj->getLevel(0).boxArray().numPts();
     Real fom = HydroSim::cells_advanced_total * static_cast<Real>(coarse_zone_count);
 
-    time(&time_type);
-
-    wall_tm_ptr = gmtime(&time_type);
-
-    amrex::Print() << std::setfill('0') << "\nEnding run at "
-                   << std::setw(2) << wall_tm_ptr->tm_hour << ":"
-                   << std::setw(2) << wall_tm_ptr->tm_min << ":"
-                   << std::setw(2) << wall_tm_ptr->tm_sec << " UTC on "
-                   << wall_tm_ptr->tm_year + 1900 << "-"
-                   << std::setw(2) << wall_tm_ptr->tm_mon + 1 << "-"
-                   << std::setw(2) << wall_tm_ptr->tm_mday << "." << std::endl;
+    print_utc_stamp("Ending");
 
     delete amr_obj;
     const int IOProc = ParallelDescriptor::IOProcessorNumber();

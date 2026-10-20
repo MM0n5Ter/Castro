@@ -24,6 +24,43 @@
 using namespace amrex;
 
 #if (AMREX_SPACEDIM == 3)
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real boundary_sample_coordinate (int idx, int idx_lo, int idx_hi,
+                                 Real plo, Real phi, Real spacing)
+{
+    if (idx == idx_lo) {
+        return plo;
+    }
+    else if (idx == idx_hi) {
+        return phi;
+    }
+    return plo + (static_cast<Real>(idx) + 0.5_rt) * spacing;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real direct_sum_term (Real dx2, Real dy2, Real dz2,
+                      const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& boundaryLoc,
+                      const GpuArray<Real, 3>& problo, const GpuArray<Real, 3>& probhi,
+                      Real rho, Real dV, bool doFoldedAdd,
+                      const GpuArray<bool, 3>& doFoldedAddLo, const GpuArray<bool, 3>& doFoldedAddHi)
+{
+    Real r = std::sqrt(dx2 + dy2 + dz2);
+
+    Real dbc = -C::Gconst * rho * dV / r;
+
+    if (doFoldedAdd) {
+
+        dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
+                                              rho, dV,
+                                              doFoldedAddLo, doFoldedAddHi);
+
+    }
+
+    return dbc;
+}
+#endif
+
+#if (AMREX_SPACEDIM == 3)
 void
 Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector<MultiFab*>& Rhs, MultiFab& phi)
 {
@@ -212,60 +249,28 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 #endif
 
                     for (int m = bc_lo[1]; m <= bc_hi[1]; ++m) {
-                        if (m == bc_lo[1]) {
-                            boundaryLoc[1] = problo[1];
-                        }
-                        else if (m == bc_hi[1]) {
-                            boundaryLoc[1] = probhi[1];
-                        }
-                        else {
-                            boundaryLoc[1] = problo[1] + (static_cast<Real>(m) + 0.5_rt) * boundary_spacing[1];
-                        }
+                        boundaryLoc[1] = boundary_sample_coordinate(m, bc_lo[1], bc_hi[1], problo[1], probhi[1], boundary_spacing[1]);
                         Real dy2 = (loc[1] - boundaryLoc[1]) * (loc[1] - boundaryLoc[1]);
 
                         for (int l = bc_lo[0]; l <= bc_hi[0]; ++l) {
-                            if (l == bc_lo[0]) {
-                                boundaryLoc[0] = problo[0];
-                            }
-                            else if (l == bc_hi[0]) {
-                                boundaryLoc[0] = probhi[0];
-                            }
-                            else {
-                                boundaryLoc[0] = problo[0] + (static_cast<Real>(l) + 0.5_rt) * boundary_spacing[0];
-                            }
+                            boundaryLoc[0] = boundary_sample_coordinate(l, bc_lo[0], bc_hi[0], problo[0], probhi[0], boundary_spacing[0]);
                             Real dx2 = (loc[0] - boundaryLoc[0]) * (loc[0] - boundaryLoc[0]);
 
                             boundaryLoc[2] = problo[2];
                             Real dz2 = (loc[2] - boundaryLoc[2]) * (loc[2] - boundaryLoc[2]);
 
-                            Real r = std::sqrt(dx2 + dy2 + dz2);
-
-                            Real dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            Real dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryXYLo_arr(l,m,0), dbc);
 
                             boundaryLoc[2] = probhi[2];
                             dz2 = (loc[2] - boundaryLoc[2]) * (loc[2] - boundaryLoc[2]);
 
-                            r = std::sqrt(dx2 + dy2 + dz2);
-
-                            dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryXYHi_arr(l,m,0), dbc);
 
@@ -274,60 +279,28 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
                     }
 
                     for (int n = bc_lo[2]; n <= bc_hi[2]; ++n) {
-                        if (n == bc_lo[2]) {
-                            boundaryLoc[2] = problo[2];
-                        }
-                        else if (n == bc_hi[2]) {
-                            boundaryLoc[2] = probhi[2];
-                        }
-                        else {
-                            boundaryLoc[2] = problo[2] + (static_cast<Real>(n) + 0.5_rt) * boundary_spacing[2];
-                        }
+                        boundaryLoc[2] = boundary_sample_coordinate(n, bc_lo[2], bc_hi[2], problo[2], probhi[2], boundary_spacing[2]);
                         Real dz2 = (loc[2] - boundaryLoc[2]) * (loc[2] - boundaryLoc[2]);
 
                         for (int l = bc_lo[0]; l <= bc_hi[0]; ++l) {
-                            if (l == bc_lo[0]) {
-                                boundaryLoc[0] = problo[0];
-                            }
-                            else if (l == bc_hi[0]) {
-                                boundaryLoc[0] = probhi[0];
-                            }
-                            else {
-                                boundaryLoc[0] = problo[0] + (static_cast<Real>(l) + 0.5_rt) * boundary_spacing[0];
-                            }
+                            boundaryLoc[0] = boundary_sample_coordinate(l, bc_lo[0], bc_hi[0], problo[0], probhi[0], boundary_spacing[0]);
                             Real dx2 = (loc[0] - boundaryLoc[0]) * (loc[0] - boundaryLoc[0]);
 
                             boundaryLoc[1] = problo[1];
                             Real dy2 = (loc[1] - boundaryLoc[1]) * (loc[1] - boundaryLoc[1]);
 
-                            Real r = std::sqrt(dx2 + dy2 + dz2);
-
-                            Real dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            Real dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryXZLo_arr(l,0,n), dbc);
 
                             boundaryLoc[1] = probhi[1];
                             dy2 = (loc[1] - boundaryLoc[1]) * (loc[1] - boundaryLoc[1]);
 
-                            r = std::sqrt(dx2 + dy2 + dz2);
-
-                            dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryXZHi_arr(l,0,n), dbc);
 
@@ -336,60 +309,28 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
                     }
 
                     for (int n = bc_lo[2]; n <= bc_hi[2]; ++n) {
-                        if (n == bc_lo[2]) {
-                            boundaryLoc[2] = problo[2];
-                        }
-                        else if (n == bc_hi[2]) {
-                            boundaryLoc[2] = probhi[2];
-                        }
-                        else {
-                            boundaryLoc[2] = problo[2] + (static_cast<Real>(n) + 0.5_rt) * boundary_spacing[2];
-                        }
+                        boundaryLoc[2] = boundary_sample_coordinate(n, bc_lo[2], bc_hi[2], problo[2], probhi[2], boundary_spacing[2]);
                         Real dz2 = (loc[2] - boundaryLoc[2]) * (loc[2] - boundaryLoc[2]);
 
                         for (int m = bc_lo[1]; m <= bc_hi[1]; ++m) {
-                            if (m == bc_lo[1]) {
-                                boundaryLoc[1] = problo[1];
-                            }
-                            else if (m == bc_hi[1]) {
-                                boundaryLoc[1] = probhi[1];
-                            }
-                            else {
-                                boundaryLoc[1] = problo[1] + (static_cast<Real>(m) + 0.5_rt) * boundary_spacing[1];
-                            }
+                            boundaryLoc[1] = boundary_sample_coordinate(m, bc_lo[1], bc_hi[1], problo[1], probhi[1], boundary_spacing[1]);
                             Real dy2 = (loc[1] - boundaryLoc[1]) * (loc[1] - boundaryLoc[1]);
 
                             boundaryLoc[0] = problo[0];
                             Real dx2 = (loc[0] - boundaryLoc[0]) * (loc[0] - boundaryLoc[0]);
 
-                            Real r = std::sqrt(dx2 + dy2 + dz2);
-
-                            Real dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            Real dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryYZLo_arr(0,m,n), dbc);
 
                             boundaryLoc[0] = probhi[0];
                             dx2 = (loc[0] - boundaryLoc[0]) * (loc[0] - boundaryLoc[0]);
 
-                            r = std::sqrt(dx2 + dy2 + dz2);
-
-                            dbc = -C::Gconst * rho(i,j,k) * vol(i,j,k) / r;
-
-                            if (doFoldedAdd) {
-
-                                dbc += accumulate_mirror_contribution(loc, boundaryLoc, problo, probhi,
-                                                                rho(i,j,k), vol(i,j,k),
-                                                                doFoldedAddLo, doFoldedAddHi);
-
-                            }
+                            dbc = direct_sum_term(dx2, dy2, dz2, loc, boundaryLoc, problo, probhi,
+                                                  rho(i,j,k), vol(i,j,k),
+                                                  doFoldedAdd, doFoldedAddLo, doFoldedAddHi);
 
                             Gpu::Atomic::Add(&boundaryYZHi_arr(0,m,n), dbc);
 
@@ -558,28 +499,24 @@ Gravity::init_multipole_field() const
 
     const Real wallDistTol = 1.0e-2_rt;
 
+    auto classify_wall = [&] (int bc, Real wall, int b,
+                              Array1D<bool, 0, 2>& mirror, Array1D<bool, 0, 2>& folded) {
+        if ((bc == amrex::PhysBCType::symmetry) && (parent->Geom(0).Coord() == 0)) {
+            if (std::abs(problem::center[b] - wall) < wallDistTol) {
+                multipole::volumeScale *= 2.0_rt;
+                mirror(b) = true;
+            } else {
+                folded(b) = true;
+                multipole::doFoldedAdd      = true;
+            }
+        }
+    };
+
     for (int b = 0; b < AMREX_SPACEDIM; ++b) {
 
-        if ((lo_bc[b] == amrex::PhysBCType::symmetry) && (parent->Geom(0).Coord() == 0)) {
-            if (!(std::abs(problem::center[b] - problo[b]) < wallDistTol)) {
-                multipole::doFoldedAddLo(b) = true;
-                multipole::doFoldedAdd      = true;
-            } else {
-                multipole::volumeScale *= 2.0_rt;
-                multipole::doMirrorLo(b) = true;
-            }
-        }
+        classify_wall(lo_bc[b], problo[b], b, multipole::doMirrorLo, multipole::doFoldedAddLo);
 
-        if ((hi_bc[b] == amrex::PhysBCType::symmetry) && (parent->Geom(0).Coord() == 0)) {
-            if (std::abs(problem::center[b] - probhi[b]) < wallDistTol) {
-                multipole::volumeScale *= 2.0_rt;
-                multipole::doMirrorHi(b) = true;
-            }
-            else {
-                multipole::doFoldedAddHi(b) = true;
-                multipole::doFoldedAdd      = true;
-            }
-        }
+        classify_wall(hi_bc[b], probhi[b], b, multipole::doMirrorHi, multipole::doFoldedAddHi);
 
     }
 
@@ -648,6 +585,58 @@ Gravity::init_multipole_field() const
     }
 
     multipole::rmax = 0.5_rt * maxWidth * std::sqrt(static_cast<Real>(AMREX_SPACEDIM));
+}
+
+static void reduce_moment_fabs (FArrayBox& q0, FArrayBox& qC, FArrayBox& qS,
+                               const Box& b0, const Box& bC, const Box& bS)
+{
+    Real* moment0_ptr = q0.dataPtr();
+    Real* momentC_ptr = qC.dataPtr();
+    Real* momentS_ptr = qS.dataPtr();
+
+    FArrayBox moment0_host(The_Pinned_Arena());
+    FArrayBox momentC_host(The_Pinned_Arena());
+    FArrayBox momentS_host(The_Pinned_Arena());
+
+    if (!ParallelDescriptor::UseGpuAwareMpi()) {
+        if (The_Arena() == The_Managed_Arena()) {
+            q0.prefetchToHost();
+            qC.prefetchToHost();
+            qS.prefetchToHost();
+        }
+        else if (The_Arena() == The_Device_Arena()) {
+            moment0_host.resize(b0);
+            momentC_host.resize(bC);
+            momentS_host.resize(bS);
+
+            moment0_host.copy<RunOn::Device>(q0, b0);
+            momentC_host.copy<RunOn::Device>(qC, bC);
+            momentS_host.copy<RunOn::Device>(qS, bS);
+
+            moment0_ptr = moment0_host.dataPtr();
+            momentC_ptr = momentC_host.dataPtr();
+            momentS_ptr = momentS_host.dataPtr();
+        }
+    }
+
+    Gpu::synchronize();
+
+    ParallelDescriptor::ReduceRealSum(moment0_ptr, static_cast<int>(b0.numPts()));
+    ParallelDescriptor::ReduceRealSum(momentC_ptr, static_cast<int>(bC.numPts()));
+    ParallelDescriptor::ReduceRealSum(momentS_ptr, static_cast<int>(bS.numPts()));
+
+    if (!ParallelDescriptor::UseGpuAwareMpi()) {
+        if (The_Arena() == The_Managed_Arena()) {
+            q0.prefetchToDevice();
+            qC.prefetchToDevice();
+            qS.prefetchToDevice();
+        }
+        else if (The_Arena() == The_Device_Arena()) {
+            q0.copy<RunOn::Device>(moment0_host, b0);
+            qC.copy<RunOn::Device>(momentC_host, bC);
+            qS.copy<RunOn::Device>(momentS_host, bS);
+        }
+    }
 }
 
 void
@@ -893,103 +882,11 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
     }
 
-    Real* lowerMoment0_ptr = qL0.dataPtr();
-    Real* lowerMomentC_ptr = qLC.dataPtr();
-    Real* lowerMomentS_ptr = qLS.dataPtr();
-
-    FArrayBox lowerMoment0_host(The_Pinned_Arena());
-    FArrayBox lowerMomentC_host(The_Pinned_Arena());
-    FArrayBox lowerMomentS_host(The_Pinned_Arena());
-
-    if (!ParallelDescriptor::UseGpuAwareMpi()) {
-        if (The_Arena() == The_Managed_Arena()) {
-            qL0.prefetchToHost();
-            qLC.prefetchToHost();
-            qLS.prefetchToHost();
-        }
-        else if (The_Arena() == The_Device_Arena()) {
-            lowerMoment0_host.resize(momentBox0);
-            lowerMomentC_host.resize(momentBoxC);
-            lowerMomentS_host.resize(momentBoxS);
-
-            lowerMoment0_host.copy<RunOn::Device>(qL0, momentBox0);
-            lowerMomentC_host.copy<RunOn::Device>(qLC, momentBoxC);
-            lowerMomentS_host.copy<RunOn::Device>(qLS, momentBoxS);
-
-            lowerMoment0_ptr = lowerMoment0_host.dataPtr();
-            lowerMomentC_ptr = lowerMomentC_host.dataPtr();
-            lowerMomentS_ptr = lowerMomentS_host.dataPtr();
-        }
-    }
-
-    Gpu::synchronize();
-
-    ParallelDescriptor::ReduceRealSum(lowerMoment0_ptr, static_cast<int>(momentBox0.numPts()));
-    ParallelDescriptor::ReduceRealSum(lowerMomentC_ptr, static_cast<int>(momentBoxC.numPts()));
-    ParallelDescriptor::ReduceRealSum(lowerMomentS_ptr, static_cast<int>(momentBoxS.numPts()));
-
-    if (!ParallelDescriptor::UseGpuAwareMpi()) {
-        if (The_Arena() == The_Managed_Arena()) {
-            qL0.prefetchToDevice();
-            qLC.prefetchToDevice();
-            qLS.prefetchToDevice();
-        }
-        else if (The_Arena() == The_Device_Arena()) {
-            qL0.copy<RunOn::Device>(lowerMoment0_host, momentBox0);
-            qLC.copy<RunOn::Device>(lowerMomentC_host, momentBoxC);
-            qLS.copy<RunOn::Device>(lowerMomentS_host, momentBoxS);
-        }
-    }
+    reduce_moment_fabs(qL0, qLC, qLS, momentBox0, momentBoxC, momentBoxS);
 
     if (surface_only_mode != 1) {
 
-        Real* upperMoment0_ptr = qU0.dataPtr();
-        Real* upperMomentC_ptr = qUC.dataPtr();
-        Real* upperMomentS_ptr = qUS.dataPtr();
-
-        FArrayBox upperMoment0_host(The_Pinned_Arena());
-        FArrayBox upperMomentC_host(The_Pinned_Arena());
-        FArrayBox upperMomentS_host(The_Pinned_Arena());
-
-        if (!ParallelDescriptor::UseGpuAwareMpi()) {
-            if (The_Arena() == The_Managed_Arena()) {
-                qU0.prefetchToHost();
-                qUC.prefetchToHost();
-                qUS.prefetchToHost();
-            }
-            else if (The_Arena() == The_Device_Arena()) {
-                upperMoment0_host.resize(momentBox0);
-                upperMomentC_host.resize(momentBoxC);
-                upperMomentS_host.resize(momentBoxS);
-
-                upperMoment0_host.copy<RunOn::Device>(qU0, momentBox0);
-                upperMomentC_host.copy<RunOn::Device>(qUC, momentBoxC);
-                upperMomentS_host.copy<RunOn::Device>(qUS, momentBoxS);
-
-                upperMoment0_ptr = upperMoment0_host.dataPtr();
-                upperMomentC_ptr = upperMomentC_host.dataPtr();
-                upperMomentS_ptr = upperMomentS_host.dataPtr();
-            }
-        }
-
-        Gpu::synchronize();
-
-        ParallelDescriptor::ReduceRealSum(upperMoment0_ptr, static_cast<int>(momentBox0.numPts()));
-        ParallelDescriptor::ReduceRealSum(upperMomentC_ptr, static_cast<int>(momentBoxC.numPts()));
-        ParallelDescriptor::ReduceRealSum(upperMomentS_ptr, static_cast<int>(momentBoxS.numPts()));
-
-        if (!ParallelDescriptor::UseGpuAwareMpi()) {
-            if (The_Arena() == The_Managed_Arena()) {
-                qU0.prefetchToDevice();
-                qUC.prefetchToDevice();
-                qUS.prefetchToDevice();
-            }
-            else if (The_Arena() == The_Device_Arena()) {
-                qU0.copy<RunOn::Device>(upperMoment0_host, momentBox0);
-                qUC.copy<RunOn::Device>(upperMomentC_host, momentBoxC);
-                qUS.copy<RunOn::Device>(upperMomentS_host, momentBoxS);
-            }
-        }
+        reduce_moment_fabs(qU0, qUC, qUS, momentBox0, momentBoxC, momentBoxS);
 
     }
 

@@ -181,6 +181,8 @@ public:
 
     void snapshot_for_rerun();
 
+    int last_level_in_step () const;
+
     bool rerun_advance_ctu(amrex::Real dt, const step_result& status);
 
     amrex::Real advance_subcycles_ctu(amrex::Real time, amrex::Real dt, int amr_pass, int amr_cycles);
@@ -255,6 +257,8 @@ public:
 #endif
 
     void after_grow_restart ();
+
+    void rebuild_gravity_and_radiation ();
 
 #ifdef DO_PROBLEM_POST_SIMULATION
 

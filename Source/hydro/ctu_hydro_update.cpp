@@ -339,6 +339,12 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
     MultiFab& old_forcing = get_old_data(Forcing_Type);
 
+    auto scratch_array = [&] (FArrayBox& fab, const Box& b, int ncomp) {
+      fab.resize(b, ncomp);
+      fab_bytes += fab.nBytes();
+      return fab.array();
+    };
+
     for (MFIter mfi(S_new, hydro_tile_size); mfi.isValid(); ++mfi) {
 
       const Box& bx = mfi.tilebox();
@@ -350,22 +356,16 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& ghost3_box = amrex::grow(bx, 3);
 
 #ifdef RADIATION
-      q.resize(qbx, NQ);
+      Array4<Real> const prim_arr = scratch_array(q, qbx, NQ);
 #else
-      q.resize(qbx, NQPRIMBASE);
+      Array4<Real> const prim_arr = scratch_array(q, qbx, NQPRIMBASE);
 #endif
-      fab_bytes += q.nBytes();
-      Array4<Real> const prim_arr = q.array();
 
-      qthermo.resize(qbx, NQEXTRAQ);
-      fab_bytes += qthermo.nBytes();
-      Array4<Real> const qthermo_arr = qthermo.array();
+      Array4<Real> const qthermo_arr = scratch_array(qthermo, qbx, NQEXTRAQ);
 
       Array4<Real const> const cons_old_arr = Sborder.array(mfi);
 
-      rho_inv.resize(ghost3_box, 1);
-      fab_bytes += rho_inv.nBytes();
-      Array4<Real> const inv_density_arr = rho_inv.array();
+      Array4<Real> const inv_density_arr = scratch_array(rho_inv, ghost3_box, 1);
 
       amrex::ParallelFor(ghost3_box,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -403,17 +403,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& grown_z_box = amrex::grow(zbx, 1);
 #endif
 
-      shk.resize(obx, 1);
-      fab_bytes += shk.nBytes();
+      Array4<Real> const shock_flag_arr = scratch_array(shk, obx, 1);
 
 
-
-      Array4<Real> const shock_flag_arr = shk.array();
-
-
-      prim_source_fab.resize(ghost3_box, NQSOURCE);
-      fab_bytes += prim_source_fab.nBytes();
-      Array4<Real> const prim_source_arr = prim_source_fab.array();
+      Array4<Real> const prim_source_arr = scratch_array(prim_source_fab, ghost3_box, NQSOURCE);
 
       Array4<Real> const prev_source_arr = old_forcing.array(mfi);
       Array4<Real> const source_corrector_arr = forcing_corrector.array(mfi);
@@ -436,36 +429,18 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       }
 
 
-      qxm.resize(obx, NQ);
-      fab_bytes += qxm.nBytes();
-
-      qxp.resize(obx, NQ);
-      fab_bytes += qxp.nBytes();
-
-      Array4<Real> const x_minus_arr = qxm.array();
-      Array4<Real> const x_plus_arr = qxp.array();
+      Array4<Real> const x_minus_arr = scratch_array(qxm, obx, NQ);
+      Array4<Real> const x_plus_arr = scratch_array(qxp, obx, NQ);
 
 #if AMREX_SPACEDIM >= 2
-      qym.resize(obx, NQ);
-      fab_bytes += qym.nBytes();
-
-      qyp.resize(obx, NQ);
-      fab_bytes += qyp.nBytes();
-
-      Array4<Real> const y_minus_arr = qym.array();
-      Array4<Real> const y_plus_arr = qyp.array();
+      Array4<Real> const y_minus_arr = scratch_array(qym, obx, NQ);
+      Array4<Real> const y_plus_arr = scratch_array(qyp, obx, NQ);
 
 #endif
 
 #if AMREX_SPACEDIM == 3
-      qzm.resize(obx, NQ);
-      fab_bytes += qzm.nBytes();
-
-      qzp.resize(obx, NQ);
-      fab_bytes += qzp.nBytes();
-
-      Array4<Real> const z_minus_arr = qzm.array();
-      Array4<Real> const z_plus_arr = qzp.array();
+      Array4<Real> const z_minus_arr = scratch_array(qzm, obx, NQ);
+      Array4<Real> const z_plus_arr = scratch_array(qzp, obx, NQ);
 
 #endif
 
@@ -534,9 +509,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       }
 
-      div.resize(obx, 1);
-      fab_bytes += div.nBytes();
-      auto divergence_arr = div.array();
+      auto divergence_arr = scratch_array(div, obx, 1);
 
       divu(obx, prim_arr, divergence_arr);
 
@@ -624,41 +597,25 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
 
 #if AMREX_SPACEDIM >= 2
-      flux_temp1.resize(obx, NUM_STATE);
-      auto flux_temp1_arr = flux_temp1.array();
-      fab_bytes += flux_temp1.nBytes();
+      auto flux_temp1_arr = scratch_array(flux_temp1, obx, NUM_STATE);
 
-      flux_temp2.resize(obx, NUM_STATE);
-      auto flux_temp2_arr = flux_temp2.array();
-      fab_bytes += flux_temp2.nBytes();
+      auto flux_temp2_arr = scratch_array(flux_temp2, obx, NUM_STATE);
 
 #ifdef RADIATION
-      radiation_temp1.resize(obx, Radiation::nGroups);
-      auto radiation_temp1_arr = radiation_temp1.array();
-      fab_bytes += radiation_temp1.nBytes();
+      auto radiation_temp1_arr = scratch_array(radiation_temp1, obx, Radiation::nGroups);
 
-      radiation_temp2.resize(obx, Radiation::nGroups);
-      auto radiation_temp2_arr = radiation_temp2.array();
-      fab_bytes += radiation_temp2.nBytes();
+      auto radiation_temp2_arr = scratch_array(radiation_temp2, obx, Radiation::nGroups);
 #endif
 
-      godunov_temp1.resize(obx, NGDSTATE);
-      auto godunov_temp1_arr = godunov_temp1.array();
-      fab_bytes += godunov_temp1.nBytes();
+      auto godunov_temp1_arr = scratch_array(godunov_temp1, obx, NGDSTATE);
 
 #if AMREX_SPACEDIM == 3
-      godunov_temp2.resize(obx, NGDSTATE);
-      auto godunov_temp2_arr = godunov_temp2.array();
-      fab_bytes += godunov_temp2.nBytes();
+      auto godunov_temp2_arr = scratch_array(godunov_temp2, obx, NGDSTATE);
 #endif
 
-      ql.resize(obx, NQ);
-      auto prim_left_arr = ql.array();
-      fab_bytes += ql.nBytes();
+      auto prim_left_arr = scratch_array(ql, obx, NQ);
 
-      qr.resize(obx, NQ);
-      auto prim_right_arr = qr.array();
-      fab_bytes += qr.nBytes();
+      auto prim_right_arr = scratch_array(qr, obx, NQ);
 #endif
 
 
@@ -780,6 +737,31 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const amrex::Real third_dt_dy = dt/dx[1]/3.0;
       const amrex::Real third_dt_dz = dt/dx[2]/3.0;
 
+      auto transverse_edge_states = [&] (FArrayBox& edge_minus, FArrayBox& edge_plus,
+                                         const Box& tbox, int idir_tan, int idir_normal,
+                                         auto const& q_minus, auto const& q_plus,
+                                         amrex::Real dt_dx) {
+          edge_minus.resize(tbox, NQ);
+          fab_bytes += edge_minus.nBytes();
+
+          edge_plus.resize(tbox, NQ);
+          fab_bytes += edge_plus.nBytes();
+
+          tangential_pass(tbox, idir_tan, idir_normal,
+                       q_minus, edge_minus.array(),
+                       q_plus, edge_plus.array(),
+                       qthermo_arr,
+                       flux_temp1_arr,
+#ifdef RADIATION
+                       radiation_temp1_arr,
+#endif
+                       godunov_temp1_arr,
+                       hdt, dt_dx);
+          reset_edge_thermo(tbox, edge_minus.array());
+
+          reset_edge_thermo(tbox, edge_plus.array());
+      };
+
       const Box& flux_box_x = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,1)));
 
       compute_godunov_flux(flux_box_x,
@@ -795,51 +777,13 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       const Box& trans_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      edge_minus_yx.resize(trans_box_yx, NQ);
-      auto edge_minus_yx_arr = edge_minus_yx.array();
-      fab_bytes += edge_minus_yx.nBytes();
-
-      edge_plus_yx.resize(trans_box_yx, NQ);
-      auto edge_plus_yx_arr = edge_plus_yx.array();
-      fab_bytes += edge_plus_yx.nBytes();
-
-      tangential_pass(trans_box_yx, 0, 1,
-                   y_minus_arr, edge_minus_yx_arr,
-                   y_plus_arr, edge_plus_yx_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dx);
-      reset_edge_thermo(trans_box_yx, edge_minus_yx.array());
-
-      reset_edge_thermo(trans_box_yx, edge_plus_yx.array());
+      transverse_edge_states(edge_minus_yx, edge_plus_yx, trans_box_yx, 0, 1,
+                             y_minus_arr, y_plus_arr, third_dt_dx);
 
       const Box& trans_box_zx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      edge_minus_zx.resize(trans_box_zx, NQ);
-      auto edge_minus_zx_arr = edge_minus_zx.array();
-      fab_bytes += edge_minus_zx.nBytes();
-
-      edge_plus_zx.resize(trans_box_zx, NQ);
-      auto edge_plus_zx_arr = edge_plus_zx.array();
-      fab_bytes += edge_plus_zx.nBytes();
-
-      tangential_pass(trans_box_zx, 0, 2,
-                   z_minus_arr, edge_minus_zx_arr,
-                   z_plus_arr, edge_plus_zx_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dx);
-      reset_edge_thermo(trans_box_zx, edge_minus_zx.array());
-
-      reset_edge_thermo(trans_box_zx, edge_plus_zx.array());
+      transverse_edge_states(edge_minus_zx, edge_plus_zx, trans_box_zx, 0, 2,
+                             z_minus_arr, z_plus_arr, third_dt_dx);
 
       const Box& flux_box_y = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,1)));
 
@@ -854,51 +798,13 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                           1, false);
       const Box& trans_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
-      edge_minus_xy.resize(trans_box_xy, NQ);
-      auto edge_minus_xy_arr = edge_minus_xy.array();
-      fab_bytes += edge_minus_xy.nBytes();
-
-      edge_plus_xy.resize(trans_box_xy, NQ);
-      auto edge_plus_xy_arr = edge_plus_xy.array();
-      fab_bytes += edge_plus_xy.nBytes();
-
-      tangential_pass(trans_box_xy, 1, 0,
-                   x_minus_arr, edge_minus_xy_arr,
-                   x_plus_arr, edge_plus_xy_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dy);
-      reset_edge_thermo(trans_box_xy, edge_minus_xy.array());
-
-      reset_edge_thermo(trans_box_xy, edge_plus_xy.array());
+      transverse_edge_states(edge_minus_xy, edge_plus_xy, trans_box_xy, 1, 0,
+                             x_minus_arr, x_plus_arr, third_dt_dy);
 
       const Box& trans_box_zy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      edge_minus_zy.resize(trans_box_zy, NQ);
-      auto edge_minus_zy_arr = edge_minus_zy.array();
-      fab_bytes += edge_minus_zy.nBytes();
-
-      edge_plus_zy.resize(trans_box_zy, NQ);
-      auto edge_plus_zy_arr = edge_plus_zy.array();
-      fab_bytes += edge_plus_zy.nBytes();
-
-      tangential_pass(trans_box_zy, 1, 2,
-                   z_minus_arr, edge_minus_zy_arr,
-                   z_plus_arr, edge_plus_zy_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dy);
-      reset_edge_thermo(trans_box_zy, edge_minus_zy.array());
-
-      reset_edge_thermo(trans_box_zy, edge_plus_zy.array());
+      transverse_edge_states(edge_minus_zy, edge_plus_zy, trans_box_zy, 1, 2,
+                             z_minus_arr, z_plus_arr, third_dt_dy);
 
       const Box& flux_box_z = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,1,0)));
 
@@ -913,58 +819,20 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                           2, false);
       const Box& trans_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
-      edge_minus_xz.resize(trans_box_xz, NQ);
-      auto edge_minus_xz_arr = edge_minus_xz.array();
-      fab_bytes += edge_minus_xz.nBytes();
-
-      edge_plus_xz.resize(trans_box_xz, NQ);
-      auto edge_plus_xz_arr = edge_plus_xz.array();
-      fab_bytes += edge_plus_xz.nBytes();
-
-      tangential_pass(trans_box_xz, 2, 0,
-                   x_minus_arr, edge_minus_xz_arr,
-                   x_plus_arr, edge_plus_xz_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dz);
-      reset_edge_thermo(trans_box_xz, edge_minus_xz.array());
-
-      reset_edge_thermo(trans_box_xz, edge_plus_xz.array());
+      transverse_edge_states(edge_minus_xz, edge_plus_xz, trans_box_xz, 2, 0,
+                             x_minus_arr, x_plus_arr, third_dt_dz);
 
       const Box& trans_box_yz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
-      edge_minus_yz.resize(trans_box_yz, NQ);
-      auto edge_minus_yz_arr = edge_minus_yz.array();
-      fab_bytes += edge_minus_yz.nBytes();
-
-      edge_plus_yz.resize(trans_box_yz, NQ);
-      auto edge_plus_yz_arr = edge_plus_yz.array();
-      fab_bytes += edge_plus_yz.nBytes();
-
-      tangential_pass(trans_box_yz, 2, 1,
-                   y_minus_arr, edge_minus_yz_arr,
-                   y_plus_arr, edge_plus_yz_arr,
-                   qthermo_arr,
-                   flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
-                   godunov_temp1_arr,
-                   hdt, third_dt_dz);
-      reset_edge_thermo(trans_box_yz, edge_minus_yz.array());
-
-      reset_edge_thermo(trans_box_yz, edge_plus_yz.array());
+      transverse_edge_states(edge_minus_yz, edge_plus_yz, trans_box_yz, 2, 1,
+                             y_minus_arr, y_plus_arr, third_dt_dz);
 
 
 
       const Box& flux_box_yz = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
       compute_godunov_flux(flux_box_yz,
-                          edge_minus_yz_arr, edge_plus_yz_arr,
+                          edge_minus_yz.array(), edge_plus_yz.array(),
                           flux_temp1_arr,
 #ifdef RADIATION
                           radiation_temp1_arr,
@@ -976,7 +844,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& flux_box_zy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
       compute_godunov_flux(flux_box_zy,
-                          edge_minus_zy_arr, edge_plus_zy_arr,
+                          edge_minus_zy.array(), edge_plus_zy.array(),
                           flux_temp2_arr,
 #ifdef RADIATION
                           radiation_temp2_arr,
@@ -1028,7 +896,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& flux_box_zx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       compute_godunov_flux(flux_box_zx,
-                          edge_minus_zx_arr, edge_plus_zx_arr,
+                          edge_minus_zx.array(), edge_plus_zx.array(),
                           flux_temp1_arr,
 #ifdef RADIATION
                           radiation_temp1_arr,
@@ -1040,7 +908,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& flux_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       compute_godunov_flux(flux_box_xz,
-                          edge_minus_xz_arr, edge_plus_xz_arr,
+                          edge_minus_xz.array(), edge_plus_xz.array(),
                           flux_temp2_arr,
 #ifdef RADIATION
                           radiation_temp2_arr,
@@ -1092,7 +960,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& flux_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
       compute_godunov_flux(flux_box_xy,
-                          edge_minus_xy_arr, edge_plus_xy_arr,
+                          edge_minus_xy.array(), edge_plus_xy.array(),
                           flux_temp1_arr,
 #ifdef RADIATION
                           radiation_temp1_arr,
@@ -1104,7 +972,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& flux_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
       compute_godunov_flux(flux_box_yx,
-                          edge_minus_yx_arr, edge_plus_yx_arr,
+                          edge_minus_yx.array(), edge_plus_yx.array(),
                           flux_temp2_arr,
 #ifdef RADIATION
                           radiation_temp2_arr,

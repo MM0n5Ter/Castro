@@ -142,6 +142,20 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
   int use_conservative_update = (matter_update_mode == 0) ? 1 : 0;
   int converged;
   Real underrelax_scale = 1.0;
+
+  auto print_spot_energy = [&] () {
+    if (verbose > 2) {
+       for (MFIter fi(state_energy_density); fi.isValid(); ++fi) {
+          if (grids[fi.index()].contains(spot)) {
+             std::cout << "state_energy_density: ";
+             for (int m=0; m<1; ++m) std::cout << state_energy_density[0](spot,m) << " ";
+             std::cout << std::endl;
+             break;
+          }
+       }
+    }
+  };
+
   do {
 
     it++;
@@ -253,16 +267,7 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
       std::cout.precision(oldprec);
     }
 
-    if (verbose > 2) {
-       for (MFIter fi(state_energy_density); fi.isValid(); ++fi) {
-          if (grids[fi.index()].contains(spot)) {
-             std::cout << "state_energy_density: ";
-             for (int m=0; m<1; ++m) std::cout << state_energy_density[0](spot,m) << " ";
-             std::cout << std::endl;
-             break;
-          }
-       }
-    }
+    print_spot_energy();
 
     converged = (relative <= reltol || absolute <= abstol || it >= maxiter);
 
@@ -322,16 +327,7 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
   sync_state_from_energy(S_new, state_energy_density);
 
-  if (verbose > 2) {
-     for (MFIter fi(state_energy_density); fi.isValid(); ++fi) {
-        if (grids[fi.index()].contains(spot)) {
-           std::cout << "state_energy_density: ";
-           for (int m=0; m<1; ++m) std::cout << state_energy_density[0](spot,m) << " ";
-           std::cout << std::endl;
-           break;
-        }
-     }
-  }
+  print_spot_energy();
 
   MultiFab::Copy(flux_div_old, flux_div_new, 0, 0, 1, 0);
 

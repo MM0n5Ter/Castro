@@ -303,6 +303,9 @@ class MultiLevelEllipticSolver {
 
  protected:
 
+  void addBoundaryRhs(int level, const amrex::MFIter& mfi, const amrex::Box& reg,
+                      amrex::Array4<amrex::Real> const& vec);
+
   int crse_level, fine_level, solver_choice;
 
   amrex::Vector<amrex::Geometry> geom;

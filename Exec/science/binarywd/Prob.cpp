@@ -232,11 +232,15 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     amrex::ParallelDescriptor::ReduceRealSum({force_P[0], force_P[1], force_P[2], force_S[0], force_S[1], force_S[2]});
 
-    Real fp = std::sqrt(std::pow(force_P[0], 2) + std::pow(force_P[1], 2) + std::pow(force_P[2], 2));
-    Real fs = std::sqrt(std::pow(force_S[0], 2) + std::pow(force_S[1], 2) + std::pow(force_S[2], 2));
+    auto vector_magnitude = [] (const Real* v) {
+        return std::sqrt(std::pow(v[0], 2) + std::pow(v[1], 2) + std::pow(v[2], 2));
+    };
 
-    Real ap = std::sqrt(std::pow(com_P[0], 2) + std::pow(com_P[1], 2) + std::pow(com_P[2], 2));
-    Real as = std::sqrt(std::pow(com_S[0], 2) + std::pow(com_S[1], 2) + std::pow(com_S[2], 2));
+    Real fp = vector_magnitude(force_P);
+    Real fs = vector_magnitude(force_S);
+
+    Real ap = vector_magnitude(com_P);
+    Real as = vector_magnitude(com_S);
 
     Real omega = 0.5 * (std::sqrt((fp / mass_P) / ap) + std::sqrt((fs / mass_S) / as));
 

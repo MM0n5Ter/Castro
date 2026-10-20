@@ -208,6 +208,22 @@ HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
     }
 }
 
+#if AMREX_SPACEDIM == 3
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real corner_averaged_difference(Array4<Real const> const& q, int i, int j, int k, int comp,
+                                int d, int a, int b)
+{
+    const int di = (d == 0), dj = (d == 1), dk = (d == 2);
+    const int ai = (a == 0), aj = (a == 1), ak = (a == 2);
+    const int bi = (b == 0), bj = (b == 1), bk = (b == 2);
+
+    return 0.25_rt * (q(i,j,k,comp) - q(i-di,j-dj,k-dk,comp) +
+                      q(i-bi,j-bj,k-bk,comp) - q(i-bi-di,j-bj-dj,k-bk-dk,comp) +
+                      q(i-ai,j-aj,k-ak,comp) - q(i-ai-di,j-aj-dj,k-ak-dk,comp) +
+                      q(i-ai-bi,j-aj-bj,k-ak-bk,comp) - q(i-ai-bi-di,j-aj-bj-dj,k-ak-bk-dk,comp));
+}
+#endif
+
 void
 HydroSim::divu(const Box& bx,
              Array4<Real const> const& prim_arr,
@@ -317,26 +333,31 @@ HydroSim::divu(const Box& bx,
 #endif
 
 #if AMREX_SPACEDIM == 3
-    Real ux = 0.25_rt * (prim_arr(i,j,k,QU) - prim_arr(i-1,j,k,QU) +
-                         prim_arr(i,j,k-1,QU) - prim_arr(i-1,j,k-1,QU) +
-                         prim_arr(i,j-1,k,QU) - prim_arr(i-1,j-1,k,QU) +
-                         prim_arr(i,j-1,k-1,QU) - prim_arr(i-1,j-1,k-1,QU)) * dxinv;
+    Real ux = corner_averaged_difference(prim_arr, i, j, k, QU, 0, 1, 2) * dxinv;
 
-    Real vy = 0.25_rt * (prim_arr(i,j,k,QV) - prim_arr(i,j-1,k,QV) +
-                         prim_arr(i,j,k-1,QV) - prim_arr(i,j-1,k-1,QV) +
-                         prim_arr(i-1,j,k,QV) - prim_arr(i-1,j-1,k,QV) +
-                         prim_arr(i-1,j,k-1,QV) - prim_arr(i-1,j-1,k-1,QV)) * dyinv;
+    Real vy = corner_averaged_difference(prim_arr, i, j, k, QV, 1, 0, 2) * dyinv;
 
-    Real wz = 0.25_rt * (prim_arr(i,j,k,QW) - prim_arr(i,j,k-1,QW) +
-                         prim_arr(i,j-1,k,QW) - prim_arr(i,j-1,k-1,QW) +
-                         prim_arr(i-1,j,k,QW) - prim_arr(i-1,j,k-1,QW) +
-                         prim_arr(i-1,j-1,k,QW) - prim_arr(i-1,j-1,k-1,QW)) * dzinv;
+    Real wz = corner_averaged_difference(prim_arr, i, j, k, QW, 2, 0, 1) * dzinv;
 
     div(i,j,k) = ux + vy + wz;
 #endif
 
   });
 
+}
+
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real face_averaged_divergence(Array4<Real const> const& div, int i, int j, int k, int idir)
+{
+    if (idir == 0) {
+        return 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
+                          div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
+    } else if (idir == 1) {
+        return 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
+                          div(i,j,k+dg2) + div(i+1,j,k+dg2));
+    }
+    return 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
+                      div(i,j+dg1,k) + div(i+1,j+dg1,k));
 }
 
 void
@@ -361,17 +382,7 @@ HydroSim::apply_viscosity(const Box& bx,
           dL *= r;
       }
 
-      Real face_divergence;
-      if (idir == 0) {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
-                            div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
-      } else if (idir == 1) {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dg2) + div(i+1,j,k+dg2));
-      } else {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dg1,k) + div(i+1,j+dg1,k));
-      }
+      Real face_divergence = face_averaged_divergence(div, i, j, k, idir);
 
       face_divergence = diff_coeff * std::min(0.0_rt, face_divergence);
 
@@ -424,17 +435,7 @@ HydroSim::apply_viscosity_radiative(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-      Real face_divergence;
-      if (idir == 0) {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i,j+dg1,k) +
-                            div(i,j,k+dg2) + div(i,j+dg1,k+dg2));
-      } else if (idir == 1) {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j,k+dg2) + div(i+1,j,k+dg2));
-      } else {
-          face_divergence = 0.25_rt * (div(i,j,k) + div(i+1,j,k) +
-                            div(i,j+dg1,k) + div(i+1,j+dg1,k));
-      }
+      Real face_divergence = face_averaged_divergence(div, i, j, k, idir);
 
       face_divergence = diff_coeff * std::min(0.0_rt, face_divergence);
 

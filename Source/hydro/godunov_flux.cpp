@@ -235,37 +235,27 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
 
       eos_state.T = temperature_guess;
 
-      eos_state.rho = qm(i,j,k,QRHO);
-      eos_state.e = qm(i,j,k,QEINTDENS)/qm(i,j,k,QRHO);
-      for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = qm(i,j,k,QFS+n);
-      }
+      auto reload_from_temperature = [&] (Array4<Real> const& edge) {
+          eos_state.rho = edge(i,j,k,QRHO);
+          eos_state.e = edge(i,j,k,QEINTDENS)/edge(i,j,k,QRHO);
+          for (int n = 0; n < NumSpec; n++) {
+              eos_state.xn[n] = edge(i,j,k,QFS+n);
+          }
 #if NAUX_NET > 0
-      for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = qm(i,j,k,QFX+n);
-      }
+          for (int n = 0; n < NumAux; n++) {
+              eos_state.aux[n] = edge(i,j,k,QFX+n);
+          }
 #endif
 
-      eos(eos_input_re, eos_state);
+          eos(eos_input_re, eos_state);
 
-      qm(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
-      qm(i,j,k,QPRES) = eos_state.p;
+          edge(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
+          edge(i,j,k,QPRES) = eos_state.p;
+      };
 
-      eos_state.rho = qp(i,j,k,QRHO);
-      eos_state.e = qp(i,j,k,QEINTDENS)/qp(i,j,k,QRHO);
-      for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = qp(i,j,k,QFS+n);
-      }
-#if NAUX_NET > 0
-      for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = qp(i,j,k,QFX+n);
-      }
-#endif
+      reload_from_temperature(qm);
 
-      eos(eos_input_re, eos_state);
-
-      qp(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
-      qp(i,j,k,QPRES) = eos_state.p;
+      reload_from_temperature(qp);
   }
 
 
@@ -430,30 +420,16 @@ HydroSim::compute_godunov_flux(const Box& bx,
 
         if (shock_flux_switch == 1) {
 
-            int shock_count = 0;
+            const int il = i - (idir == 0);
+            const int jl = j - (idir == 1);
+            const int kl = k - (idir == 2);
 
-            if (idir == 0) {
-                shock_count = static_cast<int>(shk(i-1,j,k) + shk(i,j,k));
-            } else if (idir == 1) {
-                shock_count = static_cast<int>(shk(i,j-1,k) + shk(i,j,k));
-            } else {
-                shock_count = static_cast<int>(shk(i,j,k-1) + shk(i,j,k));
-            }
+            int shock_count = static_cast<int>(shk(il,jl,kl) + shk(i,j,k));
 
             if (shock_count >= 1) {
 
-                Real cl;
-                Real cr;
-                if (idir == 0) {
-                    cl = qthermo_arr(i-1,j,k,QC);
-                    cr = qthermo_arr(i,j,k,QC);
-                } else if (idir == 1) {
-                    cl = qthermo_arr(i,j-1,k,QC);
-                    cr = qthermo_arr(i,j,k,QC);
-                } else {
-                    cl = qthermo_arr(i,j,k-1,QC);
-                    cr = qthermo_arr(i,j,k,QC);
-                }
+                Real cl = qthermo_arr(il,jl,kl,QC);
+                Real cr = qthermo_arr(i,j,k,QC);
 
                 Real zone_left_state[NQ];
                 Real zone_right_state[NQ];

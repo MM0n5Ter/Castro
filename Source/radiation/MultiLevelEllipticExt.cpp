@@ -178,6 +178,15 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                        { 0,  0,  1}};
 #endif
 
+  auto stencil_slot = [&] (const IntVect& d) {
+    for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
+      if (d == IntVect(offsets[k])) {
+        return k;
+      }
+    }
+    return -1;
+  };
+
   const int size = 2 * AMREX_SPACEDIM + 1;
 
   int stencil_indices[size];
@@ -542,12 +551,11 @@ void ExtendedMultiLevelSolver::assembleMatrix()
               int needs_separate_entry = 1;
               if (levels[j] == level) {
                 IntVect d = cells[j] - v;
-                for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
-                  if (d == IntVect(offsets[k])) {
-                    needs_separate_entry = 0;
-                    HYPRE_SStructMatrixAddToValues(A, part, cellIndex1(v), 0,
-                                                   1, &k, &values[j]);
-                  }
+                int k = stencil_slot(d);
+                if (k >= 0) {
+                  needs_separate_entry = 0;
+                  HYPRE_SStructMatrixAddToValues(A, part, cellIndex1(v), 0,
+                                                 1, &k, &values[j]);
                 }
               }
               if (needs_separate_entry) {
@@ -714,24 +722,22 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 int needs_separate_entry = 1;
                 if (levels[jj] == -1) {
                   IntVect d = cells[jj] - vc;
-                  for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
-                    if (d == IntVect(offsets[k])) {
-                      needs_separate_entry = 0;
-                      HYPRE_SStructMatrixSetValues(A, part-1, cellIndex1(vc), 0,
-                                                   1, &k, &values[jj]);
-                      BL_ASSERT(values[jj] == 0.0);
-                    }
+                  int k = stencil_slot(d);
+                  if (k >= 0) {
+                    needs_separate_entry = 0;
+                    HYPRE_SStructMatrixSetValues(A, part-1, cellIndex1(vc), 0,
+                                                 1, &k, &values[jj]);
+                    BL_ASSERT(values[jj] == 0.0);
                   }
                   BL_ASSERT(needs_separate_entry == 0);
                 }
                 if (levels[jj] == level-1) {
                   IntVect d = cells[jj] - vc;
-                  for (int k = 0; k < 2 * AMREX_SPACEDIM + 1; k++) {
-                    if (d == IntVect(offsets[k])) {
-                      needs_separate_entry = 0;
-                      HYPRE_SStructMatrixAddToValues(A, part-1, cellIndex1(vc), 0,
-                                                     1, &k, &values[jj]);
-                    }
+                  int k = stencil_slot(d);
+                  if (k >= 0) {
+                    needs_separate_entry = 0;
+                    HYPRE_SStructMatrixAddToValues(A, part-1, cellIndex1(vc), 0,
+                                                   1, &k, &values[jj]);
                   }
                 }
                 if (needs_separate_entry) {

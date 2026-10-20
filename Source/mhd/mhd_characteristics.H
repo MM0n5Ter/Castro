@@ -3,6 +3,49 @@
 
 #include <mhd_zone_ops.H>
 
+struct MagnetosonicMix {
+  Real as;
+  Real cs;
+  Real cf;
+  Real alf;
+  Real als;
+};
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+MagnetosonicMix
+magnetosonic_mix(const Real sound_speed, Array1D<Real, 0, NQ-1>& Q, const Real normal_field) {
+
+  MagnetosonicMix mix;
+
+  mix.as = sound_speed * sound_speed;
+
+  Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
+  Real cad = (normal_field*normal_field) / Q(QRHO);
+
+  mix.cs = 0.5_rt*((mix.as + ca) - std::sqrt((mix.as + ca)*(mix.as + ca) - 4.0_rt*mix.as*cad));
+
+  mix.cf = 0.5_rt*((mix.as + ca) + std::sqrt((mix.as + ca)*(mix.as + ca) - 4.0_rt*mix.as*cad));
+
+  if (std::abs(mix.cf - mix.cs) <= 1e-14){
+    mix.alf = 1.0_rt;
+    mix.als = 0.0_rt;
+  } else {
+      if (mix.as - mix.cs < 0.0) {
+          mix.alf = 0.0_rt;
+      } else {
+          mix.alf = std::sqrt((mix.as - mix.cs)/(mix.cf - mix.cs));
+      }
+
+      if (mix.cf - mix.as < 0.0) {
+          mix.als = 0.0_rt;
+      } else {
+          mix.als = std::sqrt((mix.cf - mix.as)/(mix.cf - mix.cs));
+      }
+  }
+
+  return mix;
+}
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
@@ -12,39 +55,12 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 
 
-  Real as = sound_speed * sound_speed;
-
-
-  Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-  Real cax = (Q(QBFIELDX)*Q(QBFIELDX)) / Q(QRHO);
-
-
-  Real csx = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cax));
-
-
-  Real cfx = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cax));
-
-
-  Real alf;
-  Real als;
-
-
-  if (std::abs(cfx - csx) <= 1e-14){
-    alf = 1.0_rt;
-    als = 0.0_rt;
-  } else {
-      if (as - csx < 0.0) {
-          alf = 0.0_rt;
-      } else {
-          alf = std::sqrt((as - csx)/(cfx - csx));
-      }
-
-      if (cfx - as < 0.0) {
-          als = 0.0_rt;
-      } else {
-          als = std::sqrt((cfx - as)/(cfx - csx));
-      }
-  }
+  const MagnetosonicMix mix = magnetosonic_mix(sound_speed, Q, Q(QBFIELDX));
+  Real as = mix.as;
+  Real csx = mix.cs;
+  Real cfx = mix.cf;
+  Real alf = mix.alf;
+  Real als = mix.als;
 
 
 
@@ -199,39 +215,12 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 
 
-  Real as = sound_speed * sound_speed;
-
-
-  Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-  Real cay = (Q(QBFIELDY)*Q(QBFIELDY)) / Q(QRHO);
-
-
-  Real csy = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cay));
-
-
-  Real cfy = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cay));
-
-
-  Real alf;
-  Real als;
-
-
-  if (std::abs(cfy - csy) <= 1e-14){
-    alf = 1.0_rt;
-    als = 0.0_rt;
-  } else {
-      if (as - csy < 0.0) {
-          alf = 0.0_rt;
-      } else {
-          alf = std::sqrt((as - csy)/(cfy - csy));
-      }
-
-      if (cfy - as < 0.0) {
-          als = 0.0_rt;
-      } else {
-          als = std::sqrt((cfy - as)/(cfy - csy));
-      }
-  }
+  const MagnetosonicMix mix = magnetosonic_mix(sound_speed, Q, Q(QBFIELDY));
+  Real as = mix.as;
+  Real csy = mix.cs;
+  Real cfy = mix.cf;
+  Real alf = mix.alf;
+  Real als = mix.als;
 
   Real dir_cos_x;
   Real dir_cos_z;
@@ -383,39 +372,12 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 
 
-  Real as = sound_speed * sound_speed;
-
-
-  Real ca = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-  Real caz = (Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-
-
-  Real csz = 0.5_rt*((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*caz));
-
-
-  Real cfz = 0.5_rt*((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*caz));
-
-
-  Real alf;
-  Real als;
-
-
-  if (std::abs(cfz-csz) <= 1e-14){
-    alf = 1.0_rt;
-    als = 0.0_rt;
-  } else {
-      if (as - csz < 0.0) {
-          alf = 0.0_rt;
-      } else {
-          alf = std::sqrt((as - csz)/(cfz - csz));
-      }
-
-      if (cfz - as < 0.0) {
-          als = 0.0_rt;
-      } else {
-          als = std::sqrt((cfz - as)/(cfz - csz));
-      }
-  }
+  const MagnetosonicMix mix = magnetosonic_mix(sound_speed, Q, Q(QBFIELDZ));
+  Real as = mix.as;
+  Real csz = mix.cs;
+  Real cfz = mix.cf;
+  Real alf = mix.alf;
+  Real als = mix.als;
 
   Real dir_cos_x;
   Real dir_cos_y;

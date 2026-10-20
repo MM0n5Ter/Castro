@@ -71,6 +71,15 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real image_point_potential(Real x, Real y, Real z, const GpuArray<Real, 3>& boundaryLoc,
+                           Real rho, Real dV)
+{
+    Real r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+    return C::Gconst * rho * dV / r;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& boundaryLoc,
                               const GpuArray<Real, 3>& problo, const GpuArray<Real, 3>& probhi,
                               Real rho, Real dV,
@@ -79,51 +88,25 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
     Real boundaryTerm = 0.0_rt;
 
-    Real x, y, z, r;
-
     if (doFoldedAddLo[0]) {
 
-        x = 2.0_rt * problo[0] - loc[0];
-        y = loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(2.0_rt * problo[0] - loc[0], loc[1], loc[2], boundaryLoc, rho, dV);
 
         if (doFoldedAddLo[1]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(2.0_rt * problo[0] - loc[0], 2.0_rt * problo[1] - loc[1], loc[2], boundaryLoc, rho, dV);
 
         }
 
         if (doFoldedAddLo[2]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
-            y = loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(2.0_rt * problo[0] - loc[0], loc[1], 2.0_rt * problo[2] - loc[2], boundaryLoc, rho, dV);
 
         }
 
         if (doFoldedAddLo[1] && doFoldedAddLo[2]) {
 
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(2.0_rt * problo[0] - loc[0], 2.0_rt * problo[1] - loc[1], 2.0_rt * problo[2] - loc[2], boundaryLoc, rho, dV);
 
         }
 
@@ -131,23 +114,11 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
     if (doFoldedAddLo[1]) {
 
-        x = loc[0];
-        y = 2.0_rt * problo[1] - loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(loc[0], 2.0_rt * problo[1] - loc[1], loc[2], boundaryLoc, rho, dV);
 
         if (doFoldedAddLo[2]) {
 
-            x = loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(loc[0], 2.0_rt * problo[1] - loc[1], 2.0_rt * problo[2] - loc[2], boundaryLoc, rho, dV);
 
         }
 
@@ -155,59 +126,29 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
     if (doFoldedAddLo[2]) {
 
-        x = loc[0];
-        y = loc[1];
-        z = 2.0_rt * problo[2] - loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(loc[0], loc[1], 2.0_rt * problo[2] - loc[2], boundaryLoc, rho, dV);
 
     }
 
     if (doFoldedAddHi[0]) {
 
-        x = 2.0_rt * probhi[0] - loc[0];
-        y = loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(2.0_rt * probhi[0] - loc[0], loc[1], loc[2], boundaryLoc, rho, dV);
 
         if (doFoldedAddHi[1]) {
 
-            x = 2.0_rt * probhi[0] - loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
-            z = loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(2.0_rt * probhi[0] - loc[0], 2.0_rt * probhi[1] - loc[1], loc[2], boundaryLoc, rho, dV);
 
         }
 
        if (doFoldedAddHi[2]) {
 
-           x = 2.0_rt * probhi[0] - loc[0];
-           y = loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
-
-           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-           boundaryTerm -= C::Gconst * rho * dV / r;
+           boundaryTerm -= image_point_potential(2.0_rt * probhi[0] - loc[0], loc[1], 2.0_rt * probhi[2] - loc[2], boundaryLoc, rho, dV);
 
        }
 
        if (doFoldedAddHi[1] && doFoldedAddHi[2]) {
 
-           x = 2.0_rt * probhi[0] - loc[0];
-           y = 2.0_rt * probhi[1] - loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
-
-           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-           boundaryTerm -= C::Gconst * rho * dV / r;
+           boundaryTerm -= image_point_potential(2.0_rt * probhi[0] - loc[0], 2.0_rt * probhi[1] - loc[1], 2.0_rt * probhi[2] - loc[2], boundaryLoc, rho, dV);
 
        }
 
@@ -215,23 +156,11 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
     if (doFoldedAddHi[1]) {
 
-        x = loc[0];
-        y = 2.0_rt * probhi[1] - loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(loc[0], 2.0_rt * probhi[1] - loc[1], loc[2], boundaryLoc, rho, dV);
 
         if (doFoldedAddHi[2]) {
 
-            x = loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
-            z = 2.0_rt * probhi[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
+            boundaryTerm -= image_point_potential(loc[0], 2.0_rt * probhi[1] - loc[1], 2.0_rt * probhi[2] - loc[2], boundaryLoc, rho, dV);
 
         }
 
@@ -239,13 +168,7 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
     if (doFoldedAddHi[2]) {
 
-        x = loc[0];
-        y = loc[1];
-        z = 2.0_rt * probhi[2] - loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
+        boundaryTerm -= image_point_potential(loc[0], loc[1], 2.0_rt * probhi[2] - loc[2], boundaryLoc, rho, dV);
 
     }
 
@@ -363,6 +286,24 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 }
 
 AMREX_GPU_DEVICE AMREX_INLINE
+void accumulate_image_moments(Real xi, Real yi, Real zi, Real rho, Real vol,
+                              Array4<Real> const& qL0,
+                              Array4<Real> const& qLC,
+                              Array4<Real> const& qLS,
+                              Array4<Real> const& qU0,
+                              Array4<Real> const& qUC,
+                              Array4<Real> const& qUS,
+                              int npts, int nlo, int index,
+                              amrex::Gpu::Handler const& handler)
+{
+    Real r        = std::sqrt(xi * xi + yi * yi + zi * zi);
+    Real sampleAzimuth = std::atan2(yi, xi);
+    Real cosPolar = zi / r;
+
+    accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+}
+
+AMREX_GPU_DEVICE AMREX_INLINE
 void accumulate_mirror_moments(Real x, Real y, Real z,
                              const GpuArray<Real, AMREX_SPACEDIM>& problo,
                              const GpuArray<Real, AMREX_SPACEDIM>& probhi,
@@ -393,43 +334,25 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
     Real zLo = 0.0_rt;
 #endif
 
-    Real r, sampleAzimuth, cosPolar;
-
     if (multipole::doFoldedAddLo(0)) {
 
-        r        = std::sqrt(xLo * xLo + y * y + z * z);
-        sampleAzimuth = std::atan2(y, xLo);
-        cosPolar = z / r;
-
-        accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(xLo, y, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         if (multipole::doFoldedAddLo(1)) {
 
-            r        = std::sqrt(xLo * xLo + yLo * yLo + z * z);
-            sampleAzimuth = std::atan2(yLo, xLo);
-            cosPolar = z / r;
-
-            accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, yLo, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         }
 
         if (multipole::doFoldedAddLo(2)) {
 
-            r        = std::sqrt(xLo * xLo + y * y + zLo * zLo);
-            sampleAzimuth = std::atan2(y, xLo);
-            cosPolar = zLo / r;
-
-            accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, y, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         }
 
         if (multipole::doFoldedAddLo(1) && multipole::doFoldedAddLo(2)) {
 
-            r        = std::sqrt(xLo * xLo + yLo * yLo + zLo * zLo);
-            sampleAzimuth = std::atan2(yLo, xLo);
-            cosPolar = zLo / r;
-
-            accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, yLo, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         }
 
@@ -437,19 +360,11 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
 
     if (multipole::doFoldedAddLo(1)) {
 
-        r        = std::sqrt(x * x + yLo * yLo + z * z);
-        sampleAzimuth = std::atan2(yLo, x);
-        cosPolar = z / r;
-
-        accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(x, yLo, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         if (multipole::doFoldedAddLo(2)) {
 
-            r        = std::sqrt(x * x + yLo * yLo + zLo * zLo);
-            sampleAzimuth = std::atan2(yLo, x);
-            cosPolar = zLo / r;
-
-            accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(x, yLo, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
         }
 
@@ -457,11 +372,7 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
 
     if (multipole::doFoldedAddLo(2)) {
 
-        r        = std::sqrt(x * x + y * y + zLo * zLo);
-        sampleAzimuth = std::atan2(y, x);
-        cosPolar = zLo / r;
-
-        accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(x, y, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
     }
 }

@@ -54,27 +54,43 @@
 
 using namespace amrex;
 
-void
-HydroSim::post_init (Real  )
+static bool integrals_due (int nstep, Real cumtime, Real level0_dt)
 {
-    BL_PROFILE("HydroSim::post_init()");
+    bool sum_step_hit = false;
 
-    if (level > 0) {
-        return;
+    if (sum_step_period > 0) {
+
+      if (nstep%sum_step_period == 0) {
+        sum_step_hit = true;
+      }
+
     }
 
-    int finest_level = parent->finestLevel();
-    for (int k = finest_level-1; k>= 0; k--) {
-      getLevel(k).avgDown();
+    bool sum_time_hit = false;
+
+    if (sum_time_period > 0.0) {
+
+      const int num_per_old = static_cast<int>(std::floor((cumtime - level0_dt) / sum_time_period));
+      const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_time_period));
+
+      if (num_per_old != num_per_new) {
+        sum_time_hit = true;
+      }
+
     }
 
+    return sum_step_hit || sum_time_hit;
+}
+
+void
+HydroSim::rebuild_gravity_and_radiation ()
+{
 #ifdef GRAVITY
-
     if (do_gravity_flag) {
+        int finest_level = parent->finestLevel();
+        Real cur_time = state[State_Type].curTime();
 
-       Real cur_time = state[State_Type].curTime();
-
-       if (gravity->get_solver_kind() == "PoissonGrav") {
+        if (gravity->get_solver_kind() == "PoissonGrav") {
 
           gravity->update_max_density();
 
@@ -99,6 +115,8 @@ HydroSim::post_init (Real  )
 
       radiation->post_init(level);
 
+      int finest_level = parent->finestLevel();
+
       for (int k = finest_level-1; k>= 0; k--) {
         getLevel(k).avgDown(Radiation_Type);
       }
@@ -107,6 +125,23 @@ HydroSim::post_init (Real  )
 
     }
 #endif
+}
+
+void
+HydroSim::post_init (Real  )
+{
+    BL_PROFILE("HydroSim::post_init()");
+
+    if (level > 0) {
+        return;
+    }
+
+    int finest_level = parent->finestLevel();
+    for (int k = finest_level-1; k>= 0; k--) {
+      getLevel(k).avgDown();
+    }
+
+    rebuild_gravity_and_radiation();
 
 #ifdef DO_USER_POST_INIT
 
@@ -129,29 +164,7 @@ HydroSim::post_init (Real  )
             cumtime += level0_dt;
         }
 
-        bool sum_step_hit = false;
-
-        if (sum_step_period > 0) {
-
-          if (nstep%sum_step_period == 0) {
-            sum_step_hit = true;
-          }
-        }
-
-        bool sum_time_hit = false;
-
-        if (sum_time_period > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - level0_dt) / sum_time_period));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_time_period));
-
-          if (num_per_old != num_per_new) {
-            sum_time_hit = true;
-          }
-
-        }
-
-        if (sum_step_hit || sum_time_hit) {
+        if (integrals_due(nstep, cumtime, level0_dt)) {
           tally_integrated_quantities();
         }
 
@@ -251,46 +264,7 @@ HydroSim::after_grow_restart ()
         return;
     }
 
-#ifdef GRAVITY
-    if (do_gravity_flag) {
-        int finest_level = parent->finestLevel();
-        Real cur_time = state[State_Type].curTime();
-
-        if (gravity->get_solver_kind() == "PoissonGrav") {
-
-          gravity->update_max_density();
-
-          gravity->set_mass_shift(cur_time);
-
-          gravity->multilevel_potential_solve(level,finest_level);
-          if (gravity->get_self_check_flag() == 1) {
-              gravity->check_composite_potential(level);
-          }
-       }
-
-       for (int k = 0; k <= parent->finestLevel(); k++)
-       {
-          MultiFab& gravity_new = getLevel(k).get_new_data(Accel_Type);
-          gravity->get_new_gravity_vector(k,gravity_new,cur_time);
-       }
-    }
-#endif
-
-#ifdef RADIATION
-    if (do_radiative_transfer) {
-
-      radiation->post_init(level);
-
-      int finest_level = parent->finestLevel();
-
-      for (int k = finest_level-1; k>= 0; k--) {
-        getLevel(k).avgDown(Radiation_Type);
-      }
-
-      print_energy_budget();
-
-    }
-#endif
+    rebuild_gravity_and_radiation();
 }
 
 void
@@ -446,30 +420,7 @@ HydroSim::post_timestep (int cycle_index)
         Real level0_dt = parent->dtLevel(0);
         Real cumtime = parent->cumTime() + level0_dt;
 
-        bool sum_step_hit = false;
-
-        if (sum_step_period > 0) {
-
-          if (nstep%sum_step_period == 0) {
-            sum_step_hit = true;
-          }
-
-        }
-
-        bool sum_time_hit = false;
-
-        if (sum_time_period > 0.0) {
-
-          const int num_per_old = static_cast<int>(std::floor((cumtime - level0_dt) / sum_time_period));
-          const int num_per_new = static_cast<int>(std::floor((cumtime        ) / sum_time_period));
-
-          if (num_per_old != num_per_new) {
-            sum_time_hit = true;
-          }
-
-        }
-
-        if (sum_step_hit || sum_time_hit) {
+        if (integrals_due(nstep, cumtime, level0_dt)) {
           tally_integrated_quantities();
         }
 

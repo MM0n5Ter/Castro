@@ -7,6 +7,19 @@ using namespace amrex;
 #include <mhd_characteristics.H>
 #include <limiters.H>
 
+static AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+add_half_step_source(Array4<Real> const& face, int fi, int fj, int fk,
+                     Array4<Real const> const& prim_source, int i, int j, int k, const Real dt) {
+
+  face(fi,fj,fk,QRHO) = amrex::max(small_dens, face(fi,fj,fk,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
+  face(fi,fj,fk,QU) = face(fi,fj,fk,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
+  face(fi,fj,fk,QV) = face(fi,fj,fk,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
+  face(fi,fj,fk,QW) = face(fi,fj,fk,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
+  face(fi,fj,fk,QPRES) = face(fi,fj,fk,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
+  face(fi,fj,fk,QEINTDENS) = face(fi,fj,fk,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+}
+
 void
 HydroSim::plm(const Box& bx,
             const int idir,
@@ -341,39 +354,10 @@ HydroSim::plm(const Box& bx,
     eos(eos_input_rp, eos_state);
     prim_right(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
 
-    if (idir == 0) {
-      prim_left(i+1,j,k,QRHO) = amrex::max(small_dens,
-                                       prim_left(i+1,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i+1,j,k,QU) = prim_left(i+1,j,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i+1,j,k,QV) = prim_left(i+1,j,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i+1,j,k,QW) = prim_left(i+1,j,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i+1,j,k,QPRES) = prim_left(i+1,j,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i+1,j,k,QEINTDENS) = prim_left(i+1,j,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+    add_half_step_source(prim_left, i + (idir == 0), j + (idir == 1), k + (idir == 2),
+                         prim_source, i, j, k, dt);
 
-    } else if (idir == 1) {
-      prim_left(i,j+1,k,QRHO) = amrex::max(small_dens,
-                                       prim_left(i,j+1,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i,j+1,k,QU) = prim_left(i,j+1,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i,j+1,k,QV) = prim_left(i,j+1,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i,j+1,k,QW) = prim_left(i,j+1,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i,j+1,k,QPRES) = prim_left(i,j+1,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i,j+1,k,QEINTDENS) = prim_left(i,j+1,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-
-    } else {
-      prim_left(i,j,k+1,QRHO) = amrex::max(small_dens, prim_left(i,j,k+1,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i,j,k+1,QU) = prim_left(i,j,k+1,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i,j,k+1,QV) = prim_left(i,j,k+1,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i,j,k+1,QW) = prim_left(i,j,k+1,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i,j,k+1,QPRES) = prim_left(i,j,k+1,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i,j,k+1,QEINTDENS) = prim_left(i,j,k+1,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-    }
-
-    prim_right(i,j,k,QRHO) = amrex::max(small_dens, prim_right(i,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-    prim_right(i,j,k,QU) = prim_right(i,j,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-    prim_right(i,j,k,QV) = prim_right(i,j,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-    prim_right(i,j,k,QW) = prim_right(i,j,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-    prim_right(i,j,k,QPRES) = prim_right(i,j,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-    prim_right(i,j,k,QEINTDENS) = prim_right(i,j,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+    add_half_step_source(prim_right, i, j, k, prim_source, i, j, k, dt);
 
   });
 }
@@ -755,39 +739,10 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
     eos(eos_input_rp, eos_state);
     prim_right(i,j,k,QEINTDENS) = eos_state.e * eos_state.rho;
 
-    if (idir == 0) {
-      prim_left(i+1,j,k,QRHO) = amrex::max(small_dens,
-                                       prim_left(i+1,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i+1,j,k,QU) = prim_left(i+1,j,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i+1,j,k,QV) = prim_left(i+1,j,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i+1,j,k,QW) = prim_left(i+1,j,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i+1,j,k,QPRES) = prim_left(i+1,j,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i+1,j,k,QEINTDENS) = prim_left(i+1,j,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+    add_half_step_source(prim_left, i + (idir == 0), j + (idir == 1), k + (idir == 2),
+                         prim_source, i, j, k, dt);
 
-    } else if (idir == 1) {
-      prim_left(i,j+1,k,QRHO) = amrex::max(small_dens,
-                                       prim_left(i,j+1,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i,j+1,k,QU) = prim_left(i,j+1,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i,j+1,k,QV) = prim_left(i,j+1,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i,j+1,k,QW) = prim_left(i,j+1,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i,j+1,k,QPRES) = prim_left(i,j+1,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i,j+1,k,QEINTDENS) = prim_left(i,j+1,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-
-    } else {
-      prim_left(i,j,k+1,QRHO) = amrex::max(small_dens, prim_left(i,j,k+1,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-      prim_left(i,j,k+1,QU) = prim_left(i,j,k+1,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-      prim_left(i,j,k+1,QV) = prim_left(i,j,k+1,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-      prim_left(i,j,k+1,QW) = prim_left(i,j,k+1,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-      prim_left(i,j,k+1,QPRES) = prim_left(i,j,k+1,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-      prim_left(i,j,k+1,QEINTDENS) = prim_left(i,j,k+1,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
-    }
-
-    prim_right(i,j,k,QRHO) = amrex::max(small_dens, prim_right(i,j,k,QRHO) + 0.5_rt*dt*prim_source(i,j,k,QRHO));
-    prim_right(i,j,k,QU) = prim_right(i,j,k,QU) + 0.5_rt*dt*prim_source(i,j,k,QU);
-    prim_right(i,j,k,QV) = prim_right(i,j,k,QV) + 0.5_rt*dt*prim_source(i,j,k,QV);
-    prim_right(i,j,k,QW) = prim_right(i,j,k,QW) + 0.5_rt*dt*prim_source(i,j,k,QW);
-    prim_right(i,j,k,QPRES) = prim_right(i,j,k,QPRES) + 0.5_rt*dt*prim_source(i,j,k,QPRES);
-    prim_right(i,j,k,QEINTDENS) = prim_right(i,j,k,QEINTDENS) + 0.5_rt*dt*prim_source(i,j,k,QEINTDENS);
+    add_half_step_source(prim_right, i, j, k, prim_source, i, j, k, dt);
 
   });
 }

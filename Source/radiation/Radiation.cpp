@@ -355,100 +355,63 @@ void Radiation::load_static_settings()
   }
 
   {
-      if (radiation::plot_flux_limiter) {
-          comp_limiter = plot_var_names.size();
-
-          if (!(!groups_enabled || radiation::limiter == 0)) {
+      auto append_plot_names = [&] (const std::string& base, bool per_group) {
+          if (per_group) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
-                  ss << "lambda" << g;
+                  ss << base << g;
                   plot_var_names.push_back(ss.str());
               }
           } else {
-              plot_var_names.push_back("lambda");
+              plot_var_names.push_back(base);
           }
+      };
+
+      auto append_flux_names = [&] (const std::string& frame) {
+          Vector<std::string> axis_labels;
+          axis_labels.push_back("x");
+          axis_labels.push_back("y");
+          axis_labels.push_back("z");
+          if (!groups_enabled) {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  std::ostringstream ss;
+                  ss << "Fr" << frame << axis_labels[idim];
+                  plot_var_names.push_back(ss.str());
+              }
+          } else {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  for (int g=0; g<nGroups; ++g) {
+                      std::ostringstream ss;
+                      ss << "Fr" << frame << g << axis_labels[idim];
+                      plot_var_names.push_back(ss.str());
+                  }
+              }
+          }
+      };
+
+      if (radiation::plot_flux_limiter) {
+          comp_limiter = plot_var_names.size();
+          append_plot_names("lambda", groups_enabled && radiation::limiter != 0);
       }
       if (radiation::plot_planck_opacity) {
           icomp_kappa_planck = plot_var_names.size();
-          if (!(!groups_enabled)) {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "kappa_P" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              plot_var_names.push_back("kappa_P");
-          }
+          append_plot_names("kappa_P", groups_enabled);
       }
       if (radiation::plot_rosseland_opacity) {
           icomp_kappa_rosseland = plot_var_names.size();
-          if (!(!groups_enabled)) {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "kappa_R" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              plot_var_names.push_back("kappa_R");
-          }
+          append_plot_names("kappa_R", groups_enabled);
       }
       if (radiation::plot_lab_rad_energy) {
           comp_lab_energy = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("Erlab");
-          } else {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "Erlab" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          }
+          append_plot_names("Erlab", groups_enabled);
       }
       if (radiation::plot_lab_rad_flux) {
           icomp_lab_flux = plot_var_names.size();
-          std::string frame = "lab";
-          Vector<std::string> axis_labels;
-          axis_labels.push_back("x");
-          axis_labels.push_back("y");
-          axis_labels.push_back("z");
-          if (!groups_enabled) {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  std::ostringstream ss;
-                  ss << "Fr" << frame << axis_labels[idim];
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  for (int g=0; g<nGroups; ++g) {
-                      std::ostringstream ss;
-                      ss << "Fr" << frame << g << axis_labels[idim];
-                      plot_var_names.push_back(ss.str());
-                  }
-              }
-          }
+          append_flux_names("lab");
       }
       if (radiation::plot_moving_flux) {
           icomp_comoving_flux = plot_var_names.size();
-          std::string frame = "com";
-          Vector<std::string> axis_labels;
-          axis_labels.push_back("x");
-          axis_labels.push_back("y");
-          axis_labels.push_back("z");
-          if (!groups_enabled) {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  std::ostringstream ss;
-                  ss << "Fr" << frame << axis_labels[idim];
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  for (int g=0; g<nGroups; ++g) {
-                      std::ostringstream ss;
-                      ss << "Fr" << frame << g << axis_labels[idim];
-                      plot_var_names.push_back(ss.str());
-                  }
-              }
-          }
+          append_flux_names("com");
       }
       num_plot_vars = plot_var_names.size();
   }

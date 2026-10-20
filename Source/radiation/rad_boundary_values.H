@@ -27,6 +27,9 @@ public:
 
 protected:
 
+  void tag_domain_faces(const amrex::BCRec& bc, const amrex::Geometry& geom,
+                        amrex::IntVect& ratio, const char* owner);
+
   amrex::Vector< std::unique_ptr<amrex::BaseFab<int> > > bc_type_fabs[2*AMREX_SPACEDIM];
 
 };

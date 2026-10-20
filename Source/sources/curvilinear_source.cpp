@@ -85,6 +85,16 @@ HydroSim::fill_spherical_geometry_source (Real time, Real dt, const MultiFab& co
   }
 }
 
+static void fill_curvilinear_source (HydroSim& lev, int coord, Real time, Real dt,
+                                     const MultiFab& state, MultiFab& dst)
+{
+  if (coord == 1) {
+      lev.fill_axisymmetric_geometry_source(time, dt, state, dst);
+  } else {
+      lev.fill_spherical_geometry_source(time, dt, state, dst);
+  }
+}
+
 void
 HydroSim::assemble_old_geometry_source(MultiFab& source, const MultiFab& state_in, Real time, Real dt)
 {
@@ -109,11 +119,7 @@ HydroSim::assemble_old_geometry_source(MultiFab& source, const MultiFab& state_i
 
   geometry_source.setVal(0.0);
 
-  if (geom.Coord() == 1) {
-      fill_axisymmetric_geometry_source(time, dt, state_in, geometry_source);
-  } else {
-      fill_spherical_geometry_source(time, dt, state_in, geometry_source);
-  }
+  fill_curvilinear_source(*this, geom.Coord(), time, dt, state_in, geometry_source);
 
   Real term_weight = 1.0;
 
@@ -166,11 +172,7 @@ HydroSim::assemble_new_geometry_source(MultiFab& source, const MultiFab& field_o
 
   Real old_time = time - dt;
 
-  if (geom.Coord() == 1) {
-      fill_axisymmetric_geometry_source(old_time, dt, field_old, geometry_source);
-  } else {
-      fill_spherical_geometry_source(old_time, dt, field_old, geometry_source);
-  }
+  fill_curvilinear_source(*this, geom.Coord(), old_time, dt, field_old, geometry_source);
 
   Real term_weight = -0.5;
 
@@ -181,11 +183,7 @@ HydroSim::assemble_new_geometry_source(MultiFab& source, const MultiFab& field_o
 
   term_weight = 0.5;
 
-  if (geom.Coord() == 1) {
-      fill_axisymmetric_geometry_source(time, dt, field_new, geometry_source);
-  } else {
-      fill_spherical_geometry_source(time, dt, field_new, geometry_source);
-  }
+  fill_curvilinear_source(*this, geom.Coord(), time, dt, field_new, geometry_source);
 
   MultiFab::Saxpy(source, term_weight, geometry_source, 0, 0, source.nComp(), 0);
 

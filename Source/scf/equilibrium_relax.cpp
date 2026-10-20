@@ -11,6 +11,30 @@ using namespace amrex;
 #ifdef ROTATION
 namespace scf {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    void load_composition (Array4<Real const> const& state_arr, int i, int j, int k, eos_t& eos_state)
+    {
+        for (int n = 0; n < NumSpec; ++n) {
+            eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
+        }
+#if NAUX_NET > 0
+        for (int n = 0; n < NumAux; ++n) {
+            eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
+        }
+#endif
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    GpuArray<Real, 3> offset_position (int i, int j, int k, const GeometryData& geomdata)
+    {
+        GpuArray<Real, 3> r = {0.0};
+        position(i, j, k, geomdata, r);
+        for (int n = 0; n < AMREX_SPACEDIM; ++n) {
+            r[n] -= problem::center[n];
+        }
+        return r;
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     Real scale_factor (int i, int j, int k,
                        const GeometryData& geomdata,
                        GpuArray<Real, 3> anchor_point)
@@ -85,14 +109,7 @@ HydroSim::run_equilibrium_solve()
 
                 eos_state.rho = hydrosim::scf_peak_density;
                 eos_state.T   = state_arr(i,j,k,UTEMP);
-                for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
-                }
-#if NAUX_NET > 0
-                for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
-                }
-#endif
+                scf::load_composition(state_arr, i, j, k, eos_state);
 
                 eos(eos_input_rt, eos_state);
 
@@ -270,11 +287,7 @@ HydroSim::run_equilibrium_solve()
                 {
                     const auto coord = geomdata.Coord();
 
-                    GpuArray<Real, 3> r = {0.0};
-                    position(i, j, k, geomdata, r);
-                    for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                        r[n] -= problem::center[n];
-                    }
+                    GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
 
                     Real scale = scf::scale_factor(i, j, k, geomdata, anchor_point_A);
 
@@ -318,11 +331,7 @@ HydroSim::run_equilibrium_solve()
                     const auto coord = geomdata.Coord();
 
 
-                    GpuArray<Real, 3> r = {0.0};
-                    position(i, j, k, geomdata, r);
-                    for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                        r[n] -= problem::center[n];
-                    }
+                    GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
 
                     auto omega = get_angular_velocity(geomdata, j);
                     enthalpy_field_arr(i,j,k) = bernoulli - phi_arr(i,j,k) - centrifugal_potential(r, omega, coord);
@@ -378,14 +387,7 @@ HydroSim::run_equilibrium_solve()
 
                         eos_state.rho = state_arr(i,j,k,URHO);
                         eos_state.T   = state_arr(i,j,k,UTEMP);
-                        for (int n = 0; n < NumSpec; ++n) {
-                            eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
-                        }
-#if NAUX_NET > 0
-                        for (int n = 0; n < NumAux; ++n) {
-                            eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
-                        }
-#endif
+                        scf::load_composition(state_arr, i, j, k, eos_state);
                         eos_state.h   = enthalpy_field_arr(i,j,k);
 
                         eos(eos_input_th, eos_state);
@@ -476,11 +478,7 @@ HydroSim::run_equilibrium_solve()
                     {
                         const auto coord = geomdata.Coord();
 
-                        GpuArray<Real, 3> r = {0.0};
-                        position(i, j, k, geomdata, r);
-                        for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                            r[n] -= problem::center[n];
-                        }
+                        GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
 
                         Real dV = cell_geometry::volume(i, j, k, geomdata);
                         dM = state_arr(i,j,k,URHO) * dV;
@@ -494,14 +492,7 @@ HydroSim::run_equilibrium_solve()
 
                         eos_state.rho = state_arr(i,j,k,URHO);
                         eos_state.T   = state_arr(i,j,k,UTEMP);
-                        for (int n = 0; n < NumSpec; ++n) {
-                            eos_state.xn[n] = state_arr(i,j,k,UFS+n) / state_arr(i,j,k,URHO);
-                        }
-#if NAUX_NET > 0
-                        for (int n = 0; n < NumAux; ++n) {
-                            eos_state.aux[n] = state_arr(i,j,k,UFX+n) / state_arr(i,j,k,URHO);
-                        }
-#endif
+                        scf::load_composition(state_arr, i, j, k, eos_state);
 
                         eos(eos_input_rt, eos_state);
 

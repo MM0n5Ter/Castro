@@ -310,47 +310,35 @@ namespace HLL {
         Real U_contact_state[NUM_STATE];
         Real state_flux[NUM_STATE];
 
+        int region;
+
         if (S_r <= 0.0_rt) {
-            for (int n = 0; n < NQ; n++) {
-                zone_prim[n] = qr(i,j,k,n);
-            }
-            conserved_state(zone_prim, cell_cons);
-            compute_flux(idir, boundary_factor, coord,
-                         cell_cons, pr, state_flux);
-
+            region = 0;
         } else if (S_r > 0.0_rt && S_c <= 0.0_rt) {
-            for (int n = 0; n < NQ; n++) {
-                zone_prim[n] = qr(i,j,k,n);
-            }
-            conserved_state(zone_prim, cell_cons);
-            compute_flux(idir, boundary_factor, coord,
-                         cell_cons, pr, state_flux);
-            CONTACT_state(idir, S_r, S_c, zone_prim, U_contact_state);
-
-            for (int n = 0; n < NUM_STATE; n++) {
-                state_flux[n] = state_flux[n] + S_r*(U_contact_state[n] - cell_cons[n]);
-            }
-
+            region = 1;
         } else if (!(S_c > 0.0_rt && S_l < 0.0_rt)) {
-            for (int n = 0; n < NQ; n++) {
-                zone_prim[n] = ql(i,j,k,n);
-            }
-            conserved_state(zone_prim, cell_cons);
-            compute_flux(idir, boundary_factor, coord,
-                         cell_cons, pl, state_flux);
+            region = 3;
         } else {
-            for (int n = 0; n < NQ; n++) {
-                zone_prim[n] = ql(i,j,k,n);
-            }
-            conserved_state(zone_prim, cell_cons);
-            compute_flux(idir, boundary_factor, coord,
-                         cell_cons, pl, state_flux);
-            CONTACT_state(idir, S_l, S_c, zone_prim, U_contact_state);
+            region = 2;
+        }
+
+        const bool from_right = region < 2;
+
+        for (int n = 0; n < NQ; n++) {
+            zone_prim[n] = from_right ? qr(i,j,k,n) : ql(i,j,k,n);
+        }
+        conserved_state(zone_prim, cell_cons);
+        compute_flux(idir, boundary_factor, coord,
+                     cell_cons, from_right ? pr : pl, state_flux);
+
+        if (region == 1 || region == 2) {
+            const Real S_k = (region == 1) ? S_r : S_l;
+
+            CONTACT_state(idir, S_k, S_c, zone_prim, U_contact_state);
 
             for (int n = 0; n < NUM_STATE; n++) {
-                state_flux[n] = state_flux[n] + S_l*(U_contact_state[n] - cell_cons[n]);
+                state_flux[n] = state_flux[n] + S_k*(U_contact_state[n] - cell_cons[n]);
             }
-
         }
 
         for (int n = 0; n < NUM_STATE; n++) {
@@ -453,11 +441,15 @@ namespace HLL {
 
       bd = 1.0_rt/bd;
 
+      auto hll_combine = [=] (Real lf, Real rf, Real jump) {
+          return (bp*lf - bm*rf)*bd + bp*bm*bd*jump;
+      };
+
 
       Real left_flux_tmp = ql[QRHO]*ql[normal_vel_index];
       Real right_flux_tmp = qr[QRHO]*qr[normal_vel_index];
 
-      two_wave_flux[URHO] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO] - ql[QRHO]);
+      two_wave_flux[URHO] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QRHO] - ql[QRHO]);
 
       left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[normal_vel_index];
       right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[normal_vel_index];
@@ -466,18 +458,18 @@ namespace HLL {
         right_flux_tmp = right_flux_tmp + qr[QPRES];
       }
 
-      two_wave_flux[momentum_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[normal_vel_index] - ql[QRHO]*ql[normal_vel_index]);
+      two_wave_flux[momentum_index] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QRHO]*qr[normal_vel_index] - ql[QRHO]*ql[normal_vel_index]);
 
       left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan_vel_index];
       right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan_vel_index];
 
-      two_wave_flux[momentum_tan_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan_vel_index] - ql[QRHO]*ql[tan_vel_index]);
+      two_wave_flux[momentum_tan_index] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QRHO]*qr[tan_vel_index] - ql[QRHO]*ql[tan_vel_index]);
 
 
       left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan2_vel_index];
       right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan2_vel_index];
 
-      two_wave_flux[momentum_tan2_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan2_vel_index] - ql[QRHO]*ql[tan2_vel_index]);
+      two_wave_flux[momentum_tan2_index] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QRHO]*qr[tan2_vel_index] - ql[QRHO]*ql[tan2_vel_index]);
 
       Real leftTotalEnergy = ql[QEINTDENS] + 0.5_rt*ql[QRHO]*(ql[normal_vel_index]*ql[normal_vel_index] + ql[tan_vel_index]*ql[tan_vel_index] + ql[tan2_vel_index]*ql[tan2_vel_index]);
       left_flux_tmp = ql[normal_vel_index]*(leftTotalEnergy + ql[QPRES]);
@@ -485,13 +477,13 @@ namespace HLL {
       Real rightTotalEnergy = qr[QEINTDENS] + 0.5_rt*qr[QRHO]*(qr[normal_vel_index]*qr[normal_vel_index] + qr[tan_vel_index]*qr[tan_vel_index] + qr[tan2_vel_index]*qr[tan2_vel_index]);
       right_flux_tmp = qr[normal_vel_index]*(rightTotalEnergy + qr[QPRES]);
 
-      two_wave_flux[UEDEN] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(rightTotalEnergy - leftTotalEnergy);
+      two_wave_flux[UEDEN] = hll_combine(left_flux_tmp, right_flux_tmp, rightTotalEnergy - leftTotalEnergy);
 
 
       left_flux_tmp = ql[QEINTDENS]*ql[normal_vel_index];
       right_flux_tmp = qr[QEINTDENS]*qr[normal_vel_index];
 
-      two_wave_flux[UEINT] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QEINTDENS] - ql[QEINTDENS]);
+      two_wave_flux[UEINT] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QEINTDENS] - ql[QEINTDENS]);
 
 
       for (int passive_index = 0; passive_index < npassive; passive_index++) {
@@ -501,7 +493,7 @@ namespace HLL {
           left_flux_tmp = ql[QRHO]*ql[nqs]*ql[normal_vel_index];
           right_flux_tmp = qr[QRHO]*qr[nqs]*qr[normal_vel_index];
 
-          two_wave_flux[n] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[nqs] - ql[QRHO]*ql[nqs]);
+          two_wave_flux[n] = hll_combine(left_flux_tmp, right_flux_tmp, qr[QRHO]*qr[nqs] - ql[QRHO]*ql[nqs]);
       }
     }
 }
