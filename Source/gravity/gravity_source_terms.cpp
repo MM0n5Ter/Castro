@@ -2,10 +2,6 @@
 
 #include <Gravity.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <HydroSim_helpers.H>
-#include <hybrid_momentum.H>
-#endif
 
 using namespace amrex;
 
@@ -40,9 +36,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
         dx[i] = 0.0_rt;
     }
 
-#ifdef HYBRID_MOMENTUM
-    GeometryData geomdata = geom.data();
-#endif
 
     AMREX_ALWAYS_ASSERT(hydrosim::gravity_source_mode >= 1 && hydrosim::gravity_source_mode <= 4);
 
@@ -124,22 +117,6 @@ void HydroSim::assemble_new_gravity_source(MultiFab& source, MultiFab& field_old
                     snew[UMX+n] += dt * src[UMX+n];
                 }
 
-#ifdef HYBRID_MOMENTUM
-                GpuArray<Real, 3> loc;
-                position(i, j, k, geomdata, loc);
-                for (int n = 0; n < 3; ++n) {
-                    loc[n] -= problem::center[n];
-                }
-
-                GpuArray<Real, 3> hybrid_mom_source;
-
-                compute_hybrid_momentum_source(loc, mom_source_corr, hybrid_mom_source);
-
-                for (int n = 0; n < 3; ++n) {
-                    src[UMR+n] = hybrid_mom_source[n];
-                    snew[UMR+n] += dt * src[UMR+n];
-                }
-#endif
 
 
                 Real energy_source_corr{};
@@ -242,9 +219,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
     }
 
 
-#ifdef HYBRID_MOMENTUM
-    GeometryData geomdata = geom.data();
-#endif
 
     AMREX_ALWAYS_ASSERT(hydrosim::gravity_source_mode >= 1 && hydrosim::gravity_source_mode <= 4);
 
@@ -293,22 +267,6 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
                 snew[UMX+n] += dt * src[UMX+n];
             }
 
-#ifdef HYBRID_MOMENTUM
-            GpuArray<Real, 3> loc;
-            position(i, j, k, geomdata, loc);
-            for (int n = 0; n < 3; ++n) {
-                loc[n] -= problem::center[n];
-            }
-
-            GpuArray<Real, 3> hybrid_mom_source;
-
-            compute_hybrid_momentum_source(loc, Sr, hybrid_mom_source);
-
-            for (int n = 0; n < 3; ++n) {
-                 src[UMR+n] = hybrid_mom_source[n];
-                 snew[UMR+n] += dt * src[UMR+n];
-            }
-#endif
 
             Real SrE{};
 

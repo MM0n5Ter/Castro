@@ -1,0 +1,168 @@
+
+// This file is automatically created by parse_hydrosim_params.py at build time.
+// To update or add runtime parameters, please edit _cpp_parameters and rebuild.
+
+#ifndef HYDROSIM_PARAMS_H
+#define HYDROSIM_PARAMS_H
+
+namespace hydrosim {
+#ifdef GRAVITY
+extern AMREX_GPU_MANAGED bool use_central_mass;
+extern AMREX_GPU_MANAGED amrex::Real point_mass;
+extern AMREX_GPU_MANAGED bool point_mass_correct_solution;
+extern AMREX_GPU_MANAGED amrex::Real wave_obs_distance;
+extern AMREX_GPU_MANAGED bool point_mass_is_shifted;
+extern AMREX_GPU_MANAGED amrex::Real point_mass_shift;
+#endif
+#ifdef SPONGE
+extern AMREX_GPU_MANAGED amrex::Real damping_lower_radius;
+extern AMREX_GPU_MANAGED amrex::Real damping_upper_radius;
+extern AMREX_GPU_MANAGED amrex::Real damping_lower_density;
+extern AMREX_GPU_MANAGED amrex::Real damping_upper_density;
+extern AMREX_GPU_MANAGED amrex::Real damping_lower_pressure;
+extern AMREX_GPU_MANAGED amrex::Real damping_upper_pressure;
+extern AMREX_GPU_MANAGED amrex::Real damping_lower_factor;
+extern AMREX_GPU_MANAGED amrex::Real damping_upper_factor;
+extern AMREX_GPU_MANAGED amrex::Real damping_target_x_velocity;
+extern AMREX_GPU_MANAGED amrex::Real damping_target_y_velocity;
+extern AMREX_GPU_MANAGED amrex::Real damping_target_z_velocity;
+extern AMREX_GPU_MANAGED amrex::Real damping_timescale;
+#endif
+extern AMREX_GPU_MANAGED int state_interp_degree;
+extern AMREX_GPU_MANAGED int linear_interp_limiter;
+extern AMREX_GPU_MANAGED bool do_reflux;
+extern AMREX_GPU_MANAGED bool refresh_sources_after_reflux;
+extern AMREX_GPU_MANAGED bool allow_anisotropic_cells;
+extern AMREX_GPU_MANAGED amrex::Real viscosity_coeff;
+extern AMREX_GPU_MANAGED amrex::Real small_dens;
+extern AMREX_GPU_MANAGED amrex::Real small_temp;
+extern AMREX_GPU_MANAGED amrex::Real pressure_cutoff;
+extern AMREX_GPU_MANAGED amrex::Real eint_floor;
+extern AMREX_GPU_MANAGED bool do_hydro;
+extern AMREX_GPU_MANAGED int time_scheme;
+extern AMREX_GPU_MANAGED bool clamp_fourth_order;
+extern AMREX_GPU_MANAGED bool init_cell_averaged;
+extern AMREX_GPU_MANAGED bool use_recon_gamma1;
+extern AMREX_GPU_MANAGED bool enable_extra_source;
+extern AMREX_GPU_MANAGED bool split_momentum_hydro;
+extern AMREX_GPU_MANAGED int ppm_recon_kind;
+extern AMREX_GPU_MANAGED bool ppm_parabola_clip;
+extern AMREX_GPU_MANAGED bool mhd_char_limit;
+extern AMREX_GPU_MANAGED int ppm_temp_mode;
+extern AMREX_GPU_MANAGED int plm_iorder;
+extern AMREX_GPU_MANAGED int plm_slope_limiter;
+extern AMREX_GPU_MANAGED bool shock_flux_switch;
+extern AMREX_GPU_MANAGED int riemann_method;
+extern AMREX_GPU_MANAGED int shock_star_max_iters;
+extern AMREX_GPU_MANAGED amrex::Real riemann_star_tol;
+extern AMREX_GPU_MANAGED int riemann_search_mode;
+extern AMREX_GPU_MANAGED bool use_shock_flatten;
+extern AMREX_GPU_MANAGED bool transverse_eos_pressure;
+extern AMREX_GPU_MANAGED bool transverse_revert_density;
+extern AMREX_GPU_MANAGED bool transverse_rebuild_rhoe;
+extern AMREX_GPU_MANAGED amrex::Real dual_energy_switch_hi;
+extern AMREX_GPU_MANAGED amrex::Real dual_energy_switch;
+extern AMREX_GPU_MANAGED bool use_pressure_slope;
+extern AMREX_GPU_MANAGED bool ppm_equil_recon;
+extern AMREX_GPU_MANAGED amrex::Real slope_rho_cutoff;
+extern AMREX_GPU_MANAGED bool clip_small_rho_flux;
+extern AMREX_GPU_MANAGED amrex::Real velocity_cap;
+extern AMREX_GPU_MANAGED bool do_damping_zone;
+extern AMREX_GPU_MANAGED bool damping_implicit;
+extern AMREX_GPU_MANAGED bool extra_source_implicit;
+extern AMREX_GPU_MANAGED bool source_half_step;
+extern AMREX_GPU_MANAGED bool first_order_scheme;
+extern AMREX_GPU_MANAGED int xl_bc_kind;
+extern AMREX_GPU_MANAGED int xr_bc_kind;
+extern AMREX_GPU_MANAGED int yl_bc_kind;
+extern AMREX_GPU_MANAGED int yr_bc_kind;
+extern AMREX_GPU_MANAGED int zl_bc_kind;
+extern AMREX_GPU_MANAGED int zr_bc_kind;
+extern AMREX_GPU_MANAGED bool hse_rest_vel;
+extern AMREX_GPU_MANAGED bool hse_temp_extrap;
+extern AMREX_GPU_MANAGED amrex::Real hse_bound_temp;
+extern AMREX_GPU_MANAGED bool hse_mirror_vel;
+extern AMREX_GPU_MANAGED bool apply_ambient_bc;
+extern AMREX_GPU_MANAGED int ambient_bc_axis;
+extern AMREX_GPU_MANAGED int ambient_outflow_mode;
+extern AMREX_GPU_MANAGED bool clamp_ambient_temperature;
+extern AMREX_GPU_MANAGED amrex::Real ambient_threshold_factor;
+extern AMREX_GPU_MANAGED amrex::Real background_density;
+extern AMREX_GPU_MANAGED amrex::Real background_temp;
+extern AMREX_GPU_MANAGED amrex::Real background_energy;
+extern AMREX_GPU_MANAGED int sdc_accuracy_order;
+extern AMREX_GPU_MANAGED int sdc_quadrature;
+extern AMREX_GPU_MANAGED int sdc_extra_passes;
+extern AMREX_GPU_MANAGED int sdc_nonlin_method;
+extern AMREX_GPU_MANAGED bool use_curvilinear_src;
+extern AMREX_GPU_MANAGED bool include_react_in_sdc_advect;
+extern AMREX_GPU_MANAGED amrex::Real hydro_tile_mem_ratio;
+extern AMREX_GPU_MANAGED amrex::Real constant_dt;
+extern AMREX_GPU_MANAGED amrex::Real first_step_dt;
+extern AMREX_GPU_MANAGED amrex::Real min_dt_time_ratio;
+extern AMREX_GPU_MANAGED amrex::Real max_dt;
+extern AMREX_GPU_MANAGED amrex::Real cfl;
+extern AMREX_GPU_MANAGED amrex::Real init_dt_shrink;
+extern AMREX_GPU_MANAGED amrex::Real change_max;
+extern AMREX_GPU_MANAGED bool dt_validity_before_advance;
+extern AMREX_GPU_MANAGED bool dt_validity_after_advance;
+extern AMREX_GPU_MANAGED bool plot_interval_exact;
+extern AMREX_GPU_MANAGED bool small_interval_exact;
+extern AMREX_GPU_MANAGED bool allow_step_retry;
+extern AMREX_GPU_MANAGED amrex::Real subcycle_backoff_factor;
+extern AMREX_GPU_MANAGED amrex::Real retry_density_cutoff;
+extern AMREX_GPU_MANAGED amrex::Real massfrac_check_tolerance;
+extern AMREX_GPU_MANAGED amrex::Real massfrac_check_min_density;
+extern AMREX_GPU_MANAGED bool regrid_each_step;
+extern AMREX_GPU_MANAGED int subcycle_cap;
+extern AMREX_GPU_MANAGED int deferred_iters;
+extern std::string stop_field_name;
+extern AMREX_GPU_MANAGED amrex::Real stop_field_threshold;
+extern AMREX_GPU_MANAGED amrex::Real burn_dt_energy;
+extern AMREX_GPU_MANAGED amrex::Real burn_dt_massfrac;
+extern AMREX_GPU_MANAGED amrex::Real nuc_dt_abund_floor;
+extern AMREX_GPU_MANAGED bool do_react;
+extern AMREX_GPU_MANAGED amrex::Real burn_temp_min;
+extern AMREX_GPU_MANAGED amrex::Real burn_temp_max;
+extern AMREX_GPU_MANAGED amrex::Real burn_rho_min;
+extern AMREX_GPU_MANAGED amrex::Real burn_rho_max;
+extern AMREX_GPU_MANAGED bool skip_burning_in_shocks;
+extern AMREX_GPU_MANAGED amrex::Real shock_sensor_threshold;
+extern AMREX_GPU_MANAGED bool shock_sensor_subtract_src;
+extern AMREX_GPU_MANAGED amrex::Real eos_temp_guess;
+extern AMREX_GPU_MANAGED bool drive_initial_convection;
+extern AMREX_GPU_MANAGED amrex::Real convect_drive_end_time;
+extern AMREX_GPU_MANAGED amrex::Real convect_drive_reset_period;
+extern AMREX_GPU_MANAGED bool do_gravity_flag;
+extern AMREX_GPU_MANAGED bool track_center;
+extern AMREX_GPU_MANAGED int gravity_source_mode;
+extern AMREX_GPU_MANAGED bool do_frame_spin;
+extern AMREX_GPU_MANAGED bool boundary_callback_threadsafe;
+extern AMREX_GPU_MANAGED int restart_grow_factor;
+extern AMREX_GPU_MANAGED bool body_at_center;
+extern AMREX_GPU_MANAGED int prev_theta_cells;
+extern AMREX_GPU_MANAGED bool do_equilibrium_start;
+extern AMREX_GPU_MANAGED amrex::Real scf_peak_density;
+extern AMREX_GPU_MANAGED amrex::Real scf_equator_radius;
+extern AMREX_GPU_MANAGED amrex::Real scf_pole_radius;
+extern AMREX_GPU_MANAGED amrex::Real scf_residual_tol;
+extern AMREX_GPU_MANAGED int scf_iter_cap;
+extern AMREX_GPU_MANAGED bool enable_special_refine;
+extern AMREX_GPU_MANAGED amrex::Real tagging_radius_cap;
+extern AMREX_GPU_MANAGED int verbose;
+extern AMREX_GPU_MANAGED bool dump_old;
+extern AMREX_GPU_MANAGED bool plane_parallel_domain;
+extern AMREX_GPU_MANAGED bool log_source_changes;
+extern AMREX_GPU_MANAGED int sum_step_period;
+extern AMREX_GPU_MANAGED amrex::Real sum_time_period;
+extern std::string job_label;
+extern AMREX_GPU_MANAGED bool write_on_finish;
+extern AMREX_GPU_MANAGED amrex::Real restart_time_override;
+extern AMREX_GPU_MANAGED int restart_step_override;
+extern AMREX_GPU_MANAGED bool keep_omegadot;
+extern AMREX_GPU_MANAGED bool keep_burn_weights;
+extern AMREX_GPU_MANAGED bool stop_on_bad_params;
+extern AMREX_GPU_MANAGED bool do_radiative_transfer;
+}
+
+#endif

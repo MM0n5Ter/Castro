@@ -14,9 +14,6 @@
 
 using namespace hydrosim;
 
-#ifdef AMREX_PARTICLES
-#include <particles_params.H>
-#endif
 
 #include <fundamental_constants.H>
 
@@ -27,23 +24,12 @@ using namespace hydrosim;
 #include <AMReX_FluxRegister.H>
 #include <network.H>
 #include <eos.H>
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-#include <burner.H>
-#endif
-#endif
 
 #ifdef BL_LAZY
 #include <AMReX_Lazy.H>
 #endif
 
-#ifdef AMREX_PARTICLES
-#include <AMReX_AmrParticles.H>
-#endif
 
-#ifdef RADIATION
-#include <RadTransportSolver.H>
-#endif
 
 #include <memory>
 #include <iostream>
@@ -124,27 +110,6 @@ public:
 
     void initData () override;
 
-#ifdef AMREX_PARTICLES
-
-    static void load_particle_config ();
-
-    void init_particles ();
-
-    void ParticleSaveRestart (const std::string& dir);
-
-    void ParticleOutputFile (const std::string& dir);
-
-    void ParticleAfterRestart (const std::string& restart_path);
-
-    std::unique_ptr<amrex::MultiFab> ParticleQuantity (const std::string& name,
-                                                     amrex::Real           time,
-                                                     int            ngrow);
-
-    void StampParticles (int ngrow);
-
-    void step_particles (int iteration, amrex::Real time, amrex::Real dt);
-
-#endif
 
 #ifdef LOWMACH_INIT
     void LOWMACH_init ();
@@ -211,9 +176,6 @@ public:
 #endif
 
 
-#ifdef MHD
-#include <HydroSim_mhd.H>
-#endif
 
     amrex::Real estTimeStep (state_epoch epoch = state_epoch::new_time);
 
@@ -254,11 +216,6 @@ public:
     void post_init (amrex::Real stop_time) override;
 
 #ifdef GRAVITY
-#ifdef ROTATION
-    void scf_solve();
-
-    void run_equilibrium_solve();
-#endif
 #endif
 
     void after_grow_restart ();
@@ -295,61 +252,20 @@ public:
                  int                dcomp) override;
 
 
-#ifdef REACTIONS
-#include <HydroSim_burn.H>
-#endif
 
-#ifdef ROTATION
-#include <HydroSim_rotation.H>
-#endif
 
-#ifdef RADIATION
-
-    void close_radiation_step (amrex::MultiFab& S_new,
-                               int iteration,
-                               int ncycle);
-#endif
 
     void repair_internal_energy (
-#ifdef MHD
-                                amrex::MultiFab& Bx,
-                                amrex::MultiFab& By,
-                                amrex::MultiFab& Bz,
-#endif
                                 amrex::MultiFab& State, int ng);
 
 
     static void repair_internal_energy (const amrex::Box& bx,
-#ifdef MHD
-                                amrex::Array4<amrex::Real> const& Bx,
-                                amrex::Array4<amrex::Real> const& By,
-                                amrex::Array4<amrex::Real> const& Bz,
-#endif
                                 amrex::Array4<amrex::Real> const& u);
 
 
-#ifdef MHD
-    static void add_bfield_energy (
-        amrex::MultiFab& Bx,
-        amrex::MultiFab& By,
-        amrex::MultiFab& Bz,
-        amrex::MultiFab& state);
-
-    void check_div_bfield (
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
-                      amrex::MultiFab& state);
-
-#endif
 
 
     void computeTemp (
-#ifdef MHD
-                      amrex::MultiFab& Bx,
-                      amrex::MultiFab& By,
-                      amrex::MultiFab& Bz,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
 
@@ -358,9 +274,6 @@ public:
 
     void swap_field_time_levels (const amrex::Real dt);
 
-#ifdef DIFFUSION
-#include <HydroSim_conduction.H>
-#endif
 
 
     amrex::Real volWeightedTotal (const MultiFab& mf, int comp, bool local=false, bool exclude_fine=true);
@@ -399,9 +312,6 @@ public:
 
 #include <HydroSim_hydro.H>
 
-#ifdef TRUE_SDC
-#include <HydroSim_deferred.H>
-#endif
 
     static void microphys_init ();
 
@@ -421,9 +331,6 @@ public:
 
 
     static void reconcile_energy (
-#ifdef MHD
-                               amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
-#endif
                                amrex::MultiFab& S);
 
     void clamp_min_density (amrex::MultiFab& state, int ng);
@@ -433,9 +340,6 @@ public:
     static void clamp_speed_limit (amrex::MultiFab& state, int ng);
 
     void clean_state (
-#ifdef MHD
-                      amrex::MultiFab& Bx, amrex::MultiFab& By, amrex::MultiFab& Bz,
-#endif
                       amrex::MultiFab& state, amrex::Real time, int ng);
 
     void avgDown ();
@@ -475,9 +379,6 @@ public:
 #endif
     }
 
-#ifdef AMREX_PARTICLES
-    static amrex::AmrTracerParticleContainer* theTracerPC () { return TracerPC.get(); }
-#endif
 
     static amrex::Vector<std::string> forcing_names;
 
@@ -511,43 +412,13 @@ protected:
 #endif
 
 
-#ifdef REACTIONS
-    amrex::MultiFab burn_split_data;
-    static std::vector<std::string> burn_split_names;
-#endif
 
 
     amrex::MultiFab Sborder;
 
-#ifdef MHD
-   amrex::MultiFab Bx_old_grown;
-   amrex::MultiFab By_old_grown;
-   amrex::MultiFab Bz_old_grown;
-#endif
-
-#ifdef RADIATION
-    amrex::MultiFab RadEnergyGrown;
-    amrex::MultiFab rad_lambda_grown;
-
-    std::unique_ptr<RadTransportSolver> rad_operator;
-#endif
 
 
-#ifdef TRUE_SDC
-    amrex::MultiFab BurnData;
 
-
-    amrex::MultiFab q;
-
-    amrex::MultiFab q_second;
-
-#ifdef DIFFUSION
-    amrex::MultiFab Temperature_cc;
-#endif
-
-    amrex::MultiFab qthermo;
-    amrex::MultiFab qthermo_second;
-#endif
 
 
     amrex::MultiFab forcing_corrector;
@@ -557,18 +428,12 @@ protected:
 #if (AMREX_SPACEDIM <= 2)
     amrex::MultiFab         Pressure_radial;
 #endif
-#ifdef RADIATION
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > rad_face_flux;
-#endif
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab> > mass_face_flux;
 
     amrex::FluxRegister flux_reg;
 #if (AMREX_SPACEDIM <= 2)
     amrex::FluxRegister pressure_flux_reg;
-#endif
-#ifdef RADIATION
-    amrex::FluxRegister rad_edge_reg;
 #endif
 #ifdef GRAVITY
     amrex::FluxRegister pot_flux_reg;
@@ -589,22 +454,6 @@ protected:
     bool retain_prev_field{};
 
 
-#ifdef TRUE_SDC
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > node_new;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > Advect_old;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > Advect_new;
-
-#ifdef REACTIONS
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > Reactions_old;
-#endif
-
-    static int COLLOC_NODES;
-    static amrex::Vector<amrex::Real> node_dt_frac;
-    static amrex::Vector<amrex::Real> node_quad_weights;
-#endif
 
     amrex::Real wall_clock_start;
 
@@ -651,17 +500,7 @@ protected:
 
     static std::unique_ptr<class Diffusion> diffusion;
 
-#ifdef RADIATION
 
-
-    static std::unique_ptr<class Radiation> radiation;
-
-    friend class Radiation;
-#endif
-
-#ifdef AMREX_PARTICLES
-    static std::unique_ptr<amrex::AmrTracerParticleContainer> TracerPC;
-#endif
 
     static amrex::IntVect hydro_tile_size;
     static amrex::IntVect untiled_size;
@@ -681,9 +520,6 @@ protected:
 
     int correction_iter;
 
-#ifdef TRUE_SDC
-    int current_colloc_node;
-#endif
 
 
 public:

@@ -1,0 +1,14 @@
+jobInfoFile << (gravity::gravity_model_name == "unset_gravity_type" ? "    ": "[*] ") << "gravity.gravity_model_name = "<< gravity::gravity_model_name << std::endl;
+jobInfoFile << (gravity::uniform_accel == 0.0_rt ? "    ": "[*] ") << "gravity.uniform_accel = "<< gravity::uniform_accel << std::endl;
+jobInfoFile << (gravity::boundary_direct_sum == false ? "    ": "[*] ") << "gravity.boundary_direct_sum = "<< gravity::boundary_direct_sum << std::endl;
+jobInfoFile << (gravity::radial_bin_ratio == 1 ? "    ": "[*] ") << "gravity.radial_bin_ratio = "<< gravity::radial_bin_ratio << std::endl;
+jobInfoFile << (gravity::lnum == 0 ? "    ": "[*] ") << "gravity.lnum = "<< gravity::lnum << std::endl;
+jobInfoFile << (gravity::verbose == 0 ? "    ": "[*] ") << "gravity.verbose = "<< gravity::verbose << std::endl;
+jobInfoFile << (gravity::no_sync == false ? "    ": "[*] ") << "gravity.no_sync = "<< gravity::no_sync << std::endl;
+jobInfoFile << (gravity::composite_phi_fixup == true ? "    ": "[*] ") << "gravity.composite_phi_fixup = "<< gravity::composite_phi_fixup << std::endl;
+jobInfoFile << (gravity::solve_level_cap == LEVEL_LIMIT-1 ? "    ": "[*] ") << "gravity.solve_level_cap = "<< gravity::solve_level_cap << std::endl;
+jobInfoFile << (gravity::accel_from_phi_grad == false ? "    ": "[*] ") << "gravity.accel_from_phi_grad = "<< gravity::accel_from_phi_grad << std::endl;
+jobInfoFile << (gravity::mlmg_fmg_cycles == 0 ? "    ": "[*] ") << "gravity.mlmg_fmg_cycles = "<< gravity::mlmg_fmg_cycles << std::endl;
+jobInfoFile << (gravity::mlmg_grid_merge == true ? "    ": "[*] ") << "gravity.mlmg_grid_merge = "<< gravity::mlmg_grid_merge << std::endl;
+jobInfoFile << (gravity::mlmg_proc_gather == true ? "    ": "[*] ") << "gravity.mlmg_proc_gather = "<< gravity::mlmg_proc_gather << std::endl;
+jobInfoFile << (gravity::mlmg_coarse_nsolve == false ? "    ": "[*] ") << "gravity.mlmg_coarse_nsolve = "<< gravity::mlmg_coarse_nsolve << std::endl;

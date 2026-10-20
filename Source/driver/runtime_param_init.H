@@ -5,15 +5,8 @@
 #include <AMReX_ParmParse.H>
 #include <hydrosim_limits.H>
 
-#ifdef DIFFUSION
-#include <diffusion_params.H>
-#endif
 #ifdef GRAVITY
 #include <gravity_params.H>
-#endif
-#ifdef RADIATION
-#include <radiation_solve_params.H>
-#include <radiation_params.H>
 #endif
 
 AMREX_INLINE
@@ -26,19 +19,7 @@ load_compiled_params()
 #include <hydrosim_queries.H>
     }
 
-#ifdef AMREX_PARTICLES
-    {
-        amrex::ParmParse pp("particles");
-#include <particles_queries.H>
-    }
-#endif
 
-#ifdef DIFFUSION
-    {
-        amrex::ParmParse pp("diffusion");
-#include <diffusion_queries.H>
-    }
-#endif
 
 #ifdef GRAVITY
     {
@@ -47,12 +28,6 @@ load_compiled_params()
     }
 #endif
 
-#ifdef RADIATION
-    {
-        amrex::ParmParse pp("radiation");
-#include <radiation_queries.H>
-    }
-#endif
 
 }
 
@@ -63,31 +38,12 @@ check_runparams()
 {
 
     amrex::Vector<std::string> valid_namespaces = {"hydrosim", "problem"};
-#ifdef AMREX_PARTICLES
-    valid_namespaces.push_back("particles");
-#endif
-#ifdef DIFFUSION
-    valid_namespaces.push_back("diffusion");
-#endif
 #ifdef GRAVITY
     valid_namespaces.push_back("gravity");
-#endif
-#ifdef RADIATION
-    valid_namespaces.push_back("radiation_solve");
 #endif
 
 
     valid_namespaces.push_back("eos");
-#ifdef REACTIONS
-    valid_namespaces.push_back("network");
-    valid_namespaces.push_back("integrator");
-#endif
-#ifdef RADIATION
-    valid_namespaces.push_back("opacity");
-#endif
-#ifdef DIFFUSION
-    valid_namespaces.push_back("conductivity");
-#endif
 
     for (const auto& nm: valid_namespaces)
     {
