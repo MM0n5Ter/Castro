@@ -138,9 +138,7 @@ HydroSim::clamp_state_density(const Box& bx,
         cartesian_vector[dir] = state_arr(i,j,k,UMX+dir);
       }
 
-      GpuArray<Real, 3> hybrid_vector;
-
-      cartesian_to_hybrid(loc, cartesian_vector, hybrid_vector);
+      const GpuArray<Real, 3> hybrid_vector = cartesian_to_hybrid(loc, cartesian_vector);
 
       for (int dir = 0; dir < 3; ++dir) {
         state_arr(i,j,k,UMR+dir) = hybrid_vector[dir];

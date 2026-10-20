@@ -110,14 +110,13 @@ namespace newton {
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
+    int
     deferred_newton_solve(const Real substep_dt,
                      GpuArray<Real, NUM_STATE> const& Conserved_old,
                      GpuArray<Real, NUM_STATE> & cons_new,
                      GpuArray<Real, NUM_STATE> const& C,
                      const int correction_iter,
-                     Real& err_out,
-                     int& ierr) {
+                     Real& err_out) {
 
 
 
@@ -127,8 +126,6 @@ namespace newton {
 
 
         Array1D<Real, 1, NumSpec+1> f;
-
-        ierr = newton_outcome::success;
 
 
         burn_t burn_state;
@@ -157,8 +154,7 @@ namespace newton {
             dgefa<NumSpec+1, allow_pivot>(Jac, pivot_index, info);
 #endif
             if (info != 0) {
-                ierr = newton_outcome::singular_jacobian;
-                return;
+                return newton_outcome::singular_jacobian;
             }
 
 #ifdef NEW_NETWORK_IMPLEMENTATION
@@ -196,8 +192,7 @@ namespace newton {
         err_out = err;
 
         if (!converged) {
-            ierr = newton_outcome::no_convergence;
-            return;
+            return newton_outcome::no_convergence;
         }
 
 
@@ -210,24 +205,24 @@ namespace newton {
 
         finish_implicit_burn(substep_dt, Conserved_old, cons_new, C);
 
+        return newton_outcome::success;
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
+    int
     deferred_newton_subdivide(const Real substep_dt,
                          GpuArray<Real, NUM_STATE> const& Conserved_old,
                          GpuArray<Real, NUM_STATE>& cons_new,
                          GpuArray<Real, NUM_STATE> const& C,
                          const int correction_iter,
-                         Real& err_out,
-                         int& ierr) {
+                         Real& err_out) {
 
 
         GpuArray<Real, NUM_STATE> State_begin;
 
 
         int nsub = 1;
-        ierr = newton_outcome::no_convergence;
+        int ierr = newton_outcome::no_convergence;
 
         while (nsub <= MAX_SUBSTEPS && ierr != newton_outcome::success) {
 
@@ -256,7 +251,7 @@ namespace newton {
                     State_begin[UFS + n] *= State_begin[URHO] / species_density_sum;
                 }
 
-                deferred_newton_solve(dt_sub, State_begin, cons_new, C, correction_iter, err_out, ierr);
+                ierr = deferred_newton_solve(dt_sub, State_begin, cons_new, C, correction_iter, err_out);
 
                 for (int n = 0; n < NumSpec; ++n) {
                     if (cons_new[UFS+n] < -species_failure_tolerance * cons_new[URHO] ||
@@ -275,6 +270,8 @@ namespace newton {
             }
             nsub *= 2;
         }
+
+        return ierr;
     }
 #endif
 }

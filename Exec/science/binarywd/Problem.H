@@ -18,7 +18,12 @@
 void wd_update(amrex::Real time, amrex::Real dt);
 
 
-void volInBoundary (amrex::Real time, amrex::Real& vol_p, amrex::Real& vol_s, amrex::Real rho_cutoff, bool local = false);
+struct StellarVolumes {
+    amrex::Real primary;
+    amrex::Real secondary;
+};
+
+StellarVolumes volInBoundary (amrex::Real time, amrex::Real rho_cutoff, bool local = false);
 
 
 static

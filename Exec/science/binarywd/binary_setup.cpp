@@ -183,9 +183,16 @@ void binary_setup ()
 
             Real v_P_r, v_S_r, v_P_phi, v_S_phi;
 
-            kepler_third_law(problem::radius_P, problem::mass_P, problem::radius_S, problem::mass_S,
-                             hydrosim::spin_period, problem::orbital_eccentricity, problem::orbital_angle,
-                             problem::a, problem::r_P_initial, problem::r_S_initial, v_P_r, v_S_r, v_P_phi, v_S_phi);
+            const KeplerOrbit orbit = kepler_third_law(problem::radius_P, problem::mass_P, problem::radius_S, problem::mass_S,
+                                                       hydrosim::spin_period, problem::orbital_eccentricity, problem::orbital_angle,
+                                                       problem::a);
+
+            problem::r_P_initial = orbit.r_1;
+            problem::r_S_initial = orbit.r_2;
+            v_P_r = orbit.v_1r;
+            v_S_r = orbit.v_2r;
+            v_P_phi = orbit.v_1p;
+            v_S_phi = orbit.v_2p;
 
 
             Real length;
@@ -575,9 +582,8 @@ void ensure_primary_mass_larger ()
     }
 }
 
-void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
-                       Real& period, Real eccentricity, Real phi, Real& a,
-                       Real& r_1, Real& r_2, Real& v_1r, Real& v_2r, Real& v_1p, Real& v_2p)
+KeplerOrbit kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
+                              Real& period, Real eccentricity, Real phi, Real& a)
 {
     amrex::ignore_unused(radius_1);
     amrex::ignore_unused(radius_2);
@@ -607,14 +613,18 @@ void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
                   (period * std::sqrt(1.0_rt - eccentricity * eccentricity));
 
 
-    r_1  = -(mu / mass_1) * r;
-    r_2  =  (mu / mass_2) * r;
+    KeplerOrbit orbit;
 
-    v_1r = -(mu / mass_1) * v_r;
-    v_2r =  (mu / mass_2) * v_r;
+    orbit.r_1  = -(mu / mass_1) * r;
+    orbit.r_2  =  (mu / mass_2) * r;
 
-    v_1p = -(mu / mass_1) * v_phi;
-    v_2p =  (mu / mass_2) * v_phi;
+    orbit.v_1r = -(mu / mass_1) * v_r;
+    orbit.v_2r =  (mu / mass_2) * v_r;
+
+    orbit.v_1p = -(mu / mass_1) * v_phi;
+    orbit.v_2p =  (mu / mass_2) * v_phi;
+
+    return orbit;
 }
 
 void freefall_velocity (Real mass, Real distance, Real& vel)

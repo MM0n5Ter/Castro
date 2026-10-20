@@ -377,14 +377,14 @@ HydroSim::edge_emf_z(const Box& bx,
       zone_prim[n] = prim_arr(i-1,j-1,k,n);
     }
     Real EmfCenter = 0.0_rt;
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     Real a = 2.0_rt * (-flxx(i,j-1,k,UBY) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     Real b = 2.0_rt * (-flxx(i,j,k,UBY) - EmfCenter);
 
 
@@ -395,14 +395,14 @@ HydroSim::edge_emf_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     a = 2.0_rt * (EmfCenter + flxx(i,j-1,k,UBY));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     b = 2.0_rt * (EmfCenter + flxx(i,j,k,UBY));
 
 
@@ -417,14 +417,14 @@ HydroSim::edge_emf_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j-1,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     a = 2.0_rt * (flxy(i-1,j,k,UBX) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     b = 2.0_rt * (flxy(i,j,k,UBX) - EmfCenter);
 
 
@@ -435,14 +435,14 @@ HydroSim::edge_emf_z(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     a = 2.0_rt * (EmfCenter - flxy(i-1,j,k,UBX));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 2);
+    EmfCenter = electric(zone_prim, 2);
     b = 2.0_rt * (EmfCenter - flxy(i,j,k,UBX));
 
 
@@ -479,14 +479,14 @@ HydroSim::edge_emf_y(const Box& bx,
       zone_prim[n] = prim_arr(i-1,j,k-1,n);
     }
     Real EmfCenter = 0.0_rt;
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     Real a = 2.0_rt * (-flxz(i-1,j,k,UBX) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     Real b = 2.0_rt * (-flxz(i,j,k,UBX) - EmfCenter);
 
 
@@ -498,14 +498,14 @@ HydroSim::edge_emf_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     a = 2.0_rt * (EmfCenter + flxz(i-1,j,k,UBX));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     b = 2.0_rt * (EmfCenter + flxz(i,j,k,UBX));
 
 
@@ -521,14 +521,14 @@ HydroSim::edge_emf_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     a = 2.0_rt * (flxx(i,j,k-1,UBZ) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i-1,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     b = 2.0_rt * (flxx(i,j,k,UBZ) - EmfCenter);
 
 
@@ -539,14 +539,14 @@ HydroSim::edge_emf_y(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     a = 2.0_rt * (EmfCenter - flxx(i,j,k-1,UBZ));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 1);
+    EmfCenter = electric(zone_prim, 1);
     b = 2.0_rt * (EmfCenter - flxx(i,j,k,UBZ));
 
 
@@ -583,14 +583,14 @@ HydroSim::edge_emf_x(const Box& bx,
       zone_prim[n] = prim_arr(i,j-1,k-1,n);
     }
     Real EmfCenter = 0.0_rt;
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     Real a = 2.0_rt * (-flxy(i,j,k-1,UBZ) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     Real b = 2.0_rt *(-flxy(i,j,k,UBZ) - EmfCenter);
 
 
@@ -602,14 +602,14 @@ HydroSim::edge_emf_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     a = 2.0_rt * (EmfCenter + flxy(i,j,k-1,UBZ));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     b = 2.0_rt * (EmfCenter + flxy(i,j,k,UBZ));
 
 
@@ -625,14 +625,14 @@ HydroSim::edge_emf_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     a = 2.0_rt * (flxz(i,j-1,k,UBY) - EmfCenter);
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k-1,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     b = 2.0_rt * (flxz(i,j,k,UBY) - EmfCenter);
 
 
@@ -643,14 +643,14 @@ HydroSim::edge_emf_x(const Box& bx,
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j-1,k,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     a = 2.0_rt * (EmfCenter - flxz(i,j-1,k,UBY));
 
 
     for (int n = 0; n < NQ; n++) {
       zone_prim[n] = prim_arr(i,j,k,n);
     }
-    electric(zone_prim, EmfCenter, 0);
+    EmfCenter = electric(zone_prim, 0);
     b = 2.0_rt * (EmfCenter - flxz(i,j,k,UBY));
 
 

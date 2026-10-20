@@ -183,20 +183,18 @@ to_prim_flux(Real* prim_flux, const Real* flx, const Real* zone_prim) {
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-electric(const Real* zone_prim, Real& cell_efield, const int comp) {
-
+Real
+electric(const Real* zone_prim, const int comp) {
 
   if (comp == 0) {
-    cell_efield = -zone_prim[QV] * zone_prim[QBFIELDZ] + zone_prim[QW] * zone_prim[QBFIELDY];
+    return -zone_prim[QV] * zone_prim[QBFIELDZ] + zone_prim[QW] * zone_prim[QBFIELDY];
 
   } else if (comp == 1) {
-    cell_efield = -zone_prim[QW] * zone_prim[QBFIELDX] + zone_prim[QU] * zone_prim[QBFIELDZ];
+    return -zone_prim[QW] * zone_prim[QBFIELDX] + zone_prim[QU] * zone_prim[QBFIELDZ];
 
-  } else {
-    cell_efield = -zone_prim[QU] * zone_prim[QBFIELDY] + zone_prim[QV] * zone_prim[QBFIELDX];
   }
 
+  return -zone_prim[QU] * zone_prim[QBFIELDY] + zone_prim[QV] * zone_prim[QBFIELDX];
 }
 
 #endif

@@ -188,23 +188,25 @@ public:
                    int rad_group_idx = 0);
 
 
-  void apply_implicit_energy(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+  struct UpdateNorms {
+    amrex::Real relative;
+    amrex::Real absolute;
+  };
+
+  UpdateNorms apply_implicit_energy(amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
                               amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
                               amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,
                               amrex::MultiFab& exchange, amrex::Real delta_t);
 
 
-  void apply_implicit_energy(amrex::Real& relative, amrex::Real& absolute,
-                              amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+  UpdateNorms apply_implicit_energy(amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
                               amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
                               amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,
                               amrex::MultiFab& exchange, amrex::MultiFab& diffusive_face_term,
                               amrex::Real delta_t);
 
 
-  void apply_nonconservative_correction(amrex::Real& relative, amrex::Real& absolute,
-                                     amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
+  UpdateNorms apply_nonconservative_correction(amrex::MultiFab& state_energy_density, amrex::MultiFab& matter_energy_density,
                                      amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse,
                                      amrex::MultiFab& rad_energy_new,
                                      amrex::MultiFab& flux_div_old, amrex::MultiFab& flux_div_new,

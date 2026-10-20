@@ -74,7 +74,7 @@ deferred_solve(const Real substep_dt,
 
     switch (sdc_nonlin_method) {
     case deferred_solvers::newton:
-        newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out, ierr);
+        ierr = newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out);
 
         if (ierr != newton_outcome::success) {
             amrex::Abort("Newton subcycling failed in deferred_solve");
@@ -90,7 +90,7 @@ deferred_solve(const Real substep_dt,
             deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
         }
 
-        newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out, ierr);
+        ierr = newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out);
 
         if (ierr != newton_outcome::success) {
             amrex::Abort("Newton failure in deferred_solve");

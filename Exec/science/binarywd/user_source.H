@@ -74,7 +74,7 @@ void user_source (int i, int j, int k,
         }
 
 #ifdef HYBRID_MOMENTUM
-        cartesian_to_hybrid(loc, Sr, hybrid_vector);
+        hybrid_vector = cartesian_to_hybrid(loc, Sr);
         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
             src(i,j,k,UMR+dir) += hybrid_vector[dir];
         }
@@ -125,8 +125,7 @@ void user_source (int i, int j, int k,
         GpuArray<Real, 3> loc;
         position(i, j, k, geomdata, loc);
 
-        GpuArray<Real, 3> hybrid_Sr = {0.0};
-        cartesian_to_hybrid(loc, Sr, hybrid_Sr);
+        GpuArray<Real, 3> hybrid_Sr = cartesian_to_hybrid(loc, Sr);
 
         for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
             src(i,j,k,UMR+dir) += hybrid_Sr[dir];

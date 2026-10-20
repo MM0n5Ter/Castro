@@ -144,8 +144,7 @@ void Radiation::evaluate_energy_transfer(MultiFab& exch,
     }
 }
 
-void Radiation::apply_implicit_energy(Real& relative, Real& absolute,
-                                       MultiFab& state_energy_density,
+Radiation::UpdateNorms Radiation::apply_implicit_energy(MultiFab& state_energy_density,
                                        MultiFab& matter_energy_density,
                                        MultiFab& eta,
                                        MultiFab& coupling_inverse,
@@ -203,15 +202,16 @@ void Radiation::apply_implicit_energy(Real& relative, Real& absolute,
 
   ReduceTuple hv = reduce_data.value();
 
-  relative = amrex::get<0>(hv);
-  absolute = amrex::get<1>(hv);
+  Real relative = amrex::get<0>(hv);
+  Real absolute = amrex::get<1>(hv);
 
   ParallelDescriptor::ReduceRealMax(relative);
   ParallelDescriptor::ReduceRealMax(absolute);
+
+  return {relative, absolute};
 }
 
-void Radiation::apply_implicit_energy(Real& relative, Real& absolute,
-                                       MultiFab& state_energy_density,
+Radiation::UpdateNorms Radiation::apply_implicit_energy(MultiFab& state_energy_density,
                                        MultiFab& matter_energy_density,
                                        MultiFab& eta,
                                        MultiFab& coupling_inverse,
@@ -223,8 +223,8 @@ void Radiation::apply_implicit_energy(Real& relative, Real& absolute,
 {
   BL_PROFILE("Radiation::internal_energy_update_d");
 
-  relative = 0.0;
-  absolute = 0.0;
+  Real relative = 0.0;
+  Real absolute = 0.0;
 
   ReduceOps<ReduceOpMax, ReduceOpMax> reduce_op;
   ReduceData<Real, Real> reduce_data(reduce_op);
@@ -284,10 +284,10 @@ void Radiation::apply_implicit_energy(Real& relative, Real& absolute,
   ParallelDescriptor::ReduceRealMax(relative);
   ParallelDescriptor::ReduceRealMax(absolute);
 
+  return {relative, absolute};
 }
 
-void Radiation::apply_nonconservative_correction(Real& relative, Real& absolute,
-                                              MultiFab& state_energy_density,
+Radiation::UpdateNorms Radiation::apply_nonconservative_correction(MultiFab& state_energy_density,
                                               MultiFab& matter_energy_density,
                                               MultiFab& eta,
                                               MultiFab& coupling_inverse,
@@ -372,11 +372,13 @@ void Radiation::apply_nonconservative_correction(Real& relative, Real& absolute,
 
   ReduceTuple hv = reduce_data.value();
 
-  absolute = amrex::get<0>(hv);
-  relative = amrex::get<1>(hv);
+  Real absolute = amrex::get<0>(hv);
+  Real relative = amrex::get<1>(hv);
 
   ParallelDescriptor::ReduceRealMax(relative);
   ParallelDescriptor::ReduceRealMax(absolute);
+
+  return {relative, absolute};
 }
 
 void Radiation::sync_state_from_energy(MultiFab& state, MultiFab& state_energy_density)

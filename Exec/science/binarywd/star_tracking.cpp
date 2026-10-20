@@ -603,7 +603,9 @@ HydroSim::wd_update (Real time, Real dt)
     bool local_only = true;
 
     for (int i = 0; i <= 6; ++i) {
-        HydroSim::volInBoundary(time, vol_P[i], vol_S[i], std::pow(10.0,i), local_only);
+        const StellarVolumes volumes = HydroSim::volInBoundary(time, std::pow(10.0,i), local_only);
+        vol_P[i] = volumes.primary;
+        vol_S[i] = volumes.secondary;
     }
 
 
@@ -713,7 +715,7 @@ HydroSim::wd_update (Real time, Real dt)
     update_roche_radii();
 }
 
-void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cutoff, bool local)
+HydroSim::StellarVolumes HydroSim::volInBoundary (Real time, Real rho_cutoff, bool local)
 {
 
     amrex::ignore_unused(time);
@@ -725,8 +727,8 @@ void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cuto
 
     BL_ASSERT(level == 0);
 
-    vol_P = 0.0;
-    vol_S = 0.0;
+    Real vol_P = 0.0;
+    Real vol_S = 0.0;
 
     for (int lev = 0; lev <= parent->finestLevel(); lev++) {
 
@@ -800,6 +802,7 @@ void HydroSim::volInBoundary (Real time, Real& vol_P, Real& vol_S, Real rho_cuto
     if (!local)
       amrex::ParallelDescriptor::ReduceRealSum({vol_P, vol_S});
 
+    return {vol_P, vol_S};
 }
 
 Real HydroSim::dot_product(const Real a[], const Real b[]) {

@@ -227,33 +227,35 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
     }
 
 
+    UpdateNorms update_norms;
+
     if (use_conservative_update) {
       MultiFab& exch = temp;
 
       evaluate_energy_transfer(exch, rad_energy_new, fkp);
 
       if (has_diffusion_coefs) {
-        apply_implicit_energy(relative, absolute,
-                               state_energy_density, matter_energy_density, eta, coupling_inverse,
+        update_norms = apply_implicit_energy(state_energy_density, matter_energy_density, eta, coupling_inverse,
                                flux_div_old, flux_div_new,
                                exch, diffusive_face_term, delta_t);
       }
       else {
-        apply_implicit_energy(relative, absolute,
-                               state_energy_density, matter_energy_density, eta, coupling_inverse,
+        update_norms = apply_implicit_energy(state_energy_density, matter_energy_density, eta, coupling_inverse,
                                flux_div_old, flux_div_new,
                                exch, delta_t);
       }
     }
     else {
-      apply_nonconservative_correction(relative, absolute,
-                                    state_energy_density, matter_energy_density, eta, coupling_inverse,
+      update_norms = apply_nonconservative_correction(state_energy_density, matter_energy_density, eta, coupling_inverse,
                                     rad_energy_new, flux_div_old, flux_div_new,
                                     temp, fkp, S_new, delta_t);
       if (has_diffusion_coefs) {
         amrex::Error("Radiation::advance_single_group: must do conservative energy update when has_diffusion_coefs is true");
       }
     }
+
+    relative = update_norms.relative;
+    absolute = update_norms.absolute;
 
     if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
       int oldprec = std::cout.precision(20);

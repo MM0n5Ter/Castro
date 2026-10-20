@@ -37,9 +37,7 @@ HydroSim::linear_to_split_momentum(MultiFab& state_in, int ng)
             for (int dir = 0; dir < 3; ++dir)
                 cartesian_vector[dir] = u(i,j,k,UMX+dir);
 
-            GpuArray<Real, 3> hybrid_vector;
-
-            cartesian_to_hybrid(loc, cartesian_vector, hybrid_vector);
+            const GpuArray<Real, 3> hybrid_vector = cartesian_to_hybrid(loc, cartesian_vector);
 
             for (int dir = 0; dir < 3; ++dir)
                 u(i,j,k,UMR+dir) = hybrid_vector[dir];
@@ -80,9 +78,7 @@ HydroSim::split_to_linear_momentum(MultiFab& state_in, int ng)
             for (int dir = 0; dir < 3; ++dir)
                 hybrid_vector[dir] = u(i,j,k,UMR+dir);
 
-            GpuArray<Real, 3> cartesian_vector;
-
-            hybrid_to_cartesian(loc, hybrid_vector, cartesian_vector);
+            const GpuArray<Real, 3> cartesian_vector = hybrid_to_cartesian(loc, hybrid_vector);
 
             for (int dir = 0; dir < 3; ++dir)
                 u(i,j,k,UMX+dir) = cartesian_vector[dir];

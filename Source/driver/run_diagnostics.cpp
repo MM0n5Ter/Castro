@@ -193,19 +193,15 @@ HydroSim::write_tracked_center ()
 #endif
 
 #ifdef GRAVITY
-void
-HydroSim::wave_strain (Real time,
-                  Real& strain_plus_1, Real& strain_cross_1,
-                  Real& strain_plus_2, Real& strain_cross_2,
-                  Real& strain_plus_3, Real& strain_cross_3,
-                  bool local) {
+HydroSim::strain_components
+HydroSim::wave_strain (Real time, bool local) {
 
     amrex::ignore_unused(time);
 
     BL_PROFILE("HydroSim::wave_strain()");
 
     if (hydrosim::wave_obs_distance <= 0.0_rt) {
-        return;
+        return {};
     }
 
     constexpr amrex::Real light_speed_quartic = amrex::Math::powi<4>(C::c_light);
@@ -366,8 +362,7 @@ HydroSim::wave_strain (Real time,
 
 
     constexpr int strain_index[3][4] = {{1, 1, 2, 1}, {2, 2, 0, 2}, {0, 0, 1, 0}};
-    Real* const plus_out[3] = {&strain_plus_1, &strain_plus_2, &strain_plus_3};
-    Real* const cross_out[3] = {&strain_cross_1, &strain_cross_2, &strain_cross_3};
+    strain_components strain;
 
     for (int dir = 0; dir < 3; ++dir) {
 
@@ -414,10 +409,12 @@ HydroSim::wave_strain (Real time,
         }
 
 
-        *plus_out[dir]  += h[strain_index[dir][0]][strain_index[dir][1]];
-        *cross_out[dir] += h[strain_index[dir][2]][strain_index[dir][3]];
+        strain.plus[dir]  += h[strain_index[dir][0]][strain_index[dir][1]];
+        strain.cross[dir] += h[strain_index[dir][2]][strain_index[dir][3]];
 
     }
+
+    return strain;
 }
 #endif
 
@@ -852,7 +849,13 @@ HydroSim::tally_integrated_quantities ()
             HydroSim& hs_level = getLevel(lev);
 
 #if (AMREX_SPACEDIM > 1)
-            hs_level.wave_strain(time, strain_plus_1, strain_cross_1, strain_plus_2, strain_cross_2, strain_plus_3, strain_cross_3, local_only);
+            const auto level_strain = hs_level.wave_strain(time, local_only);
+            strain_plus_1  += level_strain.plus[0];
+            strain_cross_1 += level_strain.cross[0];
+            strain_plus_2  += level_strain.plus[1];
+            strain_cross_2 += level_strain.cross[1];
+            strain_plus_3  += level_strain.plus[2];
+            strain_cross_3 += level_strain.cross[2];
 #endif
 
         }

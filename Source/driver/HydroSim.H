@@ -1,6 +1,7 @@
 #ifndef HYDROSIM_H
 #define HYDROSIM_H
 
+#include <array>
 #include <format>
 
 #include <state_indices.H>
@@ -375,11 +376,11 @@ public:
 
 #ifdef GRAVITY
 
-    void wave_strain (Real time,
-                   Real& strain_plus_1, Real& strain_cross_1,
-                   Real& strain_plus_2, Real& strain_cross_2,
-                   Real& strain_plus_3, Real& strain_cross_3,
-                   bool local);
+    struct strain_components {
+        std::array<Real, 3> plus{}, cross{};
+    };
+
+    strain_components wave_strain (Real time, bool local);
 #endif
 
 #ifdef GRAVITY

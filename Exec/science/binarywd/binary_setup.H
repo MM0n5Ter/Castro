@@ -16,9 +16,12 @@
 
 void freefall_velocity (Real mass, Real distance, Real& vel);
 
-void kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
-                       Real& period, Real eccentricity, Real phi, Real& a,
-                       Real& r_1, Real& r_2, Real& v_1r, Real& v_2r, Real& v_1p, Real& v_2p);
+struct KeplerOrbit {
+    Real r_1, r_2, v_1r, v_2r, v_1p, v_2p;
+};
+
+KeplerOrbit kepler_third_law (Real radius_1, Real mass_1, Real radius_2, Real mass_2,
+                              Real& period, Real eccentricity, Real phi, Real& a);
 
 void set_wd_composition (Real mass, Real& envelope_mass, Real core_comp[NumSpec], Real envelope_comp[NumSpec], const std::string& star_type);
 
@@ -96,7 +99,7 @@ Real netDeriv (Real M1, Real M2, Real r1, Real r2, Real r, Real a)
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void refine_equilibrium_root (Real& r, Real mass_1, Real mass_2, Real r1, Real r2, Real a, Real r_min, Real r_max)
+Real refine_equilibrium_root (Real mass_1, Real mass_2, Real r1, Real r2, Real a, Real r_min, Real r_max)
 {
 
     const Real tolerance = 1.0e-8_rt;
@@ -149,12 +152,11 @@ void refine_equilibrium_root (Real& r, Real mass_1, Real mass_2, Real r1, Real r
 
     }
 
-    r = rc;
-
-
     if (i > max_iters) {
-        r = 0.0_rt;
+        return 0.0_rt;
     }
+
+    return rc;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -177,9 +179,7 @@ void find_equilibrium_points (Real mass_1, Real mass_2, const Real* center_1, co
     r2 = std::sqrt(center_2[0] * center_2[0] + center_2[1] * center_2[1] + center_2[2] * center_2[2]);
 
 
-    r = 0.0_rt;
-
-    refine_equilibrium_root(r, mass_1, mass_2, r1, r2, a, r1, r2);
+    r = refine_equilibrium_root(mass_1, mass_2, r1, r2, a, r1, r2);
 
 
     for (int n = 0; n < 3; ++n) {
@@ -187,18 +187,14 @@ void find_equilibrium_points (Real mass_1, Real mass_2, const Real* center_1, co
     }
 
 
-    r = r2 + 0.5_rt * a;
-
-    refine_equilibrium_root(r, mass_1, mass_2, r1, r2, a, r2, 0.0_rt);
+    r = refine_equilibrium_root(mass_1, mass_2, r1, r2, a, r2, 0.0_rt);
 
     for (int n = 0; n < 3; ++n) {
         L2[n] = r * (center_2[n] - center_1[n]) / a;
     }
 
 
-    r = r1 - 0.5_rt * a;
-
-    refine_equilibrium_root(r, mass_1, mass_2, r1, r2, a, 0.0_rt, r1);
+    r = refine_equilibrium_root(mass_1, mass_2, r1, r2, a, 0.0_rt, r1);
 
     for (int n = 0; n < 3; ++n) {
         L3[n] = r * (center_2[n] - center_1[n]) / a;
