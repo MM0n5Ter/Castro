@@ -58,9 +58,11 @@ namespace timestep {
     };
 
 
+    using dt_and_cell = amrex::ValLocPair<amrex::Real, amrex::IntVect>;
+
     template <dtlimit_type T, typename... MFs>
     AMREX_INLINE
-    amrex::ValLocPair<amrex::Real, amrex::IntVect>
+    dt_and_cell
     estdt (const amrex::GeometryData& geomdata,
            const amrex::MultiFab& coverMask,
            const amrex::MultiFab& activeState,
@@ -82,8 +84,8 @@ namespace timestep {
             static_assert(count_multifabs == 0);
 
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
+            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
             {
                 Array4<Real const> const& u = ua[box_no];
 
@@ -134,7 +136,7 @@ namespace timestep {
 
                 if (hydrosim::time_scheme == 0 || hydrosim::time_scheme == 3) {
                     Real dt = amrex::min(dt1, dt2, dt3);
-                    return {ValLocPair<Real, IntVect>{dt, idx}};
+                    return {dt_and_cell{dt, idx}};
 
                 } else {
                     Real dt_tmp = 1.0_rt/dt1;
@@ -145,7 +147,7 @@ namespace timestep {
                     dt_tmp += 1.0_rt/dt3;
 #endif
 
-                    return {ValLocPair<Real, IntVect>{1.0_rt/dt_tmp, idx}};
+                    return {dt_and_cell{1.0_rt/dt_tmp, idx}};
                 }
             });
 
@@ -165,8 +167,8 @@ namespace timestep {
             auto const& bya = by.const_arrays();
             auto const& bza = bz.const_arrays();
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
+            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
             {
 
                 Array4<Real const> const& state_view = ua[box_no];
@@ -241,7 +243,7 @@ namespace timestep {
                 dt3 = dt1;
 #endif
 
-                return {ValLocPair<Real, IntVect>{amrex::min(dt1, dt2, dt3), idx}};
+                return {dt_and_cell{amrex::min(dt1, dt2, dt3), idx}};
 
             });
 
@@ -257,8 +259,8 @@ namespace timestep {
             const Real timestep_ceiling = hydrosim::max_dt;
             const Real cfl_limit = hydrosim::cfl;
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
+            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
             {
                 Array4<Real const> const& state_fab_view = ua[box_no];
 
@@ -304,10 +306,10 @@ namespace timestep {
                     dt3 = dt1;
 #endif
 
-                    return {ValLocPair<Real, IntVect>{amrex::min(dt1, dt2, dt3), idx}};
+                    return {dt_and_cell{amrex::min(dt1, dt2, dt3), idx}};
 
                 } else {
-                    return {ValLocPair<Real, IntVect>{timestep_ceiling/cfl_limit, idx}};
+                    return {dt_and_cell{timestep_ceiling/cfl_limit, idx}};
                 }
             });
 
@@ -320,11 +322,11 @@ namespace timestep {
 
             if (hydrosim::burn_dt_energy > 1.e199_rt && hydrosim::burn_dt_massfrac > 1.e199_rt) {
                 IntVect idx(AMREX_D_DECL(0,0,0));
-                return {ValLocPair<Real, IntVect>{1.e200_rt, idx}};
+                return {dt_and_cell{1.e200_rt, idx}};
             }
 
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<ValLocPair<Real, IntVect>>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<ValLocPair<Real, IntVect>>
+            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
+            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
             {
                 Real dt_tmp = 1.e200_rt;
 
@@ -342,7 +344,7 @@ namespace timestep {
 
                 if (exclude_covered_zones && mask.contains(i,j,k)) {
                     if (mask(i,j,k) == 0.0_rt) {
-                        return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
+                        return {dt_and_cell{dt_tmp, idx}};
                     }
                 }
 
@@ -381,12 +383,12 @@ namespace timestep {
 
                 if (burn_state.T < hydrosim::burn_temp_min || burn_state.T > hydrosim::burn_temp_max ||
                     burn_state.rho < hydrosim::burn_rho_min || burn_state.rho > hydrosim::burn_rho_max) {
-                    return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
+                    return {dt_and_cell{dt_tmp, idx}};
                 }
 
 #ifdef SHOCK_VAR
                 if (S(i,j,k,UFLAG_SHOCK) > 0.0_rt && hydrosim::skip_burning_in_shocks == 1) {
-                    return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
+                    return {dt_and_cell{dt_tmp, idx}};
                 }
 #endif
 
@@ -444,7 +446,7 @@ namespace timestep {
                     dt_tmp = amrex::min(dt_tmp, hydrosim::burn_dt_massfrac * (X[n] / dXdt[n]));
                 }
 
-                return {ValLocPair<Real, IntVect>{dt_tmp, idx}};
+                return {dt_and_cell{dt_tmp, idx}};
             });
 
             return r;

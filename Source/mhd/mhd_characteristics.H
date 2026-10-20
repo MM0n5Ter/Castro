@@ -3,6 +3,9 @@
 
 #include <mhd_zone_ops.H>
 
+using EigenMatrix = Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>;
+using PrimZone = Array1D<Real, 0, NQ-1>;
+
 struct MagnetosonicMix {
   Real as;
   Real cs;
@@ -48,10 +51,10 @@ magnetosonic_mix(const Real sound_speed, Array1D<Real, 0, NQ-1>& Q, const Real n
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
-      Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis,
+eigenbasis_x(EigenMatrix& left_basis,
+      EigenMatrix& right_basis,
       const Real sound_speed,
-      Array1D<Real, 0, NQ-1>& Q) {
+      PrimZone& Q) {
 
 
 
@@ -207,10 +210,10 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
-      Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis,
+eigenbasis_y(EigenMatrix& left_basis,
+      EigenMatrix& right_basis,
       const Real sound_speed,
-      Array1D<Real, 0, NQ-1>& Q) {
+      PrimZone& Q) {
 
 
 
@@ -365,10 +368,10 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
-      Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis,
+eigenbasis_z(EigenMatrix& left_basis,
+      EigenMatrix& right_basis,
       const Real sound_speed,
-      Array1D<Real, 0, NQ-1>& Q) {
+      PrimZone& Q) {
 
 
 
@@ -524,7 +527,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
       const Real sound_speed,
-      Array1D<Real, 0, NQ-1>& Q,
+      PrimZone& Q,
       const int dir) {
 
 

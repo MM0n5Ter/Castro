@@ -918,7 +918,7 @@ void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_i
                            MultiFab& kappa_p, MultiFab& kappa_r,
                            MultiFab& thermal_frac, MultiFab& rest_frac,
                            MultiFab& group_weight_mf,
-                           Array<MultiFab, AMREX_SPACEDIM>& lambda,
+                           FaceMultiFabs& lambda,
                            RadTransportSolver* solver, MultiGroupBoundary& multigroup_boundary,
                            const BoxArray& grids, int level, Real time,
                            Real delta_t, Real pseudo_transient_tau)

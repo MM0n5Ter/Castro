@@ -41,6 +41,8 @@ class AuxVar {
     AuxVar *other;
   };
 
+ using LinkList = std::list<AuxLink>;
+
  public:
 
   AuxVar() = default;
@@ -84,7 +86,7 @@ class AuxVar {
 
  protected:
 
-  std::list<AuxLink> a;
+  LinkList a;
   int secondary_pushed{};
 };
 

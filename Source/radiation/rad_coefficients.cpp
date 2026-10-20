@@ -323,7 +323,7 @@ void Radiation::derive_planck_and_temp(MultiFab& fkp,
 }
 
 void Radiation::computeFluxLimiter(int level,
-                            Array<MultiFab, AMREX_SPACEDIM>& lambda,
+                            FaceMultiFabs& lambda,
                             int limiter_comp)
 {
     BL_PROFILE("Radiation:computeFluxLimiter");

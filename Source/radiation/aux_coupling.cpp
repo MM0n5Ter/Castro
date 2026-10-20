@@ -370,7 +370,7 @@ int AuxVar::read_stencil_sites(Vector<int>& levels, Vector<IntVect>& cells)
   cells.resize(n);
 
   int i = 0;
-  for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
+  for (LinkList::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
       return 2;
     }
@@ -392,7 +392,7 @@ int AuxVar::read_stencil_values(Vector<Real>& values)
   values.resize(n);
 
   int i = 0;
-  for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
+  for (LinkList::iterator it = a.begin(); it != a.end(); ++it) {
     if (it->other != NULL) {
       return 2;
     }
@@ -408,13 +408,13 @@ void AuxVar::collapse()
 
 
 
-  for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ) {
+  for (LinkList::iterator it = a.begin(); it != a.end(); ) {
     AuxVar *o = it->other;
     if (o) {
-      std::list<AuxLink>::iterator kt = it;
+      LinkList::iterator kt = it;
       a.insert(++kt, o->a.begin(), o->a.end());
 
-      for (std::list<AuxLink>::iterator jt = it; ++jt != kt; ) {
+      for (LinkList::iterator jt = it; ++jt != kt; ) {
         jt->val *= it->val;
       }
 
@@ -428,11 +428,11 @@ void AuxVar::collapse()
   }
 
 
-  for (std::list<AuxLink>::iterator it = a.begin(); it != a.end(); ++it) {
-    for (std::list<AuxLink>::iterator jt = it; ++jt != a.end(); ) {
+  for (LinkList::iterator it = a.begin(); it != a.end(); ++it) {
+    for (LinkList::iterator jt = it; ++jt != a.end(); ) {
       if (it->same_destination(*jt)) {
         it->val += jt->val;
-        std::list<AuxLink>::iterator kt = jt;
+        LinkList::iterator kt = jt;
         --jt;
         a.erase(kt);
       }

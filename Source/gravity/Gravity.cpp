@@ -290,13 +290,13 @@ Gravity::swapTimeLevels (int level)
     }
 }
 
-Vector<std::unique_ptr<MultiFab> >&
+FabPtrVector&
 Gravity::get_potential_gradient_curr(int level)
 {
   return phi_gradient_new[level];
 }
 
-Vector<std::unique_ptr<MultiFab> >&
+FabPtrVector&
 Gravity::get_potential_gradient_prev(int level)
 {
   return phi_gradient_old[level];
@@ -309,7 +309,7 @@ Gravity::read_prev_grad_comp(int level, int comp)
 }
 
 void
-Gravity::accumulate_grad_phi_now(int level, Vector<std::unique_ptr<MultiFab> >& addend)
+Gravity::accumulate_grad_phi_now(int level, FabPtrVector& addend)
 {
     for (int n = 0; n < AMREX_SPACEDIM; n++) {
         phi_gradient_new[level][n]->plus(*addend[n],0,1,0);

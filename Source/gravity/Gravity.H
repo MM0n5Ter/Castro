@@ -8,6 +8,8 @@
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
+using FabPtrVector = amrex::Vector<std::unique_ptr<amrex::MultiFab> >;
+
 using PotentialGradBCFunct = amrex::PhysBCFunctNoOp;
 
 enum class PotentialTime { Old, New };
@@ -48,13 +50,13 @@ public:
 
   void set_mass_shift(amrex::Real time, bool span_all_levels=true) const;
 
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_potential_gradient_prev(int level);
+  FabPtrVector& get_potential_gradient_prev(int level);
 
-  amrex::Vector<std::unique_ptr<amrex::MultiFab> >& get_potential_gradient_curr(int level);
+  FabPtrVector& get_potential_gradient_curr(int level);
 
   amrex::MultiFab* read_prev_grad_comp(int level,int comp);
 
-  void accumulate_grad_phi_now(int level, amrex::Vector<std::unique_ptr<amrex::MultiFab> >& addend);
+  void accumulate_grad_phi_now(int level, FabPtrVector& addend);
 
   void swapTimeLevels (int level);
 
@@ -136,8 +138,8 @@ public:
   amrex::Amr*             parent;
   amrex::Vector<amrex::AmrLevel*> LevelTable;
 
-  amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > phi_gradient_new;
-  amrex::Vector< amrex::Vector<std::unique_ptr<amrex::MultiFab> > > phi_gradient_old;
+  amrex::Vector< FabPtrVector > phi_gradient_new;
+  amrex::Vector< FabPtrVector > phi_gradient_old;
 
   const amrex::Vector<amrex::BoxArray>& grids;
   const amrex::Vector<amrex::DistributionMapping>& dmap;

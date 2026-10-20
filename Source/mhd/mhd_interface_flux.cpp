@@ -13,9 +13,9 @@ struct MhdAxis {
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-mhd_normal_flux(const Array1D<Real, 0, NQ-1>& q, const Array1D<Real, 0, NUM_STATE+2>& u,
+mhd_normal_flux(const Array1D<Real, 0, NQ-1>& q, const MhdConsVector& u,
                 const Real B2, const Real UB, const MhdAxis& axis,
-                Array1D<Real, 0, NUM_STATE+2>& F) {
+                MhdConsVector& F) {
 
     F(URHO) = q(QRHO) * q(axis.QVNORM);
     F(axis.UMN) = q(QRHO) * q(axis.QVNORM) * q(axis.QVNORM) + (q(QPRES) + 0.5_rt * B2) - q(axis.QBNORM) * q(axis.QBNORM);
@@ -87,18 +87,18 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     qL(QPRES) = amrex::max(pressure_cutoff, qL(QPRES));
     qR(QPRES) = amrex::max(pressure_cutoff, qR(QPRES));
 
-    Array1D<Real, 0, NUM_STATE+2> uL;
+    MhdConsVector uL;
     Real gamma1_L;
 
     PrimToConsAndGamma(qL, uL, gamma1_L);
 
     Real BL2 = qL(QBFIELDX) * qL(QBFIELDX) + qL(QBFIELDY) * qL(QBFIELDY) + qL(QBFIELDZ) * qL(QBFIELDZ);
     Real UBL = qL(QBFIELDX) * qL(QU) + qL(QBFIELDY) * qL(QV) + qL(QBFIELDZ) * qL(QW);
-    Array1D<Real, 0, NUM_STATE+2> FL;
+    MhdConsVector FL;
 
     mhd_normal_flux(qL, uL, BL2, UBL, axis, FL);
 
-    Array1D<Real, 0, NUM_STATE+2> uR;
+    MhdConsVector uR;
     Real gamma1_R;
 
     PrimToConsAndGamma(qR, uR, gamma1_R);
@@ -106,7 +106,7 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     Real BR2 = qR(QBFIELDX) * qR(QBFIELDX) + qR(QBFIELDY) * qR(QBFIELDY) + qR(QBFIELDZ) * qR(QBFIELDZ);
     Real UBR = qR(QBFIELDX) * qR(QU) + qR(QBFIELDY) * qR(QV) + qR(QBFIELDZ) * qR(QW);
 
-    Array1D<Real, 0, NUM_STATE+2> FR;
+    MhdConsVector FR;
 
     mhd_normal_flux(qR, uR, BR2, UBR, axis, FR);
 
@@ -143,8 +143,8 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     pst  = pst / ((sR - qR(QVNORM)) * qR(QRHO) - (sL - qL(QVNORM)) * qL(QRHO));
 
 
-    Array1D<Real, 0, NUM_STATE+2> UsL;
-    Array1D<Real, 0, NUM_STATE+2> UsR;
+    MhdConsVector UsL;
+    MhdConsVector UsR;
 
 
     UsL(URHO) = amrex::max(small_dens, qL(QRHO) * ((sL - qL(QVNORM)) / (sL - sM)));
@@ -253,8 +253,8 @@ HydroSim::mhd_riemann_flux(const Box& bx,
     Real ssR = sM + std::abs(qR(QBNORM)) / std::sqrt(UsR(URHO));
 
 
-    Array1D<Real, 0, NUM_STATE+2> DoubleStarL;
-    Array1D<Real, 0, NUM_STATE+2> DoubleStarR;
+    MhdConsVector DoubleStarL;
+    MhdConsVector DoubleStarR;
 
 
     DoubleStarL(URHO) = UsL(URHO);

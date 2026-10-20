@@ -390,9 +390,9 @@ namespace powell {
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 deferred_stiff_solve(const Real substep_dt,
-               GpuArray<Real, NUM_STATE> const& Conserved_old,
-               GpuArray<Real, NUM_STATE>& cons_new,
-               GpuArray<Real, NUM_STATE> const& C,
+               ConservedZone const& Conserved_old,
+               ConservedZone& cons_new,
+               ConservedZone const& C,
                const int correction_iter) {
 
     cons_new[URHO] = Conserved_old[URHO] + substep_dt * C[URHO];

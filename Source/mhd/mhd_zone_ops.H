@@ -86,10 +86,12 @@ ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
 
 }
 
+using MhdConsVector = Array1D<Real, 0, NUM_STATE+2>;
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
-     Array1D<Real, 0, NUM_STATE+2>& U,
+     MhdConsVector& U,
      Real& gam1) {
 
   U(URHO) = q(QRHO);

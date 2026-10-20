@@ -22,7 +22,7 @@ using std::cerr;
 using std::endl;
 
 void Radiation::store_flux_plotvar(int level, const MultiFab& Snew,
-                                     const Array<MultiFab,AMREX_SPACEDIM>& lambda,
+                                     const FaceMultiFabs& lambda,
                                      const MultiFab& Er, const MultiFab& Fr, int flux_comp_base,
                                      const Real frame_sign)
 {
@@ -298,7 +298,7 @@ void Radiation::store_lab_energy_plotvar(int level, const MultiFab& Snew,
     }
 }
 
-void Radiation::store_limiter_plotvar(int level, const Array<MultiFab,AMREX_SPACEDIM>& lambda)
+void Radiation::store_limiter_plotvar(int level, const FaceMultiFabs& lambda)
 {
     int num_limiter_comps = lambda[0].nComp();
 

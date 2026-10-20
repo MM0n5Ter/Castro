@@ -74,6 +74,8 @@
 using std::string;
 using namespace amrex;
 
+using plot_component = std::pair<int, int>;
+
 std::unique_ptr<MultiFab>
 HydroSim::derive (const std::string& name,
                 Real           time,
@@ -137,7 +139,7 @@ HydroSim::writeSnapshot(const std::string& dir,
                (parent->isDeriveSmallPlotVar(name) && kind == plotfile_kind::reduced);
     };
 
-    std::vector<std::pair<int,int> > plot_var_map;
+    std::vector<plot_component> plot_var_map;
     for (int typ = 0; typ < desc_lst.size(); typ++) {
       for (int comp = 0; comp < desc_lst[typ].nComp(); comp++) {
         if (wants_state_var(desc_lst[typ].name(comp)) &&

@@ -5,6 +5,8 @@
 #include <burn_state_fill.H>
 #include <numerical_jacobian.H>
 
+using ConservedZone = amrex::GpuArray<amrex::Real, NUM_STATE>;
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 bool
 burning_permitted(const int i, const int j, const int k,
@@ -26,7 +28,7 @@ burning_permitted(const int i, const int j, const int k,
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 bool
-burning_permitted(GpuArray<Real, NUM_STATE> const& state) {
+burning_permitted(ConservedZone const& state) {
 
     if (state[UTEMP] < burn_temp_min || state[UTEMP] > burn_temp_max ||
         state[URHO] < burn_rho_min || state[URHO] > burn_rho_max) {
@@ -96,7 +98,7 @@ zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 zone_react_source(burn_t& burn_state,
-                         GpuArray<Real, NUM_STATE>& R) {
+                         ConservedZone& R) {
 
 
 

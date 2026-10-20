@@ -16,6 +16,8 @@ class Radiation {
 
 public:
 
+  using FaceMultiFabs = amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>;
+
   enum Solver_Kind { UnsetSolver = -1,
                      OneGroupSolver = 0,
                      SingleGroupFLDSolver = 5,
@@ -236,7 +238,7 @@ public:
                       int nGrow_rad_energy=0, int GradComp=0);
 
   void computeFluxLimiter(int level,
-                   amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& lambda,
+                   FaceMultiFabs& lambda,
                    int limiter_comp=0);
 
 
@@ -320,7 +322,7 @@ public:
                   amrex::MultiFab& kappa_p, amrex::MultiFab& kappa_r,
                   amrex::MultiFab& thermal_frac, amrex::MultiFab& rest_frac,
                   amrex::MultiFab& group_weight_mf,
-                  amrex::Array<amrex::MultiFab, AMREX_SPACEDIM>& lambda,
+                  FaceMultiFabs& lambda,
                   RadTransportSolver* solver, MultiGroupBoundary& multigroup_boundary,
                   const amrex::BoxArray& grids, int level, amrex::Real time, amrex::Real delta_t, amrex::Real pseudo_transient_tau);
 
@@ -361,13 +363,13 @@ public:
 
   void rhs_to_rad_energy(amrex::MultiFab& rhs, amrex::Real dt, int level);
 
-  void store_limiter_plotvar(int level, const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda);
+  void store_limiter_plotvar(int level, const FaceMultiFabs& lambda);
 
   void store_lab_energy_plotvar(int level, const amrex::MultiFab& Snew,
                               const amrex::MultiFab& comoving_energy, const amrex::MultiFab& F, int flux_comp_base);
 
   void store_flux_plotvar(int level, const amrex::MultiFab& Snew,
-                            const amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>& lambda,
+                            const FaceMultiFabs& lambda,
                             const amrex::MultiFab& Er, const amrex::MultiFab& F,
                             int flux_comp_base, const amrex::Real frame_sign = 1.0);
 
