@@ -281,7 +281,7 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
 
     MLPoisson mlpoisson(gmv, bav, dmv, info);
 
-    mlpoisson.setDomainBC(mlmg_lobc, mlmg_hibc);
+    mlpoisson.setDomainBC(mlmg_bc.lo, mlmg_bc.hi);
     if (mlpoisson.needsCoarseDataForBC())
     {
         mlpoisson.setCoarseFineBC(crse_bcdata, parent->refRatio(crse_level-1)[0]);
@@ -425,24 +425,24 @@ Gravity::build_solver_bc ()
 
     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
         if (geom.isPeriodic(idim)) {
-            mlmg_lobc[idim] = MLLinOp::BCType::Periodic;
-            mlmg_hibc[idim] = MLLinOp::BCType::Periodic;
+            mlmg_bc.lo[idim] = MLLinOp::BCType::Periodic;
+            mlmg_bc.hi[idim] = MLLinOp::BCType::Periodic;
         } else {
             if (phys_bc->lo(idim) == amrex::PhysBCType::symmetry) {
-                mlmg_lobc[idim] = MLLinOp::BCType::Neumann;
+                mlmg_bc.lo[idim] = MLLinOp::BCType::Neumann;
             } else {
-                mlmg_lobc[idim] = MLLinOp::BCType::Dirichlet;
+                mlmg_bc.lo[idim] = MLLinOp::BCType::Dirichlet;
             }
             if (phys_bc->hi(idim) == amrex::PhysBCType::symmetry) {
-                mlmg_hibc[idim] = MLLinOp::BCType::Neumann;
+                mlmg_bc.hi[idim] = MLLinOp::BCType::Neumann;
             } else {
-                mlmg_hibc[idim] = MLLinOp::BCType::Dirichlet;
+                mlmg_bc.hi[idim] = MLLinOp::BCType::Dirichlet;
             }
         }
     }
 
     if (geom.IsSPHERICAL() || geom.IsRZ() ) {
-        mlmg_lobc[0] = MLLinOp::BCType::Neumann;
+        mlmg_bc.lo[0] = MLLinOp::BCType::Neumann;
     }
 }
 

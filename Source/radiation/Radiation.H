@@ -395,8 +395,10 @@ protected:
 
   amrex::Vector<std::unique_ptr<amrex::MultiFab> > flux_div;
 
-  std::string group_unit_label;
-  amrex::Real group_output_scale;
+  struct GroupTableFormat {
+    std::string unit_label;
+    amrex::Real scale;
+  } group_table_format;
 
   amrex::IntVect spot;
 

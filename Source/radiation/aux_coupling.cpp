@@ -374,8 +374,8 @@ int AuxVar::read_stencil_sites(Vector<int>& levels, Vector<IntVect>& cells)
     if (it->other != NULL) {
       return 2;
     }
-    levels[i] = it->level;
-    cells[i]  = it->index;
+    levels[i] = it->cell.level;
+    cells[i]  = it->cell.index;
     i++;
   }
 

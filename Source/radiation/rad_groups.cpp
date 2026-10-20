@@ -19,15 +19,15 @@ void Radiation::dump_group_table(ostream& os)
   os << "# total number of groups = " << nGroups << std::endl;
 
   if (nGroups > 1) {
-    os << "# group center, group weight" << group_unit_label << std::endl;
+    os << "# group center, group weight" << group_table_format.unit_label << std::endl;
     int oldprec = os.precision(10);
     for (int i = 0; i < nGroups; i++) {
       os.width(3);
       os << i << ": ";
       os.width(15);
-      os <<  freq_center[i] * group_output_scale << ", ";
+      os <<  freq_center[i] * group_table_format.scale << ", ";
       os.width(15);
-      os << freq_width[i] * group_output_scale << std::endl;
+      os << freq_width[i] * group_table_format.scale << std::endl;
     }
     os.precision(oldprec);
   }
@@ -36,15 +36,15 @@ void Radiation::dump_group_table(ostream& os)
     os << "# group lower boundaries" << std::endl;
     for (int i = 0; i < xnu.size(); i++) {
       os << "group(" << i << ") = "
-         << xnu[i] * group_output_scale << std::endl;
+         << xnu[i] * group_table_format.scale << std::endl;
     }
   }
 }
 
 void Radiation::build_groups(int verbose)
 {
-  group_output_scale   = 1.0;
-  group_unit_label          = " (units are Hz)";
+  group_table_format.scale   = 1.0;
+  group_table_format.unit_label          = " (units are Hz)";
 
   xnu.resize(nGroups+1, 0.0);
   freq_center.resize(nGroups, 1.0);
@@ -115,14 +115,14 @@ void Radiation::build_groups(int verbose)
         std::ofstream energy_group_file("group_structure.dat");
 
         energy_group_file << "# total number of groups = " << nGroups << std::endl;
-        energy_group_file << "# group center, group weight" << group_unit_label << std::endl;
+        energy_group_file << "# group center, group weight" << group_table_format.unit_label << std::endl;
 
         energy_group_file.precision(10);
         for (int i = 0; i < nGroups; i++) {
           energy_group_file.width(15);
-          energy_group_file <<  freq_center[i] * group_output_scale << "\t";
+          energy_group_file <<  freq_center[i] * group_table_format.scale << "\t";
           energy_group_file.width(15);
-          energy_group_file << freq_width[i] * group_output_scale << std::endl;
+          energy_group_file << freq_width[i] * group_table_format.scale << std::endl;
         }
         energy_group_file << std::endl;
 
@@ -130,7 +130,7 @@ void Radiation::build_groups(int verbose)
           energy_group_file << "# group lower boundaries" << std::endl;
           for (int i = 0; i < xnu.size(); i++) {
             energy_group_file << "group(" << i << ") = "
-                      << xnu[i] * group_output_scale << std::endl;
+                      << xnu[i] * group_table_format.scale << std::endl;
           }
         }
 

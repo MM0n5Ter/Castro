@@ -22,18 +22,22 @@ class AuxVar {
     {}
 
     AuxLink(int lev, const amrex::IntVect& iv, amrex::Real r) :
-        val(r), index(iv), level(lev), other(nullptr)
+        val(r), cell{iv, lev}, other(nullptr)
     {}
 
     [[nodiscard]] bool same_destination(const AuxLink& c) const {
       return ((other != nullptr)
               ? (other == c.other)
-              : (c.other == nullptr && level == c.level && index == c.index));
+              : (c.other == nullptr && cell.level == c.cell.level && cell.index == c.cell.index));
     }
 
+    struct CellTarget {
+      amrex::IntVect index;
+      int level;
+    };
+
     amrex::Real val;
-    amrex::IntVect index;
-    int level;
+    CellTarget cell;
     AuxVar *other;
   };
 

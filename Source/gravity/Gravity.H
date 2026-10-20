@@ -158,8 +158,10 @@ public:
 
   amrex::BCRec*       phys_bc;
 
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_lobc;
-  std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> mlmg_hibc;
+  struct DomainBC {
+    std::array<amrex::MLLinOp::BCType,AMREX_SPACEDIM> lo, hi;
+  };
+  DomainBC mlmg_bc;
 
   int   level_point_count;
 
