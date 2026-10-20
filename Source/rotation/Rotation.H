@@ -159,35 +159,6 @@ GpuArray<Real, 3> rotate_to_inertial_frame(const GpuArray<Real, 3>& vec,
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
-inertial_to_frame_velocity (const int i, const int j, const int k,
-                                 const GeometryData& geomdata,
-                                 const Real time, GpuArray<Real, 3>& v) {
-
-  amrex::ignore_unused(time);
-
-  GpuArray<Real, 3> loc;
-
-  position(i, j, k, geomdata, loc);
-
-  for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-    loc[dir] -= problem::center[dir];
-  }
-
-  if (geomdata.Coord() == 2) {
-      loc[1] = 0.0_rt;
-      loc[2] = 0.0_rt;
-  }
-
-  auto omega = get_angular_velocity(geomdata, j);
-
-  v[0] += -(omega[1]*loc[2] - omega[2]*loc[1]);
-  v[1] += -(omega[2]*loc[0] - omega[0]*loc[2]);
-  v[2] += -(omega[0]*loc[1] - omega[1]*loc[0]);
-
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
 frame_to_inertial_velocity (const int i, const int j, const int k,
                                  const GeometryData& geomdata,
                                  const Real time, GpuArray<Real, 3>& v) {

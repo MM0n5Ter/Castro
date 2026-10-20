@@ -13,24 +13,6 @@
 
 using namespace amrex;
 
-#if (AMREX_SPACEDIM == 2)
-#define DERIV_TERMS 2
-#endif
-
-#if (AMREX_SPACEDIM == 3)
-#define DERIV_TERMS 5
-#endif
-
-#define DECLARE_EXTENTS(fab,fab_values,fab_low_corner,fab_high_corner)   \
-const int* fab_low_corner = (fab).loVect();           \
-const int* fab_high_corner = (fab).hiVect();           \
-REAL* fab_values = (fab).dataPtr();
-
-#define DECLARE_CONST_EXTENTS(fab,fab_values,fab_low_corner,fab_high_corner)  \
-const int* fab_low_corner = (fab).loVect();           \
-const int* fab_high_corner = (fab).hiVect();           \
-const REAL* fab_values = (fab).dataPtr();
-
 RadBoundaryData::RadBoundaryData(const BoxArray& _grids, const DistributionMapping& _dmap,
                            int _ncomp, const GeometryStandIn& _geom)
     : BndryRegister(), geom(_geom)
@@ -190,8 +172,6 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
     setBoundaryConditions(bc, geom, ratio);
 
     const Box& fine_domain = geom.Domain();
-    Real *derives = 0;
-    int  scratch_len = 0;
     for(MFIter mfi(fine); mfi.isValid(); ++mfi) {
         BL_ASSERT(grids[mfi.index()] == mfi.validbox());
         int grd = mfi.index();
@@ -199,19 +179,6 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
         Box crse_bx = amrex::coarsen(fine_bx,ratio);
         auto coarse_low_corner = crse_bx.loVect3d();
         auto coarse_high_corner = crse_bx.hiVect3d();
-        int coarse_side_len = crse_bx.longside() + 2;
-        if (std::pow(coarse_side_len,(float)AMREX_SPACEDIM-1) > scratch_len) {
-            delete [] derives;
-#if (AMREX_SPACEDIM == 1)
-            derives = new Real[1];
-#else
-            scratch_len = coarse_side_len;
-#  if (AMREX_SPACEDIM > 2)
-            scratch_len *= coarse_side_len;
-#  endif
-            derives = new Real[scratch_len*DERIV_TERMS];
-#endif
-        }
         auto lo = fine_bx.loVect3d();
         auto hi = fine_bx.hiVect3d();
         const FArrayBox& fine_patch = fine[mfi];
@@ -443,7 +410,6 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
             }
         }
     }
-    delete[] derives;
 
     for (OrientationIter face; face; ++face) {
         bndry[face()].copyFrom(fine,0,f_start,bnd_start,num_comp);

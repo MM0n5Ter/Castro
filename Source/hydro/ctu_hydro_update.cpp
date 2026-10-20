@@ -23,7 +23,6 @@ HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
     auto dx = geom.CellSizeArray();
     const auto problo = geom.ProbLoArray();
     const auto coord = geom.Coord();
-    amrex::ignore_unused(problo, coord);
 
     Real dtdx = dt / dx[0];
 

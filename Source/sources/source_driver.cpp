@@ -313,15 +313,6 @@ HydroSim::apply_source_term_to_state(MultiFab& state_to_update, const MultiFab& 
     MultiFab::Saxpy(state_to_update, dt, source, 0, 0, source.nComp(), ng);
 }
 
-void
-HydroSim::blend_source_terms(MultiFab& S_new, MultiFab& source_prev, MultiFab &source_next, Real dt)
-{
-  BL_PROFILE("HydroSim::blend_source_terms()");
-
-  MultiFab::Saxpy(S_new,-0.5*dt,source_prev,0,0,S_new.nComp(),0);
-  MultiFab::Saxpy(S_new, 0.5*dt,source_next,0,0,S_new.nComp(),0);
-}
-
 bool
 HydroSim::source_enabled(int src)
 {

@@ -3,33 +3,8 @@
 
 constexpr Real onethird = 1.0_rt/3.0_rt;
 constexpr Real twothirds = 2.0_rt/3.0_rt;
-constexpr Real onesixth = 1.0_rt/6.0_rt;
-constexpr int rk_order = 3;
 constexpr bool use_nonlinear_recon = false;
 constexpr Real freq_courant_number = 0.5_rt;
-constexpr Real B1 = 0.5_rt;
-constexpr Real B2 = 1.0_rt/16.0_rt;
-constexpr Real B3 = 0.5_rt;
-constexpr Real B4 = 9.0_rt/16.0_rt;
-constexpr Real B5 = 8.0_rt/7.0_rt;
-constexpr Real B6 = 7.0_rt/90.0_rt;
-constexpr Real C20 = 5.0_rt/8.0_rt;
-constexpr Real C21 = 3.0_rt/8.0_rt;
-constexpr Real C40 = 17.0_rt/8.0_rt;
-constexpr Real C41 = 9.0_rt/8.0_rt;
-constexpr Real C42 = -3.0_rt;
-constexpr Real C43 = 0.75_rt;
-constexpr Real C50 = -5.0_rt/21.0_rt;
-constexpr Real C51 = 2.0_rt/7.0_rt;
-constexpr Real C52 = 0.0_rt;
-constexpr Real C53 = 4.0_rt;
-constexpr Real C54 = -64.0_rt/21.0_rt;
-constexpr Real C60 = -8.0_rt/27.0_rt;
-constexpr Real C61 = -1.0_rt/5.0_rt;
-constexpr Real C62 = 32.0_rt/45.0_rt;
-constexpr Real C63 = -32.0_rt/45.0_rt;
-constexpr Real C64 = 32.0_rt/27.0_rt;
-constexpr Real C65 = 14.0_rt/45.0_rt;
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
@@ -191,76 +166,20 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
   }
 
   Real u1[NGROUPS];
-  Real u2[NGROUPS];
-  Real u3[NGROUPS];
-  Real u4[NGROUPS];
-  Real u5[NGROUPS];
   Real rhs_buffer[NGROUPS];
 
   for (int istep = 1; istep <= nstep; istep++) {
-    if (rk_order == 5) {
-      dudt(u, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u1[g] = u[g] + B1 * dt * rhs_buffer[g];
-      }
-      dudt(u1, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u2[g] = (C20*u[g] + C21*u1[g]) + B2 * dt * rhs_buffer[g];
-      }
-      dudt(u2, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u3[g] = u[g] + B3 * dt * rhs_buffer[g];
-      }
-      dudt(u3, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u4[g] = (C40*u[g] + C41*u1[g] + C42*u2[g] + C43*u3[g]) + B4 * dt * rhs_buffer[g];
-      }
-      dudt(u4, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u5[g] = (C50*u[g] + C51*u1[g] + C52*u2[g] + C53*u3[g] + C54*u4[g]) + B5 * dt * rhs_buffer[g];
-      }
-      dudt(u5, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u[g] = (C60*u[g] + C61*u1[g] + C62*u2[g] + C63*u3[g] + C64*u4[g] + C65*u5[g]) + B6 * dt * rhs_buffer[g];
-      }
-
-    } else if (rk_order == 4) {
-      dudt(u, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u1[g] = u[g] + 0.5_rt * dt * rhs_buffer[g];
-      }
-      dudt(u1, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u2[g] = u[g] + 0.5_rt * dt * rhs_buffer[g];
-      }
-      dudt(u2, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u3[g] = u[g] + dt * rhs_buffer[g];
-      }
-      dudt(u3, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u[g] = onethird * (u1[g] + 2.0_rt * u2[g] + u3[g] - u[g]) + onesixth * dt * rhs_buffer[g];
-      }
-
-    } else if (!(rk_order == 3)) {
-      dudt(u, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u[g] += dt * rhs_buffer[g];
-      }
-    } else {
-      dudt(u, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u1[g] = u[g] + dt * rhs_buffer[g];
-      }
-      dudt(u1, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u1[g] = 0.75e0_rt * u[g] + 0.25_rt * (u1[g] + dt * rhs_buffer[g]);
-      }
-      dudt(u1, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u[g] = onethird * u[g] + twothirds * (u1[g] + dt * rhs_buffer[g]);
-      }
-
+    dudt(u, a, dx, n, rhs_buffer);
+    for (int g = 0; g < n; g++) {
+      u1[g] = u[g] + dt * rhs_buffer[g];
+    }
+    dudt(u1, a, dx, n, rhs_buffer);
+    for (int g = 0; g < n; g++) {
+      u1[g] = 0.75e0_rt * u[g] + 0.25_rt * (u1[g] + dt * rhs_buffer[g]);
+    }
+    dudt(u1, a, dx, n, rhs_buffer);
+    for (int g = 0; g < n; g++) {
+      u[g] = onethird * u[g] + twothirds * (u1[g] + dt * rhs_buffer[g]);
     }
   }
 

@@ -64,11 +64,6 @@
 
 
 
-    static void blend_source_terms (amrex::MultiFab& S_new,
-                                          amrex::MultiFab& source_prev,
-                                          amrex::MultiFab& source_next,
-                                          amrex::Real dt = 1.0);
-
 #ifdef SPONGE
 
     static void assemble_old_damping_source(amrex::MultiFab& source, amrex::MultiFab& state,

@@ -611,237 +611,233 @@ HydroSim::tally_integrated_quantities ()
 
     }
 
-    if (verbose > 0)
-    {
-
 #ifdef HYBRID_MOMENTUM
 #ifdef GRAVITY
-       const int nfoo = 17;
+   const int nfoo = 17;
 #else
-       const int nfoo = 16;
+   const int nfoo = 16;
 #endif
 #else
 #ifdef GRAVITY
-       const int nfoo = 14;
+   const int nfoo = 14;
 #else
-       const int nfoo = 13;
+   const int nfoo = 13;
 #endif
 #endif
 
-        Real foo[nfoo] = {mass, mom[0], mom[1], mom[2],
-                          com[0], com[1], com[2],
-                          angular_momentum_sum[0], angular_momentum_sum[1], angular_momentum_sum[2],
+    Real foo[nfoo] = {mass, mom[0], mom[1], mom[2],
+                      com[0], com[1], com[2],
+                      angular_momentum_sum[0], angular_momentum_sum[1], angular_momentum_sum[2],
 #ifdef HYBRID_MOMENTUM
-                          hybrid_momentum_sum[0], hybrid_momentum_sum[1], hybrid_momentum_sum[2],
+                      hybrid_momentum_sum[0], hybrid_momentum_sum[1], hybrid_momentum_sum[2],
 #endif
 #ifdef GRAVITY
-                          rho_e, rho_kinetic, rho_E, rho_potential};
+                      rho_e, rho_kinetic, rho_E, rho_potential};
 #else
-                          rho_e, rho_kinetic, rho_E};
+                      rho_e, rho_kinetic, rho_E};
 #endif
 
-        const int max_reduce_count = 3;
+    const int max_reduce_count = 3;
 
-        Real max_reduce_buffer[max_reduce_count] = {T_max, rho_max, timescale_ratio_max};
+    Real max_reduce_buffer[max_reduce_count] = {T_max, rho_max, timescale_ratio_max};
 
 #ifdef BL_LAZY
-        Lazy::QueueReduction( [=] () mutable {
+    Lazy::QueueReduction( [=] () mutable {
 #endif
 
-        ParallelDescriptor::ReduceRealSum(foo, nfoo, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::ReduceRealSum(foo, nfoo, ParallelDescriptor::IOProcessorNumber());
 
-        ParallelDescriptor::ReduceRealMax(max_reduce_buffer, max_reduce_count, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::ReduceRealMax(max_reduce_buffer, max_reduce_count, ParallelDescriptor::IOProcessorNumber());
 
-        if (ParallelDescriptor::IOProcessor()) {
+    if (ParallelDescriptor::IOProcessor()) {
 
-            int i = 0;
-            mass       = foo[i++];
-            mom[0]     = foo[i++];
-            mom[1]     = foo[i++];
-            mom[2]     = foo[i++];
-            com[0]     = foo[i++];
-            com[1]     = foo[i++];
-            com[2]     = foo[i++];
-            angular_momentum_sum[0] = foo[i++];
-            angular_momentum_sum[1] = foo[i++];
-            angular_momentum_sum[2] = foo[i++];
+        int i = 0;
+        mass       = foo[i++];
+        mom[0]     = foo[i++];
+        mom[1]     = foo[i++];
+        mom[2]     = foo[i++];
+        com[0]     = foo[i++];
+        com[1]     = foo[i++];
+        com[2]     = foo[i++];
+        angular_momentum_sum[0] = foo[i++];
+        angular_momentum_sum[1] = foo[i++];
+        angular_momentum_sum[2] = foo[i++];
 #ifdef HYBRID_MOMENTUM
-            hybrid_momentum_sum[0] = foo[i++];
-            hybrid_momentum_sum[1] = foo[i++];
-            hybrid_momentum_sum[2] = foo[i++];
+        hybrid_momentum_sum[0] = foo[i++];
+        hybrid_momentum_sum[1] = foo[i++];
+        hybrid_momentum_sum[2] = foo[i++];
 #endif
-            rho_e      = foo[i++];
-            rho_kinetic      = foo[i++];
-            rho_E      = foo[i++];
+        rho_e      = foo[i++];
+        rho_kinetic      = foo[i++];
+        rho_E      = foo[i++];
 #ifdef GRAVITY
-            rho_potential    = foo[i++];
+        rho_potential    = foo[i++];
 
-            std::string gravity_model_name = gravity->get_solver_kind();
-            if (gravity_model_name == "PoissonGrav" || gravity_model_name == "MonopoleGrav") {
-                energy_budget = 0.5 * rho_potential + rho_E;
-            }
-            else {
-                energy_budget = rho_potential + rho_E;
-            }
+        std::string gravity_model_name = gravity->get_solver_kind();
+        if (gravity_model_name == "PoissonGrav" || gravity_model_name == "MonopoleGrav") {
+            energy_budget = 0.5 * rho_potential + rho_E;
+        }
+        else {
+            energy_budget = rho_potential + rho_E;
+        }
 #endif
 
-            for (int idir = 0; idir < 3; idir++) {
-                com[idir]     = com[idir] / mass;
-                center_velocity[idir] = mom[idir] / mass;
-            }
+        for (int idir = 0; idir < 3; idir++) {
+            com[idir]     = com[idir] / mass;
+            center_velocity[idir] = mom[idir] / mass;
+        }
 
-            i = 0;
-            T_max     = max_reduce_buffer[i++];
-            rho_max   = max_reduce_buffer[i++];
-            timescale_ratio_max = max_reduce_buffer[i++];
+        i = 0;
+        T_max     = max_reduce_buffer[i++];
+        rho_max   = max_reduce_buffer[i++];
+        timescale_ratio_max = max_reduce_buffer[i++];
 
-            std::cout << '\n';
-            std::cout << "TIME= " << time << " MASS        = "   << mass      << '\n';
-            std::cout << "TIME= " << time << " XMOM        = "   << mom[0]    << '\n';
-            std::cout << "TIME= " << time << " YMOM        = "   << mom[1]    << '\n';
-            std::cout << "TIME= " << time << " ZMOM        = "   << mom[2]    << '\n';
-            std::cout << "TIME= " << time << " ANG MOM X   = "   << angular_momentum_sum[0] << '\n';
-            std::cout << "TIME= " << time << " ANG MOM Y   = "   << angular_momentum_sum[1] << '\n';
-            std::cout << "TIME= " << time << " ANG MOM Z   = "   << angular_momentum_sum[2] << '\n';
+        std::cout << '\n';
+        std::cout << "TIME= " << time << " MASS        = "   << mass      << '\n';
+        std::cout << "TIME= " << time << " XMOM        = "   << mom[0]    << '\n';
+        std::cout << "TIME= " << time << " YMOM        = "   << mom[1]    << '\n';
+        std::cout << "TIME= " << time << " ZMOM        = "   << mom[2]    << '\n';
+        std::cout << "TIME= " << time << " ANG MOM X   = "   << angular_momentum_sum[0] << '\n';
+        std::cout << "TIME= " << time << " ANG MOM Y   = "   << angular_momentum_sum[1] << '\n';
+        std::cout << "TIME= " << time << " ANG MOM Z   = "   << angular_momentum_sum[2] << '\n';
 #ifdef HYBRID_MOMENTUM
-            std::cout << "TIME= " << time << " HYB MOM R   = "   << hybrid_momentum_sum[0] << '\n';
-            std::cout << "TIME= " << time << " HYB MOM L   = "   << hybrid_momentum_sum[1] << '\n';
-            std::cout << "TIME= " << time << " HYB MOM P   = "   << hybrid_momentum_sum[2] << '\n';
+        std::cout << "TIME= " << time << " HYB MOM R   = "   << hybrid_momentum_sum[0] << '\n';
+        std::cout << "TIME= " << time << " HYB MOM L   = "   << hybrid_momentum_sum[1] << '\n';
+        std::cout << "TIME= " << time << " HYB MOM P   = "   << hybrid_momentum_sum[2] << '\n';
 #endif
-            std::cout << "TIME= " << time << " RHO*e       = "   << rho_e     << '\n';
-            std::cout << "TIME= " << time << " RHO*K       = "   << rho_kinetic     << '\n';
-            std::cout << "TIME= " << time << " RHO*E       = "   << rho_E     << '\n';
+        std::cout << "TIME= " << time << " RHO*e       = "   << rho_e     << '\n';
+        std::cout << "TIME= " << time << " RHO*K       = "   << rho_kinetic     << '\n';
+        std::cout << "TIME= " << time << " RHO*E       = "   << rho_E     << '\n';
 #ifdef GRAVITY
-            std::cout << "TIME= " << time << " RHO*PHI     = "   << rho_potential   << '\n';
-            std::cout << "TIME= " << time << " TOTAL ENERGY= "   << energy_budget << '\n';
+        std::cout << "TIME= " << time << " RHO*PHI     = "   << rho_potential   << '\n';
+        std::cout << "TIME= " << time << " TOTAL ENERGY= "   << energy_budget << '\n';
 #endif
-            std::cout << "TIME= " << time << " CENTER OF MASS X-LOC = " << com[0]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS X-VEL = " << center_velocity[0] << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS X-LOC = " << com[0]     << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS X-VEL = " << center_velocity[0] << '\n';
 
-            std::cout << "TIME= " << time << " CENTER OF MASS Y-LOC = " << com[1]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS Y-VEL = " << center_velocity[1] << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS Y-LOC = " << com[1]     << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS Y-VEL = " << center_velocity[1] << '\n';
 
-            std::cout << "TIME= " << time << " CENTER OF MASS Z-LOC = " << com[2]     << '\n';
-            std::cout << "TIME= " << time << " CENTER OF MASS Z-VEL = " << center_velocity[2] << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS Z-LOC = " << com[2]     << '\n';
+        std::cout << "TIME= " << time << " CENTER OF MASS Z-VEL = " << center_velocity[2] << '\n';
 
-            std::cout << "TIME= " << time << " MAXIMUM TEMPERATURE  = " << T_max << '\n';
-            std::cout << "TIME= " << time << " MAXIMUM DENSITY      = " << rho_max << '\n';
+        std::cout << "TIME= " << time << " MAXIMUM TEMPERATURE  = " << T_max << '\n';
+        std::cout << "TIME= " << time << " MAXIMUM DENSITY      = " << rho_max << '\n';
 #ifdef REACTIONS
-            std::cout << "TIME= " << time << " MAXIMUM T_S / T_E    = " << timescale_ratio_max << '\n';
+        std::cout << "TIME= " << time << " MAXIMUM T_S / T_E    = " << timescale_ratio_max << '\n';
 #endif
 
-            std::ostream& primary_data_log = *HydroSim::run_logs[0];
+        std::ostream& primary_data_log = *HydroSim::run_logs[0];
 
-            if (primary_data_log.good()) {
+        if (primary_data_log.good()) {
 
-               if (time == 0.0) {
+           if (time == 0.0) {
 
-                   std::ostringstream header;
+               std::ostringstream header;
 
-                   int n = 0;
+               int n = 0;
 
-                   header << std::setw(integer_column_width) << "#   TIMESTEP";              ++n;
-                   header << std::setw(fixed_column_width) << "                     TIME"; ++n;
-                   header << std::setw(sci_column_width) << "                     MASS"; ++n;
-                   header << std::setw(sci_column_width) << "                     XMOM"; ++n;
-                   header << std::setw(sci_column_width) << "                     YMOM"; ++n;
-                   header << std::setw(sci_column_width) << "                     ZMOM"; ++n;
-                   header << std::setw(sci_column_width) << "              ANG. MOM. X"; ++n;
-                   header << std::setw(sci_column_width) << "              ANG. MOM. Y"; ++n;
-                   header << std::setw(sci_column_width) << "              ANG. MOM. Z"; ++n;
+               header << std::setw(integer_column_width) << "#   TIMESTEP";              ++n;
+               header << std::setw(fixed_column_width) << "                     TIME"; ++n;
+               header << std::setw(sci_column_width) << "                     MASS"; ++n;
+               header << std::setw(sci_column_width) << "                     XMOM"; ++n;
+               header << std::setw(sci_column_width) << "                     YMOM"; ++n;
+               header << std::setw(sci_column_width) << "                     ZMOM"; ++n;
+               header << std::setw(sci_column_width) << "              ANG. MOM. X"; ++n;
+               header << std::setw(sci_column_width) << "              ANG. MOM. Y"; ++n;
+               header << std::setw(sci_column_width) << "              ANG. MOM. Z"; ++n;
 #if (AMREX_SPACEDIM == 3)
 #ifdef HYBRID_MOMENTUM
-                   header << std::setw(sci_column_width) << "              HYB. MOM. R"; ++n;
-                   header << std::setw(sci_column_width) << "              HYB. MOM. L"; ++n;
-                   header << std::setw(sci_column_width) << "              HYB. MOM. P"; ++n;
+               header << std::setw(sci_column_width) << "              HYB. MOM. R"; ++n;
+               header << std::setw(sci_column_width) << "              HYB. MOM. L"; ++n;
+               header << std::setw(sci_column_width) << "              HYB. MOM. P"; ++n;
 #endif
 #endif
-                   header << std::setw(sci_column_width) << "              KIN. ENERGY"; ++n;
-                   header << std::setw(sci_column_width) << "              INT. ENERGY"; ++n;
-                   header << std::setw(sci_column_width) << "               GAS ENERGY"; ++n;
+               header << std::setw(sci_column_width) << "              KIN. ENERGY"; ++n;
+               header << std::setw(sci_column_width) << "              INT. ENERGY"; ++n;
+               header << std::setw(sci_column_width) << "               GAS ENERGY"; ++n;
 #ifdef GRAVITY
-                   header << std::setw(sci_column_width) << "             GRAV. ENERGY"; ++n;
-                   header << std::setw(sci_column_width) << "             TOTAL ENERGY"; ++n;
+               header << std::setw(sci_column_width) << "             GRAV. ENERGY"; ++n;
+               header << std::setw(sci_column_width) << "             TOTAL ENERGY"; ++n;
 #endif
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS X-LOC"; ++n;
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS Y-LOC"; ++n;
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS Z-LOC"; ++n;
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS X-VEL"; ++n;
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS Y-VEL"; ++n;
-                   header << std::setw(sci_column_width) << "     CENTER OF MASS Z-VEL"; ++n;
-                   header << std::setw(sci_column_width) << "      MAXIMUM TEMPERATURE"; ++n;
-                   header << std::setw(sci_column_width) << "          MAXIMUM DENSITY"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS X-LOC"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS Y-LOC"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS Z-LOC"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS X-VEL"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS Y-VEL"; ++n;
+               header << std::setw(sci_column_width) << "     CENTER OF MASS Z-VEL"; ++n;
+               header << std::setw(sci_column_width) << "      MAXIMUM TEMPERATURE"; ++n;
+               header << std::setw(sci_column_width) << "          MAXIMUM DENSITY"; ++n;
 #ifdef REACTIONS
-                   header << std::setw(sci_column_width) << "        MAXIMUM T_S / T_E"; ++n;
+               header << std::setw(sci_column_width) << "        MAXIMUM T_S / T_E"; ++n;
 #endif
 
-                   header << std::endl;
+               header << std::endl;
 
-                   primary_data_log << std::setw(integer_column_width) << "#   COLUMN 1";
-                   primary_data_log << std::setw(fixed_column_width) << 2;
+               primary_data_log << std::setw(integer_column_width) << "#   COLUMN 1";
+               primary_data_log << std::setw(fixed_column_width) << 2;
 
-                   for (int icol = 3; icol <= n; ++icol) {
-                       primary_data_log << std::setw(sci_column_width) << icol;
-                   }
-
-                   primary_data_log << std::endl;
-
-                   primary_data_log << header.str();
+               for (int icol = 3; icol <= n; ++icol) {
+                   primary_data_log << std::setw(sci_column_width) << icol;
                }
-
-               primary_data_log << std::fixed;
-
-               primary_data_log << std::setw(integer_column_width) <<  timestep;
-
-               if (time < 1.e-4_rt || time > 1.e4_rt) {
-                   primary_data_log << std::scientific;
-               } else {
-                   primary_data_log << std::fixed;
-               }
-
-               primary_data_log << std::setw(fixed_column_width) <<  std::setprecision(output_precision) << time;
-
-               primary_data_log << std::scientific;
-
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mass;
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[0];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[1];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[2];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[0];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[1];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[2];
-#ifdef HYBRID_MOMENTUM
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[0];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[1];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[2];
-#endif
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_kinetic;
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_e;
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_E;
-#ifdef GRAVITY
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_potential;
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << energy_budget;
-#endif
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[0];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[1];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[2];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[0];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[1];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[2];
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << T_max;
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_max;
-#ifdef REACTIONS
-               primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << timescale_ratio_max;
-#endif
 
                primary_data_log << std::endl;
 
-            }
-        }
-#ifdef BL_LAZY
-        });
+               primary_data_log << header.str();
+           }
+
+           primary_data_log << std::fixed;
+
+           primary_data_log << std::setw(integer_column_width) <<  timestep;
+
+           if (time < 1.e-4_rt || time > 1.e4_rt) {
+               primary_data_log << std::scientific;
+           } else {
+               primary_data_log << std::fixed;
+           }
+
+           primary_data_log << std::setw(fixed_column_width) <<  std::setprecision(output_precision) << time;
+
+           primary_data_log << std::scientific;
+
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mass;
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[0];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[1];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << mom[2];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[0];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[1];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << angular_momentum_sum[2];
+#ifdef HYBRID_MOMENTUM
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[0];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[1];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << hybrid_momentum_sum[2];
 #endif
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_kinetic;
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_e;
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_E;
+#ifdef GRAVITY
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_potential;
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << energy_budget;
+#endif
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[0];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[1];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << com[2];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[0];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[1];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << center_velocity[2];
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << T_max;
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << rho_max;
+#ifdef REACTIONS
+           primary_data_log << std::setw(sci_column_width) <<  std::setprecision(output_precision) << timescale_ratio_max;
+#endif
+
+           primary_data_log << std::endl;
+
+        }
     }
+#ifdef BL_LAZY
+    });
+#endif
 
 #ifdef GRAVITY
     {

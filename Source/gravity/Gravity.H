@@ -176,10 +176,6 @@ public:
 #ifdef GR_GRAV
   amrex::Vector< RealVector > radial_shell_pres;
 #endif
-  static int   stencil_type;
-
-  static amrex::Real inside_domain_radius;
-
 #if (AMREX_SPACEDIM < 3)
 
   void applyCurvatureTerms(int level,amrex::MultiFab& Rhs, const amrex::Vector<amrex::MultiFab*>& coeffs) const;

@@ -88,7 +88,6 @@ HydroSim::post_init (Real  )
 
        for (int k = 0; k <= parent->finestLevel(); k++)
        {
-          BoxArray ba = getLevel(k).boxArray();
           MultiFab& gravity_new = getLevel(k).get_new_data(Accel_Type);
           gravity->get_new_gravity_vector(k,gravity_new,cur_time);
        }

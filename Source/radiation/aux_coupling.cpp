@@ -325,7 +325,6 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
 
   if (loc == INTERIOR) {
     for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
-#if 1
       for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
         Orientation om = outer_orient_iter();
         const Box& bm = aux[om][i]->box();
@@ -342,35 +341,6 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
           }
         }
       }
-#elif 0
-      Orientation face_x_low(0, Orientation::low);
-      Orientation face_x_high(0, Orientation::high);
-      Orientation face_y_low(1, Orientation::low);
-      Orientation face_y_high(1, Orientation::high);
-      IntVect p = aux[face_x_low][i]->box().smallEnd();
-      (*aux[face_x_low][i])(p).add_secondary_link(&(*aux[face_y_low][i])(p));
-      p = aux[face_x_low][i]->box().bigEnd();
-      (*aux[face_x_low][i])(p).add_secondary_link(&(*aux[face_y_high][i])(p));
-      p = aux[face_x_high][i]->box().smallEnd();
-      (*aux[face_x_high][i])(p).add_secondary_link(&(*aux[face_y_low][i])(p));
-      p = aux[face_x_high][i]->box().bigEnd();
-      (*aux[face_x_high][i])(p).add_secondary_link(&(*aux[face_y_high][i])(p));
-#elif 0
-      for (OrientationIter outer_orient_iter; outer_orient_iter; ++outer_orient_iter) {
-        Orientation om = outer_orient_iter();
-        const Box& bm = aux[om][i]->box();
-        for (OrientationIter inner_orient_iter(om); ++inner_orient_iter; ) {
-          Orientation os = inner_orient_iter();
-          const Box& bs = aux[os][i]->box();
-          if (bm.intersects(bs)) {
-            Box reg = (bm & bs);
-            for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-                (*aux[om][i])(v).add_secondary_link(&(*aux[os][i])(v));
-            }
-          }
-        }
-      }
-#endif
     }
   }
 }

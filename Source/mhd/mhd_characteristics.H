@@ -606,30 +606,4 @@ evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
 
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-verify_eigenbasis(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
-            Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis) {
-
-
-  for (int n = 0; n < NUM_EIGVEC; n++) {
-    for (int m = 0; m < NUM_EIGVEC; m++) {
-
-      Real dot = 0.0;
-      for (int p = 0; p < NUM_EIGVEC; p++)
-      {
-        dot += left_basis(m, p) * right_basis(p, n);
-      }
-
-#ifndef AMREX_USE_GPU
-      std::cout << "l(" << m << ") . r(" << n << ") = " << dot << std::endl;
-#endif
-
-    }
-#ifndef AMREX_USE_GPU
-    std::cout << std::endl;
-#endif
-  }
-}
-
 #endif

@@ -295,16 +295,14 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
                     reactions(i,j,k,0) = (U(i,j,k,URHO) * burn_state.e - U(i,j,k,UEINT)) / dt;
 
                     if (keep_omegadot == 1) {
-                        if (reactions.contains(i,j,k)) {
-                            for (int n = 0; n < NumSpec; ++n) {
-                                reactions(i,j,k,1+n) = U(i,j,k,URHO) * (burn_state.xn[n] - U(i,j,k,UFS+n) * rhoInv) / dt;
-                            }
-#if NAUX_NET > 0
-                            for (int n = 0; n < NumAux; ++n) {
-                                reactions(i,j,k,1+n+NumSpec) = U(i,j,k,URHO) * (burn_state.aux[n] - U(i,j,k,UFX+n) * rhoInv) / dt;
-                            }
-#endif
+                        for (int n = 0; n < NumSpec; ++n) {
+                            reactions(i,j,k,1+n) = U(i,j,k,URHO) * (burn_state.xn[n] - U(i,j,k,UFS+n) * rhoInv) / dt;
                         }
+#if NAUX_NET > 0
+                        for (int n = 0; n < NumAux; ++n) {
+                            reactions(i,j,k,1+n+NumSpec) = U(i,j,k,URHO) * (burn_state.aux[n] - U(i,j,k,UFX+n) * rhoInv) / dt;
+                        }
+#endif
                     }
 
                     if (keep_burn_weights) {
