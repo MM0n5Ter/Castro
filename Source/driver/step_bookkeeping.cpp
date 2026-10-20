@@ -13,6 +13,67 @@
 #include <format>
 
 #include <user_initialize_state_data.H>
+#ifndef WIN32
+#include <unistd.h>
+#endif
+
+#include <iomanip>
+
+#include <algorithm>
+
+#include <cstdio>
+
+#include <vector>
+
+#include <iostream>
+
+#include <string>
+
+#include <ctime>
+
+#include <memory>
+
+#include <numbers>
+
+#include <AMReX_Utility.H>
+
+#include <AMReX_CONSTANTS.H>
+
+#include <global.H>
+
+#include <runtime_parameters.H>
+
+#include <AMReX_VisMF.H>
+
+#include <AMReX_TagBox.H>
+
+#include <AMReX_FillPatchUtil.H>
+
+#include <AMReX_ParmParse.H>
+
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#endif
+
+#ifdef DIFFUSION
+#include <Diffusion.H>
+#endif
+
+#ifdef AMREX_USE_OMP
+#include <omp.h>
+#endif
+
+#include <extern_parameters.H>
+
+#include <prob_parameters.H>
+
+#include <user_initialize.H>
+
+#include <ambient.H>
+
+#include <hydrosim_limits.H>
+
+#include <solver_constants.H>
 
 using std::string;
 using namespace amrex;
@@ -466,4 +527,236 @@ HydroSim::end_advance()
                            << zone_throughput_advance << std::endl << std::endl;
         }
     }
+}
+
+void
+HydroSim::swap_field_time_levels(const Real dt)
+{
+
+    BL_PROFILE("HydroSim::swap_field_time_levels()");
+
+    MultiFab::RegionTag statedata_tag(std::format("StateData_Level_{}", level));
+    MultiFab::RegionTag level_region_tag(std::format("AmrLevel_Level_{}", level));
+
+    for (int k = 0; k < num_field_types; k++) {
+
+#ifdef REACTIONS
+        if (time_scheme == SimplifiedIterCorrection) {
+            if (k == Burn_Corr_Type) {
+                state[k].swapTimeLevels(0.0);
+            }
+        }
+#endif
+
+#ifdef TRUE_SDC
+#ifdef REACTIONS
+        if (time_scheme == IterativeCorrection &&
+            sdc_accuracy_order == 4 && k == Forcing_Type_Index) {
+          state[k].swapTimeLevels(0.0);
+        }
+#endif
+#endif
+        state[k].allocOldData();
+
+        state[k].swapTimeLevels(dt);
+
+    }
+
+}
+
+void
+HydroSim::snapshot_for_rerun ()
+{
+    BL_PROFILE("HydroSim::snapshot_for_rerun()");
+
+    for (int k = 0; k < num_field_types; k++) {
+
+        if (!prev_state[k]->hasOldData()) {
+
+#ifdef AMREX_USE_GPU
+            Arena* prev_arena = state[k].getArena();
+            state[k].setArena(The_Pinned_Arena());
+#endif
+            *prev_state[k] = state[k];
+#ifdef AMREX_USE_GPU
+            state[k].setArena(prev_arena);
+#endif
+        }
+
+    }
+
+}
+
+void
+HydroSim::create_forcing_corrector()
+{
+
+    BL_PROFILE("HydroSim::create_forcing_corrector()");
+
+    if (time_scheme == CornerTrace && source_half_step == 1) {
+
+        const Real time = get_state_data(Forcing_Type).prevTime();
+
+        AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, UMX, 3, UMX);
+
+        forcing_corrector.mult(2.0 / lastStepDt, SRC_GHOST_WIDTH);
+
+    }
+    else if (time_scheme == SimplifiedIterCorrection && source_half_step == 1) {
+
+        if (correction_iter == 0) {
+            const Real time = get_state_data(Forcing_Type).prevTime();
+
+            AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, 0, NUM_SOURCE);
+
+        } else {
+            const Real time = get_state_data(Forcing_Type).curTime();
+
+            AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, 0, NUM_SOURCE);
+        }
+
+    }
+
+}
+
+step_result
+HydroSim::before_hydro_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifdef REACTIONS
+
+    if (hydrosim::time_scheme == SimplifiedIterCorrection) {
+        MultiFab& reaction_source_arr = get_new_data(Burn_Corr_Type);
+
+        AmrLevel::FillPatch(*this, reaction_source_arr, reaction_source_arr.nGrow(), time + dt, Burn_Corr_Type, 0, reaction_source_arr.nComp());
+    }
+#endif
+
+    return status;
+}
+
+step_result
+HydroSim::after_hydro_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifdef GRAVITY
+    assemble_new_gravity(time);
+#endif
+
+    return status;
+}
+
+step_result
+HydroSim::before_advance_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+
+#ifdef GRAVITY
+    assemble_old_gravity(time);
+#endif
+
+#ifdef SHOCK_VAR
+
+
+    const bool modify_state_flag{false};
+    run_old_sources(time, dt, modify_state_flag);
+
+    MultiFab& S_old = get_old_data(State_Type);
+    MultiFab& old_forcing = get_old_data(Forcing_Type);
+
+    FArrayBox shk(The_Async_Arena());
+    FArrayBox prim_tmp(The_Async_Arena()), qthermo_tmp(The_Async_Arena());
+
+    for (MFIter mfi(Sborder, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+        const Box& obx = amrex::grow(bx, 1);
+
+        shk.resize(bx, 1);
+#ifdef RADIATION
+        prim_tmp.resize(obx, NQ);
+#else
+        prim_tmp.resize(obx, NQPRIMBASE);
+#endif
+        qthermo_tmp.resize(obx, NQEXTRAQ);
+
+        Array4<Real> const shock_flag_arr = shk.array();
+        Array4<Real> const prim_arr = prim_tmp.array();
+        Array4<Real> const qthermo_arr = qthermo_tmp.array();
+
+        Array4<Real const> const Ghost_state_old_arr = Sborder.array(mfi);
+        Array4<Real> const state_old_arr = S_old.array(mfi);
+        Array4<Real> const prev_source_arr = old_forcing.array(mfi);
+
+        ctoprim(obx, time, Ghost_state_old_arr, prim_arr, qthermo_arr);
+
+        shock(bx, prim_arr, prev_source_arr, shock_flag_arr);
+
+
+
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            state_old_arr(i,j,k,UFLAG_SHOCK) = shock_flag_arr(i,j,k);
+        });
+
+    }
+
+
+    if (Sborder.nGrow() > 0) {
+      AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, UFLAG_SHOCK, 1, UFLAG_SHOCK);
+    }
+
+#endif
+
+
+#ifndef TRUE_SDC
+#ifdef REACTIONS
+    status = apply_old_reactions(time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+#endif
+#endif
+
+
+
+    MultiFab& S_new = get_new_data(State_Type);
+
+    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, S_new.nGrow());
+
+    return status;
+}
+
+step_result
+HydroSim::after_advance_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifndef TRUE_SDC
+#ifdef REACTIONS
+    status = apply_new_reactions(time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+#endif
+#endif
+
+    return status;
 }

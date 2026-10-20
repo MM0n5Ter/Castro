@@ -2,6 +2,11 @@
 #define HYDROSIM_FLUXLIMITER_H
 
 #include <AMReX_REAL.H>
+#include <cmath>
+
+#include <HydroSim_helpers.H>
+
+#include <radiation_params.H>
 
 using namespace amrex;
 
@@ -132,6 +137,39 @@ Real LimitedDiffusionAlpha(Real lam)
     }
 
     return alpha;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real LimitedDiffusionLambda (Real r)
+{
+    Real lambda;
+
+    if (radiation::limiter == 0) {
+        lambda = 1.e0_rt / 3.e0_rt;
+    }
+    else if (radiation::limiter < 10) {
+        lambda = (2.e0_rt + r) / (6.e0_rt + r * (3.e0_rt + r));
+    }
+    else if (radiation::limiter < 20) {
+        lambda = 1.e0_rt / (3.e0_rt + r);
+    }
+    else if (radiation::limiter < 30) {
+        lambda = 1.e0_rt / std::sqrt(9.e0_rt + r * r);
+    }
+    else if (radiation::limiter < 40) {
+        if (r < 1.5e0_rt) {
+            lambda = 2.e0_rt / (3.e0_rt + std::sqrt(9.e0_rt + 12.e0_rt * r * r));
+        } else {
+            lambda = 1.e0_rt / (1.e0_rt + r + std::sqrt(1.e0_rt + 2.e0_rt * r));
+        }
+    }
+    else {
+#ifndef AMREX_USE_GPU
+        amrex::Error("Unknown limiter type");
+#endif
+    }
+
+    return lambda;
 }
 
 #endif

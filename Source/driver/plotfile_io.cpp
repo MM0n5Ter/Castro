@@ -33,9 +33,73 @@
 #include <user_checkpoint.H>
 #include <user_restart.H>
 #include <AMReX_buildInfo.H>
+#include <algorithm>
+
+#include <cstdio>
+
+#include <vector>
+
+#include <memory>
+
+#include <numbers>
+
+#include <AMReX_CONSTANTS.H>
+
+#include <global.H>
+
+#include <runtime_parameters.H>
+
+#include <AMReX_VisMF.H>
+
+#include <AMReX_TagBox.H>
+
+#include <AMReX_FillPatchUtil.H>
+
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#endif
+
+#include <extern_parameters.H>
+
+#include <prob_parameters.H>
+
+#include <user_initialize.H>
+
+#include <ambient.H>
+
+#include <hydrosim_limits.H>
+
+#include <solver_constants.H>
 
 using std::string;
 using namespace amrex;
+
+std::unique_ptr<MultiFab>
+HydroSim::derive (const std::string& name,
+                Real           time,
+                int            ngrow)
+{
+
+    BL_PROFILE("HydroSim::derive()");
+
+#ifdef AMREX_PARTICLES
+  return ParticleQuantity(name,time,ngrow);
+#else
+   return AmrLevel::derive(name,time,ngrow);
+#endif
+}
+
+void
+HydroSim::derive (const std::string& name,
+                Real           time,
+                MultiFab&      mf,
+                int            dcomp)
+{
+
+    BL_PROFILE("HydroSim::derive()");
+
+    AmrLevel::derive(name,time,mf,dcomp);
+}
 
 void
 HydroSim::writePlotFile(const std::string& dir,

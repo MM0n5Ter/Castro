@@ -1,4 +1,3 @@
-
 #include <cmath>
 
 #include <AMReX_REAL.H>
@@ -11,47 +10,11 @@ using namespace amrex::literals;
 using namespace reconstruction;
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-int
-source_trace_needed(amrex::Array4<amrex::Real const> const& prim_source, const int idir,
-                   const int i, const int j, const int k, const int ncomp) {
-
-    int trace_enabled = 0;
-    if (idir == 0) {
-        for (int b = i-2; b <= i+2; b++) {
-            if (std::abs(prim_source(b,j,k,ncomp)) > 0.0_rt) {
-                trace_enabled = 1;
-                break;
-            }
-        }
-    } else if (idir == 1) {
-        for (int b = j-2; b <= j+2; b++) {
-            if (std::abs(prim_source(i,b,k,ncomp)) > 0.0_rt) {
-                trace_enabled = 1;
-                break;
-            }
-        }
-    } else {
-        for (int b = k-2; b <= k+2; b++) {
-            if (std::abs(prim_source(i,j,b,ncomp)) > 0.0_rt) {
-                trace_enabled = 1;
-                break;
-            }
-        }
-    }
-
-    return trace_enabled;
-}
-
-
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 parabolic_reconstruct(const amrex::Real* s,
                 const amrex::Real flatten_factor, amrex::Real& sm, amrex::Real& sp) {
 
-
     if (ppm_parabola_clip) {
-
 
         amrex::Real dsl = 2.0_rt * (s[im1] - s[im2]);
         amrex::Real dsr = 2.0_rt * (s[i0] - s[im1]);
@@ -71,12 +34,9 @@ parabolic_reconstruct(const amrex::Real* s,
           van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl),std::abs(dsr));
         }
 
-
         sm = 0.5_rt * (s[i0] + s[im1]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
 
-
         sm = amrex::Clamp(sm, std::min(s[i0], s[im1]), std::max(s[i0], s[im1]));
-
 
         dsl = 2.0_rt * (s[i0] - s[im1]);
         dsr = 2.0_rt * (s[ip1] - s[i0]);
@@ -96,17 +56,12 @@ parabolic_reconstruct(const amrex::Real* s,
             van_leer_slope_right = std::copysign(1.0_rt, dsc) * amrex::min(std::abs(dsc), std::abs(dsl), std::abs(dsr));
         }
 
-
         sp = 0.5_rt * (s[ip1] + s[i0]) - (1.0_rt/6.0_rt) * (van_leer_slope_right - van_leer_slope_left);
-
 
         sp = amrex::Clamp(sp, std::min(s[ip1], s[i0]), std::max(s[ip1], s[i0]));
 
-
-
         sm = flatten_factor * sm + (1.0_rt - flatten_factor) * s[i0];
         sp = flatten_factor * sp + (1.0_rt - flatten_factor) * s[i0];
-
 
         if ((sp - s[i0]) * (s[i0] - sm) <= 0.0_rt) {
           sp = s[i0];
@@ -121,14 +76,12 @@ parabolic_reconstruct(const amrex::Real* s,
 
     } else {
 
-
         sm = (7.0_rt/12.0_rt) * (s[i0] + s[im1]) - (1.0_rt/12.0_rt) * (s[im2] + s[ip1]);
         sp = (7.0_rt/12.0_rt) * (s[ip1] + s[i0]) - (1.0_rt/12.0_rt) * (s[im1] + s[ip2]);
 
     }
 
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool
@@ -138,7 +91,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     amrex::Real tp[nslp];
 
-
     amrex::Real p0_hydrostatic = p[i0];
 
     amrex::Real pp1_hydrostatic = p0_hydrostatic + 0.25_rt*dx * (rho[i0] + rho[ip1]) * (src[i0] + src[ip1]);
@@ -146,7 +98,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     amrex::Real pm1_hydrostatic = p0_hydrostatic - 0.25_rt*dx * (rho[i0] + rho[im1]) * (src[i0] + src[im1]);
     amrex::Real pm2_hydrostatic = pm1_hydrostatic - 0.25_rt*dx * (rho[im1] + rho[im2]) * (src[im1] + src[im2]);
-
 
     amrex::Real p_plus_hydrostatic = p0_hydrostatic + 0.5_rt*dx * rho[i0] * src[i0];
     amrex::Real p_minus_hydrostatic = p0_hydrostatic - 0.5_rt*dx * rho[i0] * src[i0];
@@ -159,11 +110,9 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
                  p_plus_hydrostatic < 0.0 ||
                  p_minus_hydrostatic < 0.0;
 
-
     bool use_hydrostatic_edges = !ptest && rho[i0] >= slope_rho_cutoff;
 
     if (use_hydrostatic_edges) {
-
 
         tp[i0] = p[i0] - p0_hydrostatic;
 
@@ -175,7 +124,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     } else {
 
-
         tp[im2] = p[im2];
         tp[im1] = p[im1];
         tp[i0] = p[i0];
@@ -184,8 +132,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
     }
 
     parabolic_reconstruct(tp, flatten_factor, sm, sp);
-
-
 
     if (use_hydrostatic_edges && !hydrosim::ppm_equil_recon) {
         sp += p_plus_hydrostatic;
@@ -196,17 +142,13 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
                 const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
                 amrex::Real* Ip, amrex::Real* Im) {
 
-
-
   Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
-
 
   Real speed = u - c;
   Real sigma = std::abs(speed) * dtdx;
@@ -249,9 +191,7 @@ integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
                        const Real lam, const Real dtdx,
                        Real& Ip, Real& Im) {
 
-
   Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
-
 
   Real sigma = std::abs(lam) * dtdx;
 

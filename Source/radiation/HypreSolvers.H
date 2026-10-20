@@ -419,18 +419,10 @@ class ExtendedMultiLevelSolver : public MultiLevelEllipticSolver {
   ExtendedMultiLevelSolver& operator= (const ExtendedMultiLevelSolver& src) = delete;
   ExtendedMultiLevelSolver& operator= (const ExtendedMultiLevelSolver&& src) = delete;
 
-  amrex::Real& auxMassScale() {
-    return alpha2;
-  }
-  amrex::Real& advectionScale() {
-    return gamma;
-  }
-  amrex::Real& gradientScale1() {
-    return delta1;
-  }
-  amrex::Real& gradientScale2() {
-    return delta2;
-  }
+  amrex::Real& auxMassScale();
+  amrex::Real& advectionScale();
+  amrex::Real& gradientScale1();
+  amrex::Real& gradientScale2();
 
   void setAuxMassCoefficients(int level, const amrex::MultiFab &a2, int dir);
 
@@ -480,5 +472,33 @@ class ExtendedMultiLevelSolver : public MultiLevelEllipticSolver {
   amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > gradient_coefs2;
   amrex::Real alpha2{}, gamma{}, delta1{}, delta2{};
 };
+
+inline
+amrex::Real&
+ExtendedMultiLevelSolver::auxMassScale()
+{
+  return alpha2;
+}
+
+inline
+amrex::Real&
+ExtendedMultiLevelSolver::advectionScale()
+{
+  return gamma;
+}
+
+inline
+amrex::Real&
+ExtendedMultiLevelSolver::gradientScale1()
+{
+  return delta1;
+}
+
+inline
+amrex::Real&
+ExtendedMultiLevelSolver::gradientScale2()
+{
+  return delta2;
+}
 
 #endif

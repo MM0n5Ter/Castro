@@ -146,11 +146,11 @@ public:
 #endif
 
 
-    amrex::MultiFab* Area ();
+    amrex::MultiFab* Area () { return area.data(); }
 
-    amrex::MultiFab& Area (int dir);
+    amrex::MultiFab& Area (int dir) { return area[dir]; }
 
-    amrex::MultiFab& Volume ();
+    amrex::MultiFab& Volume () { return volume; }
 
     amrex::MultiFab& Fluxes (int dir);
 
@@ -335,7 +335,6 @@ public:
 #endif
 
 
-
     void computeTemp (
 #ifdef MHD
                       amrex::MultiFab& Bx,
@@ -389,7 +388,6 @@ public:
     void fill_ghost_field(amrex::MultiFab& S, amrex::Real time, int ng);
 
 
-
 #include <HydroSim_hydro.H>
 
 #ifdef TRUE_SDC
@@ -401,7 +399,7 @@ public:
     static void read_params ();
 
 
-    HydroSim& getLevel (int lev);
+    HydroSim& getLevel (int lev) { return *dynamic_cast<HydroSim *>(&parent->getLevel(lev)); }
 
     void FluxRegCoarseInit();
     void FluxRegFineAccum();
@@ -526,7 +524,6 @@ protected:
 #endif
 
 
-
 #ifdef TRUE_SDC
     amrex::MultiFab BurnData;
 
@@ -577,9 +574,7 @@ protected:
 #endif
 
 
-
     amrex::Vector<std::unique_ptr<amrex::StateData> > prev_state;
-
 
 
     bool retain_prev_field{};
@@ -669,7 +664,6 @@ protected:
     static int num_field_types;
 
 
-
     int sub_pass;
     int sub_cycles;
     amrex::Real dt_cycle_step;
@@ -688,36 +682,6 @@ public:
 
 };
 
-
-inline
-amrex::MultiFab*
-HydroSim::Area ()
-{
-    return area.data();
-}
-
-
-inline
-amrex::MultiFab&
-HydroSim::Area (int dir)
-{
-    return area[dir];
-}
-
-inline
-amrex::MultiFab&
-HydroSim::Volume ()
-{
-    return volume;
-}
-
-
-inline
-HydroSim&
-HydroSim::getLevel (int lev)
-{
-    return *dynamic_cast<HydroSim *>(&parent->getLevel(lev));
-}
 
 inline
 void

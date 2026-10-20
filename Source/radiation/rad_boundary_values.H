@@ -62,15 +62,9 @@ public:
 
   void setHomogValues(const amrex::BCRec& bc, amrex::IntVect& ratio);
 
-  static void setTime(amrex::Real Time) {
-    time = Time;
-  }
-  static void enterCorrection() {
-    correction = 1;
-  }
-  static void leaveCorrection() {
-    correction = 0;
-  }
+  static void setTime(amrex::Real Time);
+  static void enterCorrection();
+  static void leaveCorrection();
 
 protected:
   static void init();
@@ -83,6 +77,27 @@ protected:
   static amrex::Real time;
   static int correction;
 };
+
+inline
+void
+RadiativeBoundary::setTime(amrex::Real Time)
+{
+  time = Time;
+}
+
+inline
+void
+RadiativeBoundary::enterCorrection()
+{
+  correction = 1;
+}
+
+inline
+void
+RadiativeBoundary::leaveCorrection()
+{
+  correction = 0;
+}
 
 class RadiativeBoundaryBuilder : public BaseBoundaryBuilder
 {

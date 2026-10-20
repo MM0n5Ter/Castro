@@ -19,6 +19,63 @@
 #include <AMReX_buildInfo.H>
 #include <eos.H>
 #include <ambient.H>
+#ifndef WIN32
+#include <unistd.h>
+#endif
+
+#include <iomanip>
+
+#include <algorithm>
+
+#include <vector>
+
+#include <iostream>
+
+#include <string>
+
+#include <ctime>
+
+#include <memory>
+
+#include <numbers>
+
+#include <AMReX_Utility.H>
+
+#include <AMReX_CONSTANTS.H>
+
+#include <global.H>
+
+#include <AMReX_VisMF.H>
+
+#include <AMReX_TagBox.H>
+
+#include <AMReX_FillPatchUtil.H>
+
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#endif
+
+#ifdef GRAVITY
+#include <Gravity.H>
+#endif
+
+#ifdef DIFFUSION
+#include <Diffusion.H>
+#endif
+
+#ifdef AMREX_USE_OMP
+#include <omp.h>
+#endif
+
+#include <extern_parameters.H>
+
+#include <prob_parameters.H>
+
+#include <user_initialize.H>
+
+#include <hydrosim_limits.H>
+
+#include <solver_constants.H>
 
 using std::string;
 using namespace amrex;
@@ -806,5 +863,49 @@ HydroSim::variableSetUp ()
     amrex::Error("invalid value of sdc_quadrature");
   }
 #endif
+
+}
+
+void
+HydroSim::variableCleanUp ()
+{
+#ifdef GRAVITY
+  if (gravity != nullptr) {
+    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "Deleting gravity in variableCleanUp..." << '\n';
+    }
+    gravity.reset();
+  }
+#endif
+
+#ifdef DIFFUSION
+  if (diffusion != nullptr) {
+    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "Deleting diffusion in variableCleanUp..." << '\n';
+    }
+    diffusion.reset();
+  }
+#endif
+
+#ifdef RADIATION
+  if (radiation != nullptr) {
+      int report = (verbose || radiation->verbose);
+      if (report && ParallelDescriptor::IOProcessor()) {
+          std::cout << "Deleting radiation in variableCleanUp..." << '\n';
+      }
+      radiation.reset();
+      if (report && ParallelDescriptor::IOProcessor()) {
+          std::cout << "                                        done" << std::endl;
+      }
+  }
+#endif
+
+#ifdef AMREX_PARTICLES
+  TracerPC.reset();
+#endif
+
+    desc_lst.clear();
+
+    eos_finalize();
 
 }

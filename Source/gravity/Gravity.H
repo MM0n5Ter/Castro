@@ -8,6 +8,8 @@
 
 using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
+using PotentialGradBCFunct = amrex::PhysBCFunctNoOp;
+
 class Gravity {
 
 public:
@@ -205,7 +207,5 @@ public:
                                      amrex::Real time);
 
 };
-
-using PotentialGradBCFunct = amrex::PhysBCFunctNoOp;
 
 #endif

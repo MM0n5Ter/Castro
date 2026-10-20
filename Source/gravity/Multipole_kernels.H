@@ -1,6 +1,8 @@
 #ifndef MULTIPOLE_KERNELS_H
 #define MULTIPOLE_KERNELS_H
 
+#include <HydroSim_math.H>
+
 namespace multipole {
     const int max_moment_order = 30;
     extern AMREX_GPU_MANAGED amrex::Array2D<amrex::Real, 0, max_moment_order, 0, max_moment_order> factorialTable;
@@ -17,23 +19,10 @@ namespace multipole {
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real factorial (int n)
-{
-    Real fact = 1.0_rt;
-
-    for (int i = 2; i <= n; ++i) {
-        fact *= static_cast<Real>(i);
-    }
-
-    return fact;
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& assocLegendreValue1, Real& assocLegendreValue2, Real x)
 {
 
     if (l == m) {
-
 
         assocLegendreValue = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
 
@@ -45,7 +34,6 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
 
     }
     else if (l == m + 1) {
-
 
         assocLegendreValue1 = assocLegendreValue;
         assocLegendreValue  = x * (2*m + 1) * assocLegendreValue1;
@@ -135,7 +123,6 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
             amrex::Gpu::deviceReduceSum(&qU0(l,0,n), dMomUpper0, handler);
 
         }
-
 
         for (int m = 1; m <= gravity::lnum; ++m) {
             for (int l = 1; l <= gravity::lnum; ++l) {
@@ -392,8 +379,6 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
         boundaryTerm -= C::Gconst * rho * dV / r;
 
     }
-
-
 
     if (doFoldedAddHi[0]) {
 

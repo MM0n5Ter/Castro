@@ -6,53 +6,9 @@
 using namespace amrex;
 
 void
-HydroSim::cons_update_mhd(const Box& bx, const Real dt,
-                   Array4<Real> const& cons_new,
-                   Array4<Real const> const& xface_flux,
-                   Array4<Real const> const& flux1,
-                   Array4<Real const> const& flux2) {
-
-
-  const auto dx = geom.CellSizeArray();
-
-  Real dxinv = 1.0_rt/dx[0];
-#if AMREX_SPACEDIM >= 2
-  Real dyinv = 1.0_rt/dx[1];
-#endif
-#if AMREX_SPACEDIM == 3
-  Real dzinv = 1.0_rt/dx[2];
-#endif
-
-  amrex::ParallelFor(bx, NUM_STATE,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-  {
-
-    if (n == UTEMP) {
-      cons_new(i,j,k,n) = 0.0_rt;
-#ifdef SHOCK_VAR
-    } else if (n == UFLAG_SHOCK) {
-      cons_new(i,j,k,n) = 0.0_rt;
-#endif
-    } else {
-      cons_new(i,j,k,n) += dt * (xface_flux(i,j,k,n) - xface_flux(i+1,j,k,n)) * dxinv;
-#if AMREX_SPACEDIM >= 2
-      cons_new(i,j,k,n) += dt * (flux1(i,j,k,n) - flux1(i,j+1,k,n)) * dyinv;
-#endif
-#if AMREX_SPACEDIM == 3
-      cons_new(i,j,k,n) += dt * (flux2(i,j,k,n) - flux2(i,j,k+1,n)) * dzinv;
-#endif
-    }
-
-  });
-
-}
-
-
-void
 HydroSim::PrimitiveToConserved(const Box& bx,
                    Array4<Real const> const& prim_arr,
                    Array4<Real> const& state_view) {
-
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -100,7 +56,6 @@ HydroSim::PrimitiveToConserved(const Box& bx,
   });
 }
 
-
 void
 HydroSim::primitive_half_update(const Box& bx,
                   Array4<Real> const& q2D,
@@ -109,7 +64,6 @@ HydroSim::primitive_half_update(const Box& bx,
                   Array4<Real const> const& flxy,
                   Array4<Real const> const& flxz,
                   const Real dt) {
-
 
   auto dx = geom.CellSizeArray();
 

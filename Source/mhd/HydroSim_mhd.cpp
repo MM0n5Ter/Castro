@@ -2,6 +2,9 @@
 
 #include <transport_util.H>
 #include <limiters.H>
+#include <HydroSim_helpers.H>
+
+#include <mhd_helpers.H>
 
 using namespace amrex;
 
@@ -659,4 +662,46 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
     }
 
     return status;
+}
+
+void
+HydroSim::cons_update_mhd(const Box& bx, const Real dt,
+                   Array4<Real> const& cons_new,
+                   Array4<Real const> const& xface_flux,
+                   Array4<Real const> const& flux1,
+                   Array4<Real const> const& flux2) {
+
+
+  const auto dx = geom.CellSizeArray();
+
+  Real dxinv = 1.0_rt/dx[0];
+#if AMREX_SPACEDIM >= 2
+  Real dyinv = 1.0_rt/dx[1];
+#endif
+#if AMREX_SPACEDIM == 3
+  Real dzinv = 1.0_rt/dx[2];
+#endif
+
+  amrex::ParallelFor(bx, NUM_STATE,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+  {
+
+    if (n == UTEMP) {
+      cons_new(i,j,k,n) = 0.0_rt;
+#ifdef SHOCK_VAR
+    } else if (n == UFLAG_SHOCK) {
+      cons_new(i,j,k,n) = 0.0_rt;
+#endif
+    } else {
+      cons_new(i,j,k,n) += dt * (xface_flux(i,j,k,n) - xface_flux(i+1,j,k,n)) * dxinv;
+#if AMREX_SPACEDIM >= 2
+      cons_new(i,j,k,n) += dt * (flux1(i,j,k,n) - flux1(i,j+1,k,n)) * dyinv;
+#endif
+#if AMREX_SPACEDIM == 3
+      cons_new(i,j,k,n) += dt * (flux2(i,j,k,n) - flux2(i,j,k+1,n)) * dzinv;
+#endif
+    }
+
+  });
+
 }

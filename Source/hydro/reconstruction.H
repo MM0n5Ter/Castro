@@ -2,6 +2,11 @@
 #define HYDROSIM_RECONSTRUCTION_H
 
 #include <state_indices.H>
+#include <cmath>
+
+#include <AMReX_REAL.H>
+
+#include <reconstruction.H>
 
 namespace reconstruction {
    enum stencil_position : std::uint8_t {
@@ -177,6 +182,38 @@ add_geometric_pressure_source(amrex::Array4<amrex::Real const> const& prim_arr,
         s[ip2] += -dloga(i,j+2,k) * prim_arr(i,j+2,k,QPRES) * qthermo_arr(i,j+2,k,QGAMMA1) * prim_arr(i,j+2,k,ncomp);
     }
 
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+int
+source_trace_needed(amrex::Array4<amrex::Real const> const& prim_source, const int idir,
+                   const int i, const int j, const int k, const int ncomp) {
+
+    int trace_enabled = 0;
+    if (idir == 0) {
+        for (int b = i-2; b <= i+2; b++) {
+            if (std::abs(prim_source(b,j,k,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
+                break;
+            }
+        }
+    } else if (idir == 1) {
+        for (int b = j-2; b <= j+2; b++) {
+            if (std::abs(prim_source(i,b,k,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
+                break;
+            }
+        }
+    } else {
+        for (int b = k-2; b <= k+2; b++) {
+            if (std::abs(prim_source(i,j,b,ncomp)) > 0.0_rt) {
+                trace_enabled = 1;
+                break;
+            }
+        }
+    }
+
+    return trace_enabled;
 }
 
 

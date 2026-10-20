@@ -7,6 +7,76 @@
 #endif
 
 #include <user_diagnostics.H>
+#ifndef WIN32
+#include <unistd.h>
+#endif
+
+#include <algorithm>
+
+#include <cstdio>
+
+#include <vector>
+
+#include <iostream>
+
+#include <string>
+
+#include <ctime>
+
+#include <memory>
+
+#include <numbers>
+
+#include <format>
+
+#include <AMReX_Utility.H>
+
+#include <AMReX_CONSTANTS.H>
+
+#include <global.H>
+
+#include <runtime_parameters.H>
+
+#include <AMReX_VisMF.H>
+
+#include <AMReX_TagBox.H>
+
+#include <AMReX_FillPatchUtil.H>
+
+#include <AMReX_ParmParse.H>
+
+#ifdef RADIATION
+#include <Radiation.H>
+#endif
+
+#ifdef AMREX_PARTICLES
+#include <AMReX_Particles.H>
+#endif
+
+#ifdef DIFFUSION
+#include <Diffusion.H>
+#endif
+
+#ifdef AMREX_USE_OMP
+#include <omp.h>
+#endif
+
+#include <extern_parameters.H>
+
+#include <prob_parameters.H>
+
+#include <user_initialize.H>
+
+#include <ambient.H>
+
+#include <hydrosim_limits.H>
+
+#include <solver_constants.H>
+#include <HydroSim_helpers.H>
+
+#ifdef ROTATION
+#include <Rotation.H>
+#endif
 
 using namespace amrex;
 
@@ -717,3 +787,356 @@ HydroSim::tally_integrated_quantities ()
 
     user_diagnostics();
 }
+
+#ifdef GRAVITY
+void
+HydroSim::wave_strain (Real time,
+                  Real& strain_plus_1, Real& strain_cross_1,
+                  Real& strain_plus_2, Real& strain_cross_2,
+                  Real& strain_plus_3, Real& strain_cross_3,
+                  bool local) {
+
+    amrex::ignore_unused(time);
+
+    BL_PROFILE("HydroSim::wave_strain()");
+
+    if (hydrosim::wave_obs_distance <= 0.0_rt) {
+        return;
+    }
+
+    constexpr amrex::Real light_speed_quartic = amrex::Math::powi<4>(C::c_light);
+
+    GeometryData geomdata = geom.data();
+
+    MultiFab& S_new = get_new_data(State_Type);
+    MultiFab& gravity_new = get_new_data(Accel_Type);
+
+    bool fine_mask_present = level < parent->finestLevel();
+
+    MultiFab scratch_mf;
+    const MultiFab& fine_cover_mf = fine_mask_present ? getLevel(level+1).make_fine_mask() : scratch_mf;
+
+
+    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_op;
+    ReduceData<Real, Real, Real,
+               Real, Real, Real,
+               Real, Real, Real> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+
+        const Box& box = mfi.tilebox();
+
+        auto rho = S_new[mfi].array(URHO);
+        auto vol = volume.array(mfi);
+        auto xmom = S_new[mfi].array(UMX);
+        auto ymom = S_new[mfi].array(UMY);
+        auto zmom = S_new[mfi].array(UMZ);
+        auto accel_x = gravity_new[mfi].array(0);
+        auto accel_y = gravity_new[mfi].array(1);
+        auto accel_z = gravity_new[mfi].array(2);
+        auto const& mask = fine_mask_present ? fine_cover_mf.array(mfi) : Array4<Real>{};
+
+
+        reduce_op.eval(box, reduce_data,
+        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            Real zoneWeight = fine_mask_present ? mask(i,j,k) : 1.0_rt;
+
+            GpuArray<Real, 3> r;
+            position(i, j, k, geomdata, r);
+
+            for (int n = 0; n < 3; ++n) {
+                r[n] -= problem::center[n];
+            }
+
+            Real rhoInv;
+            if (rho(i,j,k) * zoneWeight > 0.0_rt) {
+                rhoInv = 1.0_rt / rho(i,j,k);
+            } else {
+                rhoInv = 0.0_rt;
+            }
+
+
+            GpuArray<Real, 3> pos{r};
+#ifdef ROTATION
+            auto omega = get_angular_velocity(geomdata, j);
+            pos = rotate_to_inertial_frame(r, omega, time);
+#endif
+
+
+            GpuArray<Real, 3> vel;
+            vel[0] = xmom(i,j,k) * zoneWeight * rhoInv;
+            vel[1] = ymom(i,j,k) * zoneWeight * rhoInv;
+            vel[2] = zmom(i,j,k) * zoneWeight * rhoInv;
+
+            GpuArray<Real, 3> inertial_velocity{vel};
+#ifdef ROTATION
+            frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_velocity);
+#endif
+
+            GpuArray<Real, 3> g;
+            g[0] = accel_x(i,j,k) * zoneWeight;
+            g[1] = accel_y(i,j,k) * zoneWeight;
+            g[2] = accel_z(i,j,k) * zoneWeight;
+
+
+            GpuArray<Real, 3> inertial_accel{g};
+#ifdef ROTATION
+            inertial_accel = rotate_to_inertial_frame(g, omega, time);
+#endif
+
+
+            Real dM = 2.0_rt * rho(i,j,k) * vol(i,j,k) * zoneWeight;
+
+            Array2D<Real, 0, 2, 0, 2> quadMomentSecondDeriv{0.0};
+
+            if (AMREX_SPACEDIM == 3) {
+
+                for (int m = 0; m < 3; ++m) {
+                    for (int l = 0; l < 3; ++l) {
+                        quadMomentSecondDeriv(l,m) += dM * (inertial_velocity[l] * inertial_velocity[m] + pos[l] * inertial_accel[m]);
+                    }
+                }
+
+            } else {
+
+
+
+                dM /= (2.0_rt * std::numbers::pi);
+
+                quadMomentSecondDeriv(0,0) += dM * (2.0_rt * std::numbers::pi) * (inertial_velocity[1] * inertial_velocity[1] + pos[1] * inertial_accel[1]);
+                quadMomentSecondDeriv(1,1) += dM * std::numbers::pi * (inertial_velocity[0] * inertial_velocity[0] + pos[0] * g[0]);
+                quadMomentSecondDeriv(2,2) += dM * std::numbers::pi * (inertial_velocity[0] * inertial_velocity[0] + pos[0] * g[0]);
+
+            }
+
+
+            Array2D<Real, 0, 2, 0, 2> dQ;
+
+            for (int l = 0; l < 3; ++l) {
+                for (int m = 0; m < 3; ++m) {
+                    dQ(l,m) = 0.5_rt * quadMomentSecondDeriv(l,m) + 0.5_rt * quadMomentSecondDeriv(m,l);
+                    if (l == m) {
+                        dQ(l,m) -= (1.0_rt / 3.0_rt) * quadMomentSecondDeriv(m,m);
+                    }
+                }
+            }
+
+            return {dQ(0,0), dQ(1,0), dQ(2,0),
+                    dQ(0,1), dQ(1,1), dQ(2,1),
+                    dQ(0,2), dQ(1,2), dQ(2,2)};
+        });
+    }
+
+    Array2D<Real, 0, 2, 0, 2> Qtt;
+
+    ReduceTuple hv = reduce_data.value();
+    Qtt(0,0) = amrex::get<0>(hv);
+    Qtt(1,0) = amrex::get<1>(hv);
+    Qtt(2,0) = amrex::get<2>(hv);
+    Qtt(0,1) = amrex::get<3>(hv);
+    Qtt(1,1) = amrex::get<4>(hv);
+    Qtt(2,1) = amrex::get<5>(hv);
+    Qtt(0,2) = amrex::get<6>(hv);
+    Qtt(1,2) = amrex::get<7>(hv);
+    Qtt(2,2) = amrex::get<8>(hv);
+
+
+    if (!local) {
+        amrex::ParallelDescriptor::ReduceRealSum(Qtt.begin(), 9);
+    }
+
+
+
+    Real delta[3][3] = {{0.0}};
+
+    for (int i = 0; i < 3; ++i) {
+        delta[i][i] = 1.0;
+    }
+
+
+    for (int dir = 0; dir < 3; ++dir) {
+
+        Real dist[3] = {0.0};
+        dist[dir] = hydrosim::wave_obs_distance;
+
+        Real r = std::sqrt(dist[0] * dist[0] + dist[1] * dist[1] + dist[2] * dist[2]);
+
+        const Real n[3] = {dist[0] / r, dist[1] / r, dist[2] / r};
+
+
+        Real proj[3][3][3][3] = {{0.0}};
+
+        for (int l = 0; l < 3; ++l) {
+            for (int k = 0; k < 3; ++k) {
+                for (int j = 0; j < 3; ++j) {
+                    for (int i = 0; i < 3; ++i) {
+                        proj[l][k][j][i] = (delta[k][i] - n[i] * n[k]) * (delta[l][j] - n[j] * n[l]) -
+                                            0.5_rt * (delta[j][i] - n[i] * n[j]) * (delta[l][k] - n[k] * n[l]);
+                    }
+                }
+            }
+        }
+
+
+        Real h[3][3] = {{0.0}};
+
+        for (int l = 0; l < 3; ++l) {
+            for (int k = 0; k < 3; ++k) {
+                for (int j = 0; j < 3; ++j) {
+                    for (int i = 0; i < 3; ++i) {
+                        h[j][i] += proj[l][k][j][i] * Qtt(k, l);
+                    }
+                }
+            }
+        }
+
+        r *= C::parsec * 1.e3_rt;
+
+        for (int j = 0; j < 3; ++j) {
+            for (int i = 0; i < 3; ++i) {
+                h[j][i] *= 2.0_rt * C::Gconst / (light_speed_quartic * r);
+            }
+        }
+
+
+        if (dir == 0) {
+
+            strain_plus_1  += h[1][1];
+            strain_cross_1 += h[2][1];
+
+        }
+        else if (dir == 1) {
+
+            strain_plus_2  += h[2][2];
+            strain_cross_2 += h[0][2];
+
+        }
+        else if (dir == 2) {
+
+            strain_plus_3  += h[0][0];
+            strain_cross_3 += h[1][0];
+
+        }
+
+    }
+}
+#endif
+
+#ifdef GRAVITY
+void
+HydroSim::define_tracked_center(const MultiFab& S, Real time)
+{
+    BL_PROFILE("HydroSim::define_tracked_center()");
+
+#if AMREX_SPACEDIM >= 2
+    const Real* dx = geom.CellSize();
+#endif
+
+    IntVect max_index = S.maxIndex(URHO,0);
+    Box bx(max_index,max_index);
+    bx.grow(1);
+    BoxArray ba(bx);
+    int owner = ParallelDescriptor::IOProcessorNumber();
+    DistributionMapping dm { Vector<int>(1,owner) };
+    MultiFab mf(ba, dm, 1, 0, MFInfo().SetArena(The_Managed_Arena()));
+
+    FillPatch(*this,mf,0,time,State_Type,URHO,1);
+
+#if AMREX_SPACEDIM >= 2
+    int mi[3] = {0};
+    for (int i = 0; i < AMREX_SPACEDIM; i++) {
+      mi[i] = max_index[i];
+    }
+#endif
+
+    AMREX_ALWAYS_ASSERT(mf.local_size() == 1);
+
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+    {
+
+#if AMREX_SPACEDIM >= 2
+
+        const Box& box = mfi.validbox();
+        auto data = mf.array(mfi);
+
+        Real cen = data(mi[0], mi[1], mi[2]);
+
+        amrex::ParallelFor(box,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+            data(i,j,k) -= cen;
+        });
+
+        Real snapped_center[3];
+        for (int d = 0; d < AMREX_SPACEDIM; d++) {
+            snapped_center[d] = geom.ProbLo(d) +  (static_cast<Real>(mi[d]) + 0.5_rt) * dx[d];
+        }
+
+        Real a = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) + data(mi[0]-1, mi[1], mi[2]));
+        Real b = 0.5_rt * (data(mi[0]+1, mi[1], mi[2]) - data(mi[0]-1, mi[1], mi[2]));
+        Real x = -b / (2.0_rt * a);
+        problem::center[0] = snapped_center[0] + x * dx[0];
+
+        a = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) + data(mi[0], mi[1]-1, mi[2]));
+        b = 0.5_rt * (data(mi[0], mi[1]+1, mi[2]) - data(mi[0], mi[1]-1, mi[2]));
+        Real y = -b / (2.0_rt * a);
+        problem::center[1] = snapped_center[1] + y * dx[1];
+
+#if AMREX_SPACEDIM == 3
+        a = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) + data(mi[0], mi[1], mi[2]-1));
+        b = 0.5_rt * (data(mi[0], mi[1], mi[2]+1) - data(mi[0], mi[1], mi[2]-1));
+        Real z = -b / (2.0_rt * a);
+        problem::center[2] = snapped_center[2] + z * dx[2];
+#endif
+
+#endif
+
+    }
+    ParallelDescriptor::Bcast(&problem::center[0], AMREX_SPACEDIM, owner);
+
+    if ( Geom().IsRZ() ) {
+      problem::center[0] = 0;
+    } else if ( Geom().IsSPHERICAL() ) {
+        problem::center[0] = 0;
+        problem::center[1] = 0;
+    }
+
+}
+
+void
+HydroSim::write_tracked_center ()
+{
+    int num_log_files = parent->NumDataLogs();
+
+    if ( (track_center==1) && (num_log_files > 0) && ParallelDescriptor::IOProcessor())
+    {
+       std::ostream& center_log = parent->DataLog(0);
+
+       int nstep = parent->levelSteps(0);
+       Real time = state[State_Type].curTime();
+
+       if (time == 0.0) {
+           center_log << std::setw( 8) <<  "   nstep";
+           center_log << std::setw(14) <<  "         time  ";
+           center_log << std::setw(14) <<  "         center" << std::endl;;
+       }
+
+           center_log << std::setw( 8) <<  nstep;
+           center_log << std::setw(14) <<  std::setprecision(6) <<  time;
+           center_log << std::setw(14) <<  std::setprecision(6) << problem::center[0];
+#if (AMREX_SPACEDIM >= 2)
+           center_log << std::setw(14) <<  std::setprecision(6) << problem::center[1];
+#endif
+#if (AMREX_SPACEDIM == 3)
+           center_log << std::setw(14) <<  std::setprecision(6) << problem::center[2];
+#endif
+           center_log << std::endl;
+    }
+}
+#endif

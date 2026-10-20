@@ -49,8 +49,6 @@ void cell_center_geometry_factors(int i, int j, int k, const GeometryData& geomd
     }
 }
 
-
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void edge_center_geometry_factors (int i, int j, int k, int idir, const GeometryData& geomdata,
                          Real& r, Real& s)
@@ -131,8 +129,6 @@ void edge_center_geometry_factors (int i, int j, int k, int idir, const Geometry
     }
 }
 
-
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void face_geometry_factors (int i, int j, int k, int lo, int hi,
                   const GeometryData& geomdata, int face_normal_dir, int side_is_low, Real& r)
@@ -178,7 +174,6 @@ void face_geometry_factors (int i, int j, int k, int lo, int hi,
         }
         else {
 
-
             GpuArray<Real, 3> loc;
             position(i, j, k, geomdata, loc);
 
@@ -188,8 +183,6 @@ void face_geometry_factors (int i, int j, int k, int lo, int hi,
 
     }
 }
-
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -219,39 +212,6 @@ compute_total_pressure_sound(const Real* lam, const Real* q,
   gamma1_total = total_sound_speed * q[QRHO] / total_pressure;
 
   total_sound_speed = std::sqrt(total_sound_speed);
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-Real LimitedDiffusionLambda (Real r)
-{
-    Real lambda;
-
-    if (radiation::limiter == 0) {
-        lambda = 1.e0_rt / 3.e0_rt;
-    }
-    else if (radiation::limiter < 10) {
-        lambda = (2.e0_rt + r) / (6.e0_rt + r * (3.e0_rt + r));
-    }
-    else if (radiation::limiter < 20) {
-        lambda = 1.e0_rt / (3.e0_rt + r);
-    }
-    else if (radiation::limiter < 30) {
-        lambda = 1.e0_rt / std::sqrt(9.e0_rt + r * r);
-    }
-    else if (radiation::limiter < 40) {
-        if (r < 1.5e0_rt) {
-            lambda = 2.e0_rt / (3.e0_rt + std::sqrt(9.e0_rt + 12.e0_rt * r * r));
-        } else {
-            lambda = 1.e0_rt / (1.e0_rt + r + std::sqrt(1.e0_rt + 2.e0_rt * r));
-        }
-    }
-    else {
-#ifndef AMREX_USE_GPU
-        amrex::Error("Unknown limiter type");
-#endif
-    }
-
-    return lambda;
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE

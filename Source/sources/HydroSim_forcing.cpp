@@ -22,7 +22,6 @@ HydroSim::blend_source_terms(MultiFab& S_new, MultiFab& source_prev, MultiFab &s
 {
   BL_PROFILE("HydroSim::blend_source_terms()");
 
-
   MultiFab::Saxpy(S_new,-0.5*dt,source_prev,0,0,S_new.nComp(),0);
   MultiFab::Saxpy(S_new, 0.5*dt,source_next,0,0,S_new.nComp(),0);
 }
@@ -118,7 +117,6 @@ HydroSim::run_old_sources(
 
     const Real strt_time = ParallelDescriptor::second();
 
-
     source.setVal(0.0, source.nGrow());
 
     if (!apply_source_terms()) {
@@ -138,12 +136,10 @@ HydroSim::run_old_sources(
                      field_new, time, 0);
     }
 
-
     if (hydrosim::time_scheme == CornerTrace ||
         hydrosim::time_scheme == SimplifiedIterCorrection) {
         AmrLevel::FillPatch(*this, source, source.nGrow(), time, Forcing_Type, 0, NUM_SOURCE);
     }
-
 
     if (modify_state_flag && log_source_changes) {
       bool use_new_state = false;
@@ -212,7 +208,6 @@ HydroSim::run_new_sources(
         return;
     }
 
-
     for (int n = 0; n < num_forcing; ++n) {
         assemble_new_source(n, source, field_old, field_new, time, dt);
     }
@@ -225,8 +220,6 @@ HydroSim::run_new_sources(
 #endif
                      field_new, time, 0);
     }
-
-
 
     if (log_source_changes) {
       bool use_new_state = true;
@@ -394,7 +387,6 @@ HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& field_old, Mu
     }
 }
 
-
 bool
 HydroSim::apply_source_terms()
 {
@@ -409,7 +401,6 @@ HydroSim::apply_source_terms()
 
 }
 
-
 Vector<Real>
 HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
 {
@@ -418,13 +409,11 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
 
   Vector<Real> update(source.nComp(), 0.0);
 
-
   MultiFab volume_weighted_component(source.boxArray(), source.DistributionMap(), 1, 0);
 
   for (int n = 0; n < source.nComp(); ++n) {
 
     volume_weighted_component.setVal(0.0);
-
 
     MultiFab::AddProduct(volume_weighted_component, source, n, volume, 0, 0, 1, 0);
 
@@ -435,7 +424,6 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
   return update;
 
 }
-
 
 void
 HydroSim::log_source_change(const Vector<Real>& update)
@@ -454,9 +442,7 @@ HydroSim::log_source_change(const Vector<Real>& update)
 
   }
 
-
 }
-
 
 void
 HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const std::string& source_name)
@@ -482,7 +468,6 @@ HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const 
 #endif
 }
 
-
 void
 HydroSim::log_all_source_changes(Real dt, bool use_new_state)
 {
@@ -491,150 +476,4 @@ HydroSim::log_all_source_changes(Real dt, bool use_new_state)
     std::string source_name = use_new_state? "new-time sources" : "old-time sources";
 
     measure_and_log_source_change(source, dt, source_name);
-}
-
-
-step_result
-HydroSim::before_advance_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-
-#ifdef GRAVITY
-    assemble_old_gravity(time);
-#endif
-
-#ifdef SHOCK_VAR
-
-
-    const bool modify_state_flag{false};
-    run_old_sources(time, dt, modify_state_flag);
-
-    MultiFab& S_old = get_old_data(State_Type);
-    MultiFab& old_forcing = get_old_data(Forcing_Type);
-
-    FArrayBox shk(The_Async_Arena());
-    FArrayBox prim_tmp(The_Async_Arena()), qthermo_tmp(The_Async_Arena());
-
-    for (MFIter mfi(Sborder, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.tilebox();
-        const Box& obx = amrex::grow(bx, 1);
-
-        shk.resize(bx, 1);
-#ifdef RADIATION
-        prim_tmp.resize(obx, NQ);
-#else
-        prim_tmp.resize(obx, NQPRIMBASE);
-#endif
-        qthermo_tmp.resize(obx, NQEXTRAQ);
-
-        Array4<Real> const shock_flag_arr = shk.array();
-        Array4<Real> const prim_arr = prim_tmp.array();
-        Array4<Real> const qthermo_arr = qthermo_tmp.array();
-
-        Array4<Real const> const Ghost_state_old_arr = Sborder.array(mfi);
-        Array4<Real> const state_old_arr = S_old.array(mfi);
-        Array4<Real> const prev_source_arr = old_forcing.array(mfi);
-
-        ctoprim(obx, time, Ghost_state_old_arr, prim_arr, qthermo_arr);
-
-        shock(bx, prim_arr, prev_source_arr, shock_flag_arr);
-
-
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-            state_old_arr(i,j,k,UFLAG_SHOCK) = shock_flag_arr(i,j,k);
-        });
-
-    }
-
-
-    if (Sborder.nGrow() > 0) {
-      AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, UFLAG_SHOCK, 1, UFLAG_SHOCK);
-    }
-
-#endif
-
-
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-    status = apply_old_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
-#endif
-#endif
-
-
-
-    MultiFab& S_new = get_new_data(State_Type);
-
-    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, S_new.nGrow());
-
-    return status;
-}
-
-
-step_result
-HydroSim::before_hydro_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifdef REACTIONS
-
-    if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-        MultiFab& reaction_source_arr = get_new_data(Burn_Corr_Type);
-
-        AmrLevel::FillPatch(*this, reaction_source_arr, reaction_source_arr.nGrow(), time + dt, Burn_Corr_Type, 0, reaction_source_arr.nComp());
-    }
-#endif
-
-    return status;
-}
-
-
-step_result
-HydroSim::after_hydro_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifdef GRAVITY
-    assemble_new_gravity(time);
-#endif
-
-    return status;
-}
-
-
-step_result
-HydroSim::after_advance_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-    status = apply_new_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
-#endif
-#endif
-
-    return status;
 }
