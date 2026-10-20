@@ -69,6 +69,8 @@ void hs_statefill(Box const& bx, FArrayBox& data,
     const auto state = data.array();
 
 
+    AMREX_ALWAYS_ASSERT(static_cast<int>(bcr.size()) >= numcomp && numcomp <= NUM_STATE);
+
     Array1D<BCRec, 0, NUM_STATE - 1> bcs;
     for (int n = 0; n < numcomp; ++n) {
         bcs(n) = bcr[n];

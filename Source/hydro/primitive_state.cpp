@@ -120,7 +120,9 @@ HydroSim::make_primitives_fourth(const Real time)
 #endif
 
 #ifdef DIFFUSION
-    MultiFab::Copy(Temperature_cc, q, QTEMP, 0, 1, NUM_GROW-1);
+    if (!Temperature_cc.boxArray().empty()) {
+        MultiFab::Copy(Temperature_cc, q, QTEMP, 0, 1, NUM_GROW-1);
+    }
 #endif
 
 #ifdef _OPENMP

@@ -623,6 +623,10 @@ static void reduce_moment_fabs (FArrayBox& q0, FArrayBox& qC, FArrayBox& qS,
 
     Gpu::synchronize();
 
+    AMREX_ALWAYS_ASSERT(b0.numPts() <= std::numeric_limits<int>::max() &&
+                        bC.numPts() <= std::numeric_limits<int>::max() &&
+                        bS.numPts() <= std::numeric_limits<int>::max());
+
     ParallelDescriptor::ReduceRealSum(moment0_ptr, static_cast<int>(b0.numPts()));
     ParallelDescriptor::ReduceRealSum(momentC_ptr, static_cast<int>(bC.numPts()));
     ParallelDescriptor::ReduceRealSum(momentS_ptr, static_cast<int>(bS.numPts()));

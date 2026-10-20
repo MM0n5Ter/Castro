@@ -686,7 +686,7 @@ void RadTransportSolver::levelFaceFlux(int level,
 
   for (int n = 0; n < AMREX_SPACEDIM; n++) {
 
-      const MultiFab *bp;
+      const MultiFab *bp = nullptr;
 
       if (hd) {
           bp = &hd->setFaceCoefficients(n);
@@ -696,6 +696,10 @@ void RadTransportSolver::levelFaceFlux(int level,
       }
       else if (hem) {
           bp = &hem->setFaceCoefficients(level, n);
+      }
+
+      if (bp == nullptr) {
+          amrex::Abort("RadTransportSolver::levelFaceFlux: no level solver");
       }
 
       MultiFab &bcoef = *(MultiFab*)bp;

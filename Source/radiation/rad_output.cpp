@@ -301,6 +301,11 @@ void Radiation::store_lab_energy_plotvar(int level, const MultiFab& Snew,
 void Radiation::store_limiter_plotvar(int level, const Array<MultiFab,AMREX_SPACEDIM>& lambda)
 {
     int num_limiter_comps = lambda[0].nComp();
+
+    if (!plot_fields[level]) {
+        amrex::Abort("store_limiter_plotvar: plot fields not allocated");
+    }
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif

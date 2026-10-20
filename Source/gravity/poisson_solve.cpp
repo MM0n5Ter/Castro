@@ -262,6 +262,9 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
 
     int nlevs = fine_level-crse_level+1;
 
+    AMREX_ALWAYS_ASSERT(static_cast<int>(phi.size()) >= nlevs &&
+                        static_cast<int>(poisson_rhs.size()) >= nlevs);
+
     Vector<Geometry> gmv;
     Vector<BoxArray> bav;
     Vector<DistributionMapping> dmv;
