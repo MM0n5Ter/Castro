@@ -19,16 +19,16 @@ constexpr int EXTERNAL_HYDROSTATIC = 1;
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 bool
 hse_solve_zone_density(eos_rep_t& eos_state, Real& dens_zone, Real temp_zone,
-                       Real dens_ref, Real p_ref, Real dx_dir,
+                       Real dens_ref, Real pressure_ref, Real dx_dir,
                        bool below_domain, Real& p_want, Real& drho)
 {
     for (int iter = 0; iter < hse::MAX_ITER; iter++) {
 
         if (below_domain) {
-            p_want = p_ref -
+            p_want = pressure_ref -
                 dx_dir * 0.5_rt * (dens_zone + dens_ref) * gravity::uniform_accel;
         } else {
-            p_want = p_ref +
+            p_want = pressure_ref +
                 dx_dir * 0.5_rt * (dens_zone + dens_ref) * gravity::uniform_accel;
         }
 

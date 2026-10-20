@@ -25,19 +25,19 @@ using namespace amrex;
 
 const Real FourPiG = 4.0 * std::numbers::pi * C::Gconst;
 
-static void fill_coarse_boundary_phi (Gravity& grav, int crse_level, int fine_level,
+static void fill_coarse_boundary_phi (Gravity& gravity_solver, int crse_level, int fine_level,
                                       const Vector<MultiFab*>& rhs, MultiFab& phi)
 {
 #if (AMREX_SPACEDIM == 3)
     if ( gravity::boundary_direct_sum ) {
-        grav.fill_direct_sum_boundaries(crse_level, fine_level, rhs, phi);
+        gravity_solver.fill_direct_sum_boundaries(crse_level, fine_level, rhs, phi);
     } else {
-        grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+        gravity_solver.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
     }
 #elif (AMREX_SPACEDIM == 2)
-    grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+    gravity_solver.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
 #else
-    grav.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
+    gravity_solver.fill_multipole_boundaries(crse_level, fine_level, rhs, phi);
 #endif
 }
 

@@ -76,9 +76,10 @@ HydroSim::checkPoint(const std::string& dir,
   }
 
   std::ofstream HydroSimHeaderFile;
-  HydroSimHeaderFile.open(checkpoint_entry(dir, "CastroHeader").c_str(), std::ios::out);
+  const std::string header_path = checkpoint_entry(dir, "CastroHeader");
+  HydroSimHeaderFile.open(header_path.c_str(), std::ios::out);
   if (!HydroSimHeaderFile.good()) {
-      amrex::FileOpenFailed(checkpoint_entry(dir, "CastroHeader"));
+      amrex::FileOpenFailed(header_path);
   }
 
   HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
