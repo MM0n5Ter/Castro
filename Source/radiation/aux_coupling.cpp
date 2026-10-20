@@ -249,7 +249,7 @@ void CoarseBoundaryAuxStore::makeFaceStorage(IntVect& rat, int ncomp)
       face_fabs[ori][i].resize(n);
       for (int j = 0; j < n; j++) {
           Box face_box = aux[ori][i][j]->box();
-        face_box.shiftHalf(ori.coordDir(), (ori.isLow() ? 1 : -1));
+        face_box.shiftHalf(ori.coordDir(), ((!(ori.isLow()) ? (-1) : (1))));
         face_box.refine(rat);
         face_fabs[ori][i][j].reset(new FArrayBox(face_box, ncomp));
       }
@@ -310,12 +310,12 @@ BoundaryAuxStore::BoundaryAuxStore(const BoxArray& _grids,
 {
   BL_ASSERT(loc == INTERIOR || loc == HALO);
 
-  int normal_side_index = (loc == INTERIOR) ? 0 : 1;
+  int normal_side_index = (!((loc == INTERIOR)) ? (1) : (0));
 
   for (OrientationIter oitr; oitr; ++oitr) {
     Orientation ori = oitr();
     aux[ori].resize(grids.size());
-    int ishift = ori.isLow() ? 1-normal_side_index : normal_side_index-1;
+    int ishift = (!(ori.isLow()) ? (normal_side_index-1) : (1-normal_side_index));
     for (int i = firstOwnedIndex(); isValid(i); i = nextOwnedIndex(i)) {
       Box b = amrex::adjCell(grids[i], ori);
       aux[ori][i].reset(new BoxAuxStorage(b.shift(ori.coordDir(), ishift)));

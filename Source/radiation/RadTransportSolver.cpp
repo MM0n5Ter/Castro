@@ -20,10 +20,7 @@ RadTransportSolver::RadTransportSolver (Amr* Parent, int level, const BoxArray& 
 {
     read_params();
 
-    if (radiation_solve::level_solver_kind < 100) {
-        hd.reset(new AlphaBetaSolver(grids, dmap, parent->Geom(level), radiation_solve::level_solver_kind));
-    }
-    else {
+    if (!(radiation_solve::level_solver_kind < 100)) {
         if (radiation_solve::use_nonsym_solver_terms == 0) {
             hm.reset(new MultiLevelEllipticSolver(level, level, radiation_solve::level_solver_kind));
             hm->attachLevel(level, parent->Geom(level), grids, dmap,
@@ -39,6 +36,8 @@ RadTransportSolver::RadTransportSolver (Amr* Parent, int level, const BoxArray& 
                           IntVect::TheUnitVector());
             hem->makeMatrixLayout();
         }
+    } else {
+        hd.reset(new AlphaBetaSolver(grids, dmap, parent->Geom(level), radiation_solve::level_solver_kind));
     }
 }
 

@@ -51,7 +51,7 @@ HydroSim::run_advance_sdc (Real time,
     MultiFab& old_forcing = get_old_data(Forcing_Type);
     MultiFab& new_source = get_new_data(Forcing_Type);
 
-    bool apply_source_flag = false;
+    auto apply_source_flag = false;
 
 
     for (int m=0; m < COLLOC_NODES; m++) {
@@ -110,10 +110,10 @@ HydroSim::run_advance_sdc (Real time,
 
 
 
-            if (sdc_accuracy_order == 4) {
-                make_primitives_fourth(time);
-            } else {
+            if (!(sdc_accuracy_order == 4)) {
                 make_primitives(time);
+            } else {
+                make_primitives_fourth(time);
             }
 
             if (do_hydro) {

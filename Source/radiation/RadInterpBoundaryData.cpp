@@ -287,7 +287,7 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
                             int j = (dir == 1) ? flo[1] : ratio_y * jc;
 
                             for (int ic = clo[0]; ic <= chi[0]; ++ic) {
-                                int i = (dir == 0) ? flo[0] : ratio_x * ic;
+                                int i = (!((dir == 0)) ? (ratio_x * ic) : (flo[0]));
 
                                 Real slope_x = 0.0_rt;
                                 Real slope_y = 0.0_rt;
@@ -414,7 +414,7 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
 
                                 for (int koff = 0; koff < ratio_z; ++koff) {
                                     Real zz = (koff - 0.5_rt * ratio_z + 0.5_rt) / ratio_z;
-                                    int kk = (dir == 2) ? flo[2] : ratio_z * kc + koff;
+                                    int kk = (!((dir == 2)) ? (ratio_z * kc + koff) : (flo[2]));
 
                                     for (int joff = 0; joff < ratio_y; ++joff) {
                                         Real yy = (joff - 0.5_rt * ratio_y + 0.5_rt) / ratio_y;
@@ -422,7 +422,7 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
 
                                         for (int ioff = 0; ioff < ratio_x; ++ioff) {
                                             Real xx = (ioff - 0.5_rt * ratio_x + 0.5_rt) / ratio_x;
-                                            int ii = (dir == 0) ? flo[0] : ratio_x * ic + ioff;
+                                            int ii = (!((dir == 0)) ? (ratio_x * ic + ioff) : (flo[0]));
 
                                             bdry(ii,jj,kk,n) = crse_arr(ic,jc,kc,n) +
                                                                xx * slope_x + xx * xx * curvature_x +

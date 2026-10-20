@@ -121,7 +121,7 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     Real eps = 1.0e-14;
 
-    bool do_swap = false;
+    auto do_swap = false;
 
     Real final_dt_subcycle = 1.e200;
 
@@ -231,10 +231,10 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
             }
 
             if (!status.success) {
-                if (allow_step_retry) {
-                    amrex::Print() << "Advance was unsuccessful with reason: " << status.reason << "; proceeding to a retry." << std::endl << std::endl;
-                } else {
+                if (!(allow_step_retry)) {
                     amrex::Abort("Advance was unsuccessful.");
+                } else {
+                    amrex::Print() << "Advance was unsuccessful with reason: " << status.reason << "; proceeding to a retry." << std::endl << std::endl;
                 }
                 break;
             }

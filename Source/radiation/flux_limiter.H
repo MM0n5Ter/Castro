@@ -42,11 +42,10 @@ amrex::Real Eddington_factor(Real lambda)
             f = 1.0e0_rt + lambda - 9.e0_rt * lambda * lambda;
         }
         else if (radiation::limiter < 40) {
-            if (lambda > 2.0_rt / 9.0_rt) {
-                f = 1.0_rt / 3.0_rt;
-            }
-            else {
+            if (!(lambda > 2.0_rt / 9.0_rt)) {
                 f = 1.e0_rt + 3.e0_rt * lambda - 2.e0_rt * std::sqrt(2.e0_rt * lambda);
+            } else {
+                f = 1.0_rt / 3.0_rt;
             }
         }
 #ifndef AMREX_USE_GPU
@@ -72,11 +71,10 @@ amrex::Real Eddington_factor(Real lambda)
             f = (1.0_rt / 3.0_rt) + (2.0_rt / 3.0_rt) * (1.0e0_rt - 9.e0_rt * lambda * lambda);
         }
         else if (radiation::limiter < 40) {
-            if (lambda > 2.0_rt / 9.0_rt) {
-                f = (5.0_rt / 9.0_rt) - (2.0_rt / 3.0_rt) * lambda;
-            }
-            else {
+            if (!(lambda > 2.0_rt / 9.0_rt)) {
                 f = (1.0_rt / 3.0_rt) + (2.0_rt / 3.0_rt) * (1.e0_rt + 2.e0_rt * lambda - 2.e0_rt * std::sqrt(2.e0_rt * lambda));
+            } else {
+                f = (5.0_rt / 9.0_rt) - (2.0_rt / 3.0_rt) * lambda;
             }
         }
 #ifndef AMREX_USE_GPU
@@ -128,12 +126,11 @@ Real LimitedDiffusionAlpha(Real lam)
     if (R < 1.e-6_rt) {
         alpha = 0.25_rt;
     }
-    else if (R > 300.0_rt) {
-        alpha = 0.5_rt;
-    }
-    else {
+    else if (!(R > 300.0_rt)) {
         Real cr = std::cosh(R);
         alpha = cr * std::log(cr) / (2.0_rt * R * std::sinh(R));
+    } else {
+        alpha = 0.5_rt;
     }
 
     return alpha;

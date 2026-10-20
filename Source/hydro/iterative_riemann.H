@@ -368,7 +368,7 @@ namespace ShockPairSolver {
       pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.un - ql.un) ) * wl / (wl + wr);
       pstar = amrex::max(pstar, pressure_cutoff);
 
-      bool converged = false;
+      auto converged = false;
 
       int iter = 0;
       while ((iter < shock_star_max_iters && !converged) || iter < 2) {

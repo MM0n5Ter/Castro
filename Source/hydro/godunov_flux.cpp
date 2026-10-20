@@ -46,15 +46,15 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
         im2 = UMY;
         im3 = UMZ;
 
-    } else if (idir == 1) {
+    } else if (!(idir == 1)) {
+        im1 = UMZ;
+        im2 = UMX;
+        im3 = UMY;
+    } else {
         im1 = UMY;
         im2 = UMX;
         im3 = UMZ;
 
-    } else {
-        im1 = UMZ;
-        im2 = UMX;
-        im3 = UMY;
     }
 
     F(i,j,k,URHO) = interface_state.rho * interface_state.un;
@@ -156,14 +156,14 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
             godunov_state(i,j,k,QU) = interface_state.un;
             godunov_state(i,j,k,QV) = interface_state.ut;
             godunov_state(i,j,k,QW) = interface_state.utt;
-        } else if (idir == 1) {
-            godunov_state(i,j,k,QV) = interface_state.un;
-            godunov_state(i,j,k,QU) = interface_state.ut;
-            godunov_state(i,j,k,QW) = interface_state.utt;
-        } else {
+        } else if (!(idir == 1)) {
             godunov_state(i,j,k,QW) = interface_state.un;
             godunov_state(i,j,k,QU) = interface_state.ut;
             godunov_state(i,j,k,QV) = interface_state.utt;
+        } else {
+            godunov_state(i,j,k,QV) = interface_state.un;
+            godunov_state(i,j,k,QU) = interface_state.ut;
+            godunov_state(i,j,k,QW) = interface_state.utt;
         }
 
         godunov_state(i,j,k,QTEMP) = 0.0_rt;
@@ -286,17 +286,17 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
           interface_aux.boundary_factor = 0.0_rt;
       }
 
-  } else if (idir == 1) {
+  } else if (!(idir == 1)) {
+      if ((k == domlo[2] && lo_no_flux_wall) ||
+          (k == domhi[2]+1 && hi_no_flux_wall)) {
+          interface_aux.boundary_factor = 0.0_rt;
+      }
+  } else {
       if ((j == domlo[1] && lo_no_flux_wall) ||
           (j == domhi[1]+1 && hi_no_flux_wall)) {
           interface_aux.boundary_factor = 0.0_rt;
       }
 
-  } else {
-      if ((k == domlo[2] && lo_no_flux_wall) ||
-          (k == domhi[2]+1 && hi_no_flux_wall)) {
-          interface_aux.boundary_factor = 0.0_rt;
-      }
   }
 
 

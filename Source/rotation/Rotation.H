@@ -49,7 +49,7 @@ fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
 
   bool c1 = (hydrosim::rotation_centrifugal_on == 1) ? true : false;
 
-  bool c2 = (hydrosim::rotation_coriolis_on == 1 && with_coriolis) ? true : false;
+  bool c2 = (!((hydrosim::rotation_coriolis_on == 1 && with_coriolis)) ? (false) : (true));
 
   auto r_vec = r;
 
@@ -87,17 +87,17 @@ void fill_omega_times_dt_matrix(const Real dt, const GpuArray<Real, 3>& omega,
 
     Real omega_times_dt[3];
 
-    if (hydrosim::rotation_coriolis_on == 1) {
-
-        for (int idir = 0; idir < 3; idir++) {
-          omega_times_dt[idir] = dt * omega[idir];
-        }
-
-    } else {
+    if (!(hydrosim::rotation_coriolis_on == 1)) {
 
       for (auto& e : omega_times_dt) {
         e = 0.0_rt;
       }
+
+    } else {
+
+        for (int idir = 0; idir < 3; idir++) {
+          omega_times_dt[idir] = dt * omega[idir];
+        }
 
     }
 

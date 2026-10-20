@@ -561,13 +561,12 @@ Gravity::init_multipole_field() const
     for (int b = 0; b < AMREX_SPACEDIM; ++b) {
 
         if ((lo_bc[b] == amrex::PhysBCType::symmetry) && (parent->Geom(0).Coord() == 0)) {
-            if (std::abs(problem::center[b] - problo[b]) < wallDistTol) {
-                multipole::volumeScale *= 2.0_rt;
-                multipole::doMirrorLo(b) = true;
-            }
-            else {
+            if (!(std::abs(problem::center[b] - problo[b]) < wallDistTol)) {
                 multipole::doFoldedAddLo(b) = true;
                 multipole::doFoldedAdd      = true;
+            } else {
+                multipole::volumeScale *= 2.0_rt;
+                multipole::doMirrorLo(b) = true;
             }
         }
 

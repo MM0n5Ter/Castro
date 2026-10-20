@@ -182,12 +182,12 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
     dt = amrex::min(dt, dx[i]/abs_speed*freq_courant_number);
   }
 
-  if (dt >= tend) {
-    nstep = 1;
-    dt = tend;
-  } else {
+  if (!(dt >= tend)) {
     nstep = std::ceil(tend/dt);
     dt = tend / static_cast<Real>(nstep);
+  } else {
+    nstep = 1;
+    dt = tend;
   }
 
   Real u1[NGROUPS];
@@ -242,7 +242,12 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
         u[g] = onethird * (u1[g] + 2.0_rt * u2[g] + u3[g] - u[g]) + onesixth * dt * rhs_buffer[g];
       }
 
-    } else if (rk_order == 3) {
+    } else if (!(rk_order == 3)) {
+      dudt(u, a, dx, n, rhs_buffer);
+      for (int g = 0; g < n; g++) {
+        u[g] += dt * rhs_buffer[g];
+      }
+    } else {
       dudt(u, a, dx, n, rhs_buffer);
       for (int g = 0; g < n; g++) {
         u1[g] = u[g] + dt * rhs_buffer[g];
@@ -256,11 +261,6 @@ integrate_group_energies(const int n, Real* u, Real* a, const Real* dx, const Re
         u[g] = onethird * u[g] + twothirds * (u1[g] + dt * rhs_buffer[g]);
       }
 
-    } else {
-      dudt(u, a, dx, n, rhs_buffer);
-      for (int g = 0; g < n; g++) {
-        u[g] += dt * rhs_buffer[g];
-      }
     }
   }
 

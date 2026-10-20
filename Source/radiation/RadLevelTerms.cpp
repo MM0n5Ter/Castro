@@ -481,22 +481,20 @@ void RadTransportSolver::edgeGeomWeights(int idim, const Geometry& geom, const B
         s.resize(reg.length(I)+1, 1);
     }
     else if (geom.IsRZ()) {
-        if (idim == 0) {
-            geom.GetEdgeLoc(r, reg, 0);
-        }
-        else {
+        if (!(idim == 0)) {
             geom.GetCellLoc(r, reg, 0);
+        } else {
+            geom.GetEdgeLoc(r, reg, 0);
         }
         s.resize(reg.length(I)+1, 1);
     }
     else {
-      if (idim == 0) {
-        geom.GetEdgeLoc(r, reg, 0);
-        geom.GetCellLoc(s, reg, I);
-      }
-      else {
+      if (!(idim == 0)) {
         geom.GetCellLoc(r, reg, 0);
         geom.GetEdgeLoc(s, reg, I);
+      } else {
+        geom.GetEdgeLoc(r, reg, 0);
+        geom.GetCellLoc(s, reg, I);
       }
       const Real *dx = geom.CellSize();
 

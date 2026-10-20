@@ -76,13 +76,12 @@ void RadiativeBoundary::init()
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
     int dir = face.coordDir();
-    if (face.isLow()) {
-      bc_kind[face] = lo_bc_kind[dir];
-      bcval[face]  = lo_bc_value[dir];
-    }
-    else {
+    if (!(face.isLow())) {
       bc_kind[face] = hi_bc_kind[dir];
       bcval[face]  = hi_bc_value[dir];
+    } else {
+      bc_kind[face] = lo_bc_kind[dir];
+      bcval[face]  = lo_bc_value[dir];
     }
   }
 }

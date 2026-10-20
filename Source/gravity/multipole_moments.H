@@ -27,17 +27,16 @@ void evaluateLegendreByDegree (int l, Real& legendreValue, Real& legendreValue1,
         legendreValue = 1.0_rt;
 
     }
-    else if (l == 1) {
-
-        legendreValue1 = legendreValue;
-        legendreValue  = x;
-
-    }
-    else {
+    else if (!(l == 1)) {
 
         legendreValue2 = legendreValue1;
         legendreValue1 = legendreValue;
         legendreValue  = ((2*l - 1) * x * legendreValue1 - (l-1) * legendreValue2) / l;
+
+    } else {
+
+        legendreValue1 = legendreValue;
+        legendreValue  = x;
 
     }
 }
@@ -57,17 +56,16 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
         }
 
     }
-    else if (l == m + 1) {
-
-        assocLegendreValue1 = assocLegendreValue;
-        assocLegendreValue  = x * (2*m + 1) * assocLegendreValue1;
-
-    }
-    else {
+    else if (!(l == m + 1)) {
 
         assocLegendreValue2 = assocLegendreValue1;
         assocLegendreValue1 = assocLegendreValue;
         assocLegendreValue  = (x * (2*l - 1) * assocLegendreValue1 - (l + m - 1) * assocLegendreValue2) / (l-m);
+
+    } else {
+
+        assocLegendreValue1 = assocLegendreValue;
+        assocLegendreValue  = x * (2*m + 1) * assocLegendreValue1;
 
     }
 }

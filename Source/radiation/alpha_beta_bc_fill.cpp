@@ -1094,11 +1094,10 @@ void AlphaBetaSolver::faceGeometryFactors(Vector<Real>& r,
     }
     else {
       r.resize(1);
-      if (ori.isLow()) {
-        r[0] = geom.LoEdge(reg.smallEnd(0), 0);
-      }
-      else {
+      if (!(ori.isLow())) {
         r[0] = geom.HiEdge(reg.bigEnd(0), 0);
+      } else {
+        r[0] = geom.LoEdge(reg.smallEnd(0), 0);
       }
       if (geom.IsSPHERICAL()) {
         r[0] *= r[0];

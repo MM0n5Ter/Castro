@@ -251,7 +251,7 @@ HydroSim::variableSetUp ()
     }
   }
 
-  bool state_data_extrap = false;
+  auto state_data_extrap = false;
   bool store_in_checkpoint;
 
   int state_ghosts = 0;

@@ -17,7 +17,7 @@ using namespace amrex;
 
 static int ispow2(int i)
 {
-  return (i == 1) ? 1 : (((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2));
+  return (!((i == 1)) ? ((((i <= 0) || (i & 1)) ? 0 : ispow2(i / 2))) : (1));
 }
 
 Real AlphaBetaSolver::flux_scale = 1.0;
@@ -519,7 +519,13 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
         const Mask      &msk = bd.bndryMasks(oitr(),i);
         const Box &bbox = (*bcoefs[idim])[di].box();
 
-        if (reg[oitr()] == domain[oitr()]) {
+        if (!(reg[oitr()] == domain[oitr()])) {
+            fillBcVec(reg, f->array(fcomp),
+                  cdir, bct, bho, bcl,
+                  fs.array(bc_component), msk.array(),
+                  (*bcoefs[idim])[di].array(),
+                  beta, dx);
+        } else {
           Array4<const int> tfp{};
           int bctype = bct;
           if (bd.isMixedFace(oitr())) {
@@ -537,13 +543,6 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
                  msk.array(),
                  (*bcoefs[idim])[di].array(),
                  beta, geom.data());
-        }
-        else {
-            fillBcVec(reg, f->array(fcomp),
-                  cdir, bct, bho, bcl,
-                  fs.array(bc_component), msk.array(),
-                  (*bcoefs[idim])[di].array(),
-                  beta, dx);
         }
       }
     }
@@ -612,14 +611,13 @@ void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMo
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) {
-      f = &dest[di];
-      fcomp = icomp;
-    }
-    else {
+    if (!(dest.nGrow() == 0)) {
       f = &scratch_fab;
       f->resize(reg);
       fcomp = 0;
+    } else {
+      f = &dest[di];
+      fcomp = icomp;
     }
     Elixir f_hold = scratch_fab.elixir();
 

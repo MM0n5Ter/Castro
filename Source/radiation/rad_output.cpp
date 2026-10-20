@@ -367,7 +367,7 @@ HydroSim::print_energy_budget()
   int finest_level = parent->finestLevel();
 
   int v = verbose;
-  v = (do_radiative_transfer && radiation->verbose > v) ? radiation->verbose : v;
+  v = (!((do_radiative_transfer && radiation->verbose > v)) ? (v) : (radiation->verbose));
 
   if (do_radiative_transfer && (v > 2 || (level == 0 && v > 0))) {
     Real prev_time = state[State_Type].prevTime();
@@ -378,15 +378,14 @@ HydroSim::print_energy_budget()
     for (int lev = 0; lev <= finest_level; lev++) {
       m += getLevel(lev).volWeightedTotal("density", prev_time + dt);
       s += getLevel(lev).volWeightedTotal("rho_E",   prev_time + dt);
-      if (!Radiation::groups_enabled) {
-          r += getLevel(lev).volWeightedTotal("rad", prev_time + dt);
-      }
-      else {
+      if (!(!Radiation::groups_enabled)) {
           std::string rad_label;
           for (int rad_group_idx = 0; rad_group_idx < Radiation::nGroups; rad_group_idx++) {
               rad_label = "rad" + std::to_string(rad_group_idx);
               r += getLevel(lev).volWeightedTotal(rad_label, prev_time + dt);
           }
+      } else {
+          r += getLevel(lev).volWeightedTotal("rad", prev_time + dt);
       }
       if (lev < finest_level) {
           FluxRegister* fine_correction_register = radiation->conservativeRegister(lev + 1);

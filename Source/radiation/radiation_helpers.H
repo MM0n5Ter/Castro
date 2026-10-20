@@ -120,7 +120,7 @@ void edge_center_geometry_factors (int i, int j, int k, int idir, const Geometry
 
         if (idir == 0)
         {
-            bool ccx = false;
+            auto ccx = false;
             position(i, j, k, geomdata, loc, ccx);
         }
         else
@@ -137,7 +137,7 @@ void edge_center_geometry_factors (int i, int j, int k, int idir, const Geometry
 
         if (idir == 0)
         {
-            bool ccx = false;
+            auto ccx = false;
             position(i, j, k, geomdata, loc, ccx);
 
             r = loc[0] * loc[0];
@@ -164,7 +164,7 @@ void edge_center_geometry_factors (int i, int j, int k, int idir, const Geometry
             if (AMREX_SPACEDIM >= 2)
             {
                 bool ccx = true;
-                bool ccy = false;
+                auto ccy = false;
                 position(i, j, k, geomdata, loc, ccx, ccy);
             }
             else

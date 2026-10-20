@@ -355,10 +355,10 @@ HydroSim::source_enabled(int src)
 #endif
 
     case geometry_source:
-        if (geom.Coord() == 0 || use_curvilinear_src == 0) {
-          return false;
-        } else {
+        if (!(geom.Coord() == 0 || use_curvilinear_src == 0)) {
           return true;
+        } else {
+          return false;
         }
 
 #ifdef DIFFUSION

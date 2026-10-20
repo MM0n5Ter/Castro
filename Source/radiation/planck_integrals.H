@@ -120,11 +120,10 @@ void PlanckAntiderivSlope (Real T, Real nu, Real& B, Real& dplanck_group_diff)
     else {
 
         Real integral_value;
-        if (x > planck_integrals::mid_switch_x) {
-            integral_value = planck_tail_integral(x);
-        }
-        else {
+        if (!(x > planck_integrals::mid_switch_x)) {
             integral_value = planck_series_sum(x);
+        } else {
+            integral_value = planck_tail_integral(x);
         }
 
         B = planck_integrals::planck_prefactor * std::pow(T, 4) * integral_value;
@@ -158,11 +157,10 @@ Real PlanckAntiderivative(Real T, Real nu)
     else {
 
         Real integral_value;
-        if (x > planck_integrals::mid_switch_x) {
-            integral_value = planck_tail_integral(x);
-        }
-        else {
+        if (!(x > planck_integrals::mid_switch_x)) {
             integral_value = planck_series_sum(x);
+        } else {
+            integral_value = planck_tail_integral(x);
         }
 
         B = planck_integrals::planck_prefactor * std::pow(T, 4) * integral_value;

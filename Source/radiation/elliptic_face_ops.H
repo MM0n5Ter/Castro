@@ -226,9 +226,9 @@ namespace ELLIPTIC_OPS
     {
         Real h;
 
-        bool face_xlo = false;
+        auto face_xlo = false;
         bool face_xhi = false;
-        bool face_ylo = false;
+        auto face_ylo = false;
         bool face_yhi = false;
         bool z_left = false;
         bool z_right = false;
@@ -289,16 +289,15 @@ namespace ELLIPTIC_OPS
         Real bfv, bfm, stencil_weight_second;
 
         if (bct == AMREX_LO_DIRICHLET) {
-            if (bho >= 1) {
+            if (!(bho >= 1)) {
+                bfv = beta / (0.5e0_rt * h + bcl);
+                bfm = bfv;
+            } else {
                 Real h2 = 0.5e0_rt * h;
                 Real th2 = 3.e0_rt * h2;
                 bfv = 2.e0_rt * beta * h / ((bcl + h2) * (bcl + th2));
                 bfm = (beta / h) * (th2 - bcl) / (bcl + h2);
                 stencil_weight_second = (beta / h) * (bcl - h2) / (bcl + th2);
-            }
-            else {
-                bfv = beta / (0.5e0_rt * h + bcl);
-                bfm = bfv;
             }
         }
         else {

@@ -357,7 +357,7 @@ HydroSim::begin_step_advance (Real time, Real dt)
 
     scan_for_nan(S_old);
 
-    bool is_opening_step_on_level = true;
+    auto is_opening_step_on_level = true;
 
     for (int lev = level; lev >= 0; --lev) {
         if (getLevel(lev).iteration > 1) {
@@ -746,15 +746,15 @@ HydroSim::create_forcing_corrector()
     }
     else if (time_scheme == SimplifiedIterCorrection && source_half_step == 1) {
 
-        if (correction_iter == 0) {
+        if (!(correction_iter == 0)) {
+            const Real time = get_state_data(Forcing_Type).curTime();
+
+            AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, 0, NUM_SOURCE);
+        } else {
             const Real time = get_state_data(Forcing_Type).prevTime();
 
             AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, 0, NUM_SOURCE);
 
-        } else {
-            const Real time = get_state_data(Forcing_Type).curTime();
-
-            AmrLevel::FillPatch(*this, forcing_corrector, SRC_GHOST_WIDTH, time, Forcing_Type, 0, NUM_SOURCE);
         }
 
     }

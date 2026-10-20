@@ -82,7 +82,11 @@ void MultiLevelEllipticSolver::assembleMatrix()
         const Box &msb  = msk.box();
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
-          if (reg[oitr()] == domain[oitr()]) {
+          if (!(reg[oitr()] == domain[oitr()])) {
+              fillLevelMat(reg, matfab.array(), cdir, bct, bho, bcl,
+                    msk.array(), (*bcoefs[level])[idim][mfi].array(),
+                    beta, geom[level].CellSize());
+          } else {
             Array4<const int> tfp{};
             int bctype = bct;
             if (bd[level]->isMixedFace(oitr())) {
@@ -100,11 +104,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
                    beta, geom[level].CellSize(), geom[level].data(),
                    flux_scale, opt_bc_alpha_arr);
           }
-          else {
-              fillLevelMat(reg, matfab.array(), cdir, bct, bho, bcl,
-                    msk.array(), (*bcoefs[level])[idim][mfi].array(),
-                    beta, geom[level].CellSize());
-          }
         }
         else {
 
@@ -115,7 +114,10 @@ void MultiLevelEllipticSolver::assembleMatrix()
         }
       }
 
-      if (subgrids[level][i].size() > 0) {
+      if (!(subgrids[level][i].size() > 0)) {
+        HYPRE_SStructMatrixSetBoxValues(A, part, loV(reg), hiV(reg), 0,
+                                        size, stencil_indices, mat);
+      } else {
         for (int j = 0; j < subgrids[level][i].size(); j++) {
           const Box& sreg = subgrids[level][i][j];
           sub_matrix_buf.resize(sreg,size);
@@ -130,10 +132,6 @@ void MultiLevelEllipticSolver::assembleMatrix()
           HYPRE_SStructMatrixSetBoxValues(A, part, loV(sreg), hiV(sreg), 0,
                                           size, stencil_indices, smat);
         }
-      }
-      else {
-        HYPRE_SStructMatrixSetBoxValues(A, part, loV(reg), hiV(reg), 0,
-                                        size, stencil_indices, mat);
       }
     }
 
@@ -1162,13 +1160,12 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
     const Box &reg = grids[level][i];
 
     FArrayBox *f;
-    if (rhs.nGrow() == 0) {
-      f = &rhs[mfi];
-    }
-    else {
+    if (!(rhs.nGrow() == 0)) {
       f = &scratch_fab;
       f->resize(reg);
       f->copy<RunOn::Device>(rhs[mfi]);
+    } else {
+      f = &rhs[mfi];
     }
     Elixir f_hold = scratch_fab.elixir();
 
@@ -1187,7 +1184,13 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
         const Box &msb  = msk.box();
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
-          if (reg[oitr()] == domain[oitr()]) {
+          if (!(reg[oitr()] == domain[oitr()])) {
+              AlphaBetaSolver::fillBcVec(reg, f->array(),
+                               cdir, bct, bho, bcl,
+                               fs.array(bc_component), msk.array(),
+                               (*bcoefs[level])[idim][mfi].array(),
+                               beta, geom[level].CellSize());
+          } else {
             Array4<const int> tfp{};
             int bctype = bct;
             if (bd[level]->isMixedFace(oitr())) {
@@ -1205,13 +1208,6 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
                               msk.array(),
                               (*bcoefs[level])[idim][mfi].array(),
                               beta, geom[level].data());
-          }
-          else {
-              AlphaBetaSolver::fillBcVec(reg, f->array(),
-                               cdir, bct, bho, bcl,
-                               fs.array(bc_component), msk.array(),
-                               (*bcoefs[level])[idim][mfi].array(),
-                               beta, geom[level].CellSize());
           }
         }
       }
@@ -1239,15 +1235,14 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
 
     FArrayBox *f;
     int fcomp;
-    if (dest.nGrow() == 0) {
-      f = &dest[mfi];
-      fcomp = icomp;
-    }
-    else {
+    if (!(dest.nGrow() == 0)) {
       f = &scratch_fab;
       f->resize(reg);
       f->copy<RunOn::Device>(dest[mfi], icomp, 0, 1);
       fcomp = 0;
+    } else {
+      f = &dest[mfi];
+      fcomp = icomp;
     }
     Elixir f_hold = scratch_fab.elixir();
 

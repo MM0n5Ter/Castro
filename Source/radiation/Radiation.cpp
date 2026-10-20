@@ -85,11 +85,10 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
   fluxFromRad = 1.0;
 
   reltol   = 1.e-6;          pp.query("reltol", reltol);
-  if (SolverKind == SingleGroupFLDSolver || SolverKind == MultiGroupFLDSolver) {
-    abstol = 0.0;
-  }
-  else {
+  if (!(SolverKind == SingleGroupFLDSolver || SolverKind == MultiGroupFLDSolver)) {
     abstol   = 1.e-6;
+  } else {
+    abstol = 0.0;
   }
   pp.query("abstol", abstol);
   maxiter  = 50;             pp.query("maxiter", maxiter);
@@ -108,15 +107,14 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
 
   opacity_lag_iter    = 1000;
 
-  if (SolverKind == SingleGroupFLDSolver || SolverKind == MultiGroupFLDSolver) {
-    planck_lag_iter     = 1000;
-    rosseland_lag_iter  = 1000;
-    limiter_lag_iter    = 1000;
-  }
-  else {
+  if (!(SolverKind == SingleGroupFLDSolver || SolverKind == MultiGroupFLDSolver)) {
     planck_lag_iter     = 50;
     rosseland_lag_iter  = 50;
     limiter_lag_iter    = 4;
+  } else {
+    planck_lag_iter     = 1000;
+    rosseland_lag_iter  = 1000;
+    limiter_lag_iter    = 1000;
   }
   pp.query("planck_lag_iter", planck_lag_iter);
   pp.query("rosseland_lag_iter", rosseland_lag_iter);
@@ -300,12 +298,11 @@ void Radiation::load_static_settings()
 
   if (SolverKind == SingleGroupFLDSolver) {
     radiation::frequency_advection_mode = 1;
-    if (radiation::moving_frame) {
-      lorentz_energy_term = 0;
-    }
-    else {
+    if (!(radiation::moving_frame)) {
       lorentz_energy_term = 1;
       pp.query("lorentz_energy_term", lorentz_energy_term);
+    } else {
+      lorentz_energy_term = 0;
     }
   }
 
@@ -361,38 +358,38 @@ void Radiation::load_static_settings()
       if (radiation::plot_flux_limiter) {
           comp_limiter = plot_var_names.size();
 
-          if (!groups_enabled || radiation::limiter == 0) {
-              plot_var_names.push_back("lambda");
-          } else {
+          if (!(!groups_enabled || radiation::limiter == 0)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "lambda" << g;
                   plot_var_names.push_back(ss.str());
               }
+          } else {
+              plot_var_names.push_back("lambda");
           }
       }
       if (radiation::plot_planck_opacity) {
           icomp_kappa_planck = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("kappa_P");
-          } else {
+          if (!(!groups_enabled)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "kappa_P" << g;
                   plot_var_names.push_back(ss.str());
               }
+          } else {
+              plot_var_names.push_back("kappa_P");
           }
       }
       if (radiation::plot_rosseland_opacity) {
           icomp_kappa_rosseland = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("kappa_R");
-          } else {
+          if (!(!groups_enabled)) {
               for (int g=0; g<nGroups; ++g) {
                   std::ostringstream ss;
                   ss << "kappa_R" << g;
                   plot_var_names.push_back(ss.str());
               }
+          } else {
+              plot_var_names.push_back("kappa_R");
           }
       }
       if (radiation::plot_lab_rad_energy) {
@@ -515,7 +512,7 @@ void Radiation::begin_timestep(int level)
   }
 
   int iteration = parent->levelSteps(level);
-  iteration = (level > 0) ? iteration % ncycle : done;
+  iteration = (!((level > 0)) ? (done) : (iteration % ncycle));
   if (level < fine_level || iteration == 0) {
       reset_flux_records(level, ncycle);
       done = 1;

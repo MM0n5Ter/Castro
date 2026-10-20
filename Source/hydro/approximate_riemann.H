@@ -159,17 +159,17 @@ namespace HLL {
             sy = 0;
             sz = 0;
 
-        } else if (idir == 1) {
-            iu = QV;
-            sx = 0;
-            sy = 1;
-            sz = 0;
-
-        } else {
+        } else if (!(idir == 1)) {
             iu = QW;
             sx = 0;
             sy = 0;
             sz = 1;
+
+        } else {
+            iu = QV;
+            sx = 0;
+            sy = 1;
+            sz = 0;
 
         }
 
@@ -184,17 +184,17 @@ namespace HLL {
                 boundary_factor = 0.0_rt;
             }
 
-        } else if (idir == 1) {
+        } else if (!(idir == 1)) {
+            if ((k == domlo[2] && lo_no_flux_wall) ||
+                (k == domhi[2]+1 && hi_no_flux_wall)) {
+                boundary_factor = 0.0_rt;
+            }
+        } else {
             if ((j == domlo[1] && lo_no_flux_wall) ||
                 (j == domhi[1]+1 && hi_no_flux_wall)) {
                 boundary_factor = 0.0_rt;
             }
 
-        } else {
-            if ((k == domlo[2] && lo_no_flux_wall) ||
-                (k == domhi[2]+1 && hi_no_flux_wall)) {
-                boundary_factor = 0.0_rt;
-            }
         }
 
 
@@ -247,17 +247,17 @@ namespace HLL {
             po = pl;
             upwind_gamma1 = gamma1_left;
 
-        } else if (ustar < 0.0_rt) {
+        } else if (!(ustar < 0.0_rt)) {
+            ro = 0.5_rt*(rl + rr);
+            uo = 0.5_rt*(ul + ur);
+            po = 0.5_rt*(pl + pr);
+            upwind_gamma1 = 0.5_rt*(gamma1_left + gamma1_right);
+        } else {
             ro = rr;
             uo = ur;
             po = pr;
             upwind_gamma1 = gamma1_right;
 
-        } else {
-            ro = 0.5_rt*(rl + rr);
-            uo = 0.5_rt*(ul + ur);
-            po = 0.5_rt*(pl + pr);
-            upwind_gamma1 = 0.5_rt*(gamma1_left + gamma1_right);
         }
 
         ro = std::max(small_dens, ro);
@@ -331,7 +331,14 @@ namespace HLL {
                 state_flux[n] = state_flux[n] + S_r*(U_contact_state[n] - cell_cons[n]);
             }
 
-        } else if (S_c > 0.0_rt && S_l < 0.0_rt) {
+        } else if (!(S_c > 0.0_rt && S_l < 0.0_rt)) {
+            for (int n = 0; n < NQ; n++) {
+                zone_prim[n] = ql(i,j,k,n);
+            }
+            conserved_state(zone_prim, cell_cons);
+            compute_flux(idir, boundary_factor, coord,
+                         cell_cons, pl, state_flux);
+        } else {
             for (int n = 0; n < NQ; n++) {
                 zone_prim[n] = ql(i,j,k,n);
             }
@@ -344,13 +351,6 @@ namespace HLL {
                 state_flux[n] = state_flux[n] + S_l*(U_contact_state[n] - cell_cons[n]);
             }
 
-        } else {
-            for (int n = 0; n < NQ; n++) {
-                zone_prim[n] = ql(i,j,k,n);
-            }
-            conserved_state(zone_prim, cell_cons);
-            compute_flux(idir, boundary_factor, coord,
-                         cell_cons, pl, state_flux);
         }
 
         for (int n = 0; n < NUM_STATE; n++) {
@@ -403,7 +403,15 @@ namespace HLL {
         momentum_tan_index = UMY;
         momentum_tan2_index = UMZ;
 
-      } else if (idir == 1) {
+      } else if (!(idir == 1)) {
+        normal_vel_index = QW;
+        tan_vel_index = QU;
+        tan2_vel_index = QV;
+
+        momentum_index = UMZ;
+        momentum_tan_index = UMX;
+        momentum_tan2_index = UMY;
+      } else {
         normal_vel_index = QV;
         tan_vel_index = QU;
         tan2_vel_index = QW;
@@ -412,14 +420,6 @@ namespace HLL {
         momentum_tan_index = UMX;
         momentum_tan2_index = UMZ;
 
-      } else {
-        normal_vel_index = QW;
-        tan_vel_index = QU;
-        tan2_vel_index = QV;
-
-        momentum_index = UMZ;
-        momentum_tan_index = UMX;
-        momentum_tan2_index = UMY;
       }
 
       Real left_sqrt_rho = std::sqrt(ql[QRHO]);

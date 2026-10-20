@@ -33,22 +33,7 @@ void Radiation::fillBndryRegister(BndryRegister& bdry, int level, Real time)
   MultiFab& S_new = hydrosim->get_new_data(Radiation_Type);
   MultiFab& S_old = hydrosim->get_old_data(Radiation_Type);
 
-  if (!geom.isAnyPeriodic()) {
-    int n_ghost = 0;
-
-    if (time > new_time - eps) {
-      bdry.copyFrom(S_new, n_ghost, 0, 0, Radiation::nGroups);
-    }
-    else if (time < old_time + eps) {
-      bdry.copyFrom(S_old, n_ghost, 0, 0, Radiation::nGroups);
-    }
-    else {
-      Real a = (new_time - time) / (new_time - old_time);
-      Real b = (time - old_time) / (new_time - old_time);
-      bdry.linComb(a, S_old, 0, b, S_new, 0, 0, Radiation::nGroups, n_ghost);
-    }
-  }
-  else {
+  if (!(!geom.isAnyPeriodic())) {
 
     int need_old_state = (time <= new_time - eps);
     int need_new_state = (time >= old_time + eps);
@@ -85,6 +70,20 @@ void Radiation::fillBndryRegister(BndryRegister& bdry, int level, Real time)
       Real b = (time - old_time) / (new_time - old_time);
       bdry.linComb(a, old_state_buffer, 0, b, new_state_buffer, 0, 0, 1, n_ghost);
     }
+  } else {
+    int n_ghost = 0;
+
+    if (time > new_time - eps) {
+      bdry.copyFrom(S_new, n_ghost, 0, 0, Radiation::nGroups);
+    }
+    else if (time < old_time + eps) {
+      bdry.copyFrom(S_old, n_ghost, 0, 0, Radiation::nGroups);
+    }
+    else {
+      Real a = (new_time - time) / (new_time - old_time);
+      Real b = (time - old_time) / (new_time - old_time);
+      bdry.linComb(a, S_old, 0, b, S_new, 0, 0, Radiation::nGroups, n_ghost);
+    }
   }
 }
 
@@ -96,10 +95,7 @@ void Radiation::fetchBndryData(RadiativeBoundary& bd, MultiFab& Er,
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
-  if (level == 0) {
-    bd.setBndryValues(Er, Rad, 0, 1, rad_boundary);
-  }
-  else {
+  if (!(level == 0)) {
     BoxArray coarse_boxes(grids);
     IntVect crse_ratio = parent->refRatio(level-1);
     coarse_boxes.coarsen(crse_ratio);
@@ -108,6 +104,8 @@ void Radiation::fetchBndryData(RadiativeBoundary& bd, MultiFab& Er,
     fillBndryRegister(crse_br, level-1, time);
 
     bd.setBndryValues(crse_br, 0, Er, Rad, 0, 1, crse_ratio, rad_boundary);
+  } else {
+    bd.setBndryValues(Er, Rad, 0, 1, rad_boundary);
   }
 
   bd.setTime(time);
@@ -123,10 +121,7 @@ void Radiation::fetchMultigridBndry(MultiGroupBoundary& multigroup_boundary, Mul
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
-  if(level == 0) {
-    multigroup_boundary.setBndryValues(Er, 0, 0, Radiation::nGroups, rad_boundary);
-  }
-  else {
+  if (!(level == 0)) {
     BoxArray coarse_boxes(grids);
     IntVect crse_ratio = parent->refRatio(level-1);
     coarse_boxes.coarsen(crse_ratio);
@@ -136,6 +131,8 @@ void Radiation::fetchMultigridBndry(MultiGroupBoundary& multigroup_boundary, Mul
 
     multigroup_boundary.setBndryValues(crse_br, 0, Er, 0,
                         0, Radiation::nGroups, crse_ratio, rad_boundary);
+  } else {
+    multigroup_boundary.setBndryValues(Er, 0, 0, Radiation::nGroups, rad_boundary);
   }
 
   multigroup_boundary.setTime(time);
@@ -149,10 +146,7 @@ void Radiation::fetchMultigridBndryZeroRad(MultiGroupBoundary& multigroup_bounda
   const BoxArray& grids = hydrosim->boxArray();
   const DistributionMapping& dmap = hydrosim->DistributionMap();
 
-  if(level == 0) {
-    multigroup_boundary.setBndryValues(Er, 0, 0, 1, rad_boundary);
-  }
-  else {
+  if (!(level == 0)) {
     BoxArray coarse_boxes(grids);
     IntVect crse_ratio = parent->refRatio(level-1);
     coarse_boxes.coarsen(crse_ratio);
@@ -161,6 +155,8 @@ void Radiation::fetchMultigridBndryZeroRad(MultiGroupBoundary& multigroup_bounda
 
     multigroup_boundary.setBndryValues(crse_br, 0, Er, 0,
                         0, 1, crse_ratio, rad_boundary);
+  } else {
+    multigroup_boundary.setBndryValues(Er, 0, 0, 1, rad_boundary);
   }
 
   multigroup_boundary.setBoundaryFluxConditions(rad_boundary);
@@ -322,7 +318,7 @@ void Radiation::apply_delayed_reflux(int level, MultiFab& rhs, int indx)
 
               break;
             }
-            else {
+{
 
               if (indx == 0) {
                   fine_fine_register.ClearInternalBorders(parent->Geom(flev));
