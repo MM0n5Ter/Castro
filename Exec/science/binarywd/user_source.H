@@ -109,10 +109,10 @@ void user_source (int i, int j, int k,
 
         Real v_init = 2.0_rt * M_PI * problem::a / hydrosim::spin_period;
 
-        if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), true) > 0.0_rt) {
+        if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), StarRole::Primary) > 0.0_rt) {
             radial_damping_acceleration(i, j, k, geomdata, time, problem::vel_P, v_init, a_curr, acceleration);
         }
-        else if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), false) > 0.0_rt) {
+        else if (stellar_mask(i, j, k, geomdata, state(i,j,k,URHO), StarRole::Secondary) > 0.0_rt) {
             radial_damping_acceleration(i, j, k, geomdata, time, problem::vel_S, v_init, a_curr, acceleration);
         }
 

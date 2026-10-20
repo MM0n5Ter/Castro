@@ -65,7 +65,7 @@ static void gather_register_faces (const FluxRegister& reg, int dir, MultiFab& d
 }
 
 void
-HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
+HydroSim::reflux (int crse_level, int fine_level, reflux_origin origin)
 {
     BL_PROFILE("HydroSim::reflux()");
 
@@ -73,11 +73,11 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
     const Real strt = ParallelDescriptor::second();
 
-    const bool update_coarse_fluxes = refresh_sources_after_reflux || !from_post_step;
+    const bool update_coarse_fluxes = refresh_sources_after_reflux || origin != reflux_origin::post_timestep;
     const Real crse_dt = parent->dtLevel(crse_level);
 
 #ifdef GRAVITY
-    const bool sync_potential = do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step;
+    const bool sync_potential = do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && origin == reflux_origin::post_timestep;
 
     int nlevs = fine_level - crse_level + 1;
 
@@ -308,7 +308,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
     }
 #endif
 
-    if (refresh_sources_after_reflux && from_post_step &&
+    if (refresh_sources_after_reflux && origin == reflux_origin::post_timestep &&
         (time_scheme == CornerTrace ||
          time_scheme == SimplifiedIterCorrection)) {
 

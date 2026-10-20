@@ -55,7 +55,9 @@
 
 
 
-    void log_all_source_changes(amrex::Real dt, bool use_new_state);
+    void log_old_source_changes(amrex::Real dt);
+
+    void log_new_source_changes(amrex::Real dt);
 
 
     void measure_and_log_source_change(const amrex::MultiFab& source, amrex::Real dt,

@@ -55,6 +55,10 @@ using std::ostream;
 
 #include <level_defs.H>
 
+enum class nan_scan_region : std::uint8_t { valid_only, with_ghosts };
+
+enum class plotfile_kind : std::uint8_t { regular, reduced };
+
 class HydroSim
     :
     public amrex::AmrLevel
@@ -103,7 +107,7 @@ public:
     void writeSnapshot(const std::string& dir,
                         ostream& os,
                         amrex::VisMF::How how,
-                        const int is_small);
+                        plotfile_kind kind);
 
 
     void writeRunRecord (const std::string& dir, const amrex::Real write_seconds);
@@ -196,7 +200,7 @@ public:
 
     step_result end_step_advance (amrex::Real time, amrex::Real dt);
 
-    static void scan_for_nan(const amrex::MultiFab& state, int include_ghosts=0);
+    static void scan_for_nan(const amrex::MultiFab& state, nan_scan_region region=nan_scan_region::valid_only);
 
 
 #include <HydroSim_forcing.H>
@@ -211,7 +215,7 @@ public:
 #include <HydroSim_mhd.H>
 #endif
 
-    amrex::Real estTimeStep (int use_new_state = 1);
+    amrex::Real estTimeStep (state_epoch epoch = state_epoch::new_time);
 
     amrex::Real initialTimeStep ();
 
@@ -410,7 +414,7 @@ public:
     void FluxRegFineAccum();
 
 
-    void reflux (int crse_level, int fine_level, bool from_post_step);
+    void reflux (int crse_level, int fine_level, reflux_origin origin);
 
 
     static void renorm_species (amrex::MultiFab& S_new, int ng);

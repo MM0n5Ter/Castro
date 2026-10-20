@@ -171,7 +171,8 @@ void Radiation::advance_single_group(int level, int iteration, int ncycle)
 
 
     compute_coupling_factors(eta, coupling_inverse, S_new, temp, fkp, rad_energy_new,
-                delta_t, c, underrelax_scale, it > planck_lag_iter);
+                delta_t, c, underrelax_scale,
+                (it > planck_lag_iter) ? PlanckCoupling::Frozen : PlanckCoupling::Refresh);
 
     underrelax_scale *= underrelax_factor;
 

@@ -63,12 +63,12 @@ HydroSim::assemble_old_gravity (Real time)
             std::cout << "... old-time level Poisson gravity solve at level " << level << std::endl << std::endl;
         }
 
-        int use_new_state = 0;
+        const PotentialTime epoch = PotentialTime::Old;
 
         gravity->solve_potential_level(level,
                                phi_old,
                                amrex::GetVecOfPtrs(gravity->get_potential_gradient_prev(level)),
-                               use_new_state);
+                               epoch);
 
         if (composite_fix_applies()) {
 
@@ -172,12 +172,12 @@ HydroSim::assemble_new_gravity (Real time)
                 std::cout << "... new-time level Poisson gravity solve at level " << level << std::endl << std::endl;
             }
 
-            int use_new_state = 1;
+            const PotentialTime epoch = PotentialTime::New;
 
             gravity->solve_potential_level(level,
                                    phi_new,
                                    amrex::GetVecOfPtrs(gravity->get_potential_gradient_curr(level)),
-                                   use_new_state);
+                                   epoch);
 
             if (gravity->CompositeFixEnabled() == 1 && level < parent->finestLevel() && level <= gravity->get_solve_level_cap()) {
 

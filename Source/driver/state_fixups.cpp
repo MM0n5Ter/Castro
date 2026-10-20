@@ -621,12 +621,12 @@ HydroSim::scan_for_negative_mass_density ()
 }
 
 void
-HydroSim::scan_for_nan(const MultiFab& state_in, int include_ghosts)
+HydroSim::scan_for_nan(const MultiFab& state_in, nan_scan_region region)
 {
   BL_PROFILE("HydroSim::scan_for_nan()");
 
   int ng = 0;
-  if (include_ghosts == 1) {
+  if (region == nan_scan_region::with_ghosts) {
     ng = state_in.nGrow();
   }
 

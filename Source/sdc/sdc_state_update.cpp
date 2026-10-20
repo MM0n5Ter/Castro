@@ -33,30 +33,31 @@ void HydroSim::hs_store_reaction_state(const Box& bx,
 }
 #endif
 
-void HydroSim::hs_deferred_compute_initial_guess(const Box& bx,
+void HydroSim::hs_deferred_predict_initial_guess(const Box& bx,
                                           Array4<const Real> const& Conserved_old,
-                                          Array4<const Real> const& cons_new,
                                           Array4<const Real> const& Advection_old,
                                           Array4<const Real> const& Reaction_old,
                                           Array4<Real> const& State_guess,
-                                          Real const substep_dt, int const sdc_iter)
+                                          Real const substep_dt)
 {
 
-    if (sdc_iter == 0)
+    amrex::ParallelFor(bx, State_guess.nComp(),
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        amrex::ParallelFor(bx, State_guess.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            State_guess(i,j,k,n) = Conserved_old(i,j,k,n) + substep_dt * Advection_old(i,j,k,n) + substep_dt * Reaction_old(i,j,k,n);
-        });
-    }
-    else
+        State_guess(i,j,k,n) = Conserved_old(i,j,k,n) + substep_dt * Advection_old(i,j,k,n) + substep_dt * Reaction_old(i,j,k,n);
+    });
+
+}
+
+void HydroSim::hs_deferred_reuse_initial_guess(const Box& bx,
+                                          Array4<const Real> const& cons_new,
+                                          Array4<Real> const& State_guess)
+{
+
+    amrex::ParallelFor(bx, State_guess.nComp(),
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        amrex::ParallelFor(bx, State_guess.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            State_guess(i,j,k,n) = cons_new(i,j,k,n);
-        });
-    }
+        State_guess(i,j,k,n) = cons_new(i,j,k,n);
+    });
 
 }

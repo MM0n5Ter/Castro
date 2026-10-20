@@ -278,7 +278,7 @@ HydroSim::fourth_accumulate_diffusion(const Box& bx,
                                   const int temperature_index,
                                   Array4<Real const> const& interface_state,
                                   Array4<Real> const& F,
-                                  const int idir, const bool holds_cell_average) {
+                                  const int idir, const TemperatureSample sample) {
 
 
   const auto dx = geom.CellSizeArray();
@@ -308,7 +308,7 @@ HydroSim::fourth_accumulate_diffusion(const Box& bx,
 
     if (idir == 0) {
 
-      if (holds_cell_average) {
+      if (sample == TemperatureSample::CellAverage) {
         dTdx = (-prim_arr(i+1,j,k,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
                 15*prim_arr(i-1,j,k,temperature_index) + prim_arr(i-2,j,k,temperature_index)) / (12.0_rt * dx[0]);
 
@@ -319,7 +319,7 @@ HydroSim::fourth_accumulate_diffusion(const Box& bx,
 
     } else if (idir == 1) {
 
-      if (holds_cell_average) {
+      if (sample == TemperatureSample::CellAverage) {
         dTdx = (-prim_arr(i,j+1,k,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
                 15*prim_arr(i,j-1,k,temperature_index) + prim_arr(i,j-2,k,temperature_index)) / (12.0_rt * dx[1]);
 
@@ -330,7 +330,7 @@ HydroSim::fourth_accumulate_diffusion(const Box& bx,
 
     } else {
 
-      if (holds_cell_average) {
+      if (sample == TemperatureSample::CellAverage) {
         dTdx = (-prim_arr(i,j,k+1,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
                 15*prim_arr(i,j,k-1,temperature_index) + prim_arr(i,j,k-2,temperature_index)) / (12.0_rt * dx[2]);
 

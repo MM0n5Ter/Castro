@@ -266,7 +266,9 @@ HydroSim::compute_godunov_flux(const Box& bx,
                             Array4<Real> const& godunov_state,
                             Array4<Real const> const& qthermo_arr,
                             Array4<Real const> const& shk,
-                            const int idir, const bool keep_full_state) {
+                            const int idir, const GodunovStore store) {
+
+    const bool keep_full_state = store == GodunovStore::FullState;
 
 
 

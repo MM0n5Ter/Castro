@@ -182,9 +182,11 @@ public:
                         int rad_group_idx = -1);
 
 
+  enum class PlanckCoupling { Refresh, Frozen };
+
   void compute_coupling_factors(amrex::MultiFab& eta, amrex::MultiFab& coupling_inverse, amrex::MultiFab& state,
                    amrex::MultiFab& temp, amrex::MultiFab& fkp, amrex::MultiFab& Er,
-                   amrex::Real delta_t, amrex::Real c, amrex::Real underrelax_scale, int freeze_planck,
+                   amrex::Real delta_t, amrex::Real c, amrex::Real underrelax_scale, PlanckCoupling planck_coupling,
                    int rad_group_idx = 0);
 
 

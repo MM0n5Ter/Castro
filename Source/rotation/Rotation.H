@@ -37,11 +37,13 @@ centrifugal_potential(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& omega
 
 }
 
+enum class coriolis_term : std::uint8_t { omit, include };
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
                         const GpuArray<Real, 3>& omega, const int coord,
-                        const bool with_coriolis, GpuArray<Real, 3>& Sr) {
+                        const coriolis_term coriolis, GpuArray<Real, 3>& Sr) {
 
   Sr[0] = 0.0;
   Sr[1] = 0.0;
@@ -49,7 +51,7 @@ fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
 
   bool c1 = (hydrosim::rotation_centrifugal_on == 1) ? true : false;
 
-  bool c2 = (!((hydrosim::rotation_coriolis_on == 1 && with_coriolis)) ? (false) : (true));
+  bool c2 = (!((hydrosim::rotation_coriolis_on == 1 && coriolis == coriolis_term::include)) ? (false) : (true));
 
   auto r_vec = r;
 

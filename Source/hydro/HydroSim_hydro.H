@@ -233,8 +233,10 @@
 #endif
                        amrex::Real hdt, amrex::Real third_dt_dx);
 
+     enum class TraceSide : int { Minus = -1, Plus = 0 };
+
      void apply_tangential_pass(const amrex::Box& bx,
-                              int idir_tan, int idir_normal, int d,
+                              int idir_tan, int idir_normal, TraceSide side,
                               amrex::Array4<amrex::Real const> const& prim_arr,
                               amrex::Array4<amrex::Real> const& q_out_arr,
                               amrex::Array4<amrex::Real const> const& qthermo,
@@ -269,7 +271,7 @@
                       amrex::Real third_dt_dx_tan1, amrex::Real third_dt_dx_tan2);
 
      static void apply_tangential_correction(const amrex::Box& bx,
-                             int idir_normal, int idir_tan1, int idir_tan2, int d,
+                             int idir_normal, int idir_tan1, int idir_tan2, TraceSide side,
                              amrex::Array4<amrex::Real const> const& prim_arr,
                              amrex::Array4<amrex::Real> const& q_out_arr,
                              amrex::Array4<amrex::Real const> const& qthermo,
@@ -345,6 +347,8 @@
                       const amrex::Real dt);
 
 
+    enum class GodunovStore { Faces, FullState };
+
     void compute_godunov_flux(const amrex::Box& bx,
                              amrex::Array4<amrex::Real> const& qm,
                              amrex::Array4<amrex::Real> const& qp,
@@ -355,7 +359,7 @@
                              amrex::Array4<amrex::Real> const& godunov_state,
                              amrex::Array4<amrex::Real const> const& qthermo,
                              amrex::Array4<amrex::Real const> const& shk,
-                             const int idir, const bool keep_full_state);
+                             const int idir, const GodunovStore store);
 
     void
     flux_from_state(const amrex::Box& bx,
@@ -458,13 +462,15 @@
                  amrex::Array4<amrex::Real> const& viscosity_field,
                  const int idir);
 
+    enum class TemperatureSample { CellAverage, CellCenter };
+
     void
     fourth_accumulate_diffusion(const amrex::Box& bx,
                               amrex::Array4<amrex::Real const> const& q,
                               const int temperature_index,
                               amrex::Array4<amrex::Real const> const& interface_state,
                               amrex::Array4<amrex::Real> const& F,
-                              const int idir, const bool holds_cell_average);
+                              const int idir, const TemperatureSample sample);
 
     static
     void build_center_state(const Box& bx,

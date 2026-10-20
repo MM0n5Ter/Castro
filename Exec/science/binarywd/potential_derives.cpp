@@ -23,8 +23,8 @@ void ca_derprimarymask(const Box& bx, FArrayBox& derfab, int  , int  ,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
-        const bool is_primary = true;
-        mask(i,j,k) = stellar_mask(i, j, k, geomdata, rho(i,j,k), is_primary);
+        const StarRole role = StarRole::Primary;
+        mask(i,j,k) = stellar_mask(i, j, k, geomdata, rho(i,j,k), role);
     });
 }
 
@@ -40,8 +40,8 @@ void ca_dersecondarymask(const Box& bx, FArrayBox& derfab, int  , int  ,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
     {
-        bool is_primary = false;
-        mask(i,j,k) = stellar_mask(i, j, k, geomdata, rho(i,j,k), is_primary);
+        const StarRole role = StarRole::Secondary;
+        mask(i,j,k) = stellar_mask(i, j, k, geomdata, rho(i,j,k), role);
     });
 }
 

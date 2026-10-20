@@ -254,7 +254,7 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                                 averaged_flux_arr, averaged_state_arr,
                                 qthermo_arr,
                                 shock_flag_arr,
-                                idir, true);
+                                idir, GodunovStore::FullState);
 
             if (do_hydro == 0) {
                 amrex::ParallelFor(ibx[idir], NUM_STATE,
@@ -267,11 +267,10 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
 #ifdef DIFFUSION
             if (conduction_enabled == 1) {
-              bool holds_cell_average = true;
               fourth_accumulate_diffusion(ibx[idir],
                                         prim_arr, QTEMP,
                                         averaged_state_arr, averaged_flux_arr,
-                                        idir, holds_cell_average);
+                                        idir, TemperatureSample::CellAverage);
             }
 #endif
 
@@ -319,11 +318,10 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
 #ifdef DIFFUSION
             if (conduction_enabled == 1) {
-              bool holds_cell_average = false;
               fourth_accumulate_diffusion(nbx,
                                         Temperature_cc.array(mfi), 0,
                                         face_center_state_arr, flux[idir].array(),
-                                        idir, holds_cell_average);
+                                        idir, TemperatureSample::CellCenter);
             }
 #endif
 
@@ -441,7 +439,7 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                  face_minus_arr, face_plus_arr,
                  dir_flux_arr, godunov_state_arr,
                  qthermo_arr, shock_flag_arr,
-                 idir, false);
+                 idir, GodunovStore::Faces);
 
               amrex::ParallelFor(nbx,
               [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

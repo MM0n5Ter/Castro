@@ -387,7 +387,7 @@ HydroSim::post_timestep (int cycle_index)
 
     if (do_reflux && level < parent->finestLevel()) {
         if (parent->subcyclingMode() != "None") {
-            reflux(level, level+1, true);
+            reflux(level, level+1, reflux_origin::post_timestep);
         }
     }
 

@@ -181,8 +181,7 @@ HydroSim::run_old_sources(
     }
 
     if (modify_state_flag && log_source_changes) {
-      bool use_new_state = false;
-      log_all_source_changes(dt, use_new_state);
+      log_old_source_changes(dt);
     }
 
     if (verbose > 0)
@@ -248,8 +247,7 @@ HydroSim::run_new_sources(
     }
 
     if (log_source_changes) {
-      bool use_new_state = true;
-      log_all_source_changes(dt, use_new_state);
+      log_new_source_changes(dt);
     }
 
     if (verbose > 0)
@@ -359,11 +357,21 @@ HydroSim::source_enabled(int src)
 }
 
 void
-HydroSim::log_all_source_changes(Real dt, bool use_new_state)
+HydroSim::log_old_source_changes(Real dt)
 {
-    const MultiFab& source = use_new_state ? get_new_data(Forcing_Type) : get_old_data(Forcing_Type);
+    const MultiFab& source = get_old_data(Forcing_Type);
 
-    std::string source_name = use_new_state? "new-time sources" : "old-time sources";
+    std::string source_name = "old-time sources";
+
+    measure_and_log_source_change(source, dt, source_name);
+}
+
+void
+HydroSim::log_new_source_changes(Real dt)
+{
+    const MultiFab& source = get_new_data(Forcing_Type);
+
+    std::string source_name = "new-time sources";
 
     measure_and_log_source_change(source, dt, source_name);
 }

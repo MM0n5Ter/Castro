@@ -41,17 +41,17 @@ static void fill_coarse_boundary_phi (Gravity& grav, int crse_level, int fine_le
 #endif
 }
 
-static MultiFab& potential_field_at (AmrLevel* lev, int use_new_state)
+static MultiFab& potential_field_at (AmrLevel* lev, PotentialTime epoch)
 {
-    if (use_new_state == 1) {
+    if (epoch == PotentialTime::New) {
         return lev->get_new_data(Potential_Type);
     }
     return lev->get_old_data(Potential_Type);
 }
 
-static Real potential_time_at (AmrLevel* lev, int use_new_state)
+static Real potential_time_at (AmrLevel* lev, PotentialTime epoch)
 {
-    if (use_new_state == 1) {
+    if (epoch == PotentialTime::New) {
         return lev->get_state_data(Potential_Type).curTime();
     }
     return lev->get_state_data(Potential_Type).prevTime();
@@ -61,7 +61,7 @@ void
 Gravity::solve_potential_level (int               level,
                         MultiFab&         phi,
                         const Vector<MultiFab*>& phi_gradient,
-                        int               use_new_state)
+                        PotentialTime epoch)
 {
     BL_PROFILE("Gravity::solve_potential_level()");
 
@@ -71,18 +71,18 @@ Gravity::solve_potential_level (int               level,
 
     const Real strt = ParallelDescriptor::second();
 
-    if (use_new_state == 0) {
+    if (epoch == PotentialTime::Old) {
         sanity_check(level);
     }
 
-    Real time = potential_time_at(LevelTable[level], use_new_state);
+    Real time = potential_time_at(LevelTable[level], epoch);
 
 
     if (level <= gravity::solve_level_cap) {
 
         Vector<MultiFab*> phi_ptrs(1, &phi);
 
-        const auto& poisson_rhs = fetch_poisson_rhs(level, 1, use_new_state);
+        const auto& poisson_rhs = fetch_poisson_rhs(level, 1, epoch);
 
         Vector< Vector<MultiFab*> > phi_gradient_ptrs(1);
         phi_gradient_ptrs[0].resize(AMREX_SPACEDIM);
@@ -144,8 +144,8 @@ Gravity::multilevel_potential_solve (int level, int highest_level_in)
        }
     }
 
-    int use_new_state = 1;
-    run_multilevel_solve(level, highest_level_in, amrex::GetVecOfVecOfPtrs(phi_gradient_new), use_new_state);
+    const PotentialTime epoch = PotentialTime::New;
+    run_multilevel_solve(level, highest_level_in, amrex::GetVecOfVecOfPtrs(phi_gradient_new), epoch);
 
     if (gravity::verbose)
     {
@@ -166,7 +166,7 @@ Gravity::multilevel_potential_solve (int level, int highest_level_in)
 void
 Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
                                   const Vector<Vector<MultiFab*> >& phi_gradient,
-                                  int use_new_state)
+                                  PotentialTime epoch)
 {
     BL_PROFILE("Gravity::run_multilevel_solve()");
 
@@ -180,10 +180,10 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
     for (int ilev = 0; ilev < nlevels; ilev++)
     {
         int amr_lev = ilev + crse_level;
-        phi_ptrs[ilev] = &potential_field_at(LevelTable[amr_lev], use_new_state);
+        phi_ptrs[ilev] = &potential_field_at(LevelTable[amr_lev], epoch);
     }
 
-    const auto& poisson_rhs = fetch_poisson_rhs(crse_level, nlevels, use_new_state);
+    const auto& poisson_rhs = fetch_poisson_rhs(crse_level, nlevels, epoch);
 
     Vector<Vector<MultiFab*> > phi_gradient_ptrs(nlevels);
     for (int ilev = 0; ilev < nlevels; ilev++)
@@ -192,7 +192,7 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
         phi_gradient_ptrs[ilev] = phi_gradient[amr_lev];
     }
 
-    Real time = potential_time_at(LevelTable[crse_level], use_new_state);
+    Real time = potential_time_at(LevelTable[crse_level], epoch);
 
     int fine_level = amrex::min(highest_level_in, gravity::solve_level_cap);
 
@@ -206,13 +206,13 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--)
         {
             const IntVect& ratio = parent->refRatio(amr_lev-1);
-            amrex::average_down(potential_field_at(LevelTable[amr_lev  ], use_new_state),
-                                potential_field_at(LevelTable[amr_lev-1], use_new_state),
+            amrex::average_down(potential_field_at(LevelTable[amr_lev  ], epoch),
+                                potential_field_at(LevelTable[amr_lev-1], epoch),
                                 0, 1, ratio);
         }
 
         for (int amr_lev = fine_level; amr_lev > crse_level; amr_lev--) {
-            average_fine_edges_to_coarse(amr_lev-1,use_new_state);
+            average_fine_edges_to_coarse(amr_lev-1,epoch);
         }
 
     }
@@ -221,7 +221,7 @@ Gravity::run_multilevel_solve (int crse_level, int highest_level_in,
     for (int amr_lev = gravity::solve_level_cap+1; amr_lev <= highest_level_in; amr_lev++) {
 
 
-        MultiFab& phi = potential_field_at(LevelTable[amr_lev], use_new_state);
+        MultiFab& phi = potential_field_at(LevelTable[amr_lev], epoch);
 
         LevelTable[amr_lev]->FillCoarsePatch(phi,0,time,Potential_Type,0,1,1);
 
@@ -402,7 +402,7 @@ Gravity::solve_correction_phi(int crse_level, int fine_level,
 }
 
 Vector<std::unique_ptr<MultiFab> >
-Gravity::fetch_poisson_rhs (int crse_level, int nlevs, int use_new_state)
+Gravity::fetch_poisson_rhs (int crse_level, int nlevs, PotentialTime epoch)
 {
     Vector<std::unique_ptr<MultiFab> > poisson_rhs(nlevs);
 
@@ -410,7 +410,7 @@ Gravity::fetch_poisson_rhs (int crse_level, int nlevs, int use_new_state)
     {
         int amr_lev = ilev + crse_level;
         poisson_rhs[ilev] = std::make_unique<MultiFab>(grids[amr_lev],dmap[amr_lev],1,0);
-        MultiFab& state = (use_new_state == 1) ?
+        MultiFab& state = (epoch == PotentialTime::New) ?
             LevelTable[amr_lev]->get_new_data(State_Type) :
             LevelTable[amr_lev]->get_old_data(State_Type);
         MultiFab::Copy(*poisson_rhs[ilev], state, URHO, 0,1,0);
@@ -629,7 +629,7 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
 
     }
 
-    int use_new_state = 1;
+    const PotentialTime epoch = PotentialTime::New;
 
     for (int lev = fine_level-1; lev >= crse_level; --lev)
     {
@@ -642,7 +642,7 @@ Gravity::synchronize_gravity_levels (int crse_level, int fine_level, const Vecto
                              0, 1, ratio);
 
 
-        average_fine_edges_to_coarse(lev, use_new_state);
+        average_fine_edges_to_coarse(lev, epoch);
 
 
         amrex::average_down(LevelTable[lev+1]->get_new_data(Accel_Type),
@@ -661,9 +661,9 @@ Gravity::update_max_density()
 
     int crse_level = 0;
     int nlevs = parent->finestLevel() + 1;
-    int use_new_state = 1;
+    const PotentialTime epoch = PotentialTime::New;
 
-    const auto& poisson_rhs = fetch_poisson_rhs(crse_level, nlevs, use_new_state);
+    const auto& poisson_rhs = fetch_poisson_rhs(crse_level, nlevs, epoch);
 
     const Geometry& level0_geom = parent->Geom(0);
 
@@ -998,7 +998,7 @@ Gravity::build_composite_excess_grad(int level,
 }
 
 void
-Gravity::average_fine_edges_to_coarse(int level, int use_new_state)
+Gravity::average_fine_edges_to_coarse(int level, PotentialTime epoch)
 {
     BL_PROFILE("Gravity::average_fine_edges_to_coarse()");
 
@@ -1022,7 +1022,7 @@ Gravity::average_fine_edges_to_coarse(int level, int use_new_state)
         coarse_grad_fine[n] = std::make_unique<MultiFab>(eba,dmap[level+1],1,0);
     }
 
-    auto& phi_gradient = (use_new_state) ? phi_gradient_new : phi_gradient_old;
+    auto& phi_gradient = (epoch == PotentialTime::New) ? phi_gradient_new : phi_gradient_old;
 
     amrex::average_down_faces(amrex::GetVecOfConstPtrs(phi_gradient[level+1]),
                                amrex::GetVecOfPtrs(coarse_grad_fine),

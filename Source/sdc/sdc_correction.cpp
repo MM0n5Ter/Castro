@@ -319,9 +319,13 @@ HydroSim::do_sdc_correct(int m_start, int m_end, Real dt)
             Array4<const Real> const& react_old_arr = (Reactions_old[m_start])->array(mfi);
             Array4<Real> const& new_state_view = S_new.array(mfi);
 
-            hs_deferred_compute_initial_guess(bx, node_state_new_start_arr, node_state_new_end_arr,
-                                         Advect_old_arr, react_old_arr, new_state_view,
-                                         substep_dt, correction_iter);
+            if (correction_iter == 0) {
+                hs_deferred_predict_initial_guess(bx, node_state_new_start_arr,
+                                             Advect_old_arr, react_old_arr, new_state_view,
+                                             substep_dt);
+            } else {
+                hs_deferred_reuse_initial_guess(bx, node_state_new_end_arr, new_state_view);
+            }
 
         }
 

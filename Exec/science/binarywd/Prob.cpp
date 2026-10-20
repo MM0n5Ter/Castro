@@ -196,11 +196,11 @@ HydroSim::update_relaxation(Real time, Real dt) {
                 Real primary_factor = 0.0_rt;
                 Real secondary_factor = 0.0_rt;
 
-                if (stellar_mask(i, j, k, geomdata, mass_density_arr(i,j,k), true) > 0.0_rt) {
+                if (stellar_mask(i, j, k, geomdata, mass_density_arr(i,j,k), StarRole::Primary) > 0.0_rt) {
 
                     primary_factor = 1.0_rt;
 
-                } else if (stellar_mask(i, j, k, geomdata, mass_density_arr(i,j,k), false) > 0.0_rt) {
+                } else if (stellar_mask(i, j, k, geomdata, mass_density_arr(i,j,k), StarRole::Secondary) > 0.0_rt) {
 
                     secondary_factor = 1.0_rt;
 

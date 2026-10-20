@@ -584,12 +584,12 @@ HydroSim::wd_update (Real time, Real dt)
                 Real primary_factor = 0.0_rt;
                 Real secondary_factor = 0.0_rt;
 
-                if (stellar_mask(i, j, k, geomdata, rho(i,j,k), true) * zoneWeight > 0.0_rt) {
+                if (stellar_mask(i, j, k, geomdata, rho(i,j,k), StarRole::Primary) * zoneWeight > 0.0_rt) {
 
                     primary_factor = 1.0_rt;
 
                 }
-                else if (stellar_mask(i, j, k, geomdata, rho(i,j,k), false) * zoneWeight > 0.0_rt) {
+                else if (stellar_mask(i, j, k, geomdata, rho(i,j,k), StarRole::Secondary) * zoneWeight > 0.0_rt) {
 
                     secondary_factor = 1.0_rt;
 
@@ -797,12 +797,12 @@ HydroSim::StellarVolumes HydroSim::volInBoundary (Real time, Real rho_cutoff, bo
 
               if (rho(i,j,k) * zoneWeight > rho_cutoff) {
 
-                  if (stellar_mask(i, j, k, geomdata, rho(i,j,k), true) * zoneWeight > 0.0_rt) {
+                  if (stellar_mask(i, j, k, geomdata, rho(i,j,k), StarRole::Primary) * zoneWeight > 0.0_rt) {
 
                       primary_factor = 1.0_rt;
 
                   }
-                  else if (stellar_mask(i, j, k, geomdata, rho(i,j,k), false) * zoneWeight > 0.0_rt) {
+                  else if (stellar_mask(i, j, k, geomdata, rho(i,j,k), StarRole::Secondary) * zoneWeight > 0.0_rt) {
 
                       secondary_factor = 1.0_rt;
 

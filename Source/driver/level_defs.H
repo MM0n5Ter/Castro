@@ -11,6 +11,10 @@ enum stepper_kind : std::uint8_t {
     SimplifiedIterCorrection
 };
 
+enum class state_epoch : std::uint8_t { old_time, new_time };
+
+enum class reflux_origin : std::uint8_t { post_timestep, subcycle_advance };
+
 struct step_result {
     bool success{true};
     amrex::Real proposed_dt{};

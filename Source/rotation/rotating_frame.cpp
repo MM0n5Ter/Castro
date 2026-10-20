@@ -183,8 +183,8 @@ HydroSim::rsrc(const Box& bx,
     v[1] = uold(i,j,k,UMY) * rhoInv;
     v[2] = uold(i,j,k,UMZ) * rhoInv;
 
-    bool with_coriolis = true;
-    fictitious_acceleration(loc, v, omega, coord, with_coriolis, Sr);
+    coriolis_term coriolis = coriolis_term::include;
+    fictitious_acceleration(loc, v, omega, coord, coriolis, Sr);
 
     for (auto& e : Sr) {
         e *= rho;
@@ -330,8 +330,8 @@ HydroSim::apply_rotation_correction(const Box& bx,
     vold[1] = uold(i,j,k,UMY) * rho_old_inv;
     vold[2] = uold(i,j,k,UMZ) * rho_old_inv;
 
-    bool with_coriolis = true;
-    fictitious_acceleration(loc, vold, omega, coord, with_coriolis, mom_source_old);
+    coriolis_term coriolis = coriolis_term::include;
+    fictitious_acceleration(loc, vold, omega, coord, coriolis, mom_source_old);
 
     for (auto& e : mom_source_old) {
         e *= rho_at_old;
@@ -347,7 +347,7 @@ HydroSim::apply_rotation_correction(const Box& bx,
     velocity_new[1] = unew(i,j,k,UMY) * rho_new_inv;
     velocity_new[2] = unew(i,j,k,UMZ) * rho_new_inv;
 
-    fictitious_acceleration(loc, velocity_new, omega, coord, with_coriolis, mom_source_new);
+    fictitious_acceleration(loc, velocity_new, omega, coord, coriolis, mom_source_new);
 
     for (auto& e : mom_source_new) {
         e *= rho_at_new;
@@ -366,8 +366,8 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
 
       GpuArray<Real, 3> acc;
-      with_coriolis = false;
-      fictitious_acceleration(loc, velocity_new, omega, coord, with_coriolis, acc);
+      coriolis = coriolis_term::omit;
+      fictitious_acceleration(loc, velocity_new, omega, coord, coriolis, acc);
 
       Real predicted_momentum[3];
       for (int n = 0; n < 3; n++) {
@@ -441,8 +441,8 @@ HydroSim::apply_rotation_correction(const Box& bx,
       velocity_new[2] = snew[UMZ] * rho_new_inv;
 
       GpuArray<Real, 3> acc;
-      with_coriolis = true;
-      fictitious_acceleration(loc, velocity_new, omega, coord, with_coriolis, acc);
+      coriolis = coriolis_term::include;
+      fictitious_acceleration(loc, velocity_new, omega, coord, coriolis, acc);
 
       mom_source_new[0] = rho_at_new * acc[0];
       mom_source_new[1] = rho_at_new * acc[1];
@@ -492,8 +492,8 @@ HydroSim::apply_rotation_correction(const Box& bx,
               GpuArray<Real, 3> temp_velocity{};
               GpuArray<Real, 3> temp_spin_source;
 
-              with_coriolis = false;
-              fictitious_acceleration(loc, temp_velocity, omega, coord, with_coriolis, temp_spin_source);
+              coriolis = coriolis_term::omit;
+              fictitious_acceleration(loc, temp_velocity, omega, coord, coriolis, temp_spin_source);
 
               edge_spin_source[dir][edge] = temp_spin_source[dir];
 

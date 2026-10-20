@@ -95,13 +95,17 @@ void hs_deferred_compute_correction_o4_radau(const amrex::Box& bx,
 #endif
 
 static
-void hs_deferred_compute_initial_guess(const amrex::Box& bx,
+void hs_deferred_predict_initial_guess(const amrex::Box& bx,
                                   amrex::Array4<const amrex::Real> const& Conserved_old,
-                                  amrex::Array4<const amrex::Real> const& cons_new,
                                   amrex::Array4<const amrex::Real> const& Advection_old,
                                   amrex::Array4<const amrex::Real> const& Reaction_old,
                                   amrex::Array4<amrex::Real> const& State_guess,
-                                  amrex::Real const substep_dt, int const sdc_iter);
+                                  amrex::Real const substep_dt);
+
+static
+void hs_deferred_reuse_initial_guess(const amrex::Box& bx,
+                                  amrex::Array4<const amrex::Real> const& cons_new,
+                                  amrex::Array4<amrex::Real> const& State_guess);
 
 #ifdef REACTIONS
 static

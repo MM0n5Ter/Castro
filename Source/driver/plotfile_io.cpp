@@ -106,7 +106,7 @@ HydroSim::writePlotFile(const std::string& dir,
                       ostream& os,
                       VisMF::How how)
 {
-  writeSnapshot(dir, os, how, 0);
+  writeSnapshot(dir, os, how, plotfile_kind::regular);
 }
 
 void
@@ -114,27 +114,27 @@ HydroSim::writeSmallPlotFile (const std::string& dir,
                             ostream&       os,
                             VisMF::How     how)
 {
-  writeSnapshot(dir, os, how, 1);
+  writeSnapshot(dir, os, how, plotfile_kind::reduced);
 }
 
 void
 HydroSim::writeSnapshot(const std::string& dir,
                        ostream& os,
                        VisMF::How how,
-                       const int is_small)
+                       plotfile_kind kind)
 {
 #ifdef AMREX_PARTICLES
   ParticleOutputFile(dir);
 #endif
 
     auto wants_state_var = [&] (const std::string& name) {
-        return (parent->isStatePlotVar(name) && is_small == 0) ||
-               (parent->isStateSmallPlotVar(name) && is_small == 1);
+        return (parent->isStatePlotVar(name) && kind == plotfile_kind::regular) ||
+               (parent->isStateSmallPlotVar(name) && kind == plotfile_kind::reduced);
     };
 
     auto wants_derived_var = [&] (const std::string& name) {
-        return (parent->isDerivePlotVar(name) && is_small == 0) ||
-               (parent->isDeriveSmallPlotVar(name) && is_small == 1);
+        return (parent->isDerivePlotVar(name) && kind == plotfile_kind::regular) ||
+               (parent->isDeriveSmallPlotVar(name) && kind == plotfile_kind::reduced);
     };
 
     std::vector<std::pair<int,int> > plot_var_map;

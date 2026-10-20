@@ -78,10 +78,10 @@
 using std::string;
 using namespace amrex;
 
-static std::pair<Real, std::string> quiet_dt_estimate (HydroSim& lev, int use_new_state)
+static std::pair<Real, std::string> quiet_dt_estimate (HydroSim& lev, state_epoch epoch)
 {
     StdoutCapture redirection;
-    Real dt_estimate = lev.estTimeStep(use_new_state);
+    Real dt_estimate = lev.estTimeStep(epoch);
     std::string captured = redirection.getBufferedText();
     return {dt_estimate, captured};
 }
@@ -373,9 +373,7 @@ HydroSim::begin_step_advance (Real time, Real dt)
     }
 
     if (hydrosim::dt_validity_before_advance && !is_opening_step_on_level) {
-        int use_new_state = 0;
-
-        const auto [dt_old_estimate, dtEstimate_output] = quiet_dt_estimate(*this, use_new_state);
+        const auto [dt_old_estimate, dtEstimate_output] = quiet_dt_estimate(*this, state_epoch::old_time);
 
         if (hydrosim::change_max * dt_old_estimate < dt) {
             status.success = false;
@@ -443,9 +441,7 @@ HydroSim::end_step_advance (Real time, Real dt)
             }
 
             if (do_step_validation) {
-                int use_new_state = 1;
-
-                const auto [candidate_dt, dtEstimate_output] = quiet_dt_estimate(*this, use_new_state);
+                const auto [candidate_dt, dtEstimate_output] = quiet_dt_estimate(*this, state_epoch::new_time);
 
                 if (hydrosim::change_max * candidate_dt < dt) {
                     status.success = false;

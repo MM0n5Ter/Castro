@@ -390,7 +390,7 @@ HydroSim::run_advance_ctu (Real time, Real dt)
 
 
     if (do_reflux && level < top_level_to_advance) {
-        reflux(level, top_level_to_advance, false);
+        reflux(level, top_level_to_advance, reflux_origin::subcycle_advance);
     }
 
     static constexpr std::array<step_result (HydroSim::*)(Real, Real), 4> finishing_steps = {

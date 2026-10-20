@@ -216,16 +216,18 @@ void find_lobe_radii (Real roche_q, Real a, Real& r_1, Real& r_2)
     r_2 = a * c1 * std::pow(q, 2.0_rt / 3.0_rt) / (c2 * std::pow(q, 2.0_rt / 3.0_rt) + std::log(1.0_rt + std::pow(q, 1.0_rt / 3.0_rt)));
 }
 
+enum class StarRole { Primary, Secondary };
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real stellar_mask (int i, int j, int k,
                    const amrex::GeometryData& geomdata,
-                   Real rho, bool is_primary = true)
+                   Real rho, StarRole role = StarRole::Primary)
 {
 
     Real mask = -1.0_rt;
 
 
-    if (is_primary) {
+    if (role == StarRole::Primary) {
         if (problem::mass_P <= 0.0_rt) return mask;
     }
     else {
@@ -270,7 +272,7 @@ Real stellar_mask (int i, int j, int k,
     Real phi_ptrs = -C::Gconst * problem::mass_P / r_P + phi_rot;
     Real phi_s = -C::Gconst * problem::mass_S / r_S + phi_rot;
 
-    if (is_primary) {
+    if (role == StarRole::Primary) {
         if (phi_ptrs < 0.0_rt && phi_ptrs < phi_s) {
             mask = 1.0_rt;
         }

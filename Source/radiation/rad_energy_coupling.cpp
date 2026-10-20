@@ -21,7 +21,7 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
                             MultiFab& state, MultiFab& temp,
                             MultiFab& fkp, MultiFab& Er,
                             Real delta_t, Real c,
-                            Real underrelax_scale, int freeze_planck, int rad_group_idx)
+                            Real underrelax_scale, PlanckCoupling planck_coupling, int rad_group_idx)
 {
     BL_PROFILE("Radiation::compute_coupling_factors");
 
@@ -35,7 +35,7 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
 
             const Box& bx = mfi.tilebox();
 
-            if (freeze_planck) {
+            if (planck_coupling == PlanckCoupling::Frozen) {
 
                 Array4<Real> const coupling_arr = eta.array(mfi);
                 Array4<Real> const scaled_planck_arr = fkp.array(mfi);
@@ -97,7 +97,7 @@ void Radiation::compute_coupling_factors(MultiFab& eta, MultiFab& coupling_inver
             {
                 Real d;
 
-                if (freeze_planck != 0)
+                if (planck_coupling == PlanckCoupling::Frozen)
                 {
                     d = fac1 * scaled_planck_arr(i,j,k) * std::pow(temp_field_arr(i,j,k), 3);
                 }

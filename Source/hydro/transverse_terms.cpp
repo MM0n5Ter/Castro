@@ -10,7 +10,7 @@ using namespace amrex;
 
 void
 HydroSim::apply_tangential_pass(const Box& bx,
-                            int idir_tan, int idir_normal, int d,
+                            int idir_tan, int idir_normal, TraceSide side,
                             Array4<Real const> const& prim_arr,
                             Array4<Real> const& q_out_arr,
                             Array4<Real const> const& qthermo_arr,
@@ -25,6 +25,7 @@ HydroSim::apply_tangential_pass(const Box& bx,
 #endif
                             Real hdt, Real third_dt_dx)
 {
+    const int d = static_cast<int>(side);
 
 
 
@@ -358,7 +359,7 @@ HydroSim::apply_tangential_pass(const Box& bx,
 
 void
 HydroSim::apply_tangential_correction(const Box& bx,
-                           int idir_normal, int idir_tan1, int idir_tan2, int d,
+                           int idir_normal, int idir_tan1, int idir_tan2, TraceSide side,
                            Array4<Real const> const& prim_arr,
                            Array4<Real> const& q_out_arr,
                            Array4<Real const> const& qthermo_arr,
@@ -374,6 +375,7 @@ HydroSim::apply_tangential_correction(const Box& bx,
                            Array4<Real const> const& q_tan2,
                            Real third_dt_dx_tan1, Real third_dt_dx_tan2)
 {
+    const int d = static_cast<int>(side);
 
     bool density_reset_enabled = transverse_revert_density;
     bool reset_eint_flag = transverse_rebuild_rhoe;
@@ -713,7 +715,7 @@ HydroSim::tangential_pass(const Box& bx,
                      Real hdt, Real third_dt_dx)
 {
 
-    apply_tangential_pass(bx, idir_tan, idir_normal, -1,
+    apply_tangential_pass(bx, idir_tan, idir_normal, TraceSide::Minus,
                         qm, qmo,
                         qthermo_arr,
                         flux_tan,
@@ -727,7 +729,7 @@ HydroSim::tangential_pass(const Box& bx,
 #endif
                         hdt, third_dt_dx);
 
-    apply_tangential_pass(bx, idir_tan, idir_normal, 0,
+    apply_tangential_pass(bx, idir_tan, idir_normal, TraceSide::Plus,
                         qp, qpo,
                         qthermo_arr,
                         flux_tan,
@@ -764,7 +766,7 @@ HydroSim::tangential_correction(const Box& bx,
                     Real third_dt_dx_tan1, Real third_dt_dx_tan2)
 {
 
-    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, -1,
+    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, TraceSide::Minus,
                        qm, qmo,
                        qthermo_arr,
                        flux_tan1,
@@ -779,7 +781,7 @@ HydroSim::tangential_correction(const Box& bx,
                        q_tan2,
                        third_dt_dx_tan1, third_dt_dx_tan2);
 
-    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, 0,
+    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, TraceSide::Plus,
                        qp, qpo,
                        qthermo_arr,
                        flux_tan1,

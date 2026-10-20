@@ -93,7 +93,7 @@ static std::string zone_index_label ()
 }
 
 Real
-HydroSim::estTimeStep (int use_new_state)
+HydroSim::estTimeStep (state_epoch epoch)
 {
     BL_PROFILE("HydroSim::estTimeStep()");
 
@@ -103,14 +103,14 @@ HydroSim::estTimeStep (int use_new_state)
 
     Real estdt = max_dt;
 
-    const MultiFab& activeState = use_new_state ? get_new_data(State_Type) : get_old_data(State_Type);
+    const MultiFab& activeState = epoch == state_epoch::new_time ? get_new_data(State_Type) : get_old_data(State_Type);
 #ifdef MHD
-    const MultiFab& Bx = use_new_state ? get_new_data(Bfield_Type_x) : get_old_data(Bfield_Type_x);
-    const MultiFab& By = use_new_state ? get_new_data(Bfield_Type_y) : get_old_data(Bfield_Type_y);
-    const MultiFab& Bz = use_new_state ? get_new_data(Bfield_Type_z) : get_old_data(Bfield_Type_z);
+    const MultiFab& Bx = epoch == state_epoch::new_time ? get_new_data(Bfield_Type_x) : get_old_data(Bfield_Type_x);
+    const MultiFab& By = epoch == state_epoch::new_time ? get_new_data(Bfield_Type_y) : get_old_data(Bfield_Type_y);
+    const MultiFab& Bz = epoch == state_epoch::new_time ? get_new_data(Bfield_Type_z) : get_old_data(Bfield_Type_z);
 #endif
 #ifdef RADIATION
-    const MultiFab& radiationField = use_new_state ? get_new_data(Radiation_Type) : get_old_data(Radiation_Type);
+    const MultiFab& radiationField = epoch == state_epoch::new_time ? get_new_data(Radiation_Type) : get_old_data(Radiation_Type);
 #endif
     const auto geomdata = geom.data();
 

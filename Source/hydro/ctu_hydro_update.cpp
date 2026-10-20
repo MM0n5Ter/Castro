@@ -593,7 +593,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                           x_edge_state_arr,
                           qthermo_arr,
                           shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
 #endif
 
@@ -639,7 +639,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
       const Box& flux_box_y = amrex::grow(ybx, IntVect(AMREX_D_DECL(1,0,0)));
 
@@ -651,7 +651,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
 
 
       tangential_pass(xbx, 1, 0,
@@ -686,7 +686,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           x_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
 
 
@@ -723,7 +723,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
 #endif
 
 
@@ -775,7 +775,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
 
       const Box& trans_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
@@ -798,7 +798,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
       const Box& trans_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
 
       transverse_edge_states(edge_minus_xy, edge_plus_xy, trans_box_xy, 1, 0,
@@ -819,7 +819,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          2, false);
+                          2, GodunovStore::Faces);
       const Box& trans_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
       transverse_edge_states(edge_minus_xz, edge_plus_xz, trans_box_xz, 2, 0,
@@ -842,7 +842,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
 
       const Box& flux_box_zy = amrex::grow(zbx, IntVect(AMREX_D_DECL(1,0,0)));
 
@@ -854,7 +854,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
-                          2, false);
+                          2, GodunovStore::Faces);
 
 
       tangential_correction(xbx, 0, 1, 2,
@@ -893,7 +893,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           x_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
 
       const Box& flux_box_zx = amrex::grow(zbx, IntVect(AMREX_D_DECL(0,1,0)));
@@ -906,7 +906,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          2, false);
+                          2, GodunovStore::Faces);
 
       const Box& flux_box_xz = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,1,0)));
 
@@ -918,7 +918,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
 
       tangential_correction(ybx, 1, 0, 2,
@@ -957,7 +957,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
 
 
       const Box& flux_box_xy = amrex::grow(xbx, IntVect(AMREX_D_DECL(0,0,1)));
@@ -970,7 +970,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
-                          0, false);
+                          0, GodunovStore::Faces);
 
       const Box& flux_box_yx = amrex::grow(ybx, IntVect(AMREX_D_DECL(0,0,1)));
 
@@ -982,7 +982,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
-                          1, false);
+                          1, GodunovStore::Faces);
 
 
       tangential_correction(zbx, 2, 0, 1,
@@ -1021,7 +1021,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
                           z_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
-                          2, false);
+                          2, GodunovStore::Faces);
 
 #endif
 

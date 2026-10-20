@@ -10,6 +10,8 @@ using RealVector = amrex::Gpu::ManagedVector<amrex::Real>;
 
 using PotentialGradBCFunct = amrex::PhysBCFunctNoOp;
 
+enum class PotentialTime { Old, New };
+
 class Gravity {
 
 public:
@@ -61,7 +63,7 @@ public:
   void solve_potential_level (int               level,
                       amrex::MultiFab&         phi,
                       const amrex::Vector<amrex::MultiFab*>& phi_gradient,
-                      int               use_new_state);
+                      PotentialTime epoch);
 
   void solve_correction_phi (int                        crse_level,
                             int                        fine_level,
@@ -76,7 +78,7 @@ public:
 
   void run_multilevel_solve      (int level, int finest_level,
                                      const amrex::Vector<amrex::Vector<amrex::MultiFab*> >& phi_gradient,
-                                     int use_new_state);
+                                     PotentialTime epoch);
 
   void build_composite_excess_grad(int level,
                                         amrex::MultiFab& comp_phi,
@@ -105,7 +107,7 @@ public:
 
   void check_composite_potential(int level);
 
-  void average_fine_edges_to_coarse(int level, int use_new_state);
+  void average_fine_edges_to_coarse(int level, PotentialTime epoch);
 
   void build_radial_field(int level, amrex::Real time, RealVector& radial_field);
 
@@ -177,7 +179,7 @@ public:
 
     void include_point_source_field (int level, amrex::MultiFab& phi, amrex::MultiFab& gravity_field_out) const;
 
-    amrex::Vector<std::unique_ptr<amrex::MultiFab> > fetch_poisson_rhs (int crse_level, int nlevs, int use_new_state);
+    amrex::Vector<std::unique_ptr<amrex::MultiFab> > fetch_poisson_rhs (int crse_level, int nlevs, PotentialTime epoch);
 
     void sanity_check (int level);
 
