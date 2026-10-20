@@ -7,8 +7,8 @@
 
 #include <cmath>
 
-#include <ppm.H>
-#include <reconstruction.H>
+#include <parabolic_profile.H>
+#include <stencil_tools.H>
 #include <limiters.H>
 
 using namespace amrex;

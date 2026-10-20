@@ -14,9 +14,6 @@ CEXE_headers += user_emissivity.H
 CEXE_headers += user_diagnostics.H
 CEXE_headers += user_rad_source.H
 
-ifeq ($(USE_GRAV),TRUE)
-  CEXE_sources += hydrostatic_fill.cpp
-endif
 ifeq ($(USE_MHD),TRUE)
   CEXE_headers += user_initialize_mhd_data.H
 endif

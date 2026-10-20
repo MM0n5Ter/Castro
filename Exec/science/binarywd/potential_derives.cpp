@@ -4,7 +4,7 @@
 #include <HydroSim.H>
 #include <fundamental_constants.H>
 #include <prob_parameters.H>
-#include <binarywd_util.H>
+#include <binary_setup.H>
 #ifdef ROTATION
 #include <Rotation.H>
 #endif

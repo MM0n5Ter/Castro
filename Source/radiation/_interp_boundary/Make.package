@@ -1,6 +1,0 @@
-
-CA_BASE=EXE
-
-C$(CA_BASE)_sources += RadInterpBoundaryData.cpp
-
-C$(CA_BASE)_headers += RadInterpBoundaryData.H

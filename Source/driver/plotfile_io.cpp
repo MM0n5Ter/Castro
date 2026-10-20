@@ -10,7 +10,7 @@
 
 #include <AMReX_Utility.H>
 #include <HydroSim.H>
-#include <HydroSim_io.H>
+#include <run_output.H>
 #include <AMReX_ParmParse.H>
 
 #ifdef RADIATION
@@ -22,7 +22,7 @@
 #endif
 
 #ifdef DIFFUSION
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #endif
 
 #ifdef AMREX_USE_OMP
@@ -47,7 +47,7 @@
 
 #include <global.H>
 
-#include <runtime_parameters.H>
+#include <runtime_param_init.H>
 
 #include <AMReX_VisMF.H>
 

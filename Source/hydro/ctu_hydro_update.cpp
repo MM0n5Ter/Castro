@@ -6,10 +6,10 @@
 #endif
 
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
-#include <transport_util.H>
+#include <primitive_conversion.H>
 
 using namespace amrex;
 

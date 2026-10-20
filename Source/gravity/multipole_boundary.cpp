@@ -18,7 +18,7 @@
 
 #include <fundamental_constants.H>
 
-#include <Multipole_kernels.H>
+#include <multipole_moments.H>
 #include <SolverUtils.H>
 
 using namespace amrex;

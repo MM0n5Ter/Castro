@@ -14,7 +14,7 @@
 #endif
 
 #ifdef MHD
-#include <mhd_helpers.H>
+#include <mhd_zone_ops.H>
 #endif
 
 #ifdef ROTATION

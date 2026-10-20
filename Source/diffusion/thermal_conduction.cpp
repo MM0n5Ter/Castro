@@ -1,10 +1,10 @@
 #include <HydroSim.H>
 
-#include <conduction_util.H>
+#include <conduction_coeffs.H>
 
 using std::string;
 
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #include <AMReX_Geometry.H>
 
 #include <AMReX_Gpu.H>

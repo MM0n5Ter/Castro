@@ -9,17 +9,17 @@
 #endif
 
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
-#include <ppm.H>
+#include <parabolic_profile.H>
 #include <limiters.H>
 #include <HydroSim_helpers.H>
 #ifdef ROTATION
 #include <Rotation.H>
 #endif
 
-#include <transport_util.H>
+#include <primitive_conversion.H>
 
 #ifdef RADIATION
 #include <flux_limiter.H>

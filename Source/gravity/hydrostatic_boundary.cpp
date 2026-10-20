@@ -1,6 +1,6 @@
 #include <AMReX_BLFort.H>
 #include <HydroSim.H>
-#include <runtime_parameters.H>
+#include <runtime_param_init.H>
 
 using namespace amrex;
 

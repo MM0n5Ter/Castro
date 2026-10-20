@@ -1,5 +1,5 @@
-#ifndef HYDROSIM_HYBRID_H
-#define HYDROSIM_HYBRID_H
+#ifndef HYDROSIM_HYBRID_MOMENTUM_H
+#define HYDROSIM_HYBRID_MOMENTUM_H
 
 #include <HydroSim_helpers.H>
 

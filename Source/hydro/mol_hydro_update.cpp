@@ -2,12 +2,12 @@
 #include <HydroSim_helpers.H>
 
 #ifdef DIFFUSION
-#include <conduction_util.H>
+#include <conduction_coeffs.H>
 #endif
 
-#include <transport_util.H>
+#include <primitive_conversion.H>
 
-#include <fourth_order_center.H>
+#include <fourth_order_stencils.H>
 #include <limiters.H>
 
 using namespace amrex;

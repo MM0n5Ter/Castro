@@ -18,7 +18,7 @@
 #include <AMReX_CONSTANTS.H>
 #include <HydroSim.H>
 #include <global.H>
-#include <runtime_parameters.H>
+#include <runtime_param_init.H>
 #include <AMReX_VisMF.H>
 #include <AMReX_TagBox.H>
 #include <AMReX_FillPatchUtil.H>
@@ -37,7 +37,7 @@
 #endif
 
 #ifdef DIFFUSION
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #endif
 
 #ifdef AMREX_USE_OMP
@@ -51,14 +51,14 @@
 #include <hydrosim_limits.H>
 
 #include <solver_constants.H>
-#include <timestep.H>
+#include <dt_limits.H>
 
 #ifdef DIFFUSION
 #include <conductivity.H>
 #endif
 
 #ifdef MHD
-#include <mhd_helpers.H>
+#include <mhd_zone_ops.H>
 #endif
 
 #ifdef ROTATION

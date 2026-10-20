@@ -1,11 +1,11 @@
 CEXE_headers += HydroSim_mhd.H
 
-CEXE_sources += HydroSim_mhd.cpp
-CEXE_sources += mhd_helpers.cpp
-CEXE_headers += mhd_helpers.H
-CEXE_headers += mhd_wave_basis.H
+CEXE_sources += mhd_ctu_update.cpp
+CEXE_sources += mhd_state_conversion.cpp
+CEXE_headers += mhd_zone_ops.H
+CEXE_headers += mhd_characteristics.H
 
 CEXE_sources += constrained_transport.cpp
 CEXE_sources += mhd_reconstruct.cpp
 
-CEXE_sources += mhd_riemann_flux.cpp
+CEXE_sources += mhd_interface_flux.cpp

@@ -1,12 +1,12 @@
-#ifndef HYDROSIM_DEFERRED_UTIL_H
-#define HYDROSIM_DEFERRED_UTIL_H
+#ifndef SDC_REACT_SOLVE_H
+#define SDC_REACT_SOLVE_H
 
 #include <HydroSim.H>
 #ifdef REACTIONS
 #ifdef NEW_NETWORK_IMPLEMENTATION
 #include <rhs.H>
 #endif
-#include <deferred_react_util.H>
+#include <burn_rhs.H>
 #include <implicit_burn_solvers.H>
 #include <implicit_burn_solvers.H>
 #include <implicit_burn_solvers.H>

@@ -1,10 +1,10 @@
 #include <HydroSim.H>
 
-#include <ppm.H>
+#include <parabolic_profile.H>
 
 using namespace amrex;
 
-#include <mhd_wave_basis.H>
+#include <mhd_characteristics.H>
 #include <limiters.H>
 
 void

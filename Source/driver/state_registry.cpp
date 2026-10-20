@@ -8,7 +8,7 @@
 #include <HydroSim.H>
 #include <boundary_fill.H>
 #include <Derive.H>
-#include <runtime_parameters.H>
+#include <runtime_param_init.H>
 #include <state_bc_tables.H>
 #ifdef RADIATION
 #include <Radiation.H>
@@ -60,7 +60,7 @@
 #endif
 
 #ifdef DIFFUSION
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #endif
 
 #ifdef AMREX_USE_OMP

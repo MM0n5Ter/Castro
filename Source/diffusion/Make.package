@@ -1,7 +1,7 @@
 CEXE_headers += HydroSim_conduction.H
 
-CEXE_headers += conduction_util.H
+CEXE_headers += conduction_coeffs.H
 
 CEXE_sources += thermal_conduction.cpp
-CEXE_sources += Diffusion.cpp
-CEXE_headers += Diffusion.H 
+CEXE_sources += diffusion_operator.cpp
+CEXE_headers += diffusion_operator.H 

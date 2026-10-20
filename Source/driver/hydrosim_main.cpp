@@ -23,7 +23,7 @@
 #include <ctime>
 
 #include <HydroSim.H>
-#include <HydroSim_io.H>
+#include <run_output.H>
 
 #include <global.H>
 

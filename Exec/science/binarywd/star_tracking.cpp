@@ -6,7 +6,7 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_buildInfo.H>
 
-#include <binarywd_util.H>
+#include <binary_setup.H>
 
 #include <fstream>
 

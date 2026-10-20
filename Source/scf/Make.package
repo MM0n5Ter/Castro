@@ -1,7 +1,7 @@
 
 ifeq ($(USE_GRAV),TRUE)
 ifeq ($(USE_ROTATION),TRUE)
-  CEXE_sources += scf_iterate.cpp
+  CEXE_sources += equilibrium_relax.cpp
 endif
 endif
 

@@ -1,5 +1,5 @@
-#ifndef MULTIPOLE_KERNELS_H
-#define MULTIPOLE_KERNELS_H
+#ifndef MULTIPOLE_MOMENTS_H
+#define MULTIPOLE_MOMENTS_H
 
 #include <HydroSim_math.H>
 

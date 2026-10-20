@@ -1,5 +1,5 @@
 #include <AMReX_ParmParse.H>
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #include <HydroSim.H>
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>

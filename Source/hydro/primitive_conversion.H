@@ -4,7 +4,7 @@
 #include <HydroSim_helpers.H>
 
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
 #ifdef RADIATION

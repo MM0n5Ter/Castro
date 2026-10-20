@@ -1,9 +1,10 @@
 CEXE_sources += Gravity.cpp
+CEXE_sources += hydrostatic_boundary.cpp
 CEXE_sources += poisson_solve.cpp
 CEXE_sources += radial_gravity.cpp
 CEXE_sources += multipole_boundary.cpp
 CEXE_headers += Gravity.H
-CEXE_headers += Multipole_kernels.H
+CEXE_headers += multipole_moments.H
 CEXE_headers += HydroSim_gravity.H
 
 CEXE_sources += gravity_coupling.cpp

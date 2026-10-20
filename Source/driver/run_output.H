@@ -1,5 +1,5 @@
-#ifndef HYDROSIM_IO_H
-#define HYDROSIM_IO_H
+#ifndef RUN_OUTPUT_H
+#define RUN_OUTPUT_H
 
 #include <iostream>
 #include <sstream>

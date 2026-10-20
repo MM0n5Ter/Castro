@@ -13,7 +13,7 @@
 
 #include <cmath>
 
-#include <reconstruction.H>
+#include <stencil_tools.H>
 
 using namespace amrex;
 using namespace reconstruction;

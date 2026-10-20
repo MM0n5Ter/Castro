@@ -2,7 +2,7 @@
 #include <AMReX_LO_BCTYPES.H>
 
 #include <HypreSolvers.H>
-#include <ELLIPTIC_OPS.H>
+#include <elliptic_face_ops.H>
 #include <radiation_helpers.H>
 
 #include <iostream>

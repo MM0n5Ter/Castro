@@ -1,7 +1,7 @@
 #include <cmath>
 
 #include <AMReX_REAL.H>
-#include <reconstruction.H>
+#include <stencil_tools.H>
 
 #ifndef PARABOLIC_EDGE_H
 #define PARABOLIC_EDGE_H

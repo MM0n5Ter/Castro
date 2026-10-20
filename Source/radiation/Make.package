@@ -1,4 +1,4 @@
-CEXE_sources += ExtendedMultiLevelSolver.cpp
+CEXE_sources += MultiLevelEllipticExt.cpp
 CEXE_sources += MultiLevelEllipticSolver.cpp
 CEXE_sources += aux_coupling.cpp
 CEXE_sources += multilevel_matrix_fill.cpp
@@ -11,8 +11,8 @@ CEXE_sources += rad_coefficients.cpp
 CEXE_sources += RadTransportSolver.cpp
 CEXE_sources += RadLevelTerms.cpp
 CEXE_sources += rad_boundary_values.cpp
-CEXE_sources += RadiativeMultiGroup.cpp
-CEXE_sources += SingleGroupRadSolver.cpp
+CEXE_sources += rad_groups.cpp
+CEXE_sources += GrayUpdate.cpp
 CEXE_sources += rad_output.cpp
 CEXE_sources += MultigroupUpdate.cpp
 
@@ -21,15 +21,17 @@ CEXE_headers += aux_coupling.H
 CEXE_headers += Radiation.H
 CEXE_headers += RadTransportSolver.H
 CEXE_headers += rad_boundary_values.H
-CEXE_headers += ELLIPTIC_OPS.H
+CEXE_headers += elliptic_face_ops.H
 CEXE_headers += filter.H
+CEXE_headers += RadInterpBoundaryData.H
 CEXE_headers += filter_weights.H
 CEXE_headers += primitive_filter_cell.H
 
 CEXE_sources += rad_hydro_terms.cpp
+CEXE_sources += RadInterpBoundaryData.cpp
 
 CEXE_headers += flux_limiter.H
-CEXE_headers += RadiativeHydro.H
+CEXE_headers += group_advection.H
 
 CEXE_headers += RadFieldDerive.H
 CEXE_headers += radiation_helpers.H

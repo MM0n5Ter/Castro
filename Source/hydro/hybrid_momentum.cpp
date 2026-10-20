@@ -1,7 +1,7 @@
 #include <HydroSim.H>
 #include <HydroSim_helpers.H>
 
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 
 using namespace amrex;
 

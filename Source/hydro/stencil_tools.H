@@ -1,12 +1,12 @@
-#ifndef HYDROSIM_RECONSTRUCTION_H
-#define HYDROSIM_RECONSTRUCTION_H
+#ifndef HYDROSIM_STENCIL_TOOLS_H
+#define HYDROSIM_STENCIL_TOOLS_H
 
 #include <state_indices.H>
 #include <cmath>
 
 #include <AMReX_REAL.H>
 
-#include <reconstruction.H>
+#include <stencil_tools.H>
 
 namespace reconstruction {
    enum stencil_position : std::uint8_t {

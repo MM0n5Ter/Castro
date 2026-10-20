@@ -4,7 +4,7 @@
 
 #ifdef HYBRID_MOMENTUM
 #include <HydroSim_helpers.H>
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
 using namespace amrex;

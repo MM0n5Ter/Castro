@@ -1,12 +1,12 @@
-#ifndef SHOCK_PAIR_SOLVERS_H
-#define SHOCK_PAIR_SOLVERS_H
+#ifndef ITERATIVE_RIEMANN_H
+#define ITERATIVE_RIEMANN_H
 
 #include <AMReX_REAL.H>
 
 using namespace amrex::literals;
 
 #include <solver_constants.H>
-#include <solver_types.H>
+#include <riemann_states.H>
 #ifdef RADIATION
 #include <Radiation.H>
 #include <radiation_helpers.H>

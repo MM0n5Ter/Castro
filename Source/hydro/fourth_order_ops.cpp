@@ -1,5 +1,5 @@
 #include <HydroSim.H>
-#include <fourth_order_center.H>
+#include <fourth_order_stencils.H>
 #ifdef DIFFUSION
 #include <conductivity.H>
 #endif

@@ -1,6 +1,6 @@
 #include <HydroSim.H>
 
-#include <mhd_helpers.H>
+#include <mhd_zone_ops.H>
 #include <HydroSim_helpers.H>
 
 using namespace amrex;

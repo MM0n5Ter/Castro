@@ -5,9 +5,9 @@ CEXE_sources += sdc_state_update.cpp
 
 ifneq ($(USE_GPU), TRUE)
   CEXE_sources += sdc_correction.cpp
-  CEXE_headers += HydroSim_deferred_util.H
+  CEXE_headers += sdc_react_solve.H
 ifeq ($(USE_REACT), TRUE)
-  CEXE_headers += deferred_react_util.H
+  CEXE_headers += burn_rhs.H
   CEXE_headers += implicit_burn_solvers.H
 endif
 endif

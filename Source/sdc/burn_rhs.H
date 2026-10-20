@@ -1,8 +1,8 @@
-#ifndef DEFERRED_REACT_UTIL_H
-#define DEFERRED_REACT_UTIL_H
+#ifndef BURN_RHS_H
+#define BURN_RHS_H
 
 #include <burn_type.H>
-#include <sdc_conserved_to_burn.H>
+#include <burn_state_fill.H>
 #include <numerical_jacobian.H>
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE

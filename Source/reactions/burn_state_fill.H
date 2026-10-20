@@ -1,5 +1,5 @@
-#ifndef SDC_CONSERVED_TO_BURN_H
-#define SDC_CONSERVED_TO_BURN_H
+#ifndef BURN_STATE_FILL_H
+#define BURN_STATE_FILL_H
 
 #include <burn_type.H>
 

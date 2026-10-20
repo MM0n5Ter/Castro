@@ -1,5 +1,5 @@
-#ifndef HYDROSIM_CONDUCTION_UTIL_H
-#define HYDROSIM_CONDUCTION_UTIL_H
+#ifndef HYDROSIM_CONDUCTION_COEFFS_H
+#define HYDROSIM_CONDUCTION_COEFFS_H
 
 void
 fill_cell_conductivity(const amrex::Box& bx,

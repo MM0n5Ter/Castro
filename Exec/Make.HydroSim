@@ -202,7 +202,7 @@ ifeq ($(USE_POST_SIM), TRUE)
 endif
 
 ifeq ($(USE_RAD), TRUE)
-  Bdirs += Source/radiation Source/radiation/_interp_boundary
+  Bdirs += Source/radiation
   DEFINES += -DRADIATION
   DEFINES += -DRAD_INTERP
 

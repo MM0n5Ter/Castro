@@ -1,7 +1,7 @@
 #ifndef IMPLICIT_BURN_SOLVERS_H
 #define IMPLICIT_BURN_SOLVERS_H
 
-#include <deferred_react_util.H>
+#include <burn_rhs.H>
 #include <linpack.H>
 #include <network.H>
 
@@ -19,7 +19,7 @@
 #include <actual_rhs.H>
 #endif
 
-#include <sdc_conserved_to_burn.H>
+#include <burn_state_fill.H>
 
 #include <burner.H>
 #include <hybrj.H>

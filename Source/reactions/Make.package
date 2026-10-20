@@ -1,6 +1,6 @@
 
 CEXE_headers += HydroSim_burn.H
-CEXE_headers += sdc_conserved_to_burn.H
+CEXE_headers += burn_state_fill.H
 
 CEXE_sources += strang_burn.cpp
 CEXE_sources += sdc_burn.cpp

@@ -1,6 +1,6 @@
 
 #include <HypreSolvers.H>
-#include <ELLIPTIC_OPS.H>
+#include <elliptic_face_ops.H>
 #include <AMReX_LO_BCTYPES.H>
 
 #include <_hypre_sstruct_mv.h>

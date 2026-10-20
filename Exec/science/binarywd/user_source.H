@@ -3,13 +3,13 @@
 
 #include <prob_parameters.H>
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 #ifdef ROTATION
 #include <Rotation.H>
 #endif
-#include <binarywd_util.H>
-#include <binarywd_util.H>
+#include <binary_setup.H>
+#include <binary_setup.H>
 
 using namespace amrex;
 

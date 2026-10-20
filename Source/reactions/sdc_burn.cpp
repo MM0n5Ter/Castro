@@ -1,9 +1,9 @@
 #include <HydroSim.H>
-#include <transport_util.H>
+#include <primitive_conversion.H>
 #ifdef MODEL_PARSER
 #include <model_parser.H>
 #endif
-#include <sdc_conserved_to_burn.H>
+#include <burn_state_fill.H>
 
 using std::string;
 using namespace amrex;

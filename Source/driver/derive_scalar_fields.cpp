@@ -4,7 +4,7 @@
 #include <HydroSim.H>
 
 #ifdef DIFFUSION
-#include <conduction_util.H>
+#include <conduction_coeffs.H>
 #endif
 
 using namespace amrex;

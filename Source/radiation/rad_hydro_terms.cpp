@@ -7,13 +7,13 @@
 
 #include <cmath>
 
-#include <ppm.H>
+#include <parabolic_profile.H>
 #include <limiters.H>
 
 
 #include "Radiation.H"
 
-#include "RadiativeHydro.H"
+#include "group_advection.H"
 
 #include "flux_limiter.H"
 

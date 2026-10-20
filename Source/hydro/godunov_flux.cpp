@@ -2,18 +2,18 @@
 
 #include <HydroSim_helpers.H>
 
-#include <solver_types.H>
+#include <riemann_states.H>
 
-#include <shock_pair_solvers.H>
+#include <iterative_riemann.H>
 
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
 #ifdef RADIATION
 #include <radiation_helpers.H>
 #endif
-#include <two_wave_solvers.H>
+#include <approximate_riemann.H>
 
 #ifdef RADIATION
 #include <Radiation.H>

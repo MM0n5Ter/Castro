@@ -41,7 +41,7 @@
 
 #include <global.H>
 
-#include <runtime_parameters.H>
+#include <runtime_param_init.H>
 
 #include <AMReX_VisMF.H>
 
@@ -56,7 +56,7 @@
 #endif
 
 #ifdef DIFFUSION
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #endif
 
 #ifdef AMREX_USE_OMP

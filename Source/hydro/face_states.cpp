@@ -9,10 +9,10 @@
 #endif
 
 #ifdef HYBRID_MOMENTUM
-#include <hybrid.H>
+#include <hybrid_momentum.H>
 #endif
 
-#include <ppm.H>
+#include <parabolic_profile.H>
 
 #include <limiters.H>
 

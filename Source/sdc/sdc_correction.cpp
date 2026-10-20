@@ -1,5 +1,5 @@
 #include <HydroSim.H>
-#include <HydroSim_deferred_util.H>
+#include <sdc_react_solve.H>
 #ifdef RADIATION
 #include <Radiation.H>
 #endif
@@ -9,7 +9,7 @@
 #endif
 
 #ifdef DIFFUSION
-#include <Diffusion.H>
+#include <diffusion_operator.H>
 #endif
 
 #include <cmath>
