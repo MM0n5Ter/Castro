@@ -36,9 +36,10 @@ levi_civita_sign(const int i, const int j, const int k) {
   return val;
 }
 
+template <typename RealT>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-fast_magnetosonic_speed(Real& c, Real as, Real ca, Real bd) {
+fast_magnetosonic_speed(RealT& c, RealT as, RealT ca, RealT bd) {
 
 
   c = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*bd));

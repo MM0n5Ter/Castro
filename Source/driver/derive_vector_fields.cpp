@@ -9,6 +9,25 @@
 
 using namespace amrex;
 
+namespace {
+
+#ifdef MHD
+template <int Dir>
+void face_to_cell_average(const Box& bx, FArrayBox& derfab, const FArrayBox& datfab)
+{
+  auto const dat = datfab.array();
+  auto const der = derfab.array();
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i+(Dir==0),j+(Dir==1),k+(Dir==2),0));
+  });
+}
+#endif
+
+}
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -513,48 +532,21 @@ extern "C"
                      const FArrayBox& datfab, const Geometry&  ,
                      Real  , const int*  , int  )
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i+1,j,k,0));
-    });
-
+    face_to_cell_average<0>(bx, derfab, datfab);
   }
 
   void derive_cell_bfield_y(const Box& bx, FArrayBox& derfab, int  , int  ,
                      const FArrayBox& datfab, const Geometry&  ,
                      Real  , const int*  , int  )
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i,j+1,k,0));
-    });
-
+    face_to_cell_average<1>(bx, derfab, datfab);
   }
 
   void derive_cell_bfield_z(const Box& bx, FArrayBox& derfab, int  , int  ,
                      const FArrayBox& datfab, const Geometry&  ,
                      Real  , const int*  , int  )
   {
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-    {
-      der(i,j,k,0) = 0.5_rt * (dat(i,j,k,0) + dat(i,j,k+1,0));
-    });
-
+    face_to_cell_average<2>(bx, derfab, datfab);
   }
 
   void derive_b_divergence(const Box& bx, FArrayBox& derfab, int  , int  ,

@@ -9,15 +9,16 @@
 using namespace amrex::literals;
 using namespace reconstruction;
 
+template <typename RealT>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
-                       const Real lam, const Real dtdx,
-                       Real& Ip, Real& Im) {
+integrate_parabolic_profile_single(const RealT sm, const RealT sp, const RealT sc,
+                       const RealT lam, const RealT dtdx,
+                       RealT& Ip, RealT& Im) {
 
-  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
+  RealT s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
 
-  Real sigma = std::abs(lam) * dtdx;
+  RealT sigma = std::abs(lam) * dtdx;
 
   if (lam <= 0.0_rt) {
     Ip = sp;

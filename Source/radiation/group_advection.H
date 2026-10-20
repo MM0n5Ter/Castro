@@ -12,36 +12,37 @@ MC(const Real r) {
   return amrex::max(0.0_rt, amrex::min(2.0_rt * r, 0.5_rt * (1.0_rt + r), 2.0_rt));
 }
 
+template <typename T>
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real
-nonlinear_recon5(const Real vm2, const Real vm1, const Real v, const Real vp1, const Real vp2) {
+T
+nonlinear_recon5(const T vm2, const T vm1, const T v, const T vp1, const T vp2) {
 
   constexpr Real smooth_eps = 1.0e-6_rt;
   constexpr Real b1 = 13.0_rt/12.0_rt;
   constexpr Real b2 = 1.0_rt/6.0_rt;
 
-  Real weno_diff_m1 = vm2 - 2.0_rt * vm1 + v;
-  Real weno_slope_m1 = vm2 - 4.0_rt * vm1 + 3.0_rt * v;
-  Real dj = vm1 - 2.0_rt * v + vp1;
-  Real ej = vm1 - vp1;
-  Real weno_diff_p1 = v - 2.0_rt * vp1 + vp2;
-  Real weno_slope_p1 = 3.0_rt * v - 4.0_rt * vp1 + vp2;
+  T weno_diff_m1 = vm2 - 2.0_rt * vm1 + v;
+  T weno_slope_m1 = vm2 - 4.0_rt * vm1 + 3.0_rt * v;
+  T dj = vm1 - 2.0_rt * v + vp1;
+  T ej = vm1 - vp1;
+  T weno_diff_p1 = v - 2.0_rt * vp1 + vp2;
+  T weno_slope_p1 = 3.0_rt * v - 4.0_rt * vp1 + vp2;
 
-  Real smoothness_0 = b1 * weno_diff_m1 * weno_diff_m1 + 0.25_rt * weno_slope_m1 * weno_slope_m1 + smooth_eps;
-  Real smoothness_1 = b1 * dj * dj + 0.25_rt * ej * ej + smooth_eps;
-  Real smoothness_2 = b1 * weno_diff_p1 * weno_diff_p1 + 0.25_rt * weno_slope_p1 * weno_slope_p1 + smooth_eps;
+  T smoothness_0 = b1 * weno_diff_m1 * weno_diff_m1 + 0.25_rt * weno_slope_m1 * weno_slope_m1 + smooth_eps;
+  T smoothness_1 = b1 * dj * dj + 0.25_rt * ej * ej + smooth_eps;
+  T smoothness_2 = b1 * weno_diff_p1 * weno_diff_p1 + 0.25_rt * weno_slope_p1 * weno_slope_p1 + smooth_eps;
 
-  Real q30 = 2.0_rt *vm2 - 7.0_rt * vm1 + 11.0_rt * v;
-  Real q31 = -vm1 + 5.0_rt * v + 2.0_rt * vp1;
-  Real q32 = 2.0_rt * v + 5.0_rt * vp1 - vp2;
+  T q30 = 2.0_rt *vm2 - 7.0_rt * vm1 + 11.0_rt * v;
+  T q31 = -vm1 + 5.0_rt * v + 2.0_rt * vp1;
+  T q32 = 2.0_rt * v + 5.0_rt * vp1 - vp2;
 
-  Real d01 = smoothness_0 / smoothness_1;
-  Real d02 = smoothness_0 / smoothness_2;
-  Real alpha_stencil1 = 6.0_rt * d01 * d01;
-  Real alpha_stencil2 = 3.0_rt * d02 * d02;
-  Real w0 = 1.0_rt / (1.0_rt + alpha_stencil1 + alpha_stencil2);
-  Real w1 = alpha_stencil1 * w0;
-  Real w2 = 1.0_rt - w0 - w1;
+  T d01 = smoothness_0 / smoothness_1;
+  T d02 = smoothness_0 / smoothness_2;
+  T alpha_stencil1 = 6.0_rt * d01 * d01;
+  T alpha_stencil2 = 3.0_rt * d02 * d02;
+  T w0 = 1.0_rt / (1.0_rt + alpha_stencil1 + alpha_stencil2);
+  T w1 = alpha_stencil1 * w0;
+  T w2 = 1.0_rt - w0 - w1;
 
   if (w0 <  1.0e-10_rt) {
     w0 = 0.0_rt;

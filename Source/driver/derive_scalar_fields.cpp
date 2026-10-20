@@ -9,6 +9,31 @@
 
 using namespace amrex;
 
+namespace {
+
+template <class EosState>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void eos_from_conserved(Array4<Real const> const& dat, int i, int j, int k, EosState& eos_state)
+{
+  Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
+
+  eos_state.rho  = dat(i,j,k,URHO);
+  eos_state.T = dat(i,j,k,UTEMP);
+  eos_state.e = dat(i,j,k,UEINT) * rhoInv;
+  for (int n = 0; n < NumSpec; n++) {
+    eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+  }
+#if NAUX_NET > 0
+  for (int n = 0; n < NumAux; n++) {
+    eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+  }
+#endif
+
+  eos(eos_input_re, eos_state);
+}
+
+}
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -99,22 +124,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = eos_state.p;
       });
@@ -188,22 +199,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = eos_state.s;
       });
@@ -221,22 +218,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = eos_state.cs;
 
@@ -255,22 +238,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = eos_state.gam1;
 
@@ -289,22 +258,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) + eos_state.cs;
 
@@ -323,22 +278,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) - eos_state.cs;
 
@@ -357,22 +298,8 @@ extern "C"
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
         eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
+        eos_from_conserved(dat, i, j, k, eos_state);
 
         der(i,j,k,0) = std::sqrt(dat(i,j,k,UMX)*dat(i,j,k,UMX) +
                                  dat(i,j,k,UMY)*dat(i,j,k,UMY) +
@@ -428,22 +355,8 @@ extern "C"
 
         if (enuc > 1.e-100_rt) {
 
-          Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
           eos_rep_t eos_state;
-          eos_state.rho  = dat(i,j,k,URHO);
-          eos_state.T = dat(i,j,k,UTEMP);
-          eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-          for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-          }
-#if NAUX_NET > 0
-          for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-          }
-#endif
-
-          eos(eos_input_re, eos_state);
+          eos_from_conserved(dat, i, j, k, eos_state);
 
           Real t_e = eos_state.e / enuc;
           Real t_s = dd / eos_state.cs;

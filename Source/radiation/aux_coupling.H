@@ -83,27 +83,28 @@ class AuxVar {
   int secondary_pushed{};
 };
 
-class BoxAuxStorage {
+template <class T>
+class BoxStorage {
 
  public:
 
 
-  BoxAuxStorage(const amrex::Box& bx) : domain(bx) {
+  BoxStorage(const amrex::Box& bx) : domain(bx) {
     auto numpts = domain.numPts();
-    dptr = new AuxVar[numpts];
+    dptr = new T[numpts];
   }
 
-  ~BoxAuxStorage() {
+  ~BoxStorage() {
     delete[] dptr;
   }
 
-  BoxAuxStorage(const BoxAuxStorage& src) = delete;
-  BoxAuxStorage(const BoxAuxStorage&& src) = delete;
+  BoxStorage(const BoxStorage& src) = delete;
+  BoxStorage(const BoxStorage&& src) = delete;
 
-  BoxAuxStorage& operator= (const BoxAuxStorage& src) = delete;
-  BoxAuxStorage& operator= (const BoxAuxStorage&& src) = delete;
+  BoxStorage& operator= (const BoxStorage& src) = delete;
+  BoxStorage& operator= (const BoxStorage&& src) = delete;
 
-  AuxVar& operator()(const amrex::IntVect& p) {
+  T& operator()(const amrex::IntVect& p) {
     BL_ASSERT(!(dptr == 0));
     BL_ASSERT(domain.contains(p));
     return dptr[domain.index(p)];
@@ -115,8 +116,10 @@ class BoxAuxStorage {
 
  protected:
   amrex::Box domain;
-  AuxVar *dptr;
+  T *dptr;
 };
+
+using BoxAuxStorage = BoxStorage<AuxVar>;
 
 class BoundaryAuxBase {
 

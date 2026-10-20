@@ -33,6 +33,23 @@
 
 namespace timestep {
 
+    template <typename EosT>
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    void load_eos_state(Array4<Real const> const& u, int i, int j, int k, Real rhoInv, EosT& eos_state)
+    {
+        eos_state.rho = u(i,j,k,URHO);
+        eos_state.T = u(i,j,k,UTEMP);
+        eos_state.e = u(i,j,k,UEINT) * rhoInv;
+        for (int n = 0; n < NumSpec; n++) {
+            eos_state.xn[n] = u(i,j,k,UFS+n) * rhoInv;
+        }
+#if NAUX_NET > 0
+        for (int n = 0; n < NumAux; n++) {
+            eos_state.aux[n] = u(i,j,k,UFX+n) * rhoInv;
+        }
+#endif
+    }
+
     enum dtlimit_type : std::uint8_t { hydro = 0,
                                      mhd,
                                      burning,
@@ -81,17 +98,7 @@ namespace timestep {
                 Real rhoInv = 1.0_rt / u(i,j,k,URHO);
 
                 eos_rep_t eos_state;
-                eos_state.rho = u(i,j,k,URHO);
-                eos_state.T = u(i,j,k,UTEMP);
-                eos_state.e = u(i,j,k,UEINT) * rhoInv;
-                for (int n = 0; n < NumSpec; n++) {
-                    eos_state.xn[n] = u(i,j,k,UFS+n) * rhoInv;
-                }
-#if NAUX_NET > 0
-                for (int n = 0; n < NumAux; n++) {
-                    eos_state.aux[n] = u(i,j,k,UFX+n) * rhoInv;
-                }
-#endif
+                load_eos_state(u, i, j, k, rhoInv, eos_state);
 
                 eos(eos_input_re, eos_state);
 
@@ -186,17 +193,7 @@ namespace timestep {
                 Real uz = state_view(i,j,k,UMZ) * rhoInv;
 
                 eos_rep_t eos_state;
-                eos_state.rho = state_view(i,j,k,URHO);
-                eos_state.e = state_view(i,j,k,UEINT) * rhoInv;
-                eos_state.T = state_view(i,j,k,UTEMP);
-                for (int n = 0; n < NumSpec; n++) {
-                  eos_state.xn[n] = state_view(i,j,k,UFS+n) * rhoInv;
-                }
-#if NAUX_NET > 0
-                for (int n = 0; n < NumAux; n++) {
-                  eos_state.aux[n] = state_view(i,j,k,UFX+n) * rhoInv;
-                }
-#endif
+                load_eos_state(state_view, i, j, k, rhoInv, eos_state);
 
                 eos(eos_input_re, eos_state);
 
@@ -279,17 +276,7 @@ namespace timestep {
 
                     eos_t eos_state;
 
-                    eos_state.rho = state_fab_view(i,j,k,URHO);
-                    eos_state.T = state_fab_view(i,j,k,UTEMP);
-                    eos_state.e = state_fab_view(i,j,k,UEINT) * rho_inv;
-                    for (int n = 0; n < NumSpec; n++) {
-                        eos_state.xn[n]  = state_fab_view(i,j,k,UFS+n) * rho_inv;
-                    }
-#if NAUX_NET > 0
-                    for (int n = 0; n < NumAux; n++) {
-                        eos_state.aux[n] = state_fab_view(i,j,k,UFX+n) * rho_inv;
-                    }
-#endif
+                    load_eos_state(state_fab_view, i, j, k, rho_inv, eos_state);
 
                     eos(eos_input_re, eos_state);
 
