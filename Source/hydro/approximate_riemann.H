@@ -25,10 +25,6 @@ namespace HLL {
       U[UFLAG_SHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UPROTON_MU] = 0.0;
-      U[UNEUTRON_MU] = 0.0;
-    #endif
 
       for (int passive_index = 0; passive_index < npassive; passive_index++) {
           const int n  = passive_cons_index(passive_index);
@@ -70,10 +66,6 @@ namespace HLL {
       F[UFLAG_SHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      F[UPROTON_MU] = 0.0;
-      F[UNEUTRON_MU] = 0.0;
-    #endif
 
       for (int passive_index=0; passive_index < npassive; passive_index++) {
           const int n = passive_cons_index(passive_index);
@@ -125,10 +117,6 @@ namespace HLL {
       U[UFLAG_SHOCK] = 0.0;
     #endif
 
-    #ifdef NSE_NET
-      U[UPROTON_MU] = 0.0;
-      U[UNEUTRON_MU] = 0.0;
-    #endif
 
       for (int passive_index = 0; passive_index < npassive; passive_index++) {
           const int n  = passive_cons_index(passive_index);
@@ -188,12 +176,6 @@ namespace HLL {
         Real gamma1_left = qthermo_arr(i-sx,j-sy,k-sz,QGAMMA1);
         Real gamma1_right = qthermo_arr(i,j,k,QGAMMA1);
 
-    #ifdef TRUE_SDC
-        if (use_recon_gamma1 == 1) {
-            gamma1_left = ql(i,j,k,QGC);
-            gamma1_right = qr(i,j,k,QGC);
-        }
-    #endif
 
         Real impedance_floor = small_dens*sound_floor;
         Real wl = std::max(impedance_floor, std::sqrt(std::abs(gamma1_left*pl*rl)));
@@ -327,9 +309,6 @@ namespace HLL {
 
         } else {
 
-    #ifdef HYBRID_MOMENTUM
-            godunov_state(i,j,k,GDDENSITY) = interface_state[QRHO];
-    #endif
             godunov_state(i,j,k,GDU) = interface_state[QU];
             godunov_state(i,j,k,GDV) = interface_state[QV];
             godunov_state(i,j,k,GDW) = interface_state[QW];

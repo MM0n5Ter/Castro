@@ -1,9 +1,6 @@
 #include <HydroSim.H>
 #include <HydroSim_helpers.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
 #include <cmath>
 
@@ -123,27 +120,6 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     else if (hydrosim::use_shock_flatten) {
         flat = hydro::flatten(i, j, k, prim_arr, QPRES);
 
-#ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, prim_arr, QPTOTAL);
-
-        if (radiation::radiation_flatten_cutoff > 0.0) {
-            Real speed_sum_minus = prim_arr(i-1,j,k,QU);
-            Real speed_sum_plus = prim_arr(i+1,j,k,QU);
-#if AMREX_SPACEDIM >= 2
-            speed_sum_minus += prim_arr(i,j-1,k,QV);
-            speed_sum_plus += prim_arr(i,j+1,k,QV);
-#endif
-#if AMREX_SPACEDIM == 3
-            speed_sum_minus += prim_arr(i,j,k-1,QW);
-            speed_sum_plus += prim_arr(i,j,k+1,QW);
-#endif
-            if (speed_sum_minus > speed_sum_plus) {
-                if (prim_arr(i,j,k,QPRES) < radiation::radiation_flatten_cutoff * prim_arr(i,j,k,QPTOTAL)) {
-                    flat = 0.0;
-                }
-            }
-        }
-#endif
     }
 
     for (int n = 0; n < NUM_EIGVEC; n++) {
@@ -435,28 +411,6 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
     else if (hydrosim::use_shock_flatten) {
         flat = hydro::flatten(i, j, k, prim_arr, QPRES);
 
-#ifdef RADIATION
-        flat *= hydro::flatten(i, j, k, prim_arr, QPTOTAL);
-
-        if (radiation::radiation_flatten_cutoff > 0.0) {
-            Real speed_sum_minus = prim_arr(i-1,j,k,QU);
-            Real speed_sum_plus = prim_arr(i+1,j,k,QU);
-#if AMREX_SPACEDIM >= 2
-            speed_sum_minus += prim_arr(i,j-1,k,QV);
-            speed_sum_plus += prim_arr(i,j+1,k,QV);
-#endif
-#if AMREX_SPACEDIM == 3
-            speed_sum_minus += prim_arr(i,j,k-1,QW);
-            speed_sum_plus += prim_arr(i,j,k+1,QW);
-#endif
-
-            if (speed_sum_minus > speed_sum_plus) {
-                if (prim_arr(i,j,k,QPRES) < radiation::radiation_flatten_cutoff * prim_arr(i,j,k,QPTOTAL)) {
-                    flat = 0.0;
-                }
-            }
-        }
-#endif
     }
 
     Real sm;

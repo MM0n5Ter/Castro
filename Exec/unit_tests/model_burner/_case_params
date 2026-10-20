@@ -1,4 +1,0 @@
-model_name   string       ""        y
-
-burn_timestep      real         0.1_rt    y
-

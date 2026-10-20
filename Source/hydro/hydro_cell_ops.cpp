@@ -1,21 +1,10 @@
 #include <HydroSim.H>
 
-#ifdef ROTATION
-#include <Rotation.H>
-#endif
 
 #include <HydroSim_helpers.H>
 #include <primitive_conversion.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid_momentum.H>
-#endif
 
-#ifdef RADIATION
-#include <Radiation.H>
-#include <flux_limiter.H>
-#include <radiation_helpers.H>
-#endif
 
 #include <eos.H>
 
@@ -25,15 +14,6 @@ void
 HydroSim::ctoprim(const Box& bx,
                 const Real time,
                 Array4<Real const> const& uin,
-#ifdef MHD
-                Array4<Real const> const& Bx,
-                Array4<Real const> const& By,
-                Array4<Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                Array4<Real const> const& RadEnergyIn,
-                Array4<Real const> const& lam,
-#endif
                 Array4<Real> const& prim_arr,
                 Array4<Real> const& qthermo_arr) {
 
@@ -46,12 +26,6 @@ HydroSim::ctoprim(const Box& bx,
       auto qthermo = [&] (int n) -> Real& { return qthermo_arr(i,j,k,n); };
 
       hydro::cell_to_primitive(i, j, k, uin,
-#ifdef MHD
-                                       Bx, By, Bz,
-#endif
-#ifdef RADIATION
-                                       RadEnergyIn, lam,
-#endif
                                        q, qthermo, prim_arr.nComp() == NQ);
   });
 }
@@ -61,9 +35,6 @@ HydroSim::clamp_state_density(const Box& bx,
                                    Array4<Real> const& state_arr,
                                    const int warning_level) {
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ignore_unused(warning_level);
 
@@ -123,27 +94,6 @@ HydroSim::clamp_state_density(const Box& bx,
       state_arr(i,j,k,UEINT) = eos_state.rho * eos_state.e;
       state_arr(i,j,k,UEDEN) = state_arr(i,j,k,UEINT);
 
-#ifdef HYBRID_MOMENTUM
-      GpuArray<Real, 3> loc;
-
-      position(i, j, k, geomdata, loc);
-
-      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        loc[dir] -= problem::center[dir];
-      }
-
-      GpuArray<Real, 3> cartesian_vector;
-
-      for (int dir = 0; dir < 3; ++dir) {
-        cartesian_vector[dir] = state_arr(i,j,k,UMX+dir);
-      }
-
-      const GpuArray<Real, 3> hybrid_vector = cartesian_to_hybrid(loc, cartesian_vector);
-
-      for (int dir = 0; dir < 3; ++dir) {
-        state_arr(i,j,k,UMR+dir) = hybrid_vector[dir];
-      }
-#endif
     }
   });
 }
@@ -394,11 +344,6 @@ HydroSim::apply_viscosity(const Box& bx,
               continue;
           }
 #endif
-#ifdef NSE_NET
-          if (n == UPROTON_MU || n == UNEUTRON_MU) {
-              continue;
-          }
-#endif
 
           Real face_jump{};
 
@@ -415,45 +360,6 @@ HydroSim::apply_viscosity(const Box& bx,
   });
 }
 
-#ifdef RADIATION
-void
-HydroSim::apply_viscosity_radiative(const Box& bx,
-                     const int idir,
-                     Array4<Real const> const& div,
-                     Array4<Real const> const& RadEnergyIn,
-                     Array4<Real> const& radiative_flux) {
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::Real diff_coeff = viscosity_coeff;
-
-  int ngroups = Radiation::nGroups;
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-      Real face_divergence = face_averaged_divergence(div, i, j, k, idir);
-
-      face_divergence = diff_coeff * std::min(0.0_rt, face_divergence);
-
-      for (int n = 0; n < ngroups; ++n) {
-
-          Real face_jump{};
-
-          if (idir == 0) {
-              face_jump = face_divergence * (RadEnergyIn(i,j,k,n) - RadEnergyIn(i-1,j,k,n));
-          } else if (idir == 1) {
-              face_jump = face_divergence * (RadEnergyIn(i,j,k,n) - RadEnergyIn(i,j-dg1,k,n));
-          } else {
-              face_jump = face_divergence * (RadEnergyIn(i,j,k,n) - RadEnergyIn(i,j,k-dg2,n));
-          }
-
-          radiative_flux(i,j,k,n) += dx[idir] * face_jump;
-      }
-  });
-}
-#endif
 
 void
 HydroSim::shock(const Box& bx,

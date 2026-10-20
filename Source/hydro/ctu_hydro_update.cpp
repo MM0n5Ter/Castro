@@ -1,13 +1,7 @@
 #include <HydroSim.H>
 #include <HydroSim_helpers.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid_momentum.H>
-#endif
 
 #include <primitive_conversion.H>
 
@@ -192,7 +186,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       return status;
   }
 
-#ifndef TRUE_SDC
 
   BL_PROFILE("HydroSim::assemble_ctu_hydro_source()");
 
@@ -203,9 +196,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       amrex::Print() << "... Entering assemble_ctu_hydro_source() on level " << level << std::endl << std::endl;
   }
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
 #if AMREX_SPACEDIM <= 2
   int coord = geom.Coord();
@@ -217,32 +207,8 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
   MultiFab& S_new = get_new_data(State_Type);
 
-#ifdef REACTIONS
-  MultiFab scratch_deferred_mf;
-  MultiFab& deferred_burn_source = hydrosim::time_scheme == SimplifiedIterCorrection ?
-                               get_new_data(Burn_Corr_Type) : scratch_deferred_mf;
-#endif
 
 
-#ifdef RADIATION
-  MultiFab& rad_energy_new = get_new_data(Radiation_Type);
-
-  if (!Radiation::rad_hydro_coupled) {
-    amrex::Abort("HydroSim::assemble_ctu_hydro_source -- we don't implement a mode where we have radiation, but it is not coupled to hydro");
-  }
-
-  int rad_step_count = -1;
-
-  AmrLevel::FillPatch(*this, RadEnergyGrown, NUM_GROW, time, Radiation_Type, 0, Radiation::nGroups);
-
-  MultiFab rad_lambda_grown(grids, dmap, Radiation::nGroups, NUM_GROW);
-  if (radiation->hydro_only) {
-      rad_lambda_grown.setVal(0.0, NUM_GROW);
-  }
-  else {
-      radiation->build_flux_limiter(level, grids, Sborder, RadEnergyGrown, rad_lambda_grown);
-  }
-#endif
 
 
   size_t fab_bytes = 0;
@@ -283,17 +249,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                               correction_iter != deferred_iters - 1);
 
 #ifdef _OPENMP
-#ifdef RADIATION
-#pragma omp parallel reduction(max:rad_step_count)
-#else
 #pragma omp parallel
-#endif
 #endif
   {
 
-#ifdef RADIATION
-    int local_rad_step_count = -1;
-#endif
 
 
     FArrayBox shk(The_Async_Arena());
@@ -310,9 +269,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
     FArrayBox div(The_Async_Arena());
 #if AMREX_SPACEDIM >= 2
     FArrayBox flux_temp1(The_Async_Arena()), flux_temp2(The_Async_Arena());
-#ifdef RADIATION
-    FArrayBox radiation_temp1(The_Async_Arena()), radiation_temp2(The_Async_Arena());
-#endif
     FArrayBox godunov_temp1(The_Async_Arena()), godunov_temp2(The_Async_Arena());
     FArrayBox ql(The_Async_Arena()), qr(The_Async_Arena());
 #endif
@@ -322,12 +278,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
         qe.push_back(FArrayBox(The_Async_Arena()));
     }
 
-#ifdef RADIATION
-    Vector<FArrayBox> radiation_dir_fluxes;
-    for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-        radiation_dir_fluxes.push_back(FArrayBox(The_Async_Arena()));
-    }
-#endif
 #if AMREX_SPACEDIM <= 2
     FArrayBox scaled_pressure(The_Async_Arena());
 #endif
@@ -358,11 +308,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       const Box& qbx = amrex::grow(bx, NUM_GROW);
       const Box& ghost3_box = amrex::grow(bx, 3);
 
-#ifdef RADIATION
-      Array4<Real> const prim_arr = scratch_array(q, qbx, NQ);
-#else
       Array4<Real> const prim_arr = scratch_array(q, qbx, NQPRIMBASE);
-#endif
 
       Array4<Real> const qthermo_arr = scratch_array(qthermo, qbx, NQEXTRAQ);
 
@@ -377,9 +323,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       });
 
       ctoprim(qbx, time, cons_old_arr,
-#ifdef RADIATION
-              RadEnergyGrown.array(mfi), rad_lambda_grown.array(mfi),
-#endif
               prim_arr, qthermo_arr);
 
 #if AMREX_SPACEDIM == 2
@@ -471,25 +414,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       } else {
 
-#ifdef RADIATION
-        corner_ppm_rad_states(obx, bx,
-                           cons_old_arr, inv_density_arr,
-                           prim_arr, qthermo_arr, prim_source_arr,
-                           x_minus_arr, x_plus_arr,
-#if AMREX_SPACEDIM >= 2
-                           y_minus_arr, y_plus_arr,
-#endif
-#if AMREX_SPACEDIM == 3
-                           z_minus_arr, z_plus_arr,
-#endif
-#if AMREX_SPACEDIM < 3
-                           logAreaSlopeX_arr,
-#endif
-#if AMREX_SPACEDIM == 2
-                           logAreaSlopeY_arr,
-#endif
-                           dt);
-#else
 
         corner_ppm_states(obx, bx,
                        cons_old_arr, inv_density_arr,
@@ -508,7 +432,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                        logAreaSlopeY_arr,
 #endif
                        dt);
-#endif
 
       }
 
@@ -524,11 +447,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       auto x_edge_state_arr = qe[0].array();
       fab_bytes += qe[0].nBytes();
 
-#ifdef RADIATION
-      radiation_dir_fluxes[0].resize(grown_x_box, Radiation::nGroups);
-      fab_bytes += radiation_dir_fluxes[0].nBytes();
-      auto radiation_x_flux_arr = (radiation_dir_fluxes[0]).array();
-#endif
 
 #if AMREX_SPACEDIM >= 2
       flux[1].resize(grown_y_box, NUM_STATE);
@@ -539,11 +457,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       auto y_edge_state_arr = qe[1].array();
       fab_bytes += qe[1].nBytes();
 
-#ifdef RADIATION
-      radiation_dir_fluxes[1].resize(grown_y_box, Radiation::nGroups);
-      fab_bytes += radiation_dir_fluxes[1].nBytes();
-      auto const radiation_y_flux_arr = (radiation_dir_fluxes[1]).array();
-#endif
 #endif
 
 #if AMREX_SPACEDIM == 3
@@ -555,11 +468,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       auto z_edge_state_arr = qe[2].array();
       fab_bytes += qe[2].nBytes();
 
-#ifdef RADIATION
-      radiation_dir_fluxes[2].resize(grown_z_box, Radiation::nGroups);
-      fab_bytes += radiation_dir_fluxes[2].nBytes();
-      auto const radiation_z_flux_arr = (radiation_dir_fluxes[2]).array();
-#endif
 #endif
 
 #if AMREX_SPACEDIM <= 2
@@ -569,27 +477,14 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       fab_bytes += scaled_pressure.nBytes();
 #endif
 
-#ifdef REACTIONS
-      auto deferred_source_arr = hydrosim::time_scheme == SimplifiedIterCorrection ?
-                         deferred_burn_source.array(mfi) : Array4<Real const>{};
-#endif
 
 #if AMREX_SPACEDIM == 1
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(xbx, 0, dt,
-                                   x_minus_arr, x_plus_arr, deferred_source_arr);
-      }
-#endif
 
 
       compute_godunov_flux(xbx,
                           x_minus_arr, x_plus_arr,
                           x_flux_arr,
-#ifdef RADIATION
-                          radiation_x_flux_arr,
-#endif
                           x_edge_state_arr,
                           qthermo_arr,
                           shock_flag_arr,
@@ -604,11 +499,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       auto flux_temp2_arr = scratch_array(flux_temp2, obx, NUM_STATE);
 
-#ifdef RADIATION
-      auto radiation_temp1_arr = scratch_array(radiation_temp1, obx, Radiation::nGroups);
-
-      auto radiation_temp2_arr = scratch_array(radiation_temp2, obx, Radiation::nGroups);
-#endif
 
       auto godunov_temp1_arr = scratch_array(godunov_temp1, obx, NGDSTATE);
 
@@ -634,9 +524,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_x,
                           x_minus_arr, x_plus_arr,
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -646,9 +533,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_y,
                           y_minus_arr, y_plus_arr,
                           flux_temp2_arr,
-#ifdef RADIATION
-                          radiation_temp2_arr,
-#endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -659,9 +543,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                    x_plus_arr, prim_right_arr,
                    qthermo_arr,
                    flux_temp2_arr,
-#ifdef RADIATION
-                   radiation_temp2_arr,
-#endif
                    y_edge_state_arr,
                    face_area_y_arr,
                    cell_volume_arr,
@@ -671,19 +552,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       reset_edge_thermo(xbx, prim_right_arr);
 
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(xbx, 0, dt,
-                                   prim_left_arr, prim_right_arr, deferred_source_arr);
-      }
-#endif
 
       compute_godunov_flux(xbx,
                           prim_left_arr, prim_right_arr,
                           x_flux_arr,
-#ifdef RADIATION
-                          radiation_x_flux_arr,
-#endif
                           x_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -695,9 +567,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                    y_plus_arr, prim_right_arr,
                    qthermo_arr,
                    flux_temp1_arr,
-#ifdef RADIATION
-                   radiation_temp1_arr,
-#endif
                    godunov_temp1_arr,
                    face_area_x_arr,
                    cell_volume_arr,
@@ -708,19 +577,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
 
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(ybx, 1, dt,
-                                   prim_left_arr, prim_right_arr, deferred_source_arr);
-      }
-#endif
 
       compute_godunov_flux(ybx,
                           prim_left_arr, prim_right_arr,
                           y_flux_arr,
-#ifdef RADIATION
-                          radiation_y_flux_arr,
-#endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -755,9 +615,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                        q_plus, edge_plus.array(),
                        qthermo_arr,
                        flux_temp1_arr,
-#ifdef RADIATION
-                       radiation_temp1_arr,
-#endif
                        godunov_temp1_arr,
                        hdt, dt_dx);
           reset_edge_thermo(tbox, edge_minus.array());
@@ -770,9 +627,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_x,
                           x_minus_arr, x_plus_arr,
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -793,9 +647,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_y,
                           y_minus_arr, y_plus_arr,
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -814,9 +665,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_z,
                           z_minus_arr, z_plus_arr,
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           2, GodunovStore::Faces);
@@ -837,9 +685,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_yz,
                           edge_minus_yz.array(), edge_plus_yz.array(),
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -849,9 +694,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_zy,
                           edge_minus_zy.array(), edge_plus_zy.array(),
                           flux_temp2_arr,
-#ifdef RADIATION
-                          radiation_temp2_arr,
-#endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
                           2, GodunovStore::Faces);
@@ -862,13 +704,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                   x_plus_arr, prim_right_arr,
                   qthermo_arr,
                   flux_temp1_arr,
-#ifdef RADIATION
-                  radiation_temp1_arr,
-#endif
                   flux_temp2_arr,
-#ifdef RADIATION
-                  radiation_temp2_arr,
-#endif
                   godunov_temp1_arr,
                   godunov_temp2_arr,
                   hdtdy, hdtdz);
@@ -877,20 +713,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       reset_edge_thermo(xbx, prim_right_arr);
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(xbx, 0, dt,
-                                   prim_left_arr, prim_right_arr, deferred_source_arr);
-      }
-#endif
 
 
       compute_godunov_flux(xbx,
                           prim_left_arr, prim_right_arr,
                           x_flux_arr,
-#ifdef RADIATION
-                          radiation_x_flux_arr,
-#endif
                           x_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -901,9 +728,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_zx,
                           edge_minus_zx.array(), edge_plus_zx.array(),
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           2, GodunovStore::Faces);
@@ -913,9 +737,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_xz,
                           edge_minus_xz.array(), edge_plus_xz.array(),
                           flux_temp2_arr,
-#ifdef RADIATION
-                          radiation_temp2_arr,
-#endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -926,13 +747,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                   y_plus_arr, prim_right_arr,
                   qthermo_arr,
                   flux_temp2_arr,
-#ifdef RADIATION
-                  radiation_temp2_arr,
-#endif
                   flux_temp1_arr,
-#ifdef RADIATION
-                  radiation_temp1_arr,
-#endif
                   godunov_temp2_arr,
                   godunov_temp1_arr,
                   hdtdx, hdtdz);
@@ -941,20 +756,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       reset_edge_thermo(ybx, prim_right_arr);
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(ybx, 1, dt,
-                                   prim_left_arr, prim_right_arr, deferred_source_arr);
-      }
-#endif
 
 
       compute_godunov_flux(ybx,
                           prim_left_arr, prim_right_arr,
                           y_flux_arr,
-#ifdef RADIATION
-                          radiation_y_flux_arr,
-#endif
                           y_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -965,9 +771,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_xy,
                           edge_minus_xy.array(), edge_plus_xy.array(),
                           flux_temp1_arr,
-#ifdef RADIATION
-                          radiation_temp1_arr,
-#endif
                           godunov_temp1_arr,
                           qthermo_arr, shock_flag_arr,
                           0, GodunovStore::Faces);
@@ -977,9 +780,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
       compute_godunov_flux(flux_box_yx,
                           edge_minus_yx.array(), edge_plus_yx.array(),
                           flux_temp2_arr,
-#ifdef RADIATION
-                          radiation_temp2_arr,
-#endif
                           godunov_temp2_arr,
                           qthermo_arr, shock_flag_arr,
                           1, GodunovStore::Faces);
@@ -990,13 +790,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                   z_plus_arr, prim_right_arr,
                   qthermo_arr,
                   flux_temp1_arr,
-#ifdef RADIATION
-                  radiation_temp1_arr,
-#endif
                   flux_temp2_arr,
-#ifdef RADIATION
-                  radiation_temp2_arr,
-#endif
                   godunov_temp1_arr,
                   godunov_temp2_arr,
                   hdtdx, hdtdy);
@@ -1005,20 +799,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
       reset_edge_thermo(zbx, prim_right_arr);
 
-#ifdef REACTIONS
-      if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-          inject_deferred_source(zbx, 2, dt,
-                                   prim_left_arr, prim_right_arr, deferred_source_arr);
-      }
-#endif
 
 
       compute_godunov_flux(zbx,
                           prim_left_arr, prim_right_arr,
                           z_flux_arr,
-#ifdef RADIATION
-                          radiation_z_flux_arr,
-#endif
                           z_edge_state_arr,
                           qthermo_arr, shock_flag_arr,
                           2, GodunovStore::Faces);
@@ -1041,20 +826,10 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #ifdef SHOCK_VAR
               dir_flux_arr(i,j,k,UFLAG_SHOCK) = 0.e0;
 #endif
-#ifdef NSE_NET
-              dir_flux_arr(i,j,k,UPROTON_MU) = 0.e0;
-              dir_flux_arr(i,j,k,UNEUTRON_MU) = 0.e0;
-#endif
           });
 
           apply_viscosity(nbx, idir, divergence_arr, cons_old_arr, dir_flux_arr);
 
-#ifdef RADIATION
-          Array4<Real> const radiation_dir_flux_arr = (radiation_dir_fluxes[idir]).array();
-          Array4<Real const> const rad_energy_in_arr = RadEnergyGrown.array(mfi);
-
-          apply_viscosity_radiative(nbx, idir, divergence_arr, rad_energy_in_arr, radiation_dir_flux_arr);
-#endif
 
           if (clip_small_rho_flux == 1) {
               clip_fluxes_at_density_floor
@@ -1099,55 +874,7 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                    dt);
 
 
-#ifdef HYBRID_MOMENTUM
-      auto dx_arr = geom.CellSizeArray();
 
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-          GpuArray<Real, 3> loc;
-
-          position(i, j, k, geomdata, loc);
-
-          for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-              loc[dir] -= problem::center[dir];
-
-          Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                              std::numeric_limits<Real>::min());
-          Real InvRadius = 1.0_rt / R;
-
-          updated_state_arr(i,j,k,UMR) -= dt * (loc[0] * InvRadius) * (x_edge_state_view(i+1,j,k,GDPRESSURE) - x_edge_state_view(i,j,k,GDPRESSURE)) / dx_arr[0];
-#if AMREX_SPACEDIM >= 2
-          updated_state_arr(i,j,k,UMR) -= dt * (loc[1] * InvRadius) * (y_edge_state_view(i,j+1,k,GDPRESSURE) - y_edge_state_view(i,j,k,GDPRESSURE)) / dx_arr[1];
-#endif
-      });
-#endif
-
-#ifdef RADIATION
-      rad_cons_update(bx,
-                     updated_state_arr,
-                     RadEnergyGrown.array(mfi),
-                     rad_energy_new.array(mfi),
-                     (radiation_dir_fluxes[0]).array(),
-                     (qe[0]).array(),
-                     (area[0]).array(mfi),
-#if AMREX_SPACEDIM >= 2
-                     (radiation_dir_fluxes[1]).array(),
-                     (qe[1]).array(),
-                     (area[1]).array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                     (radiation_dir_fluxes[2]).array(),
-                     (qe[2]).array(),
-                     (area[2]).array(mfi),
-#endif
-                     local_rad_step_count,
-                     volume.array(mfi),
-                     dt);
-
-      rad_step_count = std::max(rad_step_count, local_rad_step_count);
-#endif
 
 
       for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
@@ -1159,10 +886,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
         scale_flux_by_area(nbx, dir_flux_arr, face_area_arr, dt);
 
-#ifdef RADIATION
-        Array4<Real> const radiation_dir_flux_arr = (radiation_dir_fluxes[idir]).array();
-        scale_radiative_flux(nbx, radiation_dir_flux_arr, face_area_arr, dt);
-#endif
 
 #if AMREX_SPACEDIM <= 2
 
@@ -1188,16 +911,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
                 stored_fluxes_fab(i,j,k,n) += dir_flux_fab(i,j,k,n);
             });
 
-#ifdef RADIATION
-            Array4<Real> const radiation_dir_flux_fab = (radiation_dir_fluxes[idir]).array();
-            Array4<Real> radiation_stored_flux_fab = (*rad_face_flux[idir]).array(mfi);
-
-            amrex::ParallelFor(mfi.nodaltilebox(idir), Radiation::nGroups,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-            {
-                radiation_stored_flux_fab(i,j,k,n) += radiation_dir_flux_fab(i,j,k,n);
-            });
-#endif
 
 #if AMREX_SPACEDIM <= 2
             if (idir == 0 && !momentum_flux_has_pressure(0, 0, coord)) {
@@ -1278,28 +991,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
   }
 
-#ifdef RADIATION
-  if (radiation->verbose>=1) {
-      amrex::Real level_real = level;
-#ifdef BL_LAZY
-    Lazy::QueueReduction( [=] () mutable {
-#endif
-       ParallelDescriptor::ReduceIntMax(rad_step_count, ParallelDescriptor::IOProcessorNumber());
-       if (ParallelDescriptor::IOProcessor() && rad_step_count > 0) {
-         std::cout << "Radiation f-space advection on level " << level_real
-                   << " takes as many as " << rad_step_count;
-         if (rad_step_count == 1) {
-           std::cout<< " substep.\n";
-         }
-         else {
-           std::cout<< " substeps.\n";
-         }
-       }
-#ifdef BL_LAZY
-     });
-#endif
-  }
-#endif
 
 
   status = scan_for_negative_mass_density();
@@ -1310,20 +1001,11 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 
 
   clean_state(
-#ifdef MHD
-               magfield_x_new, magfield_y_new, magfield_z_new,
-#endif
                S_new, time + dt, 0);
 
 
   scan_for_nan(S_new);
 
-#ifdef GRAVITY
-
-  if (track_center == 1) {
-      define_tracked_center(S_new, time);
-  }
-#endif
 
 
   if (parent->subcyclingMode() == "None") {
@@ -1355,7 +1037,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
     }
 
-#endif
 
   return status;
 }

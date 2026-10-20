@@ -2,9 +2,6 @@
 #include <HydroSim.H>
 #include <user_source.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid_momentum.H>
-#endif
 
 using namespace amrex;
 
@@ -158,13 +155,6 @@ HydroSim::add_damping_term(const Box& bx,
 
     src[UEDEN] = SrE;
 
-#ifdef HYBRID_MOMENTUM
-    GpuArray<Real, 3> Hybrid_momentum_source;
-    compute_hybrid_momentum_source(r, Sr, Hybrid_momentum_source);
-    for (int n = 0; n < 3; n++) {
-      src[UMR+n] = Hybrid_momentum_source[n];
-    }
-#endif
 
     for (int n = 0; n < NUM_SOURCE; n++) {
       source(i,j,k,n) += src[n];
@@ -319,11 +309,9 @@ HydroSim::assemble_old_thermodynamic_source(MultiFab& source, MultiFab& state_in
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
-#ifndef MHD
   if (!(time_scheme == IterativeCorrection)) {
       return;
   }
-#endif
 
   const Real strt_time = ParallelDescriptor::second();
 
@@ -366,57 +354,11 @@ HydroSim::assemble_new_thermodynamic_source(MultiFab& source, const MultiFab& fi
     amrex::ignore_unused(time);
     amrex::ignore_unused(dt);
 
-#ifndef MHD
   if (!(time_scheme == IterativeCorrection)) {
       return;
   }
 
   amrex::Abort("you should not get here!");
-#else
-
-  const Real strt_time = ParallelDescriptor::second();
-
-  MultiFab thermodynamic_src(grids, dmap, source.nComp(), 0);
-
-  thermodynamic_src.setVal(0.0);
-
-  fill_thermodynamic_source(field_old, thermodynamic_src);
-
-  Real term_weight = -0.5;
-
-  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);
-
-
-  thermodynamic_src.setVal(0.0);
-
-  term_weight = 0.5;
-
-  FillPatchIterator fpi(*this, field_new, 1, time, State_Type, 0, NUM_STATE);
-  MultiFab& grown_field = fpi.get_mf();
-
-  fill_thermodynamic_source(grown_field, thermodynamic_src);
-
-  MultiFab::Saxpy(source, term_weight, thermodynamic_src, 0, 0, source.nComp(), 0);
-
-  if (verbose > 1)
-  {
-      const int IOProc   = ParallelDescriptor::IOProcessorNumber();
-      Real      run_time = ParallelDescriptor::second() - strt_time;
-
-#ifdef BL_LAZY
-      Lazy::QueueReduction( [=] () mutable {
-#endif
-      ParallelDescriptor::ReduceRealMax(run_time,IOProc);
-
-      if (ParallelDescriptor::IOProcessor())
-          std::cout << "HydroSim::assemble_new_thermodynamic_source() time = " << run_time << "\n" << "\n";
-#ifdef BL_LAZY
-      });
-#endif
-    }
-
-
-#endif
 }
 
 void

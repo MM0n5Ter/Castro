@@ -31,13 +31,6 @@ struct InterfaceState
     amrex::Real ut;
     amrex::Real utt;
 
-#ifdef RADIATION
-    amrex::Real lam[NGROUPS];
-    amrex::Real er[NGROUPS];
-    amrex::Real p_g;
-    amrex::Real energy_density_gas;
-    amrex::Real gamma1_gas;
-#endif
 
 };
 
@@ -76,48 +69,15 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
     ql.gamma1_cell = qthermo_arr(il,jl,kl,QGAMMA1);
     qr.gamma1_cell = qthermo_arr(i,j,k,QGAMMA1);
 
-#ifdef RADIATION
-    ql.gamma1_gas = qthermo_arr(il,jl,kl,QGAMMA1G);
-    qr.gamma1_gas = qthermo_arr(i,j,k,QGAMMA1G);
 
-    for (int g = 0; g < NGROUPS; g++) {
-        ql.lam[g] = qthermo_arr(il,jl,kl,QFLUXLIM+g);
-        qr.lam[g] = qthermo_arr(i,j,k,QFLUXLIM+g);
-    }
-#endif
-
-#ifndef RADIATION
     ql.p = left_prim_arr(i,j,k,QPRES);
     qr.p = right_prim_arr(i,j,k,QPRES);
 
     ql.rhoe = left_prim_arr(i,j,k,QEINTDENS);
     qr.rhoe = right_prim_arr(i,j,k,QEINTDENS);
 
-#else
-    ql.p = left_prim_arr(i,j,k,QPTOTAL);
-    ql.rhoe = left_prim_arr(i,j,k,QETOTDENS);
-    for (int g = 0; g < NGROUPS; g++) {
-      ql.er[g] = left_prim_arr(i,j,k,QRADENG+g);
-    }
-    ql.p_g = left_prim_arr(i,j,k,QPRES);
-    ql.energy_density_gas = left_prim_arr(i,j,k,QEINTDENS);
-
-    qr.p = right_prim_arr(i,j,k,QPTOTAL);
-    qr.rhoe = right_prim_arr(i,j,k,QETOTDENS);
-    for (int g = 0; g < NGROUPS; g++) {
-      qr.er[g] = right_prim_arr(i,j,k,QRADENG+g);
-    }
-    qr.p_g = right_prim_arr(i,j,k,QPRES);
-    qr.energy_density_gas = right_prim_arr(i,j,k,QEINTDENS);
-#endif
 
 
-#ifdef TRUE_SDC
-    if (use_recon_gamma1 == 1) {
-        ql.gamma1_cell = left_prim_arr(i,j,k,QGC);
-        qr.gamma1_cell = right_prim_arr(i,j,k,QGC);
-    }
-#endif
 
     if (ql.rhoe <= 0.0_rt || ql.p < pressure_cutoff) {
 #ifndef AMREX_USE_GPU

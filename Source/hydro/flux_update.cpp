@@ -1,31 +1,14 @@
 #include <HydroSim.H>
 
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef GRAVITY
-#include <Gravity.H>
-#endif
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid_momentum.H>
-#endif
 
 #include <parabolic_profile.H>
 #include <limiters.H>
 #include <HydroSim_helpers.H>
-#ifdef ROTATION
-#include <Rotation.H>
-#endif
 
 #include <primitive_conversion.H>
 
-#ifdef RADIATION
-#include <flux_limiter.H>
-
-#include <radiation_helpers.H>
-#endif
 
 #include <eos.H>
 
@@ -69,9 +52,6 @@ HydroSim::flux_from_state(const Box& bx,
     im3 = UMY;
   }
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -102,10 +82,6 @@ HydroSim::flux_from_state(const Box& bx,
     F(i,j,k,UFLAG_SHOCK) = 0.0;
 #endif
 
-#ifdef NSE_NET
-    F(i,j,k,UPROTON_MU) = 0.0;
-    F(i,j,k,UNEUTRON_MU) = 0.0;
-#endif
     for (int passive_index = 0; passive_index < npassive; passive_index++) {
       int n  = passive_cons_index(passive_index);
       int nqp = passive_prim_index(passive_index);
@@ -113,50 +89,22 @@ HydroSim::flux_from_state(const Box& bx,
       F(i,j,k,n) = F(i,j,k,URHO)*interface_state(i,j,k,nqp);
     }
 
-#ifdef HYBRID_MOMENTUM
-    GpuArray<Real, NGDSTATE> godunov_zone;
-    godunov_zone[GDDENSITY] = interface_state(i,j,k,QRHO);
-    godunov_zone[GDU] = interface_state(i,j,k,QU);
-    godunov_zone[GDV] = interface_state(i,j,k,QV);
-    godunov_zone[GDW] = interface_state(i,j,k,QW);
-    godunov_zone[GDPRESSURE] = interface_state(i,j,k,QPRES);
-    GpuArray<Real, NUM_STATE> ZoneFlux;
-    for (int n = 0; n < NUM_STATE; n++) {
-        ZoneFlux[n] = F(i,j,k,n);
-    }
-    hybrid_flux_from_state(godunov_zone, geomdata, idir, i, j, k, ZoneFlux);
-    for (int n = 0; n < NUM_STATE; n++) {
-        F(i,j,k,n) = ZoneFlux[n];
-    }
-#endif
   });
 }
 
 void
 HydroSim::save_godunov_state(const Box& bx,
                             Array4<Real const> const& interface_state,
-#ifdef RADIATION
-                            Array4<Real const> const& lambda,
-#endif
                             Array4<Real> const& godunov_state) {
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-#ifdef HYBRID_MOMENTUM
-    godunov_state(i,j,k,GDDENSITY) = interface_state(i,j,k,QRHO);
-#endif
     godunov_state(i,j,k,GDU) = interface_state(i,j,k,QU);
     godunov_state(i,j,k,GDV) = interface_state(i,j,k,QV);
     godunov_state(i,j,k,GDW) = interface_state(i,j,k,QW);
     godunov_state(i,j,k,GDPRESSURE) = interface_state(i,j,k,QPRES);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-      godunov_state(i,j,k,GDFLUXLIM+g) = lambda(i,j,k,g);
-      godunov_state(i,j,k,GDRADENG+g) = interface_state(i,j,k,QRADENG+g);
-    }
-#endif
   });
 }
 
@@ -422,7 +370,6 @@ HydroSim::inject_deferred_source(const Box& bx, const int idir, const Real dt,
 
 }
 
-#ifndef MHD
 void
 HydroSim::clip_fluxes_at_density_floor(const Box& bx,
                                          int idir,
@@ -490,7 +437,6 @@ HydroSim::clip_fluxes_at_density_floor(const Box& bx,
 
     });
 }
-#endif
 
 void
 HydroSim::balance_species_flux(const Box& bx,
@@ -533,17 +479,3 @@ HydroSim::scale_flux_by_area(const Box& bx,
   });
 }
 
-#ifdef RADIATION
-void
-HydroSim::scale_radiative_flux(const Box& bx,
-                       Array4<Real> const& scaled_radiative_flux,
-                       Array4<Real const> const& face_area_arr,
-                       const Real dt) {
-
-  amrex::ParallelFor(bx, Radiation::nGroups,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int g) noexcept
-  {
-    scaled_radiative_flux(i,j,k,g) = dt * scaled_radiative_flux(i,j,k,g) * face_area_arr(i,j,k);
-  });
-}
-#endif
