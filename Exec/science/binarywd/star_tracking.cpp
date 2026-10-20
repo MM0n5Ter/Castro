@@ -8,6 +8,7 @@
 
 #include <binary_setup.H>
 
+#include <array>
 #include <fstream>
 
 using namespace amrex;
@@ -623,8 +624,8 @@ HydroSim::wd_update (Real time, Real dt)
     mass_P   = amrex::get<12>(hv);
     mass_S   = amrex::get<13>(hv);
 
-    const int sum_reduce_count = 28;
-    Real sum_reduce_buffer[sum_reduce_count] = { 0.0 };
+    constexpr int sum_reduce_count = 28;
+    std::array<Real, sum_reduce_count> sum_reduce_buffer{};
 
     for (int i = 0; i <= 6; ++i) {
         sum_reduce_buffer[i  ] = vol_P[i];
@@ -641,7 +642,7 @@ HydroSim::wd_update (Real time, Real dt)
         sum_reduce_buffer[i+25] = vel_S[i];
     }
 
-    amrex::ParallelDescriptor::ReduceRealSum(sum_reduce_buffer, sum_reduce_count);
+    amrex::ParallelDescriptor::ReduceRealSum(sum_reduce_buffer.data(), sum_reduce_count);
 
     for (int i = 0; i <= 6; ++i) {
         vol_P[i] = sum_reduce_buffer[i  ];

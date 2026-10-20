@@ -70,7 +70,7 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
   constexpr int EIGVEC_PRESSURE = 4;
   constexpr int EIGVEC_ENERGY = 5;
 
-  int char_var_map[NUM_EIGVEC];
+  amrex::GpuArray<int, NUM_EIGVEC> char_var_map;
   char_var_map[EIGVEC_RHO] = QRHO;
   char_var_map[EIGVEC_NORMAL] = QUN;
   char_var_map[EIGVEC_TRANSV1] = QUT;
@@ -112,7 +112,7 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
     Real rhoe = prim_arr(i,j,k,QEINTDENS);
     Real enth = (rhoe+p)/(rho*csq);
 
-    Real dq[NUM_EIGVEC];
+    amrex::GpuArray<Real, NUM_EIGVEC> dq;
     Real s[nslp];
 
     Real flat = 1.0;

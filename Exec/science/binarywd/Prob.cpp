@@ -8,6 +8,7 @@
 
 #include <binary_setup.H>
 
+#include <array>
 #include <fstream>
 
 using namespace amrex;
@@ -126,8 +127,7 @@ HydroSim::update_relaxation(Real time, Real dt) {
 
     }
 
-    Real force_P[3] = { 0.0 };
-    Real force_S[3] = { 0.0 };
+    std::array<Real, 3> force_P{}, force_S{};
 
     for (int lev = coarse_level; lev <= finest_level; ++lev) {
 
@@ -233,8 +233,8 @@ HydroSim::update_relaxation(Real time, Real dt) {
         return std::sqrt(std::pow(v[0], 2) + std::pow(v[1], 2) + std::pow(v[2], 2));
     };
 
-    Real fp = vector_magnitude(force_P);
-    Real fs = vector_magnitude(force_S);
+    Real fp = vector_magnitude(force_P.data());
+    Real fs = vector_magnitude(force_S.data());
 
     Real ap = vector_magnitude(com_P);
     Real as = vector_magnitude(com_S);

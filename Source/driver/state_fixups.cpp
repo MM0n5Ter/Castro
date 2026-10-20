@@ -5,6 +5,7 @@
 #include <iomanip>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <vector>
 #include <iostream>
@@ -601,8 +602,8 @@ HydroSim::scan_for_negative_mass_density ()
     int density_check_failed = amrex::get<0>(hv);
     int massfrac_check_failed = amrex::get<1>(hv);
 
-    int fails[] = {density_check_failed, massfrac_check_failed};
-    ParallelDescriptor::ReduceIntMax(fails, 2);
+    std::array<int, 2> fails{density_check_failed, massfrac_check_failed};
+    ParallelDescriptor::ReduceIntMax(fails.data(), 2);
 
     step_result status {};
 

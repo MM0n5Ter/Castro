@@ -5,6 +5,7 @@
 #include <opacity.H>
 #include <user_emissivity.H>
 
+#include <array>
 #include <iostream>
 
 #ifdef _OPENMP
@@ -779,9 +780,9 @@ void Radiation::check_rad_convergence(Real& relative, Real& absolute, Real& rad_
   absolute = amrex::get<1>(hv);
   rad_energy_err   = amrex::get<2>(hv);
 
-  Real data[3] = {relative, absolute, rad_energy_err};
+  std::array<Real, 3> data{relative, absolute, rad_energy_err};
 
-  ParallelDescriptor::ReduceRealMax(data, 3);
+  ParallelDescriptor::ReduceRealMax(data.data(), 3);
 
   relative = data[0];
   absolute = data[1];

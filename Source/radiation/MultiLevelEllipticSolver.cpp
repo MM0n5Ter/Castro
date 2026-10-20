@@ -1,3 +1,5 @@
+#include <array>
+
 #include <Radiation.H>
 
 #include <AMReX_ParmParse.H>
@@ -145,18 +147,18 @@ void MultiLevelEllipticSolver::attachLevel(int             level,
     BL_ASSERT(geom[level].isPeriodic(0));
     BL_ASSERT(geom[level].Domain().smallEnd(0) == 0);
 
-    int is_periodic[2];
+    std::array<int, 2> is_periodic;
     is_periodic[0] = geom[level].period(0);
     is_periodic[1] = 0;
     BL_ASSERT(ispow2(is_periodic[0]));
 
-    HYPRE_SStructGridSetPeriodic(hgrid, part, is_periodic);
+    HYPRE_SStructGridSetPeriodic(hgrid, part, is_periodic.data());
   }
 
 #else
 
   if (geom[level].isAnyPeriodic()) {
-    int is_periodic[AMREX_SPACEDIM];
+    std::array<int, AMREX_SPACEDIM> is_periodic;
     for (int i = 0; i < AMREX_SPACEDIM; i++) {
       is_periodic[i] = 0;
       if (geom[level].isPeriodic(i)) {
@@ -165,7 +167,7 @@ void MultiLevelEllipticSolver::attachLevel(int             level,
         BL_ASSERT(geom[level].Domain().smallEnd(i) == 0);
       }
     }
-    HYPRE_SStructGridSetPeriodic(hgrid, part, is_periodic);
+    HYPRE_SStructGridSetPeriodic(hgrid, part, is_periodic.data());
   }
 
 #endif

@@ -155,8 +155,8 @@ HydroSim::restart (Amr&     papa,
             std::ifstream HydroSimHeaderFile;
             HydroSimHeaderFile.open(checkpoint_entry(papa.theRestartFile(), "CastroHeader").c_str(), std::ios::in);
             if (HydroSimHeaderFile.good()) {
-                char foo[256];
-                HydroSimHeaderFile.getline(foo, 256, ':');
+                std::string header_label;
+                std::getline(HydroSimHeaderFile, header_label, ':');
                 HydroSimHeaderFile >> restart_format;
                 HydroSimHeaderFile.close();
             } else {

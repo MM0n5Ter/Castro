@@ -74,9 +74,7 @@ void HydroSim::user_post_init()
 
                 Real phiExact = 0.0_rt;
 
-                Real x[2];
-                Real y[2];
-                Real z[2];
+                amrex::GpuArray<Real, 2> x, y, z;
 
                 x[0] = radius + xx;
                 x[1] = radius - xx;

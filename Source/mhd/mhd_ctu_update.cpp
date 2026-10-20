@@ -1,3 +1,5 @@
+#include <array>
+
 #include <HydroSim.H>
 
 #include <primitive_conversion.H>
@@ -41,7 +43,7 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 #endif
     {
 
-      FArrayBox flux[AMREX_SPACEDIM], E[AMREX_SPACEDIM];
+      std::array<FArrayBox, AMREX_SPACEDIM> flux, E;
 
       FArrayBox q;
       FArrayBox qthermo;
@@ -50,8 +52,8 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
       FArrayBox flatten_factor;
       FArrayBox flatten_scratch;
 
-      FArrayBox prim_left[AMREX_SPACEDIM];
-      FArrayBox prim_right[AMREX_SPACEDIM];
+      std::array<FArrayBox, AMREX_SPACEDIM> prim_left;
+      std::array<FArrayBox, AMREX_SPACEDIM> prim_right;
 
       FArrayBox flux_x_1d;
       FArrayBox flux_y_1d;

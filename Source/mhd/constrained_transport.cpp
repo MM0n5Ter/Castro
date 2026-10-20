@@ -36,17 +36,17 @@ HydroSim::corner_coupling(const Box& bx,
   std::fill(dx.begin() + AMREX_SPACEDIM, dx.end(), 0.0_rt);
 
 
-  int cl[3] = {};
-  int cr[3] = {};
+  amrex::GpuArray<int, 3> cl{};
+  amrex::GpuArray<int, 3> cr{};
 
 
-  int b[3] = {};
+  amrex::GpuArray<int, 3> b{};
 
 
-  int err[3] = {};
-  int elr[3] = {};
-  int erl[3] = {};
-  int ell[3] = {};
+  amrex::GpuArray<int, 3> err{};
+  amrex::GpuArray<int, 3> elr{};
+  amrex::GpuArray<int, 3> erl{};
+  amrex::GpuArray<int, 3> ell{};
 
 
 
@@ -175,26 +175,26 @@ HydroSim::predict_half_step(const Box& bx,
   std::fill(dx.begin() + AMREX_SPACEDIM, dx.end(), 0.0_rt);
 
 
-  int c1l[3] = {};
-  int c1r[3] = {};
-  int c2l[3] = {};
-  int c2r[3] = {};
+  amrex::GpuArray<int, 3> c1l{};
+  amrex::GpuArray<int, 3> c1r{};
+  amrex::GpuArray<int, 3> c2l{};
+  amrex::GpuArray<int, 3> c2r{};
 
-  int a1[3] = {};
-  int a2[3] = {};
+  amrex::GpuArray<int, 3> a1{};
+  amrex::GpuArray<int, 3> a2{};
 
-  int err[3] = {};
-  int erl[3] = {};
-  int elr[3] = {};
-  int ell[3] = {};
+  amrex::GpuArray<int, 3> err{};
+  amrex::GpuArray<int, 3> erl{};
+  amrex::GpuArray<int, 3> elr{};
+  amrex::GpuArray<int, 3> ell{};
 
-  int edge1_right_right[3] = {};
-  int edge1_right_left[3] = {};
-  int edge1_left_right[3] = {};
+  amrex::GpuArray<int, 3> edge1_right_right{};
+  amrex::GpuArray<int, 3> edge1_right_left{};
+  amrex::GpuArray<int, 3> edge1_left_right{};
 
-  int edge2_right_right[3] = {};
-  int edge2_right_left[3] = {};
-  int edge2_left_right[3] = {};
+  amrex::GpuArray<int, 3> edge2_right_right{};
+  amrex::GpuArray<int, 3> edge2_right_left{};
+  amrex::GpuArray<int, 3> edge2_left_right{};
 
   Real hdtdx = 0.5_rt * dt / dx[d];
   int sgn = -1 * levi_civita_sign(d, d1, d2);

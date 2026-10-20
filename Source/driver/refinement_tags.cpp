@@ -96,13 +96,13 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
 
         int lev = level;
 
-        int n_error_buf[3] = {0};
-        int ref_ratio[3] = {0};
-        int domlo[3] = {0};
-        int domhi[3] = {0};
-        int physbc_lo[3] = {-1};
-        int physbc_hi[3] = {-1};
-        int blocking_factor[3] = {0};
+        amrex::GpuArray<int, 3> n_error_buf{};
+        amrex::GpuArray<int, 3> ref_ratio{};
+        amrex::GpuArray<int, 3> domlo{};
+        amrex::GpuArray<int, 3> domhi{};
+        amrex::GpuArray<int, 3> physbc_lo{{-1}};
+        amrex::GpuArray<int, 3> physbc_hi{{-1}};
+        amrex::GpuArray<int, 3> blocking_factor{};
         for (int dim = 0; dim < AMREX_SPACEDIM; ++dim) {
             n_error_buf[dim] = parent->nErrorBuf(lev, dim);
             ref_ratio[dim] = parent->refRatio(lev)[dim];
@@ -124,7 +124,7 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                bool domain_edge_flags[3] = {false};
+                amrex::GpuArray<bool, 3> domain_edge_flags{};
 
                 const int idx[3] = {i, j, k};
 

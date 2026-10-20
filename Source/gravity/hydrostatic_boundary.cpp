@@ -124,12 +124,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
 
                 Real density_above = adv(domlo[0],j,k,URHO);
                 Real temperature_above = adv(domlo[0],j,k,UTEMP);
-                Real zone_mass_frac[NumSpec];
+                amrex::GpuArray<Real, NumSpec> zone_mass_frac;
                 for (int n = 0; n < NumSpec; n++) {
                     zone_mass_frac[n] = adv(domlo[0],j,k,UFS+n) / density_above;
                 }
 #if NAUX_NET > 0
-                Real zone_aux_vars[NumAux];
+                amrex::GpuArray<Real, NumAux> zone_aux_vars;
                 for (int n = 0; n < NumAux; n++) {
                     zone_aux_vars[n] = adv(domlo[0],j,k,UFX+n) / density_above;
                 }
@@ -223,9 +223,9 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac
+                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac.data()
 #if NAUX_NET > 0
-                                 , zone_aux_vars
+                                 , zone_aux_vars.data()
 #endif
                                  );
 
@@ -257,12 +257,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
 
                 Real density_below = adv(domhi[0],j,k,URHO);
                 Real temperature_below = adv(domhi[0],j,k,UTEMP);
-                Real zone_mass_frac[NumSpec];
+                amrex::GpuArray<Real, NumSpec> zone_mass_frac;
                 for (int n = 0; n < NumSpec; n++) {
                     zone_mass_frac[n] = adv(domhi[0],j,k,UFS+n) / density_below;
                 }
 #if NAUX_NET > 0
-                Real zone_aux_vars[NumAux];
+                amrex::GpuArray<Real, NumAux> zone_aux_vars;
                 for (int n = 0; n < NumAux; n++) {
                     zone_aux_vars[n] = adv(domhi[0],j,k,UFX+n) / density_below;
                 }
@@ -354,9 +354,9 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac
+                   store_hse_zone(adv, ii, j, k, dens_zone, eint, temp_zone, zone_mass_frac.data()
 #if NAUX_NET > 0
-                                 , zone_aux_vars
+                                 , zone_aux_vars.data()
 #endif
                                  );
 
@@ -390,12 +390,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
 
                 Real density_above = adv(i,domlo[1],k,URHO);
                 Real temperature_above = adv(i,domlo[1],k,UTEMP);
-                Real zone_mass_frac[NumSpec];
+                amrex::GpuArray<Real, NumSpec> zone_mass_frac;
                 for (int n = 0; n < NumSpec; n++) {
                     zone_mass_frac[n] = adv(i,domlo[1],k,UFS+n) / density_above;
                 }
 #if NAUX_NET > 0
-                Real zone_aux_vars[NumAux];
+                amrex::GpuArray<Real, NumAux> zone_aux_vars;
                 for (int n = 0; n < NumAux; n++) {
                     zone_aux_vars[n] = adv(i,domlo[1],k,UFX+n) / density_above;
                 }
@@ -488,9 +488,9 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac
+                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac.data()
 #if NAUX_NET > 0
-                                 , zone_aux_vars
+                                 , zone_aux_vars.data()
 #endif
                                  );
 
@@ -523,12 +523,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
 
                 Real density_below = adv(i,domhi[1],k,URHO);
                 Real temperature_below = adv(i,domhi[1],k,UTEMP);
-                Real zone_mass_frac[NumSpec];
+                amrex::GpuArray<Real, NumSpec> zone_mass_frac;
                 for (int n = 0; n < NumSpec; n++) {
                     zone_mass_frac[n] = adv(i,domhi[1],k,UFS+n) / density_below;
                 }
 #if NAUX_NET > 0
-                Real zone_aux_vars[NumAux];
+                amrex::GpuArray<Real, NumAux> zone_aux_vars;
                 for (int n = 0; n < NumAux; n++) {
                     zone_aux_vars[n] = adv(i,domhi[1],k,UFX+n) / density_below;
                 }
@@ -620,9 +620,9 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac
+                   store_hse_zone(adv, i, jj, k, dens_zone, eint, temp_zone, zone_mass_frac.data()
 #if NAUX_NET > 0
-                                 , zone_aux_vars
+                                 , zone_aux_vars.data()
 #endif
                                  );
 
@@ -655,12 +655,12 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
 
                 Real density_above = adv(i,j,domlo[2],URHO);
                 Real temperature_above = adv(i,j,domlo[2],UTEMP);
-                Real zone_mass_frac[NumSpec];
+                amrex::GpuArray<Real, NumSpec> zone_mass_frac;
                 for (int n = 0; n < NumSpec; n++) {
                     zone_mass_frac[n] = adv(i,j,domlo[2],UFS+n) / density_above;
                 }
 #if NAUX_NET > 0
-                Real zone_aux_vars[NumAux];
+                amrex::GpuArray<Real, NumAux> zone_aux_vars;
                 for (int n = 0; n < NumAux; n++) {
                     zone_aux_vars[n] = adv(i,j,domlo[2],UFX+n) / density_above;
                 }
@@ -753,9 +753,9 @@ hydrostatic_fill(const Box& bx, Array4<Real> const& adv,
                    Real eint = eos_state.e;
 
 
-                   store_hse_zone(adv, i, j, kk, dens_zone, eint, temp_zone, zone_mass_frac
+                   store_hse_zone(adv, i, j, kk, dens_zone, eint, temp_zone, zone_mass_frac.data()
 #if NAUX_NET > 0
-                                 , zone_aux_vars
+                                 , zone_aux_vars.data()
 #endif
                                  );
 

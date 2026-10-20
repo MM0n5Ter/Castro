@@ -391,7 +391,7 @@ namespace timestep {
 #endif
 
                 Real e = burn_state.e;
-                Real X[NumSpec];
+                amrex::GpuArray<Real, NumSpec> X;
                 for (int n = 0; n < NumSpec; ++n) {
                     X[n] = amrex::max(burn_state.xn[n], small_x);
                 }
@@ -402,7 +402,7 @@ namespace timestep {
                 actual_rhs(burn_state, ydot);
 
                 Real dedt = ydot(net_ienuc);
-                Real dXdt[NumSpec];
+                amrex::GpuArray<Real, NumSpec> dXdt;
                 for (int n = 0; n < NumSpec; ++n) {
                     dXdt[n] = ydot(n+1) * aion[n];
                 }

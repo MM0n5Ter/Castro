@@ -12,6 +12,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 
 #include <cstdio>
 
@@ -357,7 +358,7 @@ HydroSim::wave_strain (Real time,
 
 
 
-    Real delta[3][3] = {{0.0}};
+    std::array<std::array<Real, 3>, 3> delta{};
 
     for (int i = 0; i < 3; ++i) {
         delta[i][i] = 1.0;
@@ -370,15 +371,15 @@ HydroSim::wave_strain (Real time,
 
     for (int dir = 0; dir < 3; ++dir) {
 
-        Real dist[3] = {0.0};
+        std::array<Real, 3> dist{};
         dist[dir] = hydrosim::wave_obs_distance;
 
         Real r = std::sqrt(dist[0] * dist[0] + dist[1] * dist[1] + dist[2] * dist[2]);
 
-        const Real n[3] = {dist[0] / r, dist[1] / r, dist[2] / r};
+        const std::array<Real, 3> n{dist[0] / r, dist[1] / r, dist[2] / r};
 
 
-        Real proj[3][3][3][3] = {{0.0}};
+        std::array<std::array<std::array<std::array<Real, 3>, 3>, 3>, 3> proj{};
 
         for (int l = 0; l < 3; ++l) {
             for (int k = 0; k < 3; ++k) {
@@ -392,7 +393,7 @@ HydroSim::wave_strain (Real time,
         }
 
 
-        Real h[3][3] = {{0.0}};
+        std::array<std::array<Real, 3>, 3> h{};
 
         for (int l = 0; l < 3; ++l) {
             for (int k = 0; k < 3; ++k) {
@@ -439,13 +440,13 @@ HydroSim::tally_integrated_quantities ()
     }
     int timestep     = parent->levelSteps(0);
     Real mass        = 0.0;
-    Real mom[3]      = { 0.0 };
-    Real angular_momentum_sum[3]  = { 0.0 };
+    std::array<Real, 3> mom{};
+    std::array<Real, 3> angular_momentum_sum{};
 #ifdef HYBRID_MOMENTUM
-    Real hybrid_momentum_sum[3]  = { 0.0 };
+    std::array<Real, 3> hybrid_momentum_sum{};
 #endif
-    Real com[3]      = { 0.0 };
-    Real center_velocity[3]  = { 0.0 };
+    std::array<Real, 3> com{};
+    std::array<Real, 3> center_velocity{};
     Real rho_e       = 0.0;
     Real rho_kinetic       = 0.0;
     Real rho_E       = 0.0;
@@ -625,41 +626,41 @@ HydroSim::tally_integrated_quantities ()
 
 #ifdef HYBRID_MOMENTUM
 #ifdef GRAVITY
-   const int nfoo = 17;
+   constexpr int nfoo = 17;
 #else
-   const int nfoo = 16;
+   constexpr int nfoo = 16;
 #endif
 #else
 #ifdef GRAVITY
-   const int nfoo = 14;
+   constexpr int nfoo = 14;
 #else
-   const int nfoo = 13;
+   constexpr int nfoo = 13;
 #endif
 #endif
 
-    Real foo[nfoo] = {mass, mom[0], mom[1], mom[2],
-                      com[0], com[1], com[2],
-                      angular_momentum_sum[0], angular_momentum_sum[1], angular_momentum_sum[2],
+    std::array<Real, nfoo> foo{mass, mom[0], mom[1], mom[2],
+                               com[0], com[1], com[2],
+                               angular_momentum_sum[0], angular_momentum_sum[1], angular_momentum_sum[2],
 #ifdef HYBRID_MOMENTUM
-                      hybrid_momentum_sum[0], hybrid_momentum_sum[1], hybrid_momentum_sum[2],
+                               hybrid_momentum_sum[0], hybrid_momentum_sum[1], hybrid_momentum_sum[2],
 #endif
 #ifdef GRAVITY
-                      rho_e, rho_kinetic, rho_E, rho_potential};
+                               rho_e, rho_kinetic, rho_E, rho_potential};
 #else
                       rho_e, rho_kinetic, rho_E};
 #endif
 
-    const int max_reduce_count = 3;
+    constexpr int max_reduce_count = 3;
 
-    Real max_reduce_buffer[max_reduce_count] = {T_max, rho_max, timescale_ratio_max};
+    std::array<Real, max_reduce_count> max_reduce_buffer{T_max, rho_max, timescale_ratio_max};
 
 #ifdef BL_LAZY
     Lazy::QueueReduction( [=] () mutable {
 #endif
 
-    ParallelDescriptor::ReduceRealSum(foo, nfoo, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::ReduceRealSum(foo.data(), nfoo, ParallelDescriptor::IOProcessorNumber());
 
-    ParallelDescriptor::ReduceRealMax(max_reduce_buffer, max_reduce_count, ParallelDescriptor::IOProcessorNumber());
+    ParallelDescriptor::ReduceRealMax(max_reduce_buffer.data(), max_reduce_count, ParallelDescriptor::IOProcessorNumber());
 
     if (ParallelDescriptor::IOProcessor()) {
 

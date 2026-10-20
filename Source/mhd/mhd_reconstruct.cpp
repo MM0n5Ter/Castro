@@ -104,7 +104,7 @@ HydroSim::plm(const Box& bx,
       eigenbasis_z(left_basis, right_basis, as, zone_prim);
     }
 
-    Real mhd_source[NUM_EIGVEC];
+    amrex::GpuArray<Real, NUM_EIGVEC> mhd_source;
 
     mhd_source[EIGVEC_RHO] = 0.0_rt;
     mhd_source[EIGVEC_U] = zone_prim(QBFIELDX) / zone_prim(QRHO);
@@ -139,7 +139,7 @@ HydroSim::plm(const Box& bx,
       }
     }
 
-    Real dq[NUM_EIGVEC] = {};
+    amrex::GpuArray<Real, NUM_EIGVEC> dq{};
 
     if (mhd_char_limit == 1) {
 
@@ -170,8 +170,8 @@ HydroSim::plm(const Box& bx,
     }
 
 
-    Real plus_sum[NUM_EIGVEC] = {0.0_rt};
-    Real minus_sum[NUM_EIGVEC] = {0.0_rt};
+    amrex::GpuArray<Real, NUM_EIGVEC> plus_sum{};
+    amrex::GpuArray<Real, NUM_EIGVEC> minus_sum{};
 
     for (int ii = 0; ii < NUM_EIGVEC; ii++) {
       Real Ldq = 0.0;
@@ -480,7 +480,7 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
 
     }
 
-    Real mhd_source[NUM_EIGVEC];
+    amrex::GpuArray<Real, NUM_EIGVEC> mhd_source;
 
     mhd_source[EIGVEC_RHO] = 0.0_rt;
     mhd_source[EIGVEC_U] = zone_prim(QBFIELDX) / zone_prim(QRHO);
@@ -518,7 +518,7 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
 
 
 
-    Real minus_sum[NUM_EIGVEC] = {0.0_rt};
+    amrex::GpuArray<Real, NUM_EIGVEC> minus_sum{};
 
     for (int ii = 0; ii < NUM_EIGVEC; ii++) {
 
@@ -564,7 +564,7 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
 
 
 
-    Real plus_sum[NUM_EIGVEC] = {0.0_rt};
+    amrex::GpuArray<Real, NUM_EIGVEC> plus_sum{};
 
     for (int ii = 0; ii < NUM_EIGVEC; ii++) {
 
