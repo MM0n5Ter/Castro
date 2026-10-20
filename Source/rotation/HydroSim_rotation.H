@@ -12,8 +12,8 @@
     void
     rsrc(const Box& bx,
          Array4<Real const> const& uold,
-         Array4<Real> const& source,
-         const Real dt);
+         const Real dt,
+         Array4<Real> const& source);
 
     struct face_mass_flux_views {
         Array4<Real const> x, y, z;
@@ -23,10 +23,10 @@
     apply_rotation_correction(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real const> const& unew,
-             Array4<Real> const& source,
              const face_mass_flux_views& fluxes,
+             Array4<Real const> const& vol,
              const Real dt,
-             Array4<Real const> const& vol);
+             Array4<Real> const& source);
 
     void
     fill_centrifugal_potential(const Box& bx,

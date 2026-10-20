@@ -76,20 +76,18 @@
 
     void
     corner_coupling(const amrex::Box& bx,
-                  amrex::Array4<amrex::Real> const& right_state_out,
-                  amrex::Array4<amrex::Real> const& left_state_out,
                   amrex::Array4<amrex::Real const> const& ur,
                   amrex::Array4<amrex::Real const> const& ul,
                   amrex::Array4<amrex::Real const> const& flux_dir2,
                   amrex::Array4<amrex::Real const> const& Ed1,
                   amrex::Array4<amrex::Real const> const& Ed3,
                   const int d1, const int d2, const int d3,
-                  const amrex::Real dt);
+                  const amrex::Real dt,
+                  amrex::Array4<amrex::Real> const& right_state_out,
+                  amrex::Array4<amrex::Real> const& left_state_out);
 
     void
     predict_half_step(const amrex::Box& bx,
-              amrex::Array4<amrex::Real> const& right_state_out,
-              amrex::Array4<amrex::Real> const& left_state_out,
               amrex::Array4<amrex::Real const> const& ur,
               amrex::Array4<amrex::Real const> const& ul,
               amrex::Array4<amrex::Real const> const& flux_dir1,
@@ -97,7 +95,9 @@
               amrex::Array4<amrex::Real const> const& Ed,
               amrex::Array4<amrex::Real const> const& Ed1,
               amrex::Array4<amrex::Real const> const& Ed2,
-              const int d, const int d1, const int d2, const amrex::Real dt);
+              const int d, const int d1, const int d2, const amrex::Real dt,
+              amrex::Array4<amrex::Real> const& right_state_out,
+              amrex::Array4<amrex::Real> const& left_state_out);
 
     static void
     mhd_riemann_flux(const amrex::Box& bx,

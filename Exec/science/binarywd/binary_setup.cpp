@@ -126,7 +126,7 @@ void binary_setup ()
         problem::roche_rad_S = problem::radius_S;
 
 
-        find_lobe_radii(problem::mass_S / problem::mass_P, problem::roche_rad_S, problem::roche_rad_P);
+        find_lobe_radii(problem::mass_S / problem::mass_P, 1.0_rt, problem::roche_rad_S, problem::roche_rad_P);
 
 
         if (problem::problem == 0) {
@@ -629,7 +629,7 @@ void update_roche_radii ()
                            std::pow(problem::com_P[1] - problem::com_S[1], 2) +
                            std::pow(problem::com_P[2] - problem::com_S[2], 2));
 
-        find_lobe_radii(problem::mass_S / problem::mass_P, problem::roche_rad_S, problem::roche_rad_P, r);
+        find_lobe_radii(problem::mass_S / problem::mass_P, r, problem::roche_rad_S, problem::roche_rad_P);
 
 
         if (problem::roche_rad_S < problem::roche_rad_P / 10.0_rt) {

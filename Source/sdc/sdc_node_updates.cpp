@@ -4,13 +4,13 @@ using namespace amrex;
 
 void
 HydroSim::hs_deferred_update_advection_o2_lobatto(const Box& bx,
-                                           Real substep_dt, Real dt,
                                            Array4<const Real> const& k_m,
-                                           Array4<Real> const& k_n,
                                            Array4<const Real> const& A_m,
                                            Array4<const Real> const& Advect_0_old,
                                            Array4<const Real> const& Advect_1_old,
-                                           int m_start)
+                                           Real substep_dt, Real dt,
+                                           int m_start,
+                                           Array4<Real> const& k_n)
 {
 
     amrex::ignore_unused(substep_dt);
@@ -52,14 +52,14 @@ HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
 
 void
 HydroSim::hs_deferred_update_advection_o2_radau(const Box& bx,
-                                         Real substep_dt, Real dt,
                                          Array4<const Real> const& k_m,
-                                         Array4<Real> const& k_n,
                                          Array4<const Real> const& A_m,
                                          Array4<const Real> const& Advect_0_old,
                                          Array4<const Real> const& Advect_1_old,
                                          Array4<const Real> const& Advect_2_old,
-                                         int m_start)
+                                         Real substep_dt, Real dt,
+                                         int m_start,
+                                         Array4<Real> const& k_n)
 {
 
     if (m_start == 0)
@@ -123,14 +123,14 @@ HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
 
 void
 HydroSim::hs_deferred_update_advection_o4_lobatto(const Box& bx,
-                                           Real substep_dt, Real dt,
                                            Array4<const Real> const& k_m,
-                                           Array4<Real> const& k_n,
                                            Array4<const Real> const& A_m,
                                            Array4<const Real> const& Advect_0_old,
                                            Array4<const Real> const& Advect_1_old,
                                            Array4<const Real> const& Advect_2_old,
-                                           int m_start)
+                                           Real substep_dt, Real dt,
+                                           int m_start,
+                                           Array4<Real> const& k_n)
 {
 
     if (m_start == 0)
@@ -207,15 +207,15 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
 
 void
 HydroSim::hs_deferred_update_advection_o4_radau(const Box& bx,
-                                         Real substep_dt, Real dt,
                                          Array4<const Real> const& k_m,
-                                         Array4<Real> const& k_n,
                                          Array4<const Real> const& A_m,
                                          Array4<const Real> const& Advect_0_old,
                                          Array4<const Real> const& Advect_1_old,
                                          Array4<const Real> const& Advect_2_old,
                                          Array4<const Real> const& Advect_3_old,
-                                         int m_start)
+                                         Real substep_dt, Real dt,
+                                         int m_start,
+                                         Array4<Real> const& k_n)
 {
 
     if (m_start == 0)

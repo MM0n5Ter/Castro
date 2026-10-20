@@ -459,34 +459,30 @@ HydroSim::do_sdc_correct(int m_start, int m_end, Real dt)
         if (sdc_accuracy_order == 2) {
 
             if (sdc_quadrature == 0) {
-                hs_deferred_update_advection_o2_lobatto(bx, substep_dt, dt, node_state_new_start_arr,
-                                                   node_state_new_end_arr,
+                hs_deferred_update_advection_o2_lobatto(bx, node_state_new_start_arr,
                                                    Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr,
-                                                   m_start);
+                                                   substep_dt, dt, m_start, node_state_new_end_arr);
 
             } else {
                 Array4<const Real> const& Advect_old_2_arr = (Advect_old[2])->array(mfi);
-                hs_deferred_update_advection_o2_radau(bx, substep_dt, dt, node_state_new_start_arr,
-                                                 node_state_new_end_arr,
-                                                 Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr,
-                                                 m_start);
+                hs_deferred_update_advection_o2_radau(bx, node_state_new_start_arr,
+                                                   Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr,
+                                                   substep_dt, dt, m_start, node_state_new_end_arr);
 
             }
 
         } else {
             Array4<const Real> const& Advect_old_2_arr = (Advect_old[2])->array(mfi);
             if (sdc_quadrature == 0) {
-                hs_deferred_update_advection_o4_lobatto(bx, substep_dt, dt, node_state_new_start_arr,
-                                                   node_state_new_end_arr,
+                hs_deferred_update_advection_o4_lobatto(bx, node_state_new_start_arr,
                                                    Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr,
-                                                   m_start);
+                                                   substep_dt, dt, m_start, node_state_new_end_arr);
 
             } else {
                 Array4<const Real> const& Advect_old_3_arr = (Advect_old[3])->array(mfi);
-                hs_deferred_update_advection_o4_radau(bx, substep_dt, dt, node_state_new_start_arr,
-                                                 node_state_new_end_arr,
-                                                 Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr,
-                                                 Advect_old_3_arr, m_start);
+                hs_deferred_update_advection_o4_radau(bx, node_state_new_start_arr,
+                                                   Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr, Advect_old_3_arr,
+                                                   substep_dt, dt, m_start, node_state_new_end_arr);
 
             }
 

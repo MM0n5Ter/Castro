@@ -16,11 +16,11 @@
 using namespace amrex;
 
 void AlphaBetaSolver::fillBcMat (const Box& bx,
-                       Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                        int cdir, int bct, Real bcl,
                        Array4<int const> const& mask,
                        Array4<Real const> const& b,
-                       Real beta, const Real* dx)
+                       Real beta, const Real* dx,
+                       Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat)
 {
     bool xlo = false;
     bool ylo = false;
@@ -203,7 +203,6 @@ Real boundary_diagonal_term (int bct, Real fac, Real h, Real bcl, Real beta, Rea
 
 void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                         int side_is_low, int idir,
-                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         int cdir, int bctype,
                         Array4<int const> const& tf,
                         Real bcl,
@@ -211,7 +210,8 @@ void AlphaBetaSolver::fillBcMat3 (const Box& bx,
                         Array4<Real const> const& b,
                         Real beta, const GeometryData& geomdata,
                         Real c,
-                        Array4<Real const> const& spa)
+                        Array4<Real const> const& spa,
+                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat)
 {
     bool xlo = false;
     bool ylo = false;
@@ -819,10 +819,10 @@ void AlphaBetaSolver::fillBcVec3 (const Box& bx,
 }
 
 void AlphaBetaSolver::fillFaceMat (const Box& bx,
-                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         Array4<Real const> const& b,
                         Real beta, const Real* dx,
-                        int idir)
+                        int idir,
+                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat)
 {
 
     if (idir == 0) {
@@ -866,9 +866,9 @@ void AlphaBetaSolver::fillFaceMat (const Box& bx,
 }
 
 void AlphaBetaSolver::fillMassMat (const Box& bx,
-                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat,
                         Array4<Real const> const& a,
-                        Real alpha)
+                        Real alpha,
+                        Array4<GpuArray<Real, AMREX_SPACEDIM+1>> const& mat)
 {
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)

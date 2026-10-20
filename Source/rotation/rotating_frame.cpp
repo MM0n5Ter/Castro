@@ -46,7 +46,7 @@ HydroSim::assemble_old_rotation_source(MultiFab& source, MultiFab& state_in, Rea
     {
         const Box& bx = mfi.tilebox();
 
-        rsrc(bx, state_in.array(mfi), source.array(mfi), dt);
+        rsrc(bx, state_in.array(mfi), dt, source.array(mfi));
 
     }
 
@@ -87,9 +87,8 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& field_old, Mu
 
             apply_rotation_correction(bx,
                      field_old.array(mfi), field_new.array(mfi),
-                     source.array(mfi),
-                     fluxes,
-                     dt, volume.array(mfi));
+                     fluxes, volume.array(mfi),
+                     dt, source.array(mfi));
         }
     }
 
@@ -144,8 +143,8 @@ HydroSim::fill_scaled_centrifugal_potential(const Box& bx,
 void
 HydroSim::rsrc(const Box& bx,
              Array4<Real const> const& uold,
-             Array4<Real> const& source,
-             const Real dt) {
+             const Real dt,
+             Array4<Real> const& source) {
 
   GeometryData geomdata = geom.data();
   const auto coord = geomdata.Coord();
@@ -261,10 +260,10 @@ void
 HydroSim::apply_rotation_correction(const Box& bx,
                  Array4<Real const> const& uold,
                  Array4<Real const> const& unew,
-                 Array4<Real> const& source,
                  const face_mass_flux_views& fluxes,
+                 Array4<Real const> const& vol,
                  const Real dt,
-                 Array4<Real const> const& vol) {
+                 Array4<Real> const& source) {
 
   const auto xface_flux = fluxes.x;
   const auto flux1 = fluxes.y;

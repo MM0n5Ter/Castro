@@ -115,12 +115,12 @@
                                    const amrex::MultiFab& field_new, amrex::Real time, amrex::Real dt);
 
 
-    void fill_axisymmetric_geometry_source(amrex::Real time, amrex::Real dt,
-                             const amrex::MultiFab& conserved_state, amrex::MultiFab& geometry_source);
+    void fill_axisymmetric_geometry_source(const amrex::MultiFab& conserved_state, amrex::MultiFab& geometry_source,
+                             amrex::Real time, amrex::Real dt);
 
 
-    void fill_spherical_geometry_source(amrex::Real time, amrex::Real dt,
-                                 const amrex::MultiFab& conserved_state, amrex::MultiFab& geometry_source);
+    void fill_spherical_geometry_source(const amrex::MultiFab& conserved_state, amrex::MultiFab& geometry_source,
+                                 amrex::Real time, amrex::Real dt);
 
 
 

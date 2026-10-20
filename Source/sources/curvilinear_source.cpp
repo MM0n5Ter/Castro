@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-HydroSim::fill_axisymmetric_geometry_source (Real time, Real dt, const MultiFab& conserved_state, MultiFab& geometry_source)
+HydroSim::fill_axisymmetric_geometry_source (const MultiFab& conserved_state, MultiFab& geometry_source, Real time, Real dt)
 {
 
 
@@ -40,7 +40,7 @@ HydroSim::fill_axisymmetric_geometry_source (Real time, Real dt, const MultiFab&
 }
 
 void
-HydroSim::fill_spherical_geometry_source (Real time, Real dt, const MultiFab& conserved_state, MultiFab& geometry_source)
+HydroSim::fill_spherical_geometry_source (const MultiFab& conserved_state, MultiFab& geometry_source, Real time, Real dt)
 {
 
 
@@ -89,9 +89,9 @@ static void fill_curvilinear_source (HydroSim& lev, int coord, Real time, Real d
                                      const MultiFab& state, MultiFab& dst)
 {
   if (coord == 1) {
-      lev.fill_axisymmetric_geometry_source(time, dt, state, dst);
+      lev.fill_axisymmetric_geometry_source(state, dst, time, dt);
   } else {
-      lev.fill_spherical_geometry_source(time, dt, state, dst);
+      lev.fill_spherical_geometry_source(state, dst, time, dt);
   }
 }
 

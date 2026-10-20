@@ -222,10 +222,10 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     Elixir matfab_hold = matfab.elixir();
     Real* mat = (Real*) matfab.dataPtr();
 
-    fillMassMat(reg, matfab.array(), (*acoefs)[ai].array(), alpha);
+    fillMassMat(reg, (*acoefs)[ai].array(), alpha, matfab.array());
 
     for (idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        fillFaceMat(reg, matfab.array(), (*bcoefs[idim])[ai].array(), beta, dx, idim);
+        fillFaceMat(reg, (*bcoefs[idim])[ai].array(), beta, dx, idim, matfab.array());
     }
 
     const BaseBoundary& bd = getBoundaryData();
@@ -253,14 +253,14 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
         }
 
         fillBcMat3(reg, oitr().isLow(), idim,
-               matfab.array(), cdir, bctype,
+               cdir, bctype,
                tfp, bcl, msk.array(),
                (*bcoefs[idim])[ai].array(),
                beta, geom.data(), flux_scale,
-               opt_bc_alpha_arr);
+               opt_bc_alpha_arr, matfab.array());
       }
       else {
-          fillBcMat(reg, matfab.array(), cdir, bct, bcl, msk.array(), (*bcoefs[idim])[ai].array(), beta, dx);
+          fillBcMat(reg, cdir, bct, bcl, msk.array(), (*bcoefs[idim])[ai].array(), beta, dx, matfab.array());
       }
     }
 

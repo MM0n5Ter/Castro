@@ -206,7 +206,7 @@ void find_equilibrium_points (Real mass_1, Real mass_2, const Real* center_1, co
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void find_lobe_radii (Real roche_q, Real& r_1, Real& r_2, Real a = 1.0_rt)
+void find_lobe_radii (Real roche_q, Real a, Real& r_1, Real& r_2)
 {
     const Real c1 = 0.49e0_rt;
     const Real c2 = 0.60e0_rt;

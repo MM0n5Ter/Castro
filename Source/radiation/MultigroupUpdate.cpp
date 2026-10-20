@@ -285,8 +285,9 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
 
       }
 
-      check_rad_convergence(relative_inner_resid, abs_residual_in, rad_energy_error, rad_energy_new, rad_energy_iter,
-                           kappa_p, thermal_frac_z, temp_next, delta_t);
+      check_rad_convergence(rad_energy_new, rad_energy_iter,
+                           kappa_p, thermal_frac_z, temp_next, delta_t,
+                           relative_inner_resid, abs_residual_in, rad_energy_error);
 
       if (verbose >= 2) {
         int oldprec = std::cout.precision(3);
@@ -362,8 +363,8 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
     check_matter_convergence(rhoe_new, gas_energy_star, gas_energy_step, rad_energy_new,
                            temp_next, temp_iterate,
                            rho, kappa_p, jg, dedT,
-                           rel_gas_energy, abs_gas_energy, rel_resid, abs_resid, rel_temp, abs_temp,
-                           delta_t);
+                           delta_t,
+                           rel_gas_energy, abs_gas_energy, rel_resid, abs_resid, rel_temp, abs_temp);
 
     Real relative_outer_resid, absolute_outer_resid;
 
@@ -725,12 +726,12 @@ void Radiation::update_state_energy(MultiFab& state, const MultiFab& rhoe,
   ParallelDescriptor::ReduceRealMax(dT);
 }
 
-void Radiation::check_rad_convergence(Real& relative, Real& absolute, Real& rad_energy_err,
-                                     const MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
+void Radiation::check_rad_convergence(const MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
                                      const MultiFab& kappa_p,
                                      const MultiFab& thermal_frac_z,
                                      const MultiFab& temp_next,
-                                     Real delta_t)
+                                     Real delta_t,
+                                     Real& relative, Real& absolute, Real& rad_energy_err)
 {
   BL_PROFILE("Radiation::check_rad_convergence (MultigroupDiffusion)");
 
@@ -795,10 +796,10 @@ void Radiation::check_matter_convergence(const MultiFab& rhoe_new, const MultiFa
                                        const MultiFab& rho,
                                        const MultiFab& kappa_p, const MultiFab& jg,
                                        const MultiFab& dedT,
+                                       Real delta_t,
                                        Real& rel_gas_energy, Real& abs_gas_energy,
                                        Real& rel_resid,   Real& abs_resid,
-                                       Real& rel_temp,    Real& abs_temp,
-                                       Real delta_t)
+                                       Real& rel_temp,    Real& abs_temp)
 {
   ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax, ReduceOpMax> reduce_op;
   ReduceData<Real, Real, Real, Real, Real, Real> reduce_data(reduce_op);

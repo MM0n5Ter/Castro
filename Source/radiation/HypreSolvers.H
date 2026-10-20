@@ -76,26 +76,25 @@ class AlphaBetaSolver {
   void faceFluxAtBoundary(amrex::MultiFab* Flux, amrex::MultiFab& Er, int icomp, BoundaryMode bc_variant);
 
   void fillMassMat (const amrex::Box& bx,
-               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                amrex::Array4<amrex::Real const> const& a,
-               amrex::Real alpha);
+               amrex::Real alpha,
+               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat);
 
   void fillFaceMat (const amrex::Box& bx,
-               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                amrex::Array4<amrex::Real const> const& b,
                amrex::Real beta, const amrex::Real* dx,
-               int idir);
+               int idir,
+               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat);
 
   void fillBcMat (const amrex::Box& bx,
-              amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
               int cdir, int bct, amrex::Real bcl,
               amrex::Array4<int const> const& mask,
               amrex::Array4<amrex::Real const> const& b,
-              amrex::Real beta, const amrex::Real* dx);
+              amrex::Real beta, const amrex::Real* dx,
+              amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat);
 
   void fillBcMat3 (const amrex::Box& bx,
                int side_is_low, int idir,
-               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat,
                int cdir, int bctype,
                amrex::Array4<int const> const& tf,
                amrex::Real bcl,
@@ -103,7 +102,8 @@ class AlphaBetaSolver {
                amrex::Array4<amrex::Real const> const& b,
                amrex::Real beta, const amrex::GeometryData& geomdata,
                amrex::Real c,
-               amrex::Array4<amrex::Real const> const& spa);
+               amrex::Array4<amrex::Real const> const& spa,
+               amrex::Array4<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM+1>> const& mat);
 
   void configureSolver(amrex::Real _rel_tolerance, amrex::Real _abs_tolerance, int maxiter);
 

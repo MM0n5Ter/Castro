@@ -15,47 +15,47 @@ void assemble_old_react_source(amrex::MultiFab& cell_cons,
 
 static
 void hs_deferred_update_advection_o2_lobatto(const amrex::Box& bx,
-                                        amrex::Real substep_dt, amrex::Real dt,
                                         amrex::Array4<const amrex::Real> const& k_m,
-                                        amrex::Array4<amrex::Real> const& k_n,
                                         amrex::Array4<const amrex::Real> const& A_m,
                                         amrex::Array4<const amrex::Real> const& Advect_0_old,
                                         amrex::Array4<const amrex::Real> const& Advect_1_old,
-                                        int m_start);
+                                        amrex::Real substep_dt, amrex::Real dt,
+                                        int m_start,
+                                        amrex::Array4<amrex::Real> const& k_n);
 
 static
 void hs_deferred_update_advection_o2_radau(const amrex::Box& bx,
-                                      amrex::Real substep_dt, amrex::Real dt,
                                       amrex::Array4<const amrex::Real> const& k_m,
-                                      amrex::Array4<amrex::Real> const& k_n,
                                       amrex::Array4<const amrex::Real> const& A_m,
                                       amrex::Array4<const amrex::Real> const& Advect_0_old,
                                       amrex::Array4<const amrex::Real> const& Advect_1_old,
                                       amrex::Array4<const amrex::Real> const& Advect_2_old,
-                                      int m_start);
+                                      amrex::Real substep_dt, amrex::Real dt,
+                                      int m_start,
+                                      amrex::Array4<amrex::Real> const& k_n);
 
 static
 void hs_deferred_update_advection_o4_lobatto(const amrex::Box& bx,
-                                        amrex::Real substep_dt, amrex::Real dt,
                                         amrex::Array4<const amrex::Real> const& k_m,
-                                        amrex::Array4<amrex::Real> const& k_n,
                                         amrex::Array4<const amrex::Real> const& A_m,
                                         amrex::Array4<const amrex::Real> const& Advect_0_old,
                                         amrex::Array4<const amrex::Real> const& Advect_1_old,
                                         amrex::Array4<const amrex::Real> const& Advect_2_old,
-                                        int m_start);
+                                        amrex::Real substep_dt, amrex::Real dt,
+                                        int m_start,
+                                        amrex::Array4<amrex::Real> const& k_n);
 
 static
 void hs_deferred_update_advection_o4_radau(const amrex::Box& bx,
-                                      amrex::Real substep_dt, amrex::Real dt,
                                       amrex::Array4<const amrex::Real> const& k_m,
-                                      amrex::Array4<amrex::Real> const& k_n,
                                       amrex::Array4<const amrex::Real> const& A_m,
                                       amrex::Array4<const amrex::Real> const& Advect_0_old,
                                       amrex::Array4<const amrex::Real> const& Advect_1_old,
                                       amrex::Array4<const amrex::Real> const& Advect_2_old,
                                       amrex::Array4<const amrex::Real> const& Advect_3_old,
-                                      int m_start);
+                                      amrex::Real substep_dt, amrex::Real dt,
+                                      int m_start,
+                                      amrex::Array4<amrex::Real> const& k_n);
 #ifdef REACTIONS
 struct QuadratureNodeTerms {
     amrex::GpuArray<amrex::Array4<const amrex::Real>, 4> advect, react;

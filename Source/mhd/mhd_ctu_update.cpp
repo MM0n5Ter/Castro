@@ -352,10 +352,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           auto corner_right_state_hold = corner_right_state.elixir();
 
           corner_coupling(ccbx,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_x_right_arr, cons_x_left_arr,
                         flux_y_1d_arr, emf_x_arr, emf_z_arr,
-                        0, 1, 2, dt);
+                        0, 1, 2, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_xy.resize(ccbx, NUM_STATE+3);
           auto flux_xy_arr = trans_flux_xy.array();
@@ -364,10 +363,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           mhd_riemann_flux(ccbx, corner_left_state_arr, corner_right_state_arr, flux_xy_arr, 0);
 
           corner_coupling(ccbx,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_x_right_arr, cons_x_left_arr,
                         flux_z_1d_arr, emf_x_arr, emf_y_arr,
-                        0, 2, 1, dt);
+                        0, 2, 1, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_xz.resize(ccbx, NUM_STATE+3);
           auto flux_xz_arr = trans_flux_xz.array();
@@ -380,10 +378,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& corner_box_y = amrex::grow(nby, IntVect(2, 1, 2));
 
           corner_coupling(corner_box_y,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_y_right_arr, cons_y_left_arr,
                         flux_x_1d_arr, emf_y_arr, emf_z_arr,
-                        1, 0, 2, dt);
+                        1, 0, 2, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_yx.resize(corner_box_y, NUM_STATE+3);
           auto flux_yx_arr = trans_flux_yx.array();
@@ -393,10 +390,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
 
           corner_coupling(corner_box_y,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_y_right_arr, cons_y_left_arr,
                         flux_z_1d_arr, emf_y_arr, emf_x_arr,
-                        1, 2, 0, dt);
+                        1, 2, 0, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_yz.resize(corner_box_y, NUM_STATE+3);
           auto flux_yz_arr = trans_flux_yz.array();
@@ -408,10 +404,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& corner_box_z = amrex::grow(nbz, IntVect(2, 2, 1));
 
           corner_coupling(corner_box_z,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_z_right_arr, cons_z_left_arr,
                         flux_x_1d_arr, emf_z_arr, emf_y_arr,
-                        2, 0, 1, dt);
+                        2, 0, 1, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_zx.resize(corner_box_z, NUM_STATE+3);
           auto flux_zx_arr = trans_flux_zx.array();
@@ -421,10 +416,9 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
 
 
           corner_coupling(corner_box_z,
-                        corner_right_state_arr, corner_left_state_arr,
                         cons_z_right_arr, cons_z_left_arr,
                         flux_y_1d_arr, emf_z_arr, emf_x_arr,
-                        2, 1, 0, dt);
+                        2, 1, 0, dt, corner_right_state_arr, corner_left_state_arr);
 
           trans_flux_zy.resize(corner_box_z, NUM_STATE+3);
           auto flux_zy_arr = trans_flux_zy.array();
@@ -472,11 +466,10 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& nodal_grown_box = amrex::grow(nbx, IntVect(0, 1, 1));
 
           predict_half_step(nodal_grown_box,
-                    corner_right_state_arr, corner_left_state_arr,
                     cons_x_right_arr, cons_x_left_arr,
                     flux_yz_arr, flux_zy_arr,
                     emf_x_arr, emf_y_arr, emf_z_arr,
-                    0, 1, 2, dt);
+                    0, 1, 2, dt, corner_right_state_arr, corner_left_state_arr);
 
 
 
@@ -485,22 +478,20 @@ HydroSim::assemble_ctu_mhd_source(Real time, Real dt)
           const Box& nodal_box_y_half = amrex::grow(nby, IntVect(1, 0, 1));
 
           predict_half_step(nodal_box_y_half,
-                    corner_right_state_arr, corner_left_state_arr,
                     cons_y_right_arr, cons_y_left_arr,
                     flux_xz_arr, flux_zx_arr,
                     emf_y_arr, emf_x_arr, emf_z_arr,
-                    1, 0, 2, dt);
+                    1, 0, 2, dt, corner_right_state_arr, corner_left_state_arr);
 
           mhd_riemann_flux(nodal_box_y_half, corner_left_state_arr, corner_right_state_arr, flux[1].array(), 1);
 
           const Box& nodal_box_z_half = amrex::grow(nbz, IntVect(1, 1, 0));
 
           predict_half_step(nodal_box_z_half,
-                    corner_right_state_arr, corner_left_state_arr,
                     cons_z_right_arr, cons_z_left_arr,
                     flux_xy_arr, flux_yx_arr,
                     emf_z_arr, emf_x_arr, emf_y_arr,
-                    2, 0, 1, dt);
+                    2, 0, 1, dt, corner_right_state_arr, corner_left_state_arr);
 
           mhd_riemann_flux(nodal_box_z_half, corner_left_state_arr, corner_right_state_arr, flux[2].array(), 2);
 

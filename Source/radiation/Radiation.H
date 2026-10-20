@@ -277,12 +277,12 @@ public:
   amrex::Real Wien_Temp_Limit;
 
 
-  void check_rad_convergence(amrex::Real& relative_inner_resid, amrex::Real& abs_residual_in, amrex::Real& rad_energy_error,
-                            const amrex::MultiFab& rad_energy_new, const amrex::MultiFab& rad_energy_iter,
+  void check_rad_convergence(const amrex::MultiFab& rad_energy_new, const amrex::MultiFab& rad_energy_iter,
                             const amrex::MultiFab& kappa_p,
                             const amrex::MultiFab& thermal_frac_z,
                             const amrex::MultiFab& temp_next,
-                            amrex::Real delta_t);
+                            amrex::Real delta_t,
+                            amrex::Real& relative_inner_resid, amrex::Real& abs_residual_in, amrex::Real& rad_energy_error);
 
   void check_matter_convergence(const amrex::MultiFab& rhoe_new, const amrex::MultiFab& gas_energy_star,
                               const amrex::MultiFab& gas_energy_step, const amrex::MultiFab& rad_energy_new,
@@ -290,10 +290,10 @@ public:
                               const amrex::MultiFab& rho,
                               const amrex::MultiFab& kappa_p, const amrex::MultiFab& jg,
                               const amrex::MultiFab& dedT,
+                              amrex::Real delta_t,
                               amrex::Real& rel_gas_energy, amrex::Real& abs_gas_energy,
                               amrex::Real& rel_resid,   amrex::Real& abs_resid,
-                              amrex::Real& rel_temp,    amrex::Real& abs_temp,
-                              amrex::Real delta_t);
+                              amrex::Real& rel_temp,    amrex::Real& abs_temp);
 
   void build_coupling_term(amrex::MultiFab& couple_source,
                         const amrex::MultiFab& kappa_p, const amrex::MultiFab& rad_energy_iter,

@@ -20,15 +20,15 @@ upwind_emf_slope(Real mass_flux, Real a, Real b) {
 
 void
 HydroSim::corner_coupling(const Box& bx,
-                      Array4<Real> const& right_state_out,
-                      Array4<Real> const& left_state_out,
                       Array4<Real const> const& ur,
                       Array4<Real const> const& ul,
                       Array4<Real const> const& flux_dir2,
                       Array4<Real const> const& Ed1,
                       Array4<Real const> const& Ed3,
                       const int d1, const int d2, const int d3,
-                      const Real dt) {
+                      const Real dt,
+                      Array4<Real> const& right_state_out,
+                      Array4<Real> const& left_state_out) {
 
 
   GpuArray<Real, 3> dx;
@@ -158,8 +158,6 @@ HydroSim::corner_coupling(const Box& bx,
 
 void
 HydroSim::predict_half_step(const Box& bx,
-                  Array4<Real> const& right_state_out,
-                  Array4<Real> const& left_state_out,
                   Array4<Real const> const& ur,
                   Array4<Real const> const& ul,
                   Array4<Real const> const& flux_dir1,
@@ -167,7 +165,9 @@ HydroSim::predict_half_step(const Box& bx,
                   Array4<Real const> const& Ed,
                   Array4<Real const> const& Ed1,
                   Array4<Real const> const& Ed2,
-                  const int d, const int d1, const int d2, const Real dt) {
+                  const int d, const int d1, const int d2, const Real dt,
+                  Array4<Real> const& right_state_out,
+                  Array4<Real> const& left_state_out) {
 
 
   GpuArray<Real, 3> dx;
