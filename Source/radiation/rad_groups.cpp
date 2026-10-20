@@ -111,39 +111,38 @@ void Radiation::build_groups(int verbose)
 
   if (ParallelDescriptor::IOProcessor()) {
 
-    std::ofstream energy_group_file;
-    energy_group_file.open("group_structure.dat");
+    {
+        std::ofstream energy_group_file("group_structure.dat");
 
-    energy_group_file << "# total number of groups = " << nGroups << std::endl;
-    energy_group_file << "# group center, group weight" << group_unit_label << std::endl;
+        energy_group_file << "# total number of groups = " << nGroups << std::endl;
+        energy_group_file << "# group center, group weight" << group_unit_label << std::endl;
 
-    energy_group_file.precision(10);
-    for (int i = 0; i < nGroups; i++) {
-      energy_group_file.width(15);
-      energy_group_file <<  freq_center[i] * group_output_scale << "\t";
-      energy_group_file.width(15);
-      energy_group_file << freq_width[i] * group_output_scale << std::endl;
+        energy_group_file.precision(10);
+        for (int i = 0; i < nGroups; i++) {
+          energy_group_file.width(15);
+          energy_group_file <<  freq_center[i] * group_output_scale << "\t";
+          energy_group_file.width(15);
+          energy_group_file << freq_width[i] * group_output_scale << std::endl;
+        }
+        energy_group_file << std::endl;
+
+        if (xnu.size() > 0) {
+          energy_group_file << "# group lower boundaries" << std::endl;
+          for (int i = 0; i < xnu.size(); i++) {
+            energy_group_file << "group(" << i << ") = "
+                      << xnu[i] * group_output_scale << std::endl;
+          }
+        }
+
+        if (log_group_widths.size() > 0) {
+          energy_group_file << std::endl;
+          energy_group_file << "# group width in log space" << std::endl;
+          for (int i = 0; i < log_group_widths.size(); i++) {
+            energy_group_file << "group(" << i << ") = "
+                      << log_group_widths[i] << std::endl;
+          }
+        }
     }
-    energy_group_file << std::endl;
-
-    if (xnu.size() > 0) {
-      energy_group_file << "# group lower boundaries" << std::endl;
-      for (int i = 0; i < xnu.size(); i++) {
-        energy_group_file << "group(" << i << ") = "
-                  << xnu[i] * group_output_scale << std::endl;
-      }
-    }
-
-    if (log_group_widths.size() > 0) {
-      energy_group_file << std::endl;
-      energy_group_file << "# group width in log space" << std::endl;
-      for (int i = 0; i < log_group_widths.size(); i++) {
-        energy_group_file << "group(" << i << ") = "
-                  << log_group_widths[i] << std::endl;
-      }
-    }
-
-    energy_group_file.close();
 
     if (verbose >= 1) {
       dump_group_table(std::cout);

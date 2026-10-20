@@ -1,4 +1,5 @@
 
+#include <memory>
 #include <new>
 #include <cstdio>
 #include <cstring>
@@ -112,8 +113,8 @@ main (int   argc,
     print_utc_stamp("Starting");
 
 
-    Amr* amr_obj = new Amr(getLevelBld());
-    global::amr_instance = amr_obj;
+    auto amr_obj = std::make_unique<Amr>(getLevelBld());
+    global::amr_instance = amr_obj.get();
 
     amr_obj->init(strt_time,stop_time);
 
@@ -161,7 +162,7 @@ main (int   argc,
 
     print_utc_stamp("Ending");
 
-    delete amr_obj;
+    amr_obj.reset();
     const int IOProc = ParallelDescriptor::IOProcessorNumber();
     const int nprocs = ParallelDescriptor::NProcs();
 

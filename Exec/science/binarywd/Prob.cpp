@@ -36,13 +36,10 @@ void HydroSim::user_post_restart() {
 
           const std::string datalogname = parent->DataLogName(0);
 
-          std::ifstream log;
-          log.open(datalogname, std::ios::ate);
-
-          if (log.tellg() == 0) {
-              do_sums = true;
+          {
+              std::ifstream log(datalogname, std::ios::ate);
+              do_sums = (log.tellg() == 0);
           }
-          log.close();
 
           if (do_sums && (sum_step_period > 0 || sum_time_period > 0))
               tally_integrated_quantities();

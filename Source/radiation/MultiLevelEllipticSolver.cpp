@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <memory>
+#include <vector>
 #include <utility>
 
 #ifdef _OPENMP
@@ -698,8 +700,8 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
   }
   else if (solver_choice == 101) {
     int nparts = fine_level - crse_level + 1;
-    int *plevels = new int[nparts];
-    int (*prefinements)[3] = new int[nparts][3];
+    std::vector<int> plevels(nparts);
+    std::unique_ptr<int[][3]> prefinements(new int[nparts][3]);
     for (int i = 0; i < nparts; i++) {
       plevels[i] = i;
       if (i == 0) {
@@ -731,8 +733,8 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructFACSetMaxLevels(solver_handle, nparts);
     HYPRE_SStructFACSetMaxIter(solver_handle, maxiter);
     HYPRE_SStructFACSetTol(solver_handle, reltol);
-    HYPRE_SStructFACSetPLevels(solver_handle, nparts, plevels);
-    HYPRE_SStructFACSetPRefinements(solver_handle, nparts, prefinements);
+    HYPRE_SStructFACSetPLevels(solver_handle, nparts, plevels.data());
+    HYPRE_SStructFACSetPRefinements(solver_handle, nparts, prefinements.get());
     HYPRE_SStructFACSetRelChange(solver_handle, 0);
     HYPRE_SStructFACSetRelaxType(solver_handle, 1);
     HYPRE_SStructFACSetRelaxType(solver_handle, 2);
@@ -748,14 +750,12 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     for (int i = 0; i < nparts-1; i++) {
       HYPRE_SStructFACZeroAMRMatrixData(A, i, prefinements[i+1]);
     }
-    HYPRE_SStructFACZeroAMRVectorData(b, plevels, prefinements);
+    HYPRE_SStructFACZeroAMRVectorData(b, plevels.data(), prefinements.get());
     commitMatrix();
     commitVectors();
 
     HYPRE_SStructFACSetup2(solver_handle, A, b, x);
 
-    delete[] plevels;
-    delete[] prefinements;
   }
   else if (solver_choice == 102) {
     HYPRE_ParCSRMatrix par_A;

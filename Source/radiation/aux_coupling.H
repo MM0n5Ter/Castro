@@ -2,6 +2,7 @@
 #define HYDROSIM_AUX_COUPLING_H
 
 #include <list>
+#include <memory>
 #include <AMReX_Array.H>
 #include <AMReX_MultiFab.H>
 #include <HYPRE_sstruct_ls.h>
@@ -89,13 +90,7 @@ class BoxStorage {
  public:
 
 
-  BoxStorage(const amrex::Box& bx) : domain(bx) {
-    auto numpts = domain.numPts();
-    dptr = new T[numpts];
-  }
-
-  ~BoxStorage() {
-    delete[] dptr;
+  BoxStorage(const amrex::Box& bx) : domain(bx), dptr(new T[domain.numPts()]) {
   }
 
   BoxStorage(const BoxStorage& src) = delete;
@@ -105,7 +100,7 @@ class BoxStorage {
   BoxStorage& operator= (const BoxStorage&& src) = delete;
 
   T& operator()(const amrex::IntVect& p) {
-    BL_ASSERT(!(dptr == 0));
+    BL_ASSERT(dptr != nullptr);
     BL_ASSERT(domain.contains(p));
     return dptr[domain.index(p)];
   }
@@ -116,7 +111,7 @@ class BoxStorage {
 
  protected:
   amrex::Box domain;
-  T *dptr;
+  std::unique_ptr<T[]> dptr;
 };
 
 using BoxAuxStorage = BoxStorage<AuxVar>;

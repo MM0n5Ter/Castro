@@ -22,13 +22,13 @@ RadTransportSolver::RadTransportSolver (Amr* Parent, int level, const BoxArray& 
 
     if (!(radiation_solve::level_solver_kind < 100)) {
         if (radiation_solve::use_nonsym_solver_terms == 0) {
-            hm.reset(new MultiLevelEllipticSolver(level, level, radiation_solve::level_solver_kind));
+            hm = std::make_unique<MultiLevelEllipticSolver>(level, level, radiation_solve::level_solver_kind);
             hm->attachLevel(level, parent->Geom(level), grids, dmap,
                          IntVect::TheUnitVector());
             hm->makeMatrixLayout();
         }
         else {
-            hem.reset(new ExtendedMultiLevelSolver(level, level, radiation_solve::level_solver_kind));
+            hem = std::make_unique<ExtendedMultiLevelSolver>(level, level, radiation_solve::level_solver_kind);
             cSaved  = hem->advectionScale();
             d1Saved = hem->gradientScale1();
             d2Saved = hem->gradientScale2();
@@ -37,7 +37,7 @@ RadTransportSolver::RadTransportSolver (Amr* Parent, int level, const BoxArray& 
             hem->makeMatrixLayout();
         }
     } else {
-        hd.reset(new AlphaBetaSolver(grids, dmap, parent->Geom(level), radiation_solve::level_solver_kind));
+        hd = std::make_unique<AlphaBetaSolver>(grids, dmap, parent->Geom(level), radiation_solve::level_solver_kind);
     }
 }
 
