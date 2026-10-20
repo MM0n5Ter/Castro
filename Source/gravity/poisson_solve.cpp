@@ -701,10 +701,8 @@ Gravity::update_max_density()
     }
 #endif
 
-    peak_rhs_value = 0.0;
-
-    for (int lev = 0; lev < nlevs; ++lev)
-        peak_rhs_value = std::max(peak_rhs_value, poisson_rhs[lev]->max(0));
+    peak_rhs_value = std::accumulate(poisson_rhs.begin(), poisson_rhs.begin() + nlevs, Real(0.0),
+                                     [] (Real peak, const auto& rhs) { return std::max(peak, rhs->max(0)); });
 
 }
 

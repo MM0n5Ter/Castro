@@ -527,11 +527,10 @@ HydroSim::make_boundary_mask (int ng)
 {
     BL_PROFILE("HydroSim::make_boundary_mask()");
 
-    for (const auto & ibm : interior_masks)
-    {
-        if (ibm->nGrow() == ng) {
-            return *ibm;
-        }
+    const auto cached = std::find_if(interior_masks.begin(), interior_masks.end(),
+                                     [ng] (const auto& ibm) { return ibm->nGrow() == ng; });
+    if (cached != interior_masks.end()) {
+        return **cached;
     }
 
     interior_masks.push_back(std::make_unique<iMultiFab>(grids, dmap, 1, ng));

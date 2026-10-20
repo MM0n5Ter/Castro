@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <binary_setup.H>
 #include <network.H>
 #include <ambient.H>
@@ -30,16 +32,14 @@ void binary_setup ()
     }
 
 
-    for (int n = 0; n < 3; ++n) {
-        problem::center_P_initial[n] = problem::center[n];
-        problem::center_S_initial[n] = problem::center[n];
+    std::copy_n(problem::center, 3, problem::center_P_initial);
+    std::copy_n(problem::center, 3, problem::center_S_initial);
 
-        problem::com_P[n] = problem::center[n];
-        problem::com_S[n] = problem::center[n];
+    std::copy_n(problem::center, 3, problem::com_P);
+    std::copy_n(problem::center, 3, problem::com_S);
 
-        problem::vel_P[n] = 0.0_rt;
-        problem::vel_S[n] = 0.0_rt;
-    }
+    std::fill_n(problem::vel_P, 3, 0.0_rt);
+    std::fill_n(problem::vel_S, 3, 0.0_rt);
 
 
     if (problem::central_density_P > 0.0_rt) {
@@ -290,10 +290,8 @@ void binary_setup ()
 
     }
 
-    for (int n = 0; n < 3; ++n) {
-        problem::com_P[n] = problem::center_P_initial[n];
-        problem::com_S[n] = problem::center_S_initial[n];
-    }
+    std::copy_n(problem::center_P_initial, 3, problem::com_P);
+    std::copy_n(problem::center_S_initial, 3, problem::com_S);
 
 
     if (!(AMREX_SPACEDIM == 2 && HydroSim::physbc().lo(1) == amrex::PhysBCType::symmetry)) {

@@ -47,9 +47,7 @@ void MultiLevelEllipticSolver::assembleMatrix()
 
   int stencil_indices[size];
 
-  for (i = 0; i < size; i++) {
-    stencil_indices[i] = i;
-  }
+  std::iota(stencil_indices, stencil_indices + size, 0);
 
   BaseFab<GpuArray<Real, size>> matfab;
   FArrayBox sub_matrix_buf;

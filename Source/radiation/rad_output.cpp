@@ -7,6 +7,7 @@
 #include <RadFieldDerive.H>
 
 #include <HydroSim.H>
+#include <algorithm>
 #include <iomanip>
 
 #include <cstdio>
@@ -38,9 +39,7 @@ void Radiation::store_flux_plotvar(int level, const MultiFab& Snew,
     GpuArray<Real, NGROUPS> log_group_width = {0.0};
 
     if (NGROUPS > 1) {
-        for (int i = 0; i < NGROUPS; ++i) {
-            log_group_width[i] = log_group_widths[i];
-        }
+        std::copy_n(log_group_widths.begin(), NGROUPS, log_group_width.begin());
     }
 
 #ifdef _OPENMP

@@ -212,9 +212,7 @@ HydroSim::begin_advance(Real time, Real dt, int amr_pass)
 #endif
                   S_old, time, S_old.nGrow());
 
-    for (int k = 0; k < num_field_types; ++k) {
-        prev_state[k] = std::make_unique<StateData>();
-    }
+    std::generate_n(prev_state.begin(), num_field_types, [] { return std::make_unique<StateData>(); });
 
 #ifdef TRUE_SDC
     q.define(grids, dmap, NQ, NUM_GROW);

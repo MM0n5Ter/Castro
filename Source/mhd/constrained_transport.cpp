@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <HydroSim.H>
 
 #include <mhd_zone_ops.H>
@@ -30,12 +32,8 @@ HydroSim::corner_coupling(const Box& bx,
 
 
   GpuArray<Real, 3> dx;
-  for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      dx[i] = geom.CellSizeArray()[i];
-  }
-  for (int i = AMREX_SPACEDIM; i < 3; ++i) {
-      dx[i] = 0.0_rt;
-  }
+  std::copy_n(geom.CellSizeArray().begin(), AMREX_SPACEDIM, dx.begin());
+  std::fill(dx.begin() + AMREX_SPACEDIM, dx.end(), 0.0_rt);
 
 
   int cl[3] = {};
@@ -173,12 +171,8 @@ HydroSim::predict_half_step(const Box& bx,
 
 
   GpuArray<Real, 3> dx;
-  for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-      dx[i] = geom.CellSizeArray()[i];
-  }
-  for (int i = AMREX_SPACEDIM; i < 3; ++i) {
-      dx[i] = 0.0_rt;
-  }
+  std::copy_n(geom.CellSizeArray().begin(), AMREX_SPACEDIM, dx.begin());
+  std::fill(dx.begin() + AMREX_SPACEDIM, dx.end(), 0.0_rt);
 
 
   int c1l[3] = {};
