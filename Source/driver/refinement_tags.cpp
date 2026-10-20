@@ -158,6 +158,16 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
 
     auto geomdata = geom.data();
 
+    Real extent_lo = 0.0;
+    Real extent_hi = 0.0;
+
+    for (int dim = 0; dim < AMREX_SPACEDIM; ++dim) {
+        extent_lo = amrex::max(extent_lo, std::abs(geom.ProbLo(dim) - problem::center[dim]));
+        extent_hi = amrex::max(extent_hi, std::abs(geom.ProbHi(dim) - problem::center[dim]));
+    }
+
+    const Real max_extent = amrex::max(extent_lo, extent_hi);
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -170,7 +180,6 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
             const Real* problo = geomdata.ProbLo();
-            const Real* probhi = geomdata.ProbHi();
             const Real* dx = geomdata.CellSize();
 
             GpuArray<Real, 3> loc = {0.0};
@@ -185,15 +194,7 @@ HydroSim::apply_tag_limits(TagBoxArray& tags, [[maybe_unused]] Real time)
 
             Real r = distance(geomdata, loc);
 
-            Real extent_lo = 0.0;
-            Real extent_hi = 0.0;
-
-            for (int dim = 0; dim < AMREX_SPACEDIM; ++dim) {
-                extent_lo = amrex::max(extent_lo, std::abs(problo[dim] - problem::center[dim]));
-                extent_hi = amrex::max(extent_hi, std::abs(probhi[dim] - problem::center[dim]));
-            }
-
-            if (r > hydrosim::tagging_radius_cap * amrex::max(extent_lo, extent_hi)) {
+            if (r > hydrosim::tagging_radius_cap * max_extent) {
                 tag(i,j,k) = TagBox::CLEAR;
             }
         });

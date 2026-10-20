@@ -148,6 +148,22 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
         physbc_hi[dir] = phys_bc->hi(dir);
     }
 
+    GpuArray<bool, 3> doFoldedAddLo {false};
+    GpuArray<bool, 3> doFoldedAddHi {false};
+    bool doFoldedAdd {false};
+
+    for (int b = 0; b < 3; ++b) {
+        if (physbc_lo[b] == amrex::PhysBCType::symmetry) {
+            doFoldedAddLo[b] = true;
+            doFoldedAdd      = true;
+        }
+
+        if (physbc_hi[b] == amrex::PhysBCType::symmetry) {
+            doFoldedAddHi[b] = true;
+            doFoldedAdd      = true;
+        }
+    }
+
     for (int lev = crse_level; lev <= fine_level; ++lev) {
 
         MultiFab source(Rhs[lev - crse_level]->boxArray(),
@@ -197,22 +213,6 @@ Gravity::fill_direct_sum_boundaries(int crse_level, int fine_level, const Vector
 
                 const auto rho = source[mfi].array();
                 const auto vol = (*volume[lev])[mfi].array();
-
-                GpuArray<bool, 3> doFoldedAddLo {false};
-                GpuArray<bool, 3> doFoldedAddHi {false};
-                bool doFoldedAdd {false};
-
-                for (int b = 0; b < 3; ++b) {
-                    if (physbc_lo[b] == amrex::PhysBCType::symmetry) {
-                        doFoldedAddLo[b] = true;
-                        doFoldedAdd      = true;
-                    }
-
-                    if (physbc_hi[b] == amrex::PhysBCType::symmetry) {
-                        doFoldedAddHi[b] = true;
-                        doFoldedAdd      = true;
-                    }
-                }
 
 #ifdef _OPENMP
                 auto boundaryXYLo_arr = local_boundaryXYLo[tid]->array();
@@ -467,6 +467,8 @@ Gravity::init_multipole_field() const
         amrex::Abort("lnum greater than max_moment_order");
     }
 
+    const int coord_type = parent->Geom(0).Coord();
+
     int lo_bc[3];
     int hi_bc[3];
 
@@ -501,7 +503,7 @@ Gravity::init_multipole_field() const
 
     auto classify_wall = [&] (int bc, Real wall, int b,
                               Array1D<bool, 0, 2>& mirror, Array1D<bool, 0, 2>& folded) {
-        if ((bc == amrex::PhysBCType::symmetry) && (parent->Geom(0).Coord() == 0)) {
+        if ((bc == amrex::PhysBCType::symmetry) && (coord_type == 0)) {
             if (std::abs(problem::center[b] - wall) < wallDistTol) {
                 multipole::volumeScale *= 2.0_rt;
                 mirror(b) = true;
@@ -536,16 +538,16 @@ Gravity::init_multipole_field() const
             if (AMREX_SPACEDIM == 3 && (multipole::doMirrorLo(2) || multipole::doMirrorHi(2))) {
                 multipole::axis_parity_table(l) = 0.0_rt;
             }
-            else if (AMREX_SPACEDIM == 2 && parent->Geom(0).Coord() == 1) {
+            else if (AMREX_SPACEDIM == 2 && coord_type == 1) {
                 multipole::axis_parity_table(l) = 0.0_rt;
             }
-            else if (AMREX_SPACEDIM == 1 && parent->Geom(0).Coord() == 2) {
+            else if (AMREX_SPACEDIM == 1 && coord_type == 2) {
                 multipole::axis_parity_table(l) = 0.0_rt;
             }
         }
 
         if (l > 0) {
-            if (AMREX_SPACEDIM == 1 && parent->Geom(0).Coord() == 2) {
+            if (AMREX_SPACEDIM == 1 && coord_type == 2) {
                 multipole::axis_parity_table(l) = 0.0_rt;
             }
         }
@@ -555,10 +557,10 @@ Gravity::init_multipole_field() const
             if (AMREX_SPACEDIM == 3) {
                 multipole::azimuth_parity_table(l,m) = 1.0_rt;
             }
-            else if (AMREX_SPACEDIM == 2 && parent->Geom(0).Coord() == 1) {
+            else if (AMREX_SPACEDIM == 2 && coord_type == 1) {
                 multipole::azimuth_parity_table(l,m) = 0.0_rt;
             }
-            else if (AMREX_SPACEDIM == 1 && parent->Geom(0).Coord() == 2) {
+            else if (AMREX_SPACEDIM == 1 && coord_type == 2) {
                 multipole::azimuth_parity_table(l,m) = 0.0_rt;
             }
 
@@ -703,6 +705,15 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
         const auto probhi = parent->Geom(lev).ProbHiArray();
         int coord_type = parent->Geom(lev).Coord();
 
+        int nlo = 0;
+        if (surface_only_mode == 1) {
+            nlo = npts-1;
+        }
+
+        const Real binScale = multipole::rmax / dx[0];
+
+        const Real cutoff_cubed_inv = 1.0_rt / (multipole::rmax * multipole::rmax * multipole::rmax);
+
 #ifdef _OPENMP
         int nthreads = omp_get_max_threads();
         Vector<std::unique_ptr<FArrayBox> > local_lowerMoment0(nthreads);
@@ -757,15 +768,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                 amrex::ParallelFor(amrex::Gpu::KernelInfo().setReduction(true), bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k, amrex::Gpu::Handler const& handler) noexcept
                 {
-
-                    int nlo = 0;
-                    if (surface_only_mode == 1) {
-                        nlo = npts-1;
-                    }
-
-                    Real binScale = multipole::rmax / dx[0];
-
-                    Real cutoff_cubed_inv = 1.0_rt / (multipole::rmax * multipole::rmax * multipole::rmax);
 
                     Real x = (problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0]) / multipole::rmax;
 
@@ -895,6 +897,13 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
     const auto problo = parent->Geom(crse_level).ProbLoArray();
     int coord_type = parent->Geom(crse_level).Coord();
 
+    int nlo = 0;
+    if (surface_only_mode == 1) {
+        nlo = npts-1;
+    }
+
+    const Real cutoff_cubed = multipole::rmax * multipole::rmax * multipole::rmax;
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -912,13 +921,6 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
         {
             const int* domlo = domain.loVect();
             const int* domhi = domain.hiVect();
-
-            int nlo = 0;
-            if (surface_only_mode == 1) {
-                nlo = npts-1;
-            }
-
-            Real cutoff_cubed = multipole::rmax * multipole::rmax * multipole::rmax;
 
             Real x;
             if (i > domhi[0]) {

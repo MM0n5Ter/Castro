@@ -136,6 +136,7 @@ HydroSim::initData ()
 #endif
     MultiFab& S_new = get_new_data(State_Type);
     Real cur_time   = state[State_Type].curTime();
+    const auto geomdata = geom.data();
 
     S_new.setVal(0.);
 
@@ -207,7 +208,6 @@ HydroSim::initData ()
 #endif
        for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
 
-          auto geomdata = geom.data();
 
           auto magfield_x_arr = magfield_x_new.array(mfi);
           auto magfield_y_arr = magfield_y_new.array(mfi);
@@ -249,7 +249,6 @@ HydroSim::initData ()
           const Box& box = mfi.tilebox();
 
           auto s = S_new[mfi].array();
-          auto geomdata = geom.data();
 
 #ifdef RNG_STATE_INIT
           amrex::ParallelForRNG(box,
@@ -486,7 +485,6 @@ HydroSim::initData ()
           const Box& box = mfi.tilebox();
 
           auto r = radiation_new[mfi].array();
-          auto geomdata = geom.data();
 
           GpuArray<Real, NGROUPS+1> nu_edge_pass = {0.0};
           GpuArray<Real, NGROUPS> nu_center_pass = {0.0};

@@ -43,6 +43,16 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #if AMREX_SPACEDIM >= 2
   GpuArray<int, 3> domain_lo = geom.Domain().loVect3d();
   GpuArray<int, 3> domain_hi = geom.Domain().hiVect3d();
+
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
+  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
+  for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+    lo_wrap[dir] = lo_bc[dir] == amrex::PhysBCType::interior;
+    hi_wrap[dir] = hi_bc[dir] == amrex::PhysBCType::interior;
+  }
 #endif
 
 #ifdef HYBRID_MOMENTUM
@@ -278,16 +288,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
 
 #if AMREX_SPACEDIM >= 2
-            const int* lo_bc = phys_bc.lo();
-            const int* hi_bc = phys_bc.hi();
-
-            GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
-            GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
-            for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-              lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-              hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
-            }
-
             amrex::ParallelFor(nbx, NQ,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
             {

@@ -552,6 +552,7 @@ Gravity::interpolate_monopole_field(int level, RealVector& radial_field, MultiFa
 
     const auto problo = geom.ProbLoArray();
     const auto geomdata = geom.data();
+    const Real* const radial_accel_ptr = radial_field.dataPtr();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -561,7 +562,6 @@ Gravity::interpolate_monopole_field(int level, RealVector& radial_field, MultiFa
         const Box& bx = mfi.growntilebox();
 
         auto gravity_view = gravity_field_out.array(mfi);
-        const Real* const radial_accel_ptr = radial_field.dataPtr();
 
         amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept

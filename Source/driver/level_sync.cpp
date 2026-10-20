@@ -73,13 +73,18 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
     const Real strt = ParallelDescriptor::second();
 
+    const bool update_coarse_fluxes = refresh_sources_after_reflux || !from_post_step;
+    const Real crse_dt = parent->dtLevel(crse_level);
+
 #ifdef GRAVITY
+    const bool sync_potential = do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step;
+
     int nlevs = fine_level - crse_level + 1;
 
     Vector<std::unique_ptr<MultiFab> > drho(nlevs);
     Vector<std::unique_ptr<MultiFab> > dphi(nlevs);
 
-    if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step)  {
+    if (sync_potential)  {
 
         for (int lev = crse_level; lev <= fine_level; ++lev) {
 
@@ -145,7 +150,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
                 auto F = scratch_fluxes[idir][mfi].array();
 #ifndef MHD
                 auto A = crse_lev.area[idir][mfi].array();
-                Real dt = parent->dtLevel(crse_level);
+                Real dt = crse_dt;
 
                 bool scale_by_area_dt = false;
                 crse_lev.clip_fluxes_at_density_floor(nbx, idir, U, V, F, A, dt, scale_by_area_dt);
@@ -189,7 +194,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
                 }
             }
 
-            if (refresh_sources_after_reflux || !from_post_step) {
+            if (update_coarse_fluxes) {
 
                 MultiFab::Add(*crse_lev.fluxes[idir], scratch_fluxes[idir], 0, 0, crse_lev.fluxes[idir]->nComp(), 0);
 
@@ -203,7 +208,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 #ifdef GRAVITY
         int ilev = lev - crse_level - 1;
 
-        if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step) {
+        if (sync_potential) {
             reg->Reflux(*drho[ilev], crse_lev.volume, 1.0, 0, URHO, 1, crse_lev.geom);
             amrex::average_down(*drho[ilev + 1], *drho[ilev], 0, 1, getLevel(lev).crse_ratio);
         }
@@ -223,7 +228,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             reg->Reflux(crse_state, dr, 1.0, 0, UMX, 1, crse_lev.geom);
 
-            if (refresh_sources_after_reflux || !from_post_step) {
+            if (update_coarse_fluxes) {
 
                 MultiFab scratch_radial_fluxes(crse_lev.Pressure_radial.boxArray(),
                                     crse_lev.Pressure_radial.DistributionMap(),
@@ -252,7 +257,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 
             reg->Reflux(crse_lev.get_new_data(Radiation_Type), crse_lev.volume, 1.0, 0, 0, Radiation::nGroups, crse_lev.geom);
 
-            if (refresh_sources_after_reflux || !from_post_step) {
+            if (update_coarse_fluxes) {
 
                 for (int idir = 0; idir < AMREX_SPACEDIM; ++idir) {
 
@@ -277,7 +282,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
 #endif
 
 #ifdef GRAVITY
-        if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step)  {
+        if (sync_potential)  {
 
             reg = &getLevel(lev).pot_flux_reg;
 
@@ -298,7 +303,7 @@ HydroSim::reflux (int crse_level, int fine_level, bool from_post_step)
     }
 
 #ifdef GRAVITY
-    if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0 && from_post_step) {
+    if (sync_potential) {
       gravity->synchronize_gravity_levels(crse_level, fine_level, amrex::GetVecOfPtrs(drho), amrex::GetVecOfPtrs(dphi));
     }
 #endif

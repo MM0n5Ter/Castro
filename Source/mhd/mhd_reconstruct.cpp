@@ -448,6 +448,8 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
       Real Ipt = 0.0;
       Real Imt = 0.0;
 
+      const Real centered_trace = 0.5_rt * dtdx * (sp - sm);
+
       for (int ii = 0; ii < NUM_EIGVEC; ii++) {
         Real speed = lam(ii);
 
@@ -456,13 +458,13 @@ HydroSim::parabolic_reconstruct_mhd(const Box& bx,
         if (lam(ii) >= 0.0_rt) {
           Ip[n][ii] = Ipt;
         } else {
-          Ip[n][ii] = 0.5_rt * dtdx * (sp - sm);
+          Ip[n][ii] = centered_trace;
         }
 
         if (lam(ii) <= 0.0_rt) {
           Im[n][ii] = Imt;
         } else {
-          Im[n][ii] = 0.5_rt * dtdx * (sp - sm);
+          Im[n][ii] = centered_trace;
         }
 
       }

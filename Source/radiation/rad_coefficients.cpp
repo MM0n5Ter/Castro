@@ -387,6 +387,11 @@ void Radiation::evaluateGradientRatio(int level,
 
   auto dx = parent->Geom(level).CellSizeArray();
 
+  GpuArray<Real, 3> dxInv = {0.0, 0.0, 0.0};
+  for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+      dxInv[d] = 1.e0_rt / dx[d];
+  }
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -421,12 +426,6 @@ void Radiation::evaluateGradientRatio(int level,
               amrex::ParallelFor(nbx,
               [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
               {
-                  Real dxInv[3] = {0.0};
-
-                  for (int d = 0; d < AMREX_SPACEDIM; ++d) {
-                      dxInv[d] = 1.e0_rt / dx[d];
-                  }
-
                   Real dal, dar, dbl, dbr;
 
                   const Real tiny = 1.e-50_rt;

@@ -279,6 +279,9 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
    }
 #endif
 
+  const bool store_fluxes = !(time_scheme == SimplifiedIterCorrection &&
+                              correction_iter != deferred_iters - 1);
+
 #ifdef _OPENMP
 #ifdef RADIATION
 #pragma omp parallel reduction(max:rad_step_count)
@@ -1173,13 +1176,6 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
             });
         }
 #endif
-
-        bool store_fluxes = true;
-
-        if (time_scheme == SimplifiedIterCorrection &&
-            correction_iter != deferred_iters - 1) {
-            store_fluxes = false;
-        }
 
         if (store_fluxes) {
 

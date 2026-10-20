@@ -374,6 +374,8 @@ namespace ShockPairSolver {
 
       auto converged = false;
 
+      const amrex::Real speed_floor = solver_constants::small * interface_aux.mean_sound_speed;
+
       int iter = 0;
       while ((iter < shock_star_max_iters && !converged) || iter < 2) {
 
@@ -405,7 +407,7 @@ namespace ShockPairSolver {
               zm = dpditer * wr;
           }
 
-          amrex::Real denom = dpditer / amrex::max(zp + zm, solver_constants::small * interface_aux.mean_sound_speed);
+          amrex::Real denom = dpditer / amrex::max(zp + zm, speed_floor);
           star_pressure_prev = pstar;
           pstar = pstar - denom*(star_velocity_right - star_velocity_left);
           pstar = amrex::max(pstar, pressure_cutoff);
@@ -575,7 +577,7 @@ namespace ShockPairSolver {
       }
 
       amrex::Real frac = 0.5_rt*(1.0_rt + (spin + spout)/amrex::max(amrex::max(spout-spin, spin+spout),
-                                                             solver_constants::small * interface_aux.mean_sound_speed));
+                                                             speed_floor));
 
       if (ustar > 0.0_rt) {
           interface_state.ut = ql.ut;

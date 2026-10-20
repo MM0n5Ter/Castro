@@ -382,72 +382,44 @@ HydroSim::apply_tangential_correction(const Box& bx,
     Real temperature_guess = eos_temp_guess;
     Real species_fraction_tol = massfrac_check_tolerance;
 
+    GpuArray<int, 3> normal_shift{0, 0, 0};
+    GpuArray<int, 3> t1_left{0, 0, 0};
+    GpuArray<int, 3> t1_right{0, 0, 0};
+    GpuArray<int, 3> t2_left{0, 0, 0};
+    GpuArray<int, 3> t2_right{0, 0, 0};
+
+    normal_shift[idir_normal] = d;
+    t1_left[idir_normal] = d;
+    t2_left[idir_normal] = d;
+    t1_right[idir_normal] = d;
+    t2_right[idir_normal] = d;
+
+    t1_right[idir_normal == 0 ? 1 : 0] += 1;
+    t2_right[idir_normal == 2 ? 1 : 2] += 1;
+
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
-        int iln = i;
-        int jln = j;
-        int kln = k;
+        const int iln = i + normal_shift[0];
+        const int jln = j + normal_shift[1];
+        const int kln = k + normal_shift[2];
 
-        int trans1_left_i = i;
-        int trans1_left_j = j;
-        int trans1_left_k = k;
+        const int trans1_left_i = i + t1_left[0];
+        const int trans1_left_j = j + t1_left[1];
+        const int trans1_left_k = k + t1_left[2];
 
-        int trans1_right_i = i;
-        int trans1_right_j = j;
-        int trans1_right_k = k;
+        const int trans1_right_i = i + t1_right[0];
+        const int trans1_right_j = j + t1_right[1];
+        const int trans1_right_k = k + t1_right[2];
 
-        int trans2_left_i = i;
-        int trans2_left_j = j;
-        int trans2_left_k = k;
+        const int trans2_left_i = i + t2_left[0];
+        const int trans2_left_j = j + t2_left[1];
+        const int trans2_left_k = k + t2_left[2];
 
-        int trans2_right_i = i;
-        int trans2_right_j = j;
-        int trans2_right_k = k;
-
-        if (idir_normal == 0) {
-
-
-            trans1_right_i += d;
-            trans1_right_j += 1;
-
-            trans2_right_i += d;
-            trans2_right_k += 1;
-
-            iln += d;
-            trans1_left_i += d;
-            trans2_left_i += d;
-
-        }
-        else if (idir_normal == 1) {
-
-
-            trans1_right_i += 1;
-            trans1_right_j += d;
-
-            trans2_right_j += d;
-            trans2_right_k += 1;
-
-            jln += d;
-            trans1_left_j += d;
-            trans2_left_j += d;
-
-        }
-        else {
-
-
-            trans1_right_i += 1;
-            trans1_right_k += d;
-
-            trans2_right_j += 1;
-            trans2_right_k += d;
-
-            kln += d;
-            trans1_left_k += d;
-            trans2_left_k += d;
-
-        }
+        const int trans2_right_i = i + t2_right[0];
+        const int trans2_right_j = j + t2_right[1];
+        const int trans2_right_k = k + t2_right[2];
 
 
         auto corrected = [&] (Real base, int comp) {

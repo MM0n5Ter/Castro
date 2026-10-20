@@ -113,11 +113,13 @@ void fill_omega_times_dt_matrix(const Real dt, const GpuArray<Real, 3>& omega,
     omega_times_dt_matrix(2, 1) = omega_times_dt[2] * omega_times_dt[1] - omega_times_dt[0];
     omega_times_dt_matrix(2, 2) = 1.0_rt + omega_times_dt[2] * omega_times_dt[2];
 
+    const Real norm = 1.0_rt + omega_times_dt[0] * omega_times_dt[0] +
+                               omega_times_dt[1] * omega_times_dt[1] +
+                               omega_times_dt[2] * omega_times_dt[2];
+
     for (int l = 0; l < 3; l++) {
       for (int m = 0; m < 3; m++) {
-        omega_times_dt_matrix(l, m) /= (1.0_rt + omega_times_dt[0] * omega_times_dt[0] +
-                                           omega_times_dt[1] * omega_times_dt[1] +
-                                           omega_times_dt[2] * omega_times_dt[2]);
+        omega_times_dt_matrix(l, m) /= norm;
       }
     }
 

@@ -340,6 +340,9 @@ void ExtendedMultiLevelSolver::assembleMatrix()
       Real face_sign = (ori.isLow() ? -1.0 : 1.0);
       Real ofh  = face_sign / h;
       Real signed_half_inv_h = face_sign * 0.5 / h;
+      const Real advect_fac = gamma * ofh;
+      const int i0 = ori.isLow();
+      const int i1 = ori.isHigh();
       for (int i = entry.firstOwnedIndex(); entry.isValid(i);
            i = entry.nextOwnedIndex(i)) {
         Box reg = amrex::adjCell(grids[level][i], ori);
@@ -359,13 +362,10 @@ void ExtendedMultiLevelSolver::assembleMatrix()
                 entry(ori,i)(v).push(level, v+vin, -0.25 * fac);
               }
               if (cell_coefs[level]) {
-                Real fac = gamma * ofh;
-                int  i0  = ori.isLow();
-                int  i1  = ori.isHigh();
                 entry(ori,i)(v).push(level, v,
-                                      -fac * (*cell_coefs[level])[idir][i](v+ves,i0));
+                                      -advect_fac * (*cell_coefs[level])[idir][i](v+ves,i0));
                 entry(ori,i)(v).push(level, v+vin,
-                                      -fac * (*cell_coefs[level])[idir][i](v+ves,i1));
+                                      -advect_fac * (*cell_coefs[level])[idir][i](v+ves,i1));
               }
               if (gradient_coefs1[level]) {
                 Real fac = delta1 * signed_half_inv_h * (*gradient_coefs1[level])[idir][i](v);
@@ -406,14 +406,11 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
 
 
-                  Real fac = gamma * ofh;
-                  int  i0  = ori.isLow();
-                  int  i1  = ori.isHigh();
                   entry(ori,i)(v).push(level, v,
-                                        fac
+                                        advect_fac
                                         * (*cell_coefs[level])[idir][i](v+ves,i0));
                   entry(ori,i)(v).push(level, v,
-                                        fac * (bcl - h2) / (bcl + h2)
+                                        advect_fac * (bcl - h2) / (bcl + h2)
                                         * (*cell_coefs[level])[idir][i](v+ves,i1));
                 }
                 if (gradient_coefs1[level]) {

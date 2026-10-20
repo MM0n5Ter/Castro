@@ -34,6 +34,12 @@ HydroSim::add_damping_term(const Box& bx,
   auto problo = geom.ProbLoArray();
   auto geomdata = geom.data();
 
+  const Real delta_r = damping_upper_radius - damping_lower_radius;
+
+  const Real density_span = damping_lower_density - damping_upper_density;
+
+  const Real delta_p = damping_lower_pressure - damping_upper_pressure;
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
@@ -58,13 +64,6 @@ HydroSim::add_damping_term(const Box& bx,
 
     Real rho = state_in(i,j,k,URHO);
     Real rhoInv = 1.0_rt / rho;
-
-
-    Real delta_r = damping_upper_radius - damping_lower_radius;
-
-    Real density_span = damping_lower_density - damping_upper_density;
-
-    Real delta_p = damping_lower_pressure - damping_upper_pressure;
 
 
     Real damping_strength = 0.0_rt;

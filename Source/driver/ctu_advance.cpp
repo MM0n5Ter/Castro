@@ -123,11 +123,13 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     Real eps = 1.0e-14;
 
+    const Real end_time = time + dt;
+
     auto do_swap = false;
 
     Real final_dt_subcycle = 1.e200;
 
-    while (subcycle_clock < (1.0 - eps) * (time + dt)) {
+    while (subcycle_clock < (1.0 - eps) * end_time) {
 
 
         final_dt_subcycle = dt_cycle_step;
@@ -135,8 +137,8 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
         AMREX_ASSERT(min_dt_time_ratio > eps);
 
-        if (subcycle_clock + dt_cycle_step > (1.0 - min_dt_time_ratio) * (time + dt)) {
-          dt_cycle_step = (time + dt) - subcycle_clock;
+        if (subcycle_clock + dt_cycle_step > (1.0 - min_dt_time_ratio) * end_time) {
+          dt_cycle_step = end_time - subcycle_clock;
         }
 
 
@@ -151,7 +153,7 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
         }
 
 
-        int subcycles_left = int(round(((time + dt) - subcycle_clock) / dt_cycle_step));
+        int subcycles_left = int(round((end_time - subcycle_clock) / dt_cycle_step));
 
         if (subcycles_left > subcycle_cap) {
             amrex::Print() << std::endl
@@ -298,8 +300,8 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
                 if (getLevel(lev).prev_state[k]->hasOldData()) {
                     getLevel(lev).state[k].replaceOldData(*getLevel(lev).prev_state[k]);
                 }
-                getLevel(lev).state[k].setTimeLevel(time + dt, dt, 0.0);
-                getLevel(lev).prev_state[k]->setTimeLevel(time + dt, dt_cycle_step, 0.0);
+                getLevel(lev).state[k].setTimeLevel(end_time, dt, 0.0);
+                getLevel(lev).prev_state[k]->setTimeLevel(end_time, dt_cycle_step, 0.0);
             }
         }
 

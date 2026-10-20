@@ -269,6 +269,7 @@ HydroSim::run_equilibrium_solve()
         for (int lev = 0; lev <= finest_level; ++lev) {
 
             auto geomdata = parent->Geom(lev).data();
+            const auto coord = geomdata.Coord();
 
             ReduceOps<ReduceOpSum> reduce_op;
             ReduceData<Real> reduce_data(reduce_op);
@@ -286,7 +287,6 @@ HydroSim::run_equilibrium_solve()
                 reduce_op.eval(bx, reduce_data,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
                 {
-                    const auto coord = geomdata.Coord();
 
                     GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
 
@@ -313,6 +313,7 @@ HydroSim::run_equilibrium_solve()
         for (int lev = 0; lev <= finest_level; ++lev) {
 
             auto geomdata = parent->Geom(lev).data();
+            const auto coord = geomdata.Coord();
 
             enthalpy[lev]->setVal(0.0);
 
@@ -329,7 +330,6 @@ HydroSim::run_equilibrium_solve()
                 amrex::ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
-                    const auto coord = geomdata.Coord();
 
 
                     GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
@@ -455,6 +455,7 @@ HydroSim::run_equilibrium_solve()
         for (int lev = 0; lev <= finest_level; ++lev) {
 
             auto geomdata = parent->Geom(lev).data();
+            const auto coord = geomdata.Coord();
 
             ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum, ReduceOpSum> reduce_op;
             ReduceData<Real, Real, Real, Real> reduce_data(reduce_op);
@@ -477,7 +478,6 @@ HydroSim::run_equilibrium_solve()
 
                     if (state_arr(i,j,k,URHO) > 0.0)
                     {
-                        const auto coord = geomdata.Coord();
 
                         GpuArray<Real, 3> r = scf::offset_position(i, j, k, geomdata);
 

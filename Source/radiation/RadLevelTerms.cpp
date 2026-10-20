@@ -761,6 +761,8 @@ void RadTransportSolver::levelFaceToCellFlux(int level, const Array<MultiFab, AM
 
     for (int idim = 0; idim < AMREX_SPACEDIM; idim++)
     {
+        const int it = idim * NGROUPS + flux_comp_base;
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -774,8 +776,6 @@ void RadTransportSolver::levelFaceToCellFlux(int level, const Array<MultiFab, AM
             amrex::ParallelFor(bx,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                int it = idim * NGROUPS + flux_comp_base;
-
                 Real radius_left, s_lo;
                 edge_center_geometry_factors(i, j, k, idim, geomdata, radius_left, s_lo);
 

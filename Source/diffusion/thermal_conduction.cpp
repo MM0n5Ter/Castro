@@ -168,16 +168,16 @@ HydroSim::computeConductionTerm (Real time, MultiFab& state_in, MultiFab& Conduc
        diffusion->apply_stencil(level, Temperature, CoarseTemperature, ConductionTermLocal, coeffs);
 
    } else {
+       const auto dx = geom.CellSizeArray();
+       const auto dxinv = geom.InvCellSizeArray();
+       const auto problo = geom.ProbLoArray();
+       const int coord = geom.Coord();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
        for (MFIter mfi(Temperature, TilingIfNotGPU()); mfi.isValid(); ++mfi)
        {
-           const auto dx = geom.CellSizeArray();
-           const auto dxinv = geom.InvCellSizeArray();
-           const auto problo = geom.ProbLoArray();
-           const int coord = geom.Coord();
-
            const Box& bx = mfi.tilebox();
            Array4<Real const> const& Temperature_array = Temperature.array(mfi);
            Array4<Real> const & ConductionTerm_array = ConductionTermLocal.array(mfi);

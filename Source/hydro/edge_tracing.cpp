@@ -407,11 +407,14 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
   Real ldensity_floor = small_dens;
   Real local_pressure_floor = pressure_cutoff;
 
+  const Real face_dt_over_dx = dt / dx[idir];
+  const Real face_width = dx[idir];
+
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
-    Real dt_over_dx = dt / dx[idir];
-    Real dL = dx[idir];
+    Real dt_over_dx = face_dt_over_dx;
+    Real dL = face_width;
 
     if (coord == 2 && idir == 1) {
         Real r = problo[0] + static_cast<Real>(i + 0.5_rt) * dx[0];
