@@ -368,6 +368,31 @@ HydroSim::log_all_source_changes(Real dt, bool use_new_state)
     measure_and_log_source_change(source, dt, source_name);
 }
 
+static void
+log_source_change(const Vector<Real>& update)
+{
+
+  if (ParallelDescriptor::IOProcessor()) {
+
+    static const std::pair<const char*, int> source_labels[] = {
+      {"       mass added: ", URHO},
+      {"       xmom added: ", UMX},
+      {"       ymom added: ", UMY},
+      {"       zmom added: ", UMZ},
+      {"       eint added: ", UEINT},
+      {"       ener added: ", UEDEN}
+    };
+
+    for (const auto& [label, idx] : source_labels) {
+      std::cout << label << update[idx] << std::endl;
+    }
+
+    std::cout << std::endl;
+
+  }
+
+}
+
 void
 HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const std::string& source_name)
 {
@@ -413,30 +438,5 @@ HydroSim::measure_source_change(const MultiFab& source, Real dt, bool local)
   }
 
   return update;
-
-}
-
-void
-HydroSim::log_source_change(const Vector<Real>& update)
-{
-
-  if (ParallelDescriptor::IOProcessor()) {
-
-    static const std::pair<const char*, int> source_labels[] = {
-      {"       mass added: ", URHO},
-      {"       xmom added: ", UMX},
-      {"       ymom added: ", UMY},
-      {"       zmom added: ", UMZ},
-      {"       eint added: ", UEINT},
-      {"       ener added: ", UEDEN}
-    };
-
-    for (const auto& [label, idx] : source_labels) {
-      std::cout << label << update[idx] << std::endl;
-    }
-
-    std::cout << std::endl;
-
-  }
 
 }

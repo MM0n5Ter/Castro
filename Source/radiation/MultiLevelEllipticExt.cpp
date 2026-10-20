@@ -114,8 +114,8 @@ void ExtendedMultiLevelSolver::setAuxMassCoefficients(int level, const MultiFab 
   MultiFab::Copy((*aux_mass_coefs[level])[dir], a2, 0, 0, ncomp, ngrow);
 }
 
-static void
-ExtrapolateToFace(BoxAuxStorage& extrap_value, BoxAuxStorage& coarse_interp,
+void
+ExtendedMultiLevelSolver::ExtrapolateToFace(BoxAuxStorage& extrap_value, BoxAuxStorage& coarse_interp,
           const Mask& msk, const Box& reg,
           const IntVect& vin, int r, int bho, int fine_lvl)
 {

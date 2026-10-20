@@ -53,7 +53,6 @@
                                                       bool local = false);
 
 
-    static void log_source_change(const amrex::Vector<amrex::Real>& update);
 
 
     void log_all_source_changes(amrex::Real dt, bool use_new_state);

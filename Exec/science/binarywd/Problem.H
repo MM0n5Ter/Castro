@@ -26,15 +26,6 @@ struct StellarVolumes {
 StellarVolumes volInBoundary (amrex::Real time, amrex::Real rho_cutoff, bool local = false);
 
 
-static
-amrex::Real dot_product(const amrex::Real a[], const amrex::Real b[]);
-
-
-
-static
-amrex::Real norm(const amrex::Real a[]);
-
-
 void user_post_init();
 
 

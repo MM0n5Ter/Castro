@@ -13,6 +13,30 @@
 
 using namespace amrex;
 
+namespace binary_orbit {
+
+Real dot_product(const Real a[], const Real b[]) {
+
+  Real c = 0.0;
+
+  c = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+  return c;
+
+}
+
+Real norm(const Real a[]) {
+
+  Real n = 0.0;
+
+  n = std::sqrt(dot_product(a, a));
+
+  return n;
+
+}
+
+}
+
 AMREX_GPU_MANAGED Real binarywd::mdot_P = 0.0;
 AMREX_GPU_MANAGED Real binarywd::rad_P[7] = { 0.0 };
 AMREX_GPU_MANAGED Real binarywd::vol_P[7] = { 0.0 };
@@ -103,7 +127,7 @@ HydroSim::problem_sums ()
           wd_dist[i] = com_S[i] - com_P[i];
       }
 
-      separation = norm(wd_dist);
+      separation = binary_orbit::norm(wd_dist);
 
 
       angle = std::atan2(wd_dist[problem::axis_2 - 1] - wd_dist_init[problem::axis_2 - 1],
@@ -803,24 +827,4 @@ HydroSim::StellarVolumes HydroSim::volInBoundary (Real time, Real rho_cutoff, bo
       amrex::ParallelDescriptor::ReduceRealSum({vol_P, vol_S});
 
     return {vol_P, vol_S};
-}
-
-Real HydroSim::dot_product(const Real a[], const Real b[]) {
-
-  Real c = 0.0;
-
-  c = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-
-  return c;
-
-}
-
-Real HydroSim::norm(const Real a[]) {
-
-  Real n = 0.0;
-
-  n = std::sqrt(dot_product(a, a));
-
-  return n;
-
 }

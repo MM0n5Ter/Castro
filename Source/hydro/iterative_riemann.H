@@ -12,7 +12,7 @@ using namespace amrex::literals;
 #include <radiation_helpers.H>
 #endif
 
-namespace ShockPairSolver {
+struct ShockPairSolver {
     struct GammaLimits {
       amrex::Real drift_rate;
       amrex::Real lower;
@@ -20,7 +20,7 @@ namespace ShockPairSolver {
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
+    static void
     compute_wave_speed_sq(const amrex::Real p, const amrex::Real v,
           const amrex::Real gam, const GammaLimits& gamma_limits, amrex::Real& gamma_star_value,
           const amrex::Real csq,
@@ -49,7 +49,7 @@ namespace ShockPairSolver {
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
+    static void
     shock_pair_direct(const InterfaceState& ql, const InterfaceState& qr, const InterfaceAux& interface_aux,
               InterfaceState& interface_state) {
 
@@ -252,7 +252,7 @@ namespace ShockPairSolver {
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
+    static void
     bisect_star_pressure(amrex::Real& star_pressure_lower, amrex::Real& star_pressure_upper,
                     const ShockSide& left, const ShockSide& right,
                     const amrex::Real gamma_drift_rate, const amrex::Real gamma_lower_bound, const amrex::Real gmax,
@@ -328,7 +328,7 @@ namespace ShockPairSolver {
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
+    static void
     shock_pair_iterate(const InterfaceState& ql, const InterfaceState& qr, const InterfaceAux& interface_aux,
               InterfaceState& interface_state) {
 
@@ -631,6 +631,6 @@ namespace ShockPairSolver {
 
 
     }
-}
+};
 
 #endif

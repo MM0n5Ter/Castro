@@ -26,6 +26,8 @@ struct LegendreRecurrence {
     Real value, prev, prev2;
 };
 
+namespace multipole {
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void evaluateLegendreByDegree (int l, LegendreRecurrence& p, Real x)
 {
@@ -76,6 +78,8 @@ void evaluateAssociatedLegendre (int l, int m, LegendreRecurrence& p, Real x)
         p.value = x * (2*m + 1) * p.prev;
 
     }
+}
+
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -200,7 +204,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
         for (int l = 0; l <= gravity::lnum; ++l) {
 
-            evaluateLegendreByDegree(l, legendre, cosPolar);
+            multipole::evaluateLegendreByDegree(l, legendre, cosPolar);
 
             Real dMomLower0 = 0.0_rt;
             Real dMomUpper0 = 0.0_rt;
@@ -238,7 +242,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
                     continue;
                 }
 
-                evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
+                multipole::evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
 
                 Real dMomLowerCos = 0.0_rt;
                 Real dMomLowerSin = 0.0_rt;

@@ -1011,7 +1011,7 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
                     for (int l = 0; l <= gravity::lnum; ++l) {
 
-                        evaluateLegendreByDegree(l, legendre, cosPolar);
+                        multipole::evaluateLegendreByDegree(l, legendre, cosPolar);
 
                         Real r_U = std::pow(r, -l-1);
 
@@ -1026,7 +1026,7 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                                 continue;
                             }
 
-                            evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
+                            multipole::evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
 
                             Real r_U = std::pow(r, -l-1);
 

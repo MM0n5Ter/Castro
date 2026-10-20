@@ -481,6 +481,10 @@ class ExtendedMultiLevelSolver : public MultiLevelEllipticSolver {
   amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > gradient_coefs1;
   amrex::Vector<std::unique_ptr<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> > > gradient_coefs2;
   amrex::Real alpha2{}, gamma{}, delta1{}, delta2{};
+
+  static void ExtrapolateToFace(BoxAuxStorage& extrap_value, BoxAuxStorage& coarse_interp,
+                                const amrex::Mask& msk, const amrex::Box& reg,
+                                const amrex::IntVect& vin, int r, int bho, int fine_lvl);
 };
 
 inline
