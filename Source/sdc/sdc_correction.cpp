@@ -285,17 +285,18 @@ HydroSim::do_sdc_correct(int m_start, int m_end, Real dt)
             Array4<const Real> const& React_old_2_arr = (Reactions_old[2])->array(mfi);
 
             if (sdc_quadrature == 0) {
-                hs_deferred_compute_correction_o4_lobatto(bx, substep_dt, dt, Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr,
-                                          Advect_old_2_arr, React_old_0_arr, React_old_1_arr, React_old_2_arr,
+                const QuadratureNodeTerms nodes{{Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr},
+                                                {React_old_0_arr, React_old_1_arr, React_old_2_arr}};
+                hs_deferred_compute_correction_o4_lobatto(bx, substep_dt, dt, Advect_new_arr, nodes,
                                           Correction_source_arr, m_start);
 
             } else {
                 Array4<const Real> const& Advect_old_3_arr = (Advect_old[3])->array(mfi);
                 Array4<const Real> const& React_old_3_arr = (Reactions_old[3])->array(mfi);
 
-                hs_deferred_compute_correction_o4_radau(bx, substep_dt, dt, Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr,
-                                        Advect_old_2_arr,
-                                        Advect_old_3_arr, React_old_0_arr, React_old_1_arr, React_old_2_arr, React_old_3_arr,
+                const QuadratureNodeTerms nodes{{Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr, Advect_old_3_arr},
+                                                {React_old_0_arr, React_old_1_arr, React_old_2_arr, React_old_3_arr}};
+                hs_deferred_compute_correction_o4_radau(bx, substep_dt, dt, Advect_new_arr, nodes,
                                         Correction_source_arr, m_start);
 
             }
@@ -359,14 +360,17 @@ HydroSim::do_sdc_correct(int m_start, int m_end, Real dt)
             Array4<const Real> const& React_old_1_arr = (Reactions_old[1])->array(mfi);
 
             if (sdc_quadrature == 0) {
-                hs_deferred_compute_correction_o2_lobatto(bx, substep_dt, dt, Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr,
-                                          React_old_0_arr, React_old_1_arr, Correction_o2_arr, m_start);
+                const QuadratureNodeTerms nodes{{Advect_old_0_arr, Advect_old_1_arr},
+                                                {React_old_0_arr, React_old_1_arr}};
+                hs_deferred_compute_correction_o2_lobatto(bx, substep_dt, dt, Advect_new_arr, nodes,
+                                          Correction_o2_arr, m_start);
             } else {
                 Array4<const Real> const& Advect_old_2_arr = (Advect_old[2])->array(mfi);
                 Array4<const Real> const& React_old_2_arr = (Reactions_old[2])->array(mfi);
-                hs_deferred_compute_correction_o2_radau(bx, substep_dt, dt, Advect_new_arr, Advect_old_0_arr, Advect_old_1_arr,
-                                        Advect_old_2_arr,
-                                        React_old_0_arr, React_old_1_arr, React_old_2_arr, Correction_o2_arr, m_start);
+                const QuadratureNodeTerms nodes{{Advect_old_0_arr, Advect_old_1_arr, Advect_old_2_arr},
+                                                {React_old_0_arr, React_old_1_arr, React_old_2_arr}};
+                hs_deferred_compute_correction_o2_radau(bx, substep_dt, dt, Advect_new_arr, nodes,
+                                        Correction_o2_arr, m_start);
             }
 
             auto k_m = (*node_new[m_start]).array(mfi);

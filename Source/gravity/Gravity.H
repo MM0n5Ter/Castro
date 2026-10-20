@@ -187,13 +187,18 @@ public:
 
     void sanity_check (int level);
 
+    struct SolveTolerances {
+        amrex::Real rel;
+        amrex::Real abs;
+    };
+
     amrex::Real invoke_mlmg_solver (int crse_level, int fine_level,
                                         const amrex::Vector<amrex::MultiFab*>& phi,
                                         const amrex::Vector<const amrex::MultiFab*>& rhs,
                                         const amrex::Vector<std::array<amrex::MultiFab*,AMREX_SPACEDIM> >& phi_gradient,
                                         const amrex::Vector<amrex::MultiFab*>& res,
                                         const amrex::MultiFab* const crse_bcdata,
-                                        amrex::Real rel_tolerance, amrex::Real abs_tolerance) const;
+                                        const SolveTolerances& tol) const;
 
     amrex::Real solve_potential_mlmg (int crse_level, int fine_level,
                                      const amrex::Vector<amrex::MultiFab*>& phi,

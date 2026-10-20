@@ -81,7 +81,7 @@ void MultiLevelEllipticSolver::assembleMatrix()
         if (reg[oitr()] == domain[oitr()] || level == crse_level) {
 
           if (!(reg[oitr()] == domain[oitr()])) {
-              fillLevelMat(reg, matfab.array(), cdir, bct, bho, bcl,
+              fillLevelMat(reg, matfab.array(), FaceBcSpec{cdir, bct, bho, bcl},
                     msk.array(), (*bcoefs[level])[idim][mfi].array(),
                     beta, geom[level].CellSize());
           } else {
@@ -106,7 +106,7 @@ void MultiLevelEllipticSolver::assembleMatrix()
         else {
 
           const RadBoundaryCondition coarse_boundary_type = AMREX_LO_NEUMANN;
-          fillLevelMat(reg, matfab.array(), cdir, coarse_boundary_type, bho, bcl,
+          fillLevelMat(reg, matfab.array(), FaceBcSpec{cdir, coarse_boundary_type, bho, bcl},
                 msk.array(), (*bcoefs[level])[idim][mfi].array(),
                 beta, geom[level].CellSize());
         }
@@ -325,11 +325,16 @@ void MultiLevelEllipticSolver::assembleMatrix()
 void
 MultiLevelEllipticSolver::fillLevelMat (const Box& bx,
                        Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
-                       int cdir, int bct, int bho, Real bcl,
+                       const FaceBcSpec& bc,
                        Array4<int const> const& mask,
                        Array4<Real const> const& b,
                        Real beta, const Real* dx)
 {
+    const int cdir = bc.cdir;
+    const int bct = bc.bct;
+    const int bho = bc.bho;
+    const Real bcl = bc.bcl;
+
     bool xlo = false;
     bool ylo = false;
     bool zlo = false;

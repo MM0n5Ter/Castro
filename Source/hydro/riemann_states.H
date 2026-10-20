@@ -2,8 +2,17 @@
 #define HYDROSIM_RIEMANN_STATES_H
 
 #include <AMReX_REAL.H>
+#include <AMReX_Array.H>
 
 using namespace amrex::literals;
+
+struct NoFluxWalls
+{
+    bool lo;
+    bool hi;
+    amrex::GpuArray<int, 3> domlo;
+    amrex::GpuArray<int, 3> domhi;
+};
 
 struct InterfaceAux
 {

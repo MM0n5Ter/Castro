@@ -15,14 +15,16 @@
          Array4<Real> const& source,
          const Real dt);
 
+    struct face_mass_flux_views {
+        Array4<Real const> x, y, z;
+    };
+
     void
     apply_rotation_correction(const Box& bx,
              Array4<Real const> const& uold,
              Array4<Real const> const& unew,
              Array4<Real> const& source,
-             Array4<Real const> const& xface_flux,
-             Array4<Real const> const& flux1,
-             Array4<Real const> const& flux2,
+             const face_mass_flux_views& fluxes,
              const Real dt,
              Array4<Real const> const& vol);
 

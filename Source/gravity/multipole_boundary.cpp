@@ -769,6 +769,9 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                 auto rho = source[mfi].array();
                 auto vol = (*volume[lev])[mfi].array();
 
+                const multipole::MomentViews moment_views{lowerMoment0_arr, lowerMomentC_arr, lowerMomentS_arr,
+                                                          upperMoment0_arr, upperMomentC_arr, upperMomentS_arr};
+
                 amrex::ParallelFor(amrex::Gpu::KernelInfo().setReduction(true), bx,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k, amrex::Gpu::Handler const& handler) noexcept
                 {
@@ -809,14 +812,14 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                     }
 
                     accumulate_moments(cosPolar, sampleAzimuth, r, rho(i,j,k), vol(i,j,k) * cutoff_cubed_inv,
-                                  lowerMoment0_arr, lowerMomentC_arr, lowerMomentS_arr, upperMoment0_arr, upperMomentC_arr, upperMomentS_arr,
+                                  moment_views,
                                   npts, nlo, index, handler, true);
 
                     if (multipole::doFoldedAdd) {
 
                         accumulate_mirror_moments(x, y, z, problo, probhi,
                                                 rho(i,j,k), vol(i,j,k) * cutoff_cubed_inv,
-                                                lowerMoment0_arr, lowerMomentC_arr, lowerMomentS_arr, upperMoment0_arr, upperMomentC_arr, upperMomentS_arr,
+                                                moment_views,
                                                 npts, nlo, index, handler);
 
                     }
@@ -1001,18 +1004,18 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
 
                 phi_arr(i,j,k) = 0.0_rt;
 
-                Real legendreValue, legendreValue1, legendreValue2;
-                Real assocLegendreValue, assocLegendreValue1, assocLegendreValue2;
+                LegendreRecurrence legendre;
+                LegendreRecurrence assoc_legendre;
 
                 for (int n = nlo; n <= npts - 1; ++n) {
 
                     for (int l = 0; l <= gravity::lnum; ++l) {
 
-                        evaluateLegendreByDegree(l, legendreValue, legendreValue1, legendreValue2, cosPolar);
+                        evaluateLegendreByDegree(l, legendre, cosPolar);
 
                         Real r_U = std::pow(r, -l-1);
 
-                        phi_arr(i,j,k) += lowerMoment0_arr(l,0,n) * legendreValue * r_U * cutoff_cubed;
+                        phi_arr(i,j,k) += lowerMoment0_arr(l,0,n) * legendre.value * r_U * cutoff_cubed;
 
                     }
 
@@ -1023,12 +1026,12 @@ Gravity::fill_multipole_boundaries(int crse_level, int fine_level, const Vector<
                                 continue;
                             }
 
-                            evaluateAssociatedLegendre(l, m, assocLegendreValue, assocLegendreValue1, assocLegendreValue2, cosPolar);
+                            evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
 
                             Real r_U = std::pow(r, -l-1);
 
                             phi_arr(i,j,k) += (lowerMomentC_arr(l,m,n) * std::cos(m * sampleAzimuth) + lowerMomentS_arr(l,m,n) * std::sin(m * sampleAzimuth)) *
-                                              assocLegendreValue * r_U * cutoff_cubed;
+                                              assoc_legendre.value * r_U * cutoff_cubed;
 
                         }
                     }

@@ -16,56 +16,64 @@ namespace multipole {
     extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddLo;
     extern AMREX_GPU_MANAGED amrex::Array1D<bool, 0, 2> doFoldedAddHi;
     extern AMREX_GPU_MANAGED bool doFoldedAdd;
+
+    struct MomentViews {
+        amrex::Array4<amrex::Real> lower0, lowerC, lowerS, upper0, upperC, upperS;
+    };
 }
 
+struct LegendreRecurrence {
+    Real value, prev, prev2;
+};
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void evaluateLegendreByDegree (int l, Real& legendreValue, Real& legendreValue1, Real& legendreValue2, Real x)
+void evaluateLegendreByDegree (int l, LegendreRecurrence& p, Real x)
 {
 
     if (l == 0) {
 
-        legendreValue = 1.0_rt;
+        p.value = 1.0_rt;
 
     }
     else if (!(l == 1)) {
 
-        legendreValue2 = legendreValue1;
-        legendreValue1 = legendreValue;
-        legendreValue  = ((2*l - 1) * x * legendreValue1 - (l-1) * legendreValue2) / l;
+        p.prev2 = p.prev;
+        p.prev = p.value;
+        p.value = ((2*l - 1) * x * p.prev - (l-1) * p.prev2) / l;
 
     } else {
 
-        legendreValue1 = legendreValue;
-        legendreValue  = x;
+        p.prev = p.value;
+        p.value = x;
 
     }
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& assocLegendreValue1, Real& assocLegendreValue2, Real x)
+void evaluateAssociatedLegendre (int l, int m, LegendreRecurrence& p, Real x)
 {
 
     if (l == m) {
 
-        assocLegendreValue = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
+        p.value = std::pow(-1, m) * std::pow((1.0_rt - x) * (1.0_rt + x), m * 0.5_rt);
 
         for (int n = (2*m-1); n >= 3; n = n - 2) {
 
-            assocLegendreValue *= n;
+            p.value *= n;
 
         }
 
     }
     else if (!(l == m + 1)) {
 
-        assocLegendreValue2 = assocLegendreValue1;
-        assocLegendreValue1 = assocLegendreValue;
-        assocLegendreValue  = (x * (2*l - 1) * assocLegendreValue1 - (l + m - 1) * assocLegendreValue2) / (l-m);
+        p.prev2 = p.prev;
+        p.prev = p.value;
+        p.value = (x * (2*l - 1) * p.prev - (l + m - 1) * p.prev2) / (l-m);
 
     } else {
 
-        assocLegendreValue1 = assocLegendreValue;
-        assocLegendreValue  = x * (2*m + 1) * assocLegendreValue1;
+        p.prev = p.value;
+        p.value = x * (2*m + 1) * p.prev;
 
     }
 }
@@ -178,18 +186,13 @@ Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray
 
 AMREX_GPU_DEVICE AMREX_INLINE
 void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Real vol,
-                   Array4<Real> const& qL0,
-                   Array4<Real> const& qLC,
-                   Array4<Real> const& qLS,
-                   Array4<Real> const& qU0,
-                   Array4<Real> const& qUC,
-                   Array4<Real> const& qUS,
+                   const multipole::MomentViews& views,
                    int npts, int nlo, int index,
                    amrex::Gpu::Handler const& handler,
                    bool parity = false)
 {
-    Real legendreValue, legendreValue1, legendreValue2;
-    Real assocLegendreValue, assocLegendreValue1, assocLegendreValue2;
+    LegendreRecurrence legendre;
+    LegendreRecurrence assoc_legendre;
 
     Real density_rpow_pos, density_rpow_neg;
 
@@ -197,7 +200,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
         for (int l = 0; l <= gravity::lnum; ++l) {
 
-            evaluateLegendreByDegree(l, legendreValue, legendreValue1, legendreValue2, cosPolar);
+            evaluateLegendreByDegree(l, legendre, cosPolar);
 
             Real dMomLower0 = 0.0_rt;
             Real dMomUpper0 = 0.0_rt;
@@ -206,7 +209,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
                 density_rpow_pos = rho * (std::pow(r, l));
 
-                dMomLower0 = legendreValue * density_rpow_pos * vol * multipole::volumeScale;
+                dMomLower0 = legendre.value * density_rpow_pos * vol * multipole::volumeScale;
                 if (parity) {
                     dMomLower0 = dMomLower0 * multipole::axis_parity_table(l);
                 }
@@ -216,15 +219,15 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
                 density_rpow_neg = rho * (std::pow(r, -l-1));
 
-                dMomUpper0 = legendreValue * density_rpow_neg * vol * multipole::volumeScale;
+                dMomUpper0 = legendre.value * density_rpow_neg * vol * multipole::volumeScale;
                 if (parity) {
                     dMomUpper0 = dMomUpper0 * multipole::axis_parity_table(l);
                 }
 
             }
 
-            amrex::Gpu::deviceReduceSum(&qL0(l,0,n), dMomLower0, handler);
-            amrex::Gpu::deviceReduceSum(&qU0(l,0,n), dMomUpper0, handler);
+            amrex::Gpu::deviceReduceSum(&views.lower0(l,0,n), dMomLower0, handler);
+            amrex::Gpu::deviceReduceSum(&views.upper0(l,0,n), dMomUpper0, handler);
 
         }
 
@@ -235,7 +238,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
                     continue;
                 }
 
-                evaluateAssociatedLegendre(l, m, assocLegendreValue, assocLegendreValue1, assocLegendreValue2, cosPolar);
+                evaluateAssociatedLegendre(l, m, assoc_legendre, cosPolar);
 
                 Real dMomLowerCos = 0.0_rt;
                 Real dMomLowerSin = 0.0_rt;
@@ -247,12 +250,12 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
                     density_rpow_pos = rho * (std::pow(r, l));
 
-                    dMomLowerCos = assocLegendreValue * std::cos(m * sampleAzimuth) * density_rpow_pos * vol * multipole::factorialTable(l,m);
+                    dMomLowerCos = assoc_legendre.value * std::cos(m * sampleAzimuth) * density_rpow_pos * vol * multipole::factorialTable(l,m);
                     if (parity) {
                         dMomLowerCos = dMomLowerCos * multipole::azimuth_parity_table(l,m);
                     }
 
-                    dMomLowerSin = assocLegendreValue * std::sin(m * sampleAzimuth) * density_rpow_pos * vol * multipole::factorialTable(l,m);
+                    dMomLowerSin = assoc_legendre.value * std::sin(m * sampleAzimuth) * density_rpow_pos * vol * multipole::factorialTable(l,m);
                     if (parity) {
                         dMomLowerSin = dMomLowerSin * multipole::azimuth_parity_table(l,m);
                     }
@@ -262,22 +265,22 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
                     density_rpow_neg = rho * (std::pow(r, -l-1));
 
-                    dMomUpperCos = assocLegendreValue * std::cos(m * sampleAzimuth) * density_rpow_neg * vol * multipole::factorialTable(l,m);
+                    dMomUpperCos = assoc_legendre.value * std::cos(m * sampleAzimuth) * density_rpow_neg * vol * multipole::factorialTable(l,m);
                     if (parity) {
                         dMomUpperCos = dMomUpperCos * multipole::azimuth_parity_table(l,m);
                     }
 
-                    dMomUpperSin = assocLegendreValue * std::sin(m * sampleAzimuth) * density_rpow_neg * vol * multipole::factorialTable(l,m);
+                    dMomUpperSin = assoc_legendre.value * std::sin(m * sampleAzimuth) * density_rpow_neg * vol * multipole::factorialTable(l,m);
                     if (parity) {
                         dMomUpperSin = dMomUpperSin * multipole::azimuth_parity_table(l,m);
                     }
 
                 }
 
-                amrex::Gpu::deviceReduceSum(&qLC(l,m,n), dMomLowerCos, handler);
-                amrex::Gpu::deviceReduceSum(&qLS(l,m,n), dMomLowerSin, handler);
-                amrex::Gpu::deviceReduceSum(&qUC(l,m,n), dMomUpperCos, handler);
-                amrex::Gpu::deviceReduceSum(&qUS(l,m,n), dMomUpperSin, handler);
+                amrex::Gpu::deviceReduceSum(&views.lowerC(l,m,n), dMomLowerCos, handler);
+                amrex::Gpu::deviceReduceSum(&views.lowerS(l,m,n), dMomLowerSin, handler);
+                amrex::Gpu::deviceReduceSum(&views.upperC(l,m,n), dMomUpperCos, handler);
+                amrex::Gpu::deviceReduceSum(&views.upperS(l,m,n), dMomUpperSin, handler);
 
             }
         }
@@ -287,12 +290,7 @@ void accumulate_moments(Real cosPolar, Real sampleAzimuth, Real r, Real rho, Rea
 
 AMREX_GPU_DEVICE AMREX_INLINE
 void accumulate_image_moments(Real xi, Real yi, Real zi, Real rho, Real vol,
-                              Array4<Real> const& qL0,
-                              Array4<Real> const& qLC,
-                              Array4<Real> const& qLS,
-                              Array4<Real> const& qU0,
-                              Array4<Real> const& qUC,
-                              Array4<Real> const& qUS,
+                              const multipole::MomentViews& views,
                               int npts, int nlo, int index,
                               amrex::Gpu::Handler const& handler)
 {
@@ -300,7 +298,7 @@ void accumulate_image_moments(Real xi, Real yi, Real zi, Real rho, Real vol,
     Real sampleAzimuth = std::atan2(yi, xi);
     Real cosPolar = zi / r;
 
-    accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+    accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, views, npts, nlo, index, handler);
 }
 
 AMREX_GPU_DEVICE AMREX_INLINE
@@ -308,12 +306,7 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
                              const GpuArray<Real, AMREX_SPACEDIM>& problo,
                              const GpuArray<Real, AMREX_SPACEDIM>& probhi,
                              Real rho, Real vol,
-                             Array4<Real> const& qL0,
-                             Array4<Real> const& qLC,
-                             Array4<Real> const& qLS,
-                             Array4<Real> const& qU0,
-                             Array4<Real> const& qUC,
-                             Array4<Real> const& qUS,
+                             const multipole::MomentViews& views,
                              int npts, int nlo, int index,
                              amrex::Gpu::Handler const& handler)
 {
@@ -336,23 +329,23 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
 
     if (multipole::doFoldedAddLo(0)) {
 
-        accumulate_image_moments(xLo, y, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(xLo, y, z, rho, vol, views, npts, nlo, index, handler);
 
         if (multipole::doFoldedAddLo(1)) {
 
-            accumulate_image_moments(xLo, yLo, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, yLo, z, rho, vol, views, npts, nlo, index, handler);
 
         }
 
         if (multipole::doFoldedAddLo(2)) {
 
-            accumulate_image_moments(xLo, y, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, y, zLo, rho, vol, views, npts, nlo, index, handler);
 
         }
 
         if (multipole::doFoldedAddLo(1) && multipole::doFoldedAddLo(2)) {
 
-            accumulate_image_moments(xLo, yLo, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(xLo, yLo, zLo, rho, vol, views, npts, nlo, index, handler);
 
         }
 
@@ -360,11 +353,11 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
 
     if (multipole::doFoldedAddLo(1)) {
 
-        accumulate_image_moments(x, yLo, z, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(x, yLo, z, rho, vol, views, npts, nlo, index, handler);
 
         if (multipole::doFoldedAddLo(2)) {
 
-            accumulate_image_moments(x, yLo, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+            accumulate_image_moments(x, yLo, zLo, rho, vol, views, npts, nlo, index, handler);
 
         }
 
@@ -372,7 +365,7 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
 
     if (multipole::doFoldedAddLo(2)) {
 
-        accumulate_image_moments(x, y, zLo, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
+        accumulate_image_moments(x, y, zLo, rho, vol, views, npts, nlo, index, handler);
 
     }
 }

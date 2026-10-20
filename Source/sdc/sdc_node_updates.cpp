@@ -29,10 +29,7 @@ void
 HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
                                   Real substep_dt, Real dt,
                                   Array4<const Real> const& A_m,
-                                  Array4<const Real> const& Advect_0_old,
-                                  Array4<const Real> const& Advect_1_old,
-                                  Array4<const Real> const& React_0_old,
-                                  Array4<const Real> const& React_1_old,
+                                  const QuadratureNodeTerms& nodes,
                                   Array4<Real> const& C,
                                   int m_start)
 {
@@ -45,9 +42,9 @@ HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
     amrex::ParallelFor(bx, C.nComp(),
     [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
     {
-        C(i,j,k,n) = -React_1_old(i,j,k,n) +
-            0.5_rt * (Advect_0_old(i,j,k,n) + Advect_1_old(i,j,k,n)) +
-            0.5_rt * (React_0_old(i,j,k,n) + React_1_old(i,j,k,n));
+        C(i,j,k,n) = -nodes.react[1](i,j,k,n) +
+            0.5_rt * (nodes.advect[0](i,j,k,n) + nodes.advect[1](i,j,k,n)) +
+            0.5_rt * (nodes.react[0](i,j,k,n) + nodes.react[1](i,j,k,n));
     });
 
 }
@@ -92,29 +89,21 @@ void
 HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
                                 Real substep_dt, Real dt,
                                 Array4<const Real> const& A_m,
-                                Array4<const Real> const& Advect_0_old,
-                                Array4<const Real> const& Advect_1_old,
-                                Array4<const Real> const& Advect_2_old,
-                                Array4<const Real> const& React_0_old,
-                                Array4<const Real> const& React_1_old,
-                                Array4<const Real> const& React_2_old,
+                                const QuadratureNodeTerms& nodes,
                                 Array4<Real> const& C,
                                 int m_start)
 {
-
-    amrex::ignore_unused(Advect_0_old);
-    amrex::ignore_unused(React_0_old);
 
     if (m_start == 0)
     {
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            C(i,j,k,n) = -React_1_old(i,j,k,n) +
-                (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) +
+            C(i,j,k,n) = -nodes.react[1](i,j,k,n) +
+                (A_m(i,j,k,n) - nodes.advect[0](i,j,k,n)) +
                 (dt/substep_dt) * (1.0_rt/12.0_rt) *
-                (5.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
-                        (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+                (5.0_rt*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) -
+                        (nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)));
         });
     }
     else if (m_start == 1)
@@ -122,11 +111,11 @@ HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            C(i,j,k,n) = -React_2_old(i,j,k,n) +
-                (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) +
+            C(i,j,k,n) = -nodes.react[2](i,j,k,n) +
+                (A_m(i,j,k,n) - nodes.advect[1](i,j,k,n)) +
                 (dt/substep_dt) * (1.0_rt/3.0_rt) *
-                ((Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                 (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+                ((nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) +
+                 (nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)));
         });
     }
 }
@@ -175,12 +164,7 @@ void
 HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
                                   Real substep_dt, Real dt,
                                   Array4<const Real> const& A_m,
-                                  Array4<const Real> const& Advect_0_old,
-                                  Array4<const Real> const& Advect_1_old,
-                                  Array4<const Real> const& Advect_2_old,
-                                  Array4<const Real> const& React_0_old,
-                                  Array4<const Real> const& React_1_old,
-                                  Array4<const Real> const& React_2_old,
+                                  const QuadratureNodeTerms& nodes,
                                   Array4<Real> const& C,
                                   int m_start)
 {
@@ -194,11 +178,11 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            Real integral = 1.0_rt/12.0_rt * (5.0_rt*(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
-                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
-                                              (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+            Real integral = 1.0_rt/12.0_rt * (5.0_rt*(nodes.advect[0](i,j,k,n) + nodes.react[0](i,j,k,n)) +
+                                              8.0_rt*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) -
+                                              (nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)));
 
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) - React_1_old(i,j,k,n) + integral;
+            C(i,j,k,n) = (A_m(i,j,k,n) - nodes.advect[0](i,j,k,n)) - nodes.react[1](i,j,k,n) + integral;
         });
     }
     else if (m_start == 1)
@@ -206,11 +190,11 @@ HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
         amrex::ParallelFor(bx, C.nComp(),
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
-            Real integral = 1.0_rt/12.0_rt * (-(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
-                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                                              5.0_rt*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+            Real integral = 1.0_rt/12.0_rt * (-(nodes.advect[0](i,j,k,n) + nodes.react[0](i,j,k,n)) +
+                                              8.0_rt*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) +
+                                              5.0_rt*(nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)));
 
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) - React_2_old(i,j,k,n) + integral;
+            C(i,j,k,n) = (A_m(i,j,k,n) - nodes.advect[1](i,j,k,n)) - nodes.react[2](i,j,k,n) + integral;
         });
     }
     else
@@ -281,19 +265,10 @@ void
 HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
                                 Real substep_dt, Real dt,
                                 Array4<const Real> const& A_m,
-                                Array4<const Real> const& Advect_0_old,
-                                Array4<const Real> const& Advect_1_old,
-                                Array4<const Real> const& Advect_2_old,
-                                Array4<const Real> const& Advect_3_old,
-                                Array4<const Real> const& React_0_old,
-                                Array4<const Real> const& React_1_old,
-                                Array4<const Real> const& React_2_old,
-                                Array4<const Real> const& React_3_old,
+                                const QuadratureNodeTerms& nodes,
                                 Array4<Real> const& C,
                                 int m_start)
 {
-
-    amrex::ignore_unused(React_0_old);
 
     if (m_start == 0)
     {
@@ -301,11 +276,11 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
             Real integral = (dt/substep_dt) * (1.0_rt/1800.0_rt) *
-                ((-35.0_rt*std::sqrt(6.0_rt) + 440.0_rt)*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                 (-169.0_rt*std::sqrt(6.0_rt) + 296.0_rt)*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)) +
-                 (-16.0_rt + 24.0_rt*std::sqrt(6.0_rt))*(Advect_3_old(i,j,k,n) + React_3_old(i,j,k,n)));
+                ((-35.0_rt*std::sqrt(6.0_rt) + 440.0_rt)*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) +
+                 (-169.0_rt*std::sqrt(6.0_rt) + 296.0_rt)*(nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)) +
+                 (-16.0_rt + 24.0_rt*std::sqrt(6.0_rt))*(nodes.advect[3](i,j,k,n) + nodes.react[3](i,j,k,n)));
 
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) - React_1_old(i,j,k,n) + integral;
+            C(i,j,k,n) = (A_m(i,j,k,n) - nodes.advect[0](i,j,k,n)) - nodes.react[1](i,j,k,n) + integral;
         });
     }
     else if (m_start == 1)
@@ -314,11 +289,11 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
             Real integral = (dt/substep_dt) * (1.0_rt/150.0_rt) *
-                ((-12.0_rt + 17.0_rt*std::sqrt(6.0_rt))*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                 (12.0_rt + 17.0_rt*std::sqrt(6.0_rt))*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)) +
-                 (-4.0_rt*std::sqrt(6.0_rt))*(Advect_3_old(i,j,k,n) + React_3_old(i,j,k,n)));
+                ((-12.0_rt + 17.0_rt*std::sqrt(6.0_rt))*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) +
+                 (12.0_rt + 17.0_rt*std::sqrt(6.0_rt))*(nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)) +
+                 (-4.0_rt*std::sqrt(6.0_rt))*(nodes.advect[3](i,j,k,n) + nodes.react[3](i,j,k,n)));
 
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) - React_2_old(i,j,k,n) + integral;
+            C(i,j,k,n) = (A_m(i,j,k,n) - nodes.advect[1](i,j,k,n)) - nodes.react[2](i,j,k,n) + integral;
         });
     }
     else if (m_start == 2)
@@ -327,11 +302,11 @@ HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
         {
             Real integral = (dt/substep_dt) * (1.0_rt/600.0_rt) *
-                ((168.0_rt - 73.0_rt*std::sqrt(6.0_rt))*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                 (120.0_rt + 5.0_rt*std::sqrt(6.0_rt))*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)) +
-                 (72.0_rt + 8.0_rt*std::sqrt(6.0_rt))*(Advect_3_old(i,j,k,n) + React_3_old(i,j,k,n)));
+                ((168.0_rt - 73.0_rt*std::sqrt(6.0_rt))*(nodes.advect[1](i,j,k,n) + nodes.react[1](i,j,k,n)) +
+                 (120.0_rt + 5.0_rt*std::sqrt(6.0_rt))*(nodes.advect[2](i,j,k,n) + nodes.react[2](i,j,k,n)) +
+                 (72.0_rt + 8.0_rt*std::sqrt(6.0_rt))*(nodes.advect[3](i,j,k,n) + nodes.react[3](i,j,k,n)));
 
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_2_old(i,j,k,n)) - React_3_old(i,j,k,n) + integral;
+            C(i,j,k,n) = (A_m(i,j,k,n) - nodes.advect[2](i,j,k,n)) - nodes.react[3](i,j,k,n) + integral;
         });
     }
     else

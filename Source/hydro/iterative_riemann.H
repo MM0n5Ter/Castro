@@ -13,18 +13,24 @@ using namespace amrex::literals;
 #endif
 
 namespace ShockPairSolver {
+    struct GammaLimits {
+      amrex::Real drift_rate;
+      amrex::Real lower;
+      amrex::Real upper;
+    };
+
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     compute_wave_speed_sq(const amrex::Real p, const amrex::Real v,
-          const amrex::Real gam, const amrex::Real gamma_drift_rate, amrex::Real& gamma_star_value,
-          const amrex::Real gamma_lower_bound, const amrex::Real gmax, const amrex::Real csq,
+          const amrex::Real gam, const GammaLimits& gamma_limits, amrex::Real& gamma_star_value,
+          const amrex::Real csq,
           const amrex::Real pstar, amrex::Real& wsq) {
 
 
 
 
-      gamma_star_value = (pstar-p)*gamma_drift_rate/(pstar+p) + gam;
-      gamma_star_value = amrex::Clamp(gamma_star_value, gamma_lower_bound, gmax);
+      gamma_star_value = (pstar-p)*gamma_limits.drift_rate/(pstar+p) + gam;
+      gamma_star_value = amrex::Clamp(gamma_star_value, gamma_limits.lower, gamma_limits.upper);
 
 
       amrex::Real alpha = pstar - (gamma_star_value - 1.0_rt)*p/(gam - 1.0_rt);
@@ -237,13 +243,18 @@ namespace ShockPairSolver {
 
     }
 
+    struct ShockSide {
+      amrex::Real u;
+      amrex::Real p;
+      amrex::Real specific_volume;
+      amrex::Real gamma_energy;
+      amrex::Real csq;
+    };
+
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     bisect_star_pressure(amrex::Real& star_pressure_lower, amrex::Real& star_pressure_upper,
-                    const amrex::Real ul, const amrex::Real pl, const amrex::Real specific_volume_left,
-                    const amrex::Real gamma_energy_left, const amrex::Real clsql,
-                    const amrex::Real ur, const amrex::Real pr, const amrex::Real specific_volume_right,
-                    const amrex::Real gamma_energy_right, const amrex::Real clsqr,
+                    const ShockSide& left, const ShockSide& right,
                     const amrex::Real gamma_drift_rate, const amrex::Real gamma_lower_bound, const amrex::Real gmax,
                     const int max_shock_iters, const amrex::Real pstar_tolerance,
                     amrex::Real& pstar, amrex::Real& gamma_energy_star,
@@ -251,27 +262,29 @@ namespace ShockPairSolver {
 
 
 
+      const GammaLimits gamma_limits{gamma_drift_rate, gamma_lower_bound, gmax};
+
       amrex::Real wlsq = 0.0;
-      compute_wave_speed_sq(pl, specific_volume_left, gamma_energy_left, gamma_drift_rate,
-             gamma_energy_star, gamma_lower_bound, gmax, clsql, star_pressure_lower, wlsq);
+      compute_wave_speed_sq(left.p, left.specific_volume, left.gamma_energy, gamma_limits,
+             gamma_energy_star, left.csq, star_pressure_lower, wlsq);
 
       amrex::Real wrsq = 0.0;
-      compute_wave_speed_sq(pr, specific_volume_right, gamma_energy_right, gamma_drift_rate,
-             gamma_energy_star, gamma_lower_bound, gmax, clsqr, star_pressure_lower, wrsq);
+      compute_wave_speed_sq(right.p, right.specific_volume, right.gamma_energy, gamma_limits,
+             gamma_energy_star, right.csq, star_pressure_lower, wrsq);
 
       amrex::Real wl = 1.0_rt / std::sqrt(wlsq);
       amrex::Real wr = 1.0_rt / std::sqrt(wrsq);
 
-      amrex::Real star_velocity_left = ul - (star_pressure_lower - pstar)*wl;
-      amrex::Real star_velocity_right = ur + (star_pressure_lower - pstar)*wr;
+      amrex::Real star_velocity_left = left.u - (star_pressure_lower - pstar)*wl;
+      amrex::Real star_velocity_right = right.u + (star_pressure_lower - pstar)*wr;
 
       amrex::Real f_lo = star_velocity_left - star_velocity_right;
 
-      compute_wave_speed_sq(pl, specific_volume_left, gamma_energy_left, gamma_drift_rate,
-            gamma_energy_star, gamma_lower_bound, gmax, clsql, star_pressure_upper, wlsq);
+      compute_wave_speed_sq(left.p, left.specific_volume, left.gamma_energy, gamma_limits,
+            gamma_energy_star, left.csq, star_pressure_upper, wlsq);
 
-      compute_wave_speed_sq(pr, specific_volume_right, gamma_energy_right, gamma_drift_rate,
-            gamma_energy_star, gamma_lower_bound, gmax, clsqr, star_pressure_upper, wrsq);
+      compute_wave_speed_sq(right.p, right.specific_volume, right.gamma_energy, gamma_limits,
+            gamma_energy_star, right.csq, star_pressure_upper, wrsq);
 
 
 
@@ -284,17 +297,17 @@ namespace ShockPairSolver {
         star_pressure_mid = 0.5_rt * (star_pressure_lower + star_pressure_upper);
         star_pressure_bisect_history[iter] = star_pressure_mid;
 
-        compute_wave_speed_sq(pl, specific_volume_left, gamma_energy_left, gamma_drift_rate,
-              gamma_energy_star, gamma_lower_bound, gmax, clsql, star_pressure_mid, wlsq);
+        compute_wave_speed_sq(left.p, left.specific_volume, left.gamma_energy, gamma_limits,
+              gamma_energy_star, left.csq, star_pressure_mid, wlsq);
 
-        compute_wave_speed_sq(pr, specific_volume_right, gamma_energy_right, gamma_drift_rate,
-              gamma_energy_star, gamma_lower_bound, gmax, clsqr, star_pressure_mid, wrsq);
+        compute_wave_speed_sq(right.p, right.specific_volume, right.gamma_energy, gamma_limits,
+              gamma_energy_star, right.csq, star_pressure_mid, wrsq);
 
         wl = 1.0_rt / std::sqrt(wlsq);
         wr = 1.0_rt / std::sqrt(wrsq);
 
-        star_velocity_left = ul - (star_pressure_mid - pl)*wl;
-        star_velocity_right = ur - (star_pressure_mid - pr)*wr;
+        star_velocity_left = left.u - (star_pressure_mid - left.p)*wl;
+        star_velocity_right = right.u - (star_pressure_mid - right.p)*wr;
 
         amrex::Real f_c = star_velocity_left - star_velocity_right;
 
@@ -343,6 +356,7 @@ namespace ShockPairSolver {
       amrex::Real gamma1_avg = 0.5_rt*(ql.gamma1_cell + qr.gamma1_cell);
 
       amrex::Real gamma_drift_rate = 2.0_rt*(1.0_rt - gamma_energy_avg/gamma1_avg)*(gamma_energy_avg - 1.0_rt);
+      const GammaLimits gamma_limits{gamma_drift_rate, gamma_lower_bound, gmax};
 
       amrex::Real impedance_floor = small_dens * interface_aux.sound_floor;
       amrex::Real wl = amrex::max(impedance_floor, std::sqrt(std::abs(clsql)));
@@ -354,12 +368,12 @@ namespace ShockPairSolver {
       amrex::Real gamma_energy_star = 0.0;
 
       amrex::Real wlsq = 0.0;
-      compute_wave_speed_sq(ql.p, specific_volume_left, gamma_energy_left, gamma_drift_rate, gamma_energy_star,
-            gamma_lower_bound, gmax, clsql, pstar, wlsq);
+      compute_wave_speed_sq(ql.p, specific_volume_left, gamma_energy_left, gamma_limits, gamma_energy_star,
+            clsql, pstar, wlsq);
 
       amrex::Real wrsq = 0.0;
-      compute_wave_speed_sq(qr.p, specific_volume_right, gamma_energy_right, gamma_drift_rate, gamma_energy_star,
-            gamma_lower_bound, gmax, clsqr, pstar, wrsq);
+      compute_wave_speed_sq(qr.p, specific_volume_right, gamma_energy_right, gamma_limits, gamma_energy_star,
+            clsqr, pstar, wrsq);
 
       amrex::Real star_pressure_prev = pstar;
 
@@ -379,11 +393,11 @@ namespace ShockPairSolver {
       int iter = 0;
       while ((iter < shock_star_max_iters && !converged) || iter < 2) {
 
-          compute_wave_speed_sq(ql.p, specific_volume_left, gamma_energy_left, gamma_drift_rate, gamma_energy_star,
-                gamma_lower_bound, gmax, clsql, pstar, wlsq);
+          compute_wave_speed_sq(ql.p, specific_volume_left, gamma_energy_left, gamma_limits, gamma_energy_star,
+                clsql, pstar, wlsq);
 
-          compute_wave_speed_sq(qr.p, specific_volume_right, gamma_energy_right, gamma_drift_rate, gamma_energy_star,
-                gamma_lower_bound, gmax, clsqr, pstar, wrsq);
+          compute_wave_speed_sq(qr.p, specific_volume_right, gamma_energy_right, gamma_limits, gamma_energy_star,
+                clsqr, pstar, wrsq);
 
 
           wl = 1.0_rt / std::sqrt(wlsq);
@@ -466,8 +480,8 @@ namespace ShockPairSolver {
               amrex::GpuArray<amrex::Real, solver_constants::STAR_BISECT_SCALE * solver_constants::STAR_HISTORY_DEPTH> star_pressure_bisect_history;
 
               bisect_star_pressure(star_pressure_min, star_pressure_max,
-                              ql.un, ql.p, specific_volume_left, gamma_energy_left, clsql,
-                              qr.un, qr.p, specific_volume_right, gamma_energy_right, clsqr,
+                              ShockSide{ql.un, ql.p, specific_volume_left, gamma_energy_left, clsql},
+                              ShockSide{qr.un, qr.p, specific_volume_right, gamma_energy_right, clsqr},
                               gamma_drift_rate, gamma_lower_bound, gmax,
                               shock_star_max_iters, riemann_star_tol,
                               pstar, gamma_energy_star, converged, star_pressure_bisect_history);
@@ -551,8 +565,8 @@ namespace ShockPairSolver {
       amrex::Real lagrangian_sound_sq = amrex::Math::powi<2>(co*ro);
 
       amrex::Real wosq = 0.0;
-      compute_wave_speed_sq(po, specific_volume_upwind, gamma_energy_upwind, gamma_drift_rate, gamma_energy_star,
-            gamma_lower_bound, gmax, lagrangian_sound_sq, pstar, wosq);
+      compute_wave_speed_sq(po, specific_volume_upwind, gamma_energy_upwind, gamma_limits, gamma_energy_star,
+            lagrangian_sound_sq, pstar, wosq);
 
       amrex::Real sgnm = std::copysign(1.0_rt, ustar);
 

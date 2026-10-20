@@ -181,8 +181,7 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
               Array4<Real> const& qp,
               Array4<Real const> const& qthermo_arr,
               InterfaceState& interface_state,
-              const bool lo_no_flux_wall, const bool hi_no_flux_wall,
-              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi,
+              NoFluxWalls const& walls,
               const bool use_parabolic_temp_fix, const Real temperature_guess) {
 
 
@@ -231,8 +230,8 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
   interface_aux.boundary_factor = 1.0_rt;
 
   const amrex::GpuArray<int, 3> zone{i, j, k};
-  if ((zone[idir] == domlo[idir] && lo_no_flux_wall) ||
-      (zone[idir] == domhi[idir]+1 && hi_no_flux_wall)) {
+  if ((zone[idir] == walls.domlo[idir] && walls.lo) ||
+      (zone[idir] == walls.domhi[idir]+1 && walls.hi)) {
       interface_aux.boundary_factor = 0.0_rt;
   }
 
@@ -294,8 +293,8 @@ HydroSim::compute_godunov_flux(const Box& bx,
 
     GeometryData geomdata = geom.data();
 
-    const auto domlo = geom.Domain().loVect3d();
-    const auto domhi = geom.Domain().hiVect3d();
+    const NoFluxWalls walls{lo_no_flux_wall, hi_no_flux_wall,
+                            geom.Domain().loVect3d(), geom.Domain().hiVect3d()};
 
     const bool use_parabolic_temp_fix = ppm_temp_mode == 2;
     const Real temperature_guess = eos_temp_guess;
@@ -313,8 +312,7 @@ HydroSim::compute_godunov_flux(const Box& bx,
             solve_interface_state(i, j, k, idir,
                           qm, qp, qthermo_arr,
                           interface_state,
-                          lo_no_flux_wall, hi_no_flux_wall,
-                          domlo, domhi,
+                          walls,
                           use_parabolic_temp_fix, temperature_guess);
 
 
@@ -356,8 +354,7 @@ HydroSim::compute_godunov_flux(const Box& bx,
                       flx,
                       godunov_state, keep_full_state,
                       geomdata,
-                      lo_no_flux_wall, hi_no_flux_wall,
-                      domlo, domhi);
+                      walls);
 
 #ifndef AMREX_USE_GPU
         } else {

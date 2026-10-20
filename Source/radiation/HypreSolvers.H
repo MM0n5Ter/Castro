@@ -247,9 +247,16 @@ class MultiLevelEllipticSolver {
              amrex::Array4<amrex::Real const> const& b,
              amrex::Real beta, const amrex::Real* dx, int n);
 
+  struct FaceBcSpec {
+    int cdir;
+    int bct;
+    int bho;
+    amrex::Real bcl;
+  };
+
   void fillLevelMat (const amrex::Box& bx,
               amrex::Array4<amrex::GpuArray<amrex::Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
-              int cdir, int bct, int bho, amrex::Real bcl,
+              const FaceBcSpec& bc,
               amrex::Array4<int const> const& mask,
               amrex::Array4<amrex::Real const> const& b,
               amrex::Real beta, const amrex::Real* dx);

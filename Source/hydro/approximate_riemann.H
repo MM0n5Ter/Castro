@@ -3,6 +3,8 @@
 
 #include <AMReX_REAL.H>
 
+#include <riemann_states.H>
+
 namespace HLL {
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
@@ -144,8 +146,7 @@ namespace HLL {
          Array4<Real> const& solver_flux_arr,
          Array4<Real> const& godunov_state, const bool keep_full_state,
          const GeometryData& geom,
-         const bool lo_no_flux_wall, const bool hi_no_flux_wall,
-         GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+         NoFluxWalls const& walls) {
 
 
         const Real small = 1.e-8_rt;
@@ -163,8 +164,8 @@ namespace HLL {
         Real boundary_factor = 1.0_rt;
 
         const GpuArray<int, 3> zone{i, j, k};
-        if ((zone[idir] == domlo[idir] && lo_no_flux_wall) ||
-            (zone[idir] == domhi[idir]+1 && hi_no_flux_wall)) {
+        if ((zone[idir] == walls.domlo[idir] && walls.lo) ||
+            (zone[idir] == walls.domhi[idir]+1 && walls.hi)) {
             boundary_factor = 0.0_rt;
         }
 

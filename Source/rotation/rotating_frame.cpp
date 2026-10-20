@@ -81,10 +81,14 @@ HydroSim::assemble_new_rotation_source(MultiFab& source, MultiFab& field_old, Mu
         {
             const Box& bx = mfi.tilebox();
 
+            const face_mass_flux_views fluxes{(*mass_face_flux[0]).array(mfi),
+                                              (*mass_face_flux[1]).array(mfi),
+                                              (*mass_face_flux[2]).array(mfi)};
+
             apply_rotation_correction(bx,
                      field_old.array(mfi), field_new.array(mfi),
                      source.array(mfi),
-                     (*mass_face_flux[0]).array(mfi), (*mass_face_flux[1]).array(mfi), (*mass_face_flux[2]).array(mfi),
+                     fluxes,
                      dt, volume.array(mfi));
         }
     }
@@ -258,11 +262,13 @@ HydroSim::apply_rotation_correction(const Box& bx,
                  Array4<Real const> const& uold,
                  Array4<Real const> const& unew,
                  Array4<Real> const& source,
-                 Array4<Real const> const& xface_flux,
-                 Array4<Real const> const& flux1,
-                 Array4<Real const> const& flux2,
+                 const face_mass_flux_views& fluxes,
                  const Real dt,
                  Array4<Real const> const& vol) {
+
+  const auto xface_flux = fluxes.x;
+  const auto flux1 = fluxes.y;
+  const auto flux2 = fluxes.z;
 
 
 

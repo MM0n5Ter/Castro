@@ -254,7 +254,7 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
                                  const amrex::Vector<std::array<amrex::MultiFab*,AMREX_SPACEDIM> >& phi_gradient,
                                  const amrex::Vector<amrex::MultiFab*>& res,
                                  const amrex::MultiFab* const crse_bcdata,
-                                 amrex::Real rel_tolerance, amrex::Real abs_tolerance) const
+                                 const SolveTolerances& tol) const
 {
     BL_PROFILE("Gravity::invoke_mlmg_solver()");
 
@@ -310,7 +310,7 @@ Gravity::invoke_mlmg_solver (int crse_level, int fine_level,
         }
 
         mlmg.setNSolve(gravity::mlmg_coarse_nsolve);
-        last_residual_norm = mlmg.solve(phi, poisson_rhs, rel_tolerance, abs_tolerance);
+        last_residual_norm = mlmg.solve(phi, poisson_rhs, tol.rel, tol.abs);
 
         mlmg.getGradSolution(phi_gradient);
     }
@@ -368,7 +368,7 @@ Gravity::solve_potential_mlmg (int crse_level, int fine_level,
     }
 
     return invoke_mlmg_solver(crse_level, fine_level, phi, crhs, gp, res,
-                                  crse_bcdata, rel_tolerance, abs_tolerance);
+                                  crse_bcdata, {rel_tolerance, abs_tolerance});
 }
 
 void
@@ -398,7 +398,7 @@ Gravity::solve_correction_phi(int crse_level, int fine_level,
                                       level_solve_residual_norm.begin() + fine_level+1));
 
     invoke_mlmg_solver(crse_level, fine_level, delta_phi, crhs, gp, {},
-                           nullptr, rel_tolerance, abs_tolerance);
+                           nullptr, {rel_tolerance, abs_tolerance});
 }
 
 Vector<std::unique_ptr<MultiFab> >
