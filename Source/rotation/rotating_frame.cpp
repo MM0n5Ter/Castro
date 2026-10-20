@@ -219,28 +219,28 @@ HydroSim::rsrc(const Box& bx,
 
     Real SrE;
 
-    if (rotation_source_mode == 1 || rotation_source_mode == 2) {
+    switch (rotation_source_mode) {
+    case 1:
+    case 2:
+    case 4:
 
       SrE = uold(i,j,k,UMX) * rhoInv * Sr[0] +
             uold(i,j,k,UMY) * rhoInv * Sr[1] +
             uold(i,j,k,UMZ) * rhoInv * Sr[2];
+      break;
 
-    } else if (rotation_source_mode == 3) {
+    case 3: {
 
       Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rhoInv;
       SrE = kinetic_energy_updated - kinetic_energy_old;
+      break;
+    }
 
-    } else if (rotation_source_mode == 4) {
-
-
-      SrE = uold(i,j,k,UMX) * rhoInv * Sr[0] +
-            uold(i,j,k,UMY) * rhoInv * Sr[1] +
-            uold(i,j,k,UMZ) * rhoInv * Sr[2];
-
-    } else {
+    default:
 #ifndef AMREX_USE_GPU
       amrex::Error("Error:: rotation_sources_nd.F90 :: invalid rotation_source_mode");
 #endif
+      break;
     }
 
     src[UEDEN] += SrE;
@@ -425,12 +425,13 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
     Real energy_source_corr;
 
-    if (rotation_source_mode == 1) {
-
+    switch (rotation_source_mode) {
+    case 1:
 
       energy_source_corr = 0.5_rt * (energy_source_new - energy_source_old);
+      break;
 
-    } else if (rotation_source_mode == 2) {
+    case 2: {
 
 
       velocity_new[0] = snew[UMX] * rho_new_inv;
@@ -448,14 +449,18 @@ HydroSim::apply_rotation_correction(const Box& bx,
       energy_source_new = velocity_new[0] * mom_source_new[0] + velocity_new[1] * mom_source_new[1] + velocity_new[2] * mom_source_new[2];
 
       energy_source_corr = 0.5_rt * (energy_source_new - energy_source_old);
+      break;
+    }
 
-    } else if (rotation_source_mode == 3) {
+    case 3: {
 
 
       Real kinetic_energy_updated = 0.5_rt * (snew[UMX] * snew[UMX] + snew[UMY] * snew[UMY] + snew[UMZ] * snew[UMZ]) * rho_new_inv;
       energy_source_corr = kinetic_energy_updated - kinetic_energy_old;
+      break;
+    }
 
-    } else if (rotation_source_mode == 4) {
+    case 4: {
 
 
 
@@ -499,11 +504,14 @@ HydroSim::apply_rotation_correction(const Box& bx,
                            flux1(i,j+1*dg1,k) * edge_spin_source[1][1] * dx[1] +
                            flux2(i,j,k      ) * edge_spin_source[2][0] * dx[2] +
                            flux2(i,j,k+1*dg2) * edge_spin_source[2][1] * dx[2]) / vol(i,j,k);
+      break;
+    }
 
-    } else {
+    default:
 #ifndef AMREX_USE_GPU
       amrex::Error("Error:: rotation_sources_nd.F90 :: invalid rotation_source_mode");
 #endif
+      break;
     }
 
     src[UEDEN] = energy_source_corr;

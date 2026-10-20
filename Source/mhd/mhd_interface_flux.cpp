@@ -43,53 +43,26 @@ HydroSim::mhd_riemann_flux(const Box& bx,
 
 
 
-  int QBNORM, QBPERP1, QBPERP2;
-  int QVNORM, QVPERP1, QVPERP2;
-  int UMN, UMPERP1, UMPERP2;
-  int UBNORM, UBPERP1, UBPERP2;
+  constexpr int bfield_comp[3] = {QBFIELDX, QBFIELDY, QBFIELDZ};
+  constexpr int vel_comp[3] = {QU, QV, QW};
+  constexpr int mom_comp[3] = {UMX, UMY, UMZ};
+  constexpr int bflux_comp[3] = {UBX, UBY, UBZ};
 
-  if (dir == 0) {
-    QBNORM  = QBFIELDX;
-    QBPERP1 = QBFIELDY;
-    QBPERP2 = QBFIELDZ;
-    QVNORM  = QU;
-    QVPERP1 = QV;
-    QVPERP2 = QW;
-    UMN    = UMX;
-    UMPERP1   = UMY;
-    UMPERP2   = UMZ;
-    UBNORM  = UBX;
-    UBPERP1 = UBY;
-    UBPERP2 = UBZ;
+  const int perp1 = (dir + 1) % 3;
+  const int perp2 = (dir + 2) % 3;
 
-  } else if (dir == 1) {
-    QBNORM  = QBFIELDY;
-    QBPERP1 = QBFIELDZ;
-    QBPERP2 = QBFIELDX;
-    QVNORM  = QV;
-    QVPERP1 = QW;
-    QVPERP2 = QU;
-    UMN    = UMY;
-    UMPERP1   = UMZ;
-    UMPERP2   = UMX;
-    UBNORM  = UBY;
-    UBPERP1 = UBZ;
-    UBPERP2 = UBX;
-
-  } else {
-    QBNORM  = QBFIELDZ;
-    QBPERP1 = QBFIELDX;
-    QBPERP2 = QBFIELDY;
-    QVNORM  = QW;
-    QVPERP1 = QU;
-    QVPERP2 = QV;
-    UMN    = UMZ;
-    UMPERP1   = UMX;
-    UMPERP2   = UMY;
-    UBNORM  = UBZ;
-    UBPERP1 = UBX;
-    UBPERP2 = UBY;
-  }
+  const int QBNORM  = bfield_comp[dir];
+  const int QBPERP1 = bfield_comp[perp1];
+  const int QBPERP2 = bfield_comp[perp2];
+  const int QVNORM  = vel_comp[dir];
+  const int QVPERP1 = vel_comp[perp1];
+  const int QVPERP2 = vel_comp[perp2];
+  const int UMN     = mom_comp[dir];
+  const int UMPERP1 = mom_comp[perp1];
+  const int UMPERP2 = mom_comp[perp2];
+  const int UBNORM  = bflux_comp[dir];
+  const int UBPERP1 = bflux_comp[perp1];
+  const int UBPERP2 = bflux_comp[perp2];
 
   const MhdAxis axis{QBNORM, QBPERP1, QBPERP2,
                      QVNORM, QVPERP1, QVPERP2,

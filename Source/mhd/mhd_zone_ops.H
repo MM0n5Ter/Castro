@@ -21,19 +21,11 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 int
 levi_civita_sign(const int i, const int j, const int k) {
 
-  int val;
+  constexpr int eps[3][3][3] = {{{0, 0, 0}, {0, 0, 1}, {0, -1, 0}},
+                                {{0, 0, -1}, {0, 0, 0}, {1, 0, 0}},
+                                {{0, 1, 0}, {-1, 0, 0}, {0, 0, 0}}};
 
-  if (i == j || j == k || i == k) {
-    val = 0;
-  } else if ((i == 0 && j == 1 && k == 2) ||
-             (i == 1 && j == 2 && k == 0) ||
-             (i == 2 && j == 0 && k == 1)) {
-    val = 1;
-  } else {
-    val = -1;
-  }
-
-  return val;
+  return eps[i][j][k];
 }
 
 template <typename RealT>

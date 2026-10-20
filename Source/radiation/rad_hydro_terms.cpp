@@ -393,21 +393,11 @@ HydroSim::trace_parabolic_radiative(const Box& bx,
 #endif
 
 
-  int QUN, QUT, QTRANSV2;
+  const int velocity_order[3][3] = {{QU, QV, QW}, {QV, QW, QU}, {QW, QU, QV}};
 
-  if (idir == 0) {
-    QUN = QU;
-    QUT = QV;
-    QTRANSV2 = QW;
-  } else if (idir == 1) {
-    QUN = QV;
-    QUT = QW;
-    QTRANSV2 = QU;
-  } else if (idir == 2) {
-    QUN = QW;
-    QUT = QU;
-    QTRANSV2 = QV;
-  }
+  const int QUN = velocity_order[idir][0];
+  const int QUT = velocity_order[idir][1];
+  const int QTRANSV2 = velocity_order[idir][2];
 
   Real ldensity_floor = small_dens;
   Real local_pressure_floor = pressure_cutoff;

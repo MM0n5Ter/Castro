@@ -425,7 +425,8 @@ namespace ShockPairSolver {
 
       if (!converged) {
 
-          if (riemann_search_mode == 0) {
+          switch (riemann_search_mode) {
+          case 0:
 
     #ifndef AMREX_USE_GPU
               std::cout <<  "pstar history: " << std::endl;
@@ -440,12 +441,14 @@ namespace ShockPairSolver {
 
               amrex::Error("ERROR: non-convergence in the Riemann solver");
     #endif
+              break;
 
-          } else if (riemann_search_mode == 1) {
+          case 1:
 
               pstar = ql.p + ( (qr.p - ql.p) - wr * (qr.un - ql.un) ) * wl / (wl + wr);
+              break;
 
-          } else if (riemann_search_mode == 2) {
+          case 2: {
 
     #ifndef AMREX_USE_GPU
               amrex::Real star_pressure_min = 1.e200;
@@ -487,11 +490,15 @@ namespace ShockPairSolver {
               }
 
     #endif
-          } else {
+              break;
+          }
+
+          default:
 
     #ifndef AMREX_USE_GPU
               amrex::Error("ERROR: unrecognized riemann_search_mode option.");
     #endif
+              break;
           }
 
       }

@@ -240,13 +240,14 @@ HydroSim::variableSetUp ()
     interp = &mf_pc_interp;
   }
   else {
-    if (linear_interp_limiter == 2) {
+    switch (linear_interp_limiter) {
+    case 2:
       interp = &mf_linear_slope_minmax_interp;
-    }
-    else if (linear_interp_limiter == 1) {
+      break;
+    case 1:
       interp = &mf_lincc_interp;
-    }
-    else {
+      break;
+    default:
       interp = &mf_cell_cons_interp;
     }
   }

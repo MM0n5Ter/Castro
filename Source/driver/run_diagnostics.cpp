@@ -364,6 +364,10 @@ HydroSim::wave_strain (Real time,
     }
 
 
+    constexpr int strain_index[3][4] = {{1, 1, 2, 1}, {2, 2, 0, 2}, {0, 0, 1, 0}};
+    Real* const plus_out[3] = {&strain_plus_1, &strain_plus_2, &strain_plus_3};
+    Real* const cross_out[3] = {&strain_cross_1, &strain_cross_2, &strain_cross_3};
+
     for (int dir = 0; dir < 3; ++dir) {
 
         Real dist[3] = {0.0};
@@ -409,24 +413,8 @@ HydroSim::wave_strain (Real time,
         }
 
 
-        if (dir == 0) {
-
-            strain_plus_1  += h[1][1];
-            strain_cross_1 += h[2][1];
-
-        }
-        else if (dir == 1) {
-
-            strain_plus_2  += h[2][2];
-            strain_cross_2 += h[0][2];
-
-        }
-        else if (dir == 2) {
-
-            strain_plus_3  += h[0][0];
-            strain_cross_3 += h[1][0];
-
-        }
+        *plus_out[dir]  += h[strain_index[dir][0]][strain_index[dir][1]];
+        *cross_out[dir] += h[strain_index[dir][2]][strain_index[dir][3]];
 
     }
 }

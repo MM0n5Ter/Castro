@@ -7,6 +7,7 @@
 #ifdef GRAVITY
 #include <Gravity.H>
 #endif
+#include <array>
 #include <cmath>
 
 #include <climits>
@@ -393,33 +394,21 @@ HydroSim::run_advance_ctu (Real time, Real dt)
         reflux(level, top_level_to_advance, false);
     }
 
+    static constexpr std::array<step_result (HydroSim::*)(Real, Real), 4> finishing_steps = {
+        &HydroSim::after_hydro_hooks,
+        &HydroSim::run_new_sources,
+        &HydroSim::after_advance_hooks,
+        &HydroSim::end_step_advance
+    };
+
     for (int lev = level; lev <= top_level_to_advance; ++lev) {
 
-        status = getLevel(lev).after_hydro_hooks(cur_time, dt);
+        for (auto finishing_step : finishing_steps) {
+            status = (getLevel(lev).*finishing_step)(cur_time, dt);
 
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).run_new_sources(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).after_advance_hooks(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).end_step_advance(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
+            if (status.success == false) {
+                return status;
+            }
         }
     }
 

@@ -370,19 +370,10 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                       dir_flux_arr(i,j,k,n) = 0.0;
 #endif
                   } else {
-                      if (idir == 0) {
-                          dir_flux_arr(i,j,k,n) += viscosity_coef * viscosity_field_arr(i,j,k,0) *
-                              (input_state_arr(i,j,k,n) - input_state_arr(i-1,j,k,n));
+                      constexpr int lower_shift[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
 
-                      } else if (idir == 1) {
-                          dir_flux_arr(i,j,k,n) += viscosity_coef * viscosity_field_arr(i,j,k,0) *
-                              (input_state_arr(i,j,k,n) - input_state_arr(i,j-1,k,n));
-
-                      } else {
-                          dir_flux_arr(i,j,k,n) += viscosity_coef * viscosity_field_arr(i,j,k,0) *
-                              (input_state_arr(i,j,k,n) - input_state_arr(i,j,k-1,n));
-
-                      }
+                      dir_flux_arr(i,j,k,n) += viscosity_coef * viscosity_field_arr(i,j,k,0) *
+                          (input_state_arr(i,j,k,n) - input_state_arr(i-lower_shift[idir][0],j-lower_shift[idir][1],k-lower_shift[idir][2],n));
                   }
 
                 });

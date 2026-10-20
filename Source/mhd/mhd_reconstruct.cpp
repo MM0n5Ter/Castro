@@ -64,7 +64,11 @@ HydroSim::plm(const Box& bx,
     Real Q[NUM_EIGVEC][nslp];
 
 
-    int QUN;
+    constexpr int normal_eig[3] = {EIGVEC_U, EIGVEC_V, EIGVEC_W};
+    constexpr int perp_field[3][2] = {{QBFIELDY, QBFIELDZ}, {QBFIELDX, QBFIELDZ}, {QBFIELDX, QBFIELDY}};
+    constexpr int velocity[3] = {QU, QV, QW};
+
+    const int QUN = normal_eig[idir];
 
     gather_stencil(s, idir, i, j, k, QRHO, Q[EIGVEC_RHO]);
     gather_stencil(s, idir, i, j, k, QU, Q[EIGVEC_U]);
@@ -72,27 +76,8 @@ HydroSim::plm(const Box& bx,
     gather_stencil(s, idir, i, j, k, QW, Q[EIGVEC_W]);
     gather_stencil(s, idir, i, j, k, QPRES, Q[EIGVEC_PRESSURE]);
 
-    if (idir == 0) {
-        QUN = EIGVEC_U;
-
-        gather_stencil(s, idir, i, j, k, QBFIELDY, Q[EIGVEC_BPERP1]);
-        gather_stencil(s, idir, i, j, k, QBFIELDZ, Q[EIGVEC_BPERP2]);
-
-    } else if (idir == 1) {
-
-        QUN = EIGVEC_V;
-
-        gather_stencil(s, idir, i, j, k, QBFIELDX, Q[EIGVEC_BPERP1]);
-        gather_stencil(s, idir, i, j, k, QBFIELDZ, Q[EIGVEC_BPERP2]);
-
-    } else {
-
-        QUN = EIGVEC_W;
-
-        gather_stencil(s, idir, i, j, k, QBFIELDX, Q[EIGVEC_BPERP1]);
-        gather_stencil(s, idir, i, j, k, QBFIELDY, Q[EIGVEC_BPERP2]);
-
-    }
+    gather_stencil(s, idir, i, j, k, perp_field[idir][0], Q[EIGVEC_BPERP1]);
+    gather_stencil(s, idir, i, j, k, perp_field[idir][1], Q[EIGVEC_BPERP2]);
 
 
     Array1D<Real, 0, NQ-1> zone_prim;
@@ -267,18 +252,11 @@ HydroSim::plm(const Box& bx,
     }
 
     for (int n = 0; n < NumSpec; n++) {
-      Real un{};
       Real X[nslp];
 
       gather_stencil(s, idir, i, j, k, QFS+n, X);
 
-      if (idir == 0) {
-        un = s(i,j,k,QU);
-      } else if (idir == 1) {
-        un = s(i,j,k,QV);
-      } else {
-        un = s(i,j,k,QW);
-      }
+      Real un = s(i,j,k,velocity[idir]);
 
       Real dX = limited_slope(X, flatten_factor(i,j,k), false, false);
 

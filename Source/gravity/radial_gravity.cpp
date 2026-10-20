@@ -505,20 +505,21 @@ Gravity::tally_radial_profile(const Box& bx,
 
                         Real vol_frac{};
 
-                        if (coord_type == 0) {
-
+                        switch (coord_type) {
+                        case 0:
                             vol_frac = symmetry_mult * dx_frac * subcell_dy * subcell_dz;
-
-                        } else if (coord_type == 1) {
-
+                            break;
+                        case 1:
                             vol_frac = 2.0_rt * std::numbers::pi * dx_frac * subcell_dy * symmetry_mult * xx;
-
-                        } else if (coord_type == 2) {
-
+                            break;
+                        case 2: {
                             Real rlo = std::abs(lo_i + static_cast<Real>(ii  ) * dx_frac);
                             Real rhi = std::abs(lo_i + static_cast<Real>(ii+1) * dx_frac);
                             vol_frac = (4.0_rt / 3.0_rt) * std::numbers::pi * (rhi * rhi * rhi - rlo * rlo * rlo);
-
+                            break;
+                        }
+                        default:
+                            break;
                         }
 
                         if (index <= n1d - 1) {
@@ -662,38 +663,28 @@ Gravity::include_point_source_field (int level, MultiFab& phi, MultiFab& gravity
         [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
 
-            Real x = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
+            GpuArray<Real, 3> pos;
+
+            pos[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
 #if AMREX_SPACEDIM >= 2
-            Real y = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
+            pos[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
 #else
-            Real y = 0.0;
+            pos[1] = 0.0;
 #endif
 #if AMREX_SPACEDIM == 3
-            Real z = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
+            pos[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
 #else
-            Real z = 0.0;
+            pos[2] = 0.0;
 #endif
 
             if(hydrosim::point_mass_is_shifted == 1)
             {
                 Real offset_radius = hydrosim::point_mass_shift;
 
-                if(AMREX_SPACEDIM == 1)
-                {
-                    x += offset_radius;
-                }
-                else if(AMREX_SPACEDIM ==2)
-                {
-                    y += offset_radius;
-                }
-                else if(AMREX_SPACEDIM == 3)
-                {
-                    z += offset_radius;
-                }
-
+                pos[AMREX_SPACEDIM-1] += offset_radius;
             }
 
-            Real rsq = x * x + y * y + z * z;
+            Real rsq = pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2];
             Real radial_point_accel = -C::Gconst * hydrosim::point_mass / rsq;
 
             Real inv_dist = 1.e0_rt / std::sqrt(rsq);
@@ -702,9 +693,9 @@ Gravity::include_point_source_field (int level, MultiFab& phi, MultiFab& gravity
                 phi_arr(i,j,k) -= C::Gconst * hydrosim::point_mass * inv_dist;
             }
 
-            grav_vec_arr(i,j,k,0) += radial_point_accel * (x * inv_dist);
-            grav_vec_arr(i,j,k,1) += radial_point_accel * (y * inv_dist);
-            grav_vec_arr(i,j,k,2) += radial_point_accel * (z * inv_dist);
+            grav_vec_arr(i,j,k,0) += radial_point_accel * (pos[0] * inv_dist);
+            grav_vec_arr(i,j,k,1) += radial_point_accel * (pos[1] * inv_dist);
+            grav_vec_arr(i,j,k,2) += radial_point_accel * (pos[2] * inv_dist);
         });
     }
 }

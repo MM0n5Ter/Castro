@@ -150,51 +150,22 @@ namespace HLL {
 
         const Real small = 1.e-8_rt;
 
-        int iu;
-        int sx, sy, sz;
+        constexpr int normal_vel[3] = {QU, QV, QW};
+        const int iu = normal_vel[idir];
 
-        if (idir == 0) {
-            iu = QU;
-            sx = 1;
-            sy = 0;
-            sz = 0;
-
-        } else if (!(idir == 1)) {
-            iu = QW;
-            sx = 0;
-            sy = 0;
-            sz = 1;
-
-        } else {
-            iu = QV;
-            sx = 0;
-            sy = 1;
-            sz = 0;
-
-        }
+        const int sx = (idir == 0);
+        const int sy = (idir == 1);
+        const int sz = (idir == 2);
 
 
         int coord = geom.Coord();
 
         Real boundary_factor = 1.0_rt;
 
-        if (idir == 0) {
-            if ((i == domlo[0] && lo_no_flux_wall) ||
-                (i == domhi[0]+1 && hi_no_flux_wall)) {
-                boundary_factor = 0.0_rt;
-            }
-
-        } else if (!(idir == 1)) {
-            if ((k == domlo[2] && lo_no_flux_wall) ||
-                (k == domhi[2]+1 && hi_no_flux_wall)) {
-                boundary_factor = 0.0_rt;
-            }
-        } else {
-            if ((j == domlo[1] && lo_no_flux_wall) ||
-                (j == domhi[1]+1 && hi_no_flux_wall)) {
-                boundary_factor = 0.0_rt;
-            }
-
+        const GpuArray<int, 3> zone{i, j, k};
+        if ((zone[idir] == domlo[idir] && lo_no_flux_wall) ||
+            (zone[idir] == domhi[idir]+1 && hi_no_flux_wall)) {
+            boundary_factor = 0.0_rt;
         }
 
 
@@ -379,36 +350,16 @@ namespace HLL {
 
       constexpr Real small_speed_gap = 1.e-10_rt;
 
-      int normal_vel_index, tan_vel_index, tan2_vel_index;
-      int momentum_index, momentum_tan_index, momentum_tan2_index;
+      constexpr int vel_index[3][3] = {{QU, QV, QW}, {QV, QU, QW}, {QW, QU, QV}};
+      constexpr int mom_index[3][3] = {{UMX, UMY, UMZ}, {UMY, UMX, UMZ}, {UMZ, UMX, UMY}};
 
-      if (idir == 0) {
-        normal_vel_index = QU;
-        tan_vel_index = QV;
-        tan2_vel_index = QW;
+      const int normal_vel_index = vel_index[idir][0];
+      const int tan_vel_index = vel_index[idir][1];
+      const int tan2_vel_index = vel_index[idir][2];
 
-        momentum_index = UMX;
-        momentum_tan_index = UMY;
-        momentum_tan2_index = UMZ;
-
-      } else if (!(idir == 1)) {
-        normal_vel_index = QW;
-        tan_vel_index = QU;
-        tan2_vel_index = QV;
-
-        momentum_index = UMZ;
-        momentum_tan_index = UMX;
-        momentum_tan2_index = UMY;
-      } else {
-        normal_vel_index = QV;
-        tan_vel_index = QU;
-        tan2_vel_index = QW;
-
-        momentum_index = UMY;
-        momentum_tan_index = UMX;
-        momentum_tan2_index = UMZ;
-
-      }
+      const int momentum_index = mom_index[idir][0];
+      const int momentum_tan_index = mom_index[idir][1];
+      const int momentum_tan2_index = mom_index[idir][2];
 
       Real left_sqrt_rho = std::sqrt(ql[QRHO]);
       Real right_sqrt_rho = std::sqrt(qr[QRHO]);

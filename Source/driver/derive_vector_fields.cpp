@@ -58,15 +58,10 @@ void angular_momentum_component(const Box& bx, FArrayBox& derfab, const FArrayBo
                            loc[dir] -= problem::center[dir];
                          }
 
-                         if (idir == 0) {
-                           L(i,j,k,0) = loc[1] * dat(i,j,k,3) - loc[2] * dat(i,j,k,2);
-                         }
-                         else if (idir == 1) {
-                           L(i,j,k,0) = loc[2] * dat(i,j,k,1) - loc[0] * dat(i,j,k,3);
-                         }
-                         else {
-                           L(i,j,k,0) = loc[0] * dat(i,j,k,2) - loc[1] * dat(i,j,k,1);
-                         }
+                         constexpr int lever[3] = {1, 2, 0};
+                         constexpr int mom[3] = {2, 0, 1};
+
+                         L(i,j,k,0) = loc[lever[idir]] * dat(i,j,k,1+mom[idir]) - loc[mom[idir]] * dat(i,j,k,1+lever[idir]);
 
                        });
 }

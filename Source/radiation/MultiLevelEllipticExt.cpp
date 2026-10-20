@@ -197,6 +197,9 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
   FArrayBox matfab;
   FArrayBox mat_scratch_fab;
+  constexpr int lo_col[3] = {1, 3, 5};
+  constexpr int hi_col[3] = {2, 4, 6};
+
   for (int level = crse_level; level <= fine_level; level++) {
     int part = level - crse_level;
 
@@ -217,24 +220,18 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
             auto a2 = (*aux_mass_coefs[level])[idim][mfi].array();
 
+            const int di = (idim == 0);
+            const int dj = (idim == 1);
+            const int dk = (idim == 2);
+            const int lo_comp = lo_col[idim];
+            const int hi_comp = hi_col[idim];
+
             amrex::ParallelFor(reg,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                if (idim == 0) {
-                    mat(i,j,k,0) += fac * (a2(i,j,k) + a2(i+1,j,k));
-                    mat(i,j,k,1) += fac * a2(i,j,k);
-                    mat(i,j,k,2) += fac * a2(i+1,j,k);
-                }
-                else if (idim == 1) {
-                    mat(i,j,k,0) += fac * (a2(i,j,k) + a2(i,j+1,k));
-                    mat(i,j,k,3) += fac * a2(i,j,k);
-                    mat(i,j,k,4) += fac * a2(i,j+1,k);
-                }
-                else {
-                    mat(i,j,k,0) += fac * (a2(i,j,k) + a2(i,j,k+1));
-                    mat(i,j,k,5) += fac * a2(i,j,k);
-                    mat(i,j,k,6) += fac * a2(i,j,k+1);
-                }
+                mat(i,j,k,0) += fac * (a2(i,j,k) + a2(i+di,j+dj,k+dk));
+                mat(i,j,k,lo_comp) += fac * a2(i,j,k);
+                mat(i,j,k,hi_comp) += fac * a2(i+di,j+dj,k+dk);
             });
         }
       }
@@ -245,24 +242,18 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
             auto c = (*cell_coefs[level])[idim][mfi].array();
 
+            const int di = (idim == 0);
+            const int dj = (idim == 1);
+            const int dk = (idim == 2);
+            const int lo_comp = lo_col[idim];
+            const int hi_comp = hi_col[idim];
+
             amrex::ParallelFor(reg,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                if (idim == 0) {
-                    mat(i,j,k,0) += -fac * (c(i,j,k) - c(i+1,j,k));
-                    mat(i,j,k,1) += -fac * c(i,j,k);
-                    mat(i,j,k,2) += fac * c(i+1,j,k);
-                }
-                else if (idim == 1) {
-                    mat(i,j,k,0) += -fac * (c(i,j,k) - c(i,j+1,k));
-                    mat(i,j,k,3) += -fac * c(i,j,k);
-                    mat(i,j,k,4) += fac * c(i,j+1,k);
-                }
-                else {
-                    mat(i,j,k,0) += -fac * (c(i,j,k) - c(i,j,k+1));
-                    mat(i,j,k,5) += -fac * c(i,j,k);
-                    mat(i,j,k,6) += fac * c(i,j,k+1);
-                }
+                mat(i,j,k,0) += -fac * (c(i,j,k) - c(i+di,j+dj,k+dk));
+                mat(i,j,k,lo_comp) += -fac * c(i,j,k);
+                mat(i,j,k,hi_comp) += fac * c(i+di,j+dj,k+dk);
             });
         }
       }
@@ -273,21 +264,17 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
             auto d1 = (*gradient_coefs1[level])[idim][mfi].array();
 
+            const int di = (idim == 0);
+            const int dj = (idim == 1);
+            const int dk = (idim == 2);
+            const int lo_comp = lo_col[idim];
+            const int hi_comp = hi_col[idim];
+
             amrex::ParallelFor(reg,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                if (idim == 0) {
-                    mat(i,j,k,1) += -fac * d1(i,j,k);
-                    mat(i,j,k,2) += fac * d1(i,j,k);
-                }
-                else if (idim == 1) {
-                    mat(i,j,k,3) += -fac * d1(i,j,k);
-                    mat(i,j,k,4) += fac * d1(i,j,k);
-                }
-                else {
-                    mat(i,j,k,5) += -fac * d1(i,j,k);
-                    mat(i,j,k,6) += fac * d1(i,j,k);
-                }
+                mat(i,j,k,lo_comp) += -fac * d1(i,j,k);
+                mat(i,j,k,hi_comp) += fac * d1(i,j,k);
             });
         }
       }
@@ -298,24 +285,18 @@ void ExtendedMultiLevelSolver::assembleMatrix()
 
             auto d2 = (*gradient_coefs2[level])[idim][mfi].array();
 
+            const int di = (idim == 0);
+            const int dj = (idim == 1);
+            const int dk = (idim == 2);
+            const int lo_comp = lo_col[idim];
+            const int hi_comp = hi_col[idim];
+
             amrex::ParallelFor(reg,
             [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
             {
-                if (idim == 0) {
-                    mat(i,j,k,0) += fac * (d2(i,j,k) - d2(i+1,j,k));
-                    mat(i,j,k,1) += -fac * d2(i,j,k);
-                    mat(i,j,k,2) += fac * d2(i+1,j,k);
-                }
-                else if (idim == 1) {
-                    mat(i,j,k,0) += fac * (d2(i,j,k) - d2(i,j+1,k));
-                    mat(i,j,k,3) += -fac * d2(i,j,k);
-                    mat(i,j,k,4) += fac * d2(i,j+1,k);
-                }
-                else {
-                    mat(i,j,k,0) += fac * (d2(i,j,k) - d2(i,j,k+1));
-                    mat(i,j,k,5) += -fac * d2(i,j,k);
-                    mat(i,j,k,6) += fac * d2(i,j,k+1);
-                }
+                mat(i,j,k,0) += fac * (d2(i,j,k) - d2(i+di,j+dj,k+dk));
+                mat(i,j,k,lo_comp) += -fac * d2(i,j,k);
+                mat(i,j,k,hi_comp) += fac * d2(i+di,j+dj,k+dk);
             });
         }
       }

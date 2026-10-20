@@ -531,32 +531,16 @@ evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
 
   Real ca  = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
 
-  int QUN;
-  Real cad;
-  Real cs;
-  Real cf;
+  constexpr int normal_vel[3] = {QU, QV, QW};
+  constexpr int normal_bfield[3] = {QBFIELDX, QBFIELDY, QBFIELDZ};
+
+  const int QUN = normal_vel[dir];
 
   Real as = sound_speed * sound_speed;
 
-  if (dir == 0) {
-    QUN = QU;
-    cad = (Q(QBFIELDX)*Q(QBFIELDX)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  } else if (dir == 1) {
-    QUN = QV;
-    cad = (Q(QBFIELDY)*Q(QBFIELDY)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  } else {
-    QUN = QW;
-    cad = (Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  }
+  Real cad = (Q(normal_bfield[dir])*Q(normal_bfield[dir])) / Q(QRHO);
+  Real cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+  Real cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
 
   lam(0) = Q(QUN) - std::sqrt(cf);
   lam(1) = Q(QUN) - std::sqrt(cad);

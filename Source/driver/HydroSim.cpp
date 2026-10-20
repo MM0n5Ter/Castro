@@ -831,35 +831,26 @@ HydroSim::read_params ()
             info.SetDerefine(derefine);
         }
 
-        if (ppr.countval("value_greater")) {
-            Vector<Real> value;
-            ppr.getarr("value_greater", value, 0, ppr.countval("value_greater"));
-            std::string field;
-            ppr.get("field_name", field);
-            tag_criteria.emplace_back(value, AMRErrorTag::GREATER, field, info);
+        static const std::pair<const char*, AMRErrorTag::TEST> tests[] = {
+            {"value_greater", AMRErrorTag::GREATER},
+            {"value_less", AMRErrorTag::LESS},
+            {"gradient", AMRErrorTag::GRAD},
+            {"relative_gradient", AMRErrorTag::RELGRAD}
+        };
+
+        bool matched = false;
+        for (const auto& [key, test] : tests) {
+            if (ppr.countval(key)) {
+                Vector<Real> value;
+                ppr.getarr(key, value, 0, ppr.countval(key));
+                std::string field;
+                ppr.get("field_name", field);
+                tag_criteria.emplace_back(value, test, field, info);
+                matched = true;
+                break;
+            }
         }
-        else if (ppr.countval("value_less")) {
-            Vector<Real> value;
-            ppr.getarr("value_less", value, 0, ppr.countval("value_less"));
-            std::string field;
-            ppr.get("field_name", field);
-            tag_criteria.emplace_back(value, AMRErrorTag::LESS, field, info);
-        }
-        else if (ppr.countval("gradient")) {
-            Vector<Real> value;
-            ppr.getarr("gradient", value, 0, ppr.countval("gradient"));
-            std::string field;
-            ppr.get("field_name", field);
-            tag_criteria.emplace_back(value, AMRErrorTag::GRAD, field, info);
-        }
-        else if (ppr.countval("relative_gradient")) {
-            Vector<Real> value;
-            ppr.getarr("relative_gradient", value, 0, ppr.countval("relative_gradient"));
-            std::string field;
-            ppr.get("field_name", field);
-            tag_criteria.emplace_back(value, AMRErrorTag::RELGRAD, field, info);
-        }
-        else {
+        if (!matched) {
             amrex::Abort("Unrecognized refinement indicator for " + refine_criterion);
         }
     }

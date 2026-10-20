@@ -10,7 +10,9 @@
 #include <_hypre_sstruct_mv.h>
 #include <HYPRE_krylov.h>
 
+#include <algorithm>
 #include <iostream>
+#include <utility>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -80,25 +82,21 @@ MultiLevelEllipticSolver::MultiLevelEllipticSolver(int _coarse_lvl, int _fine_lv
     std::cout << "hmabec.log_threshold = " << log_threshold << std::endl;
   }
 
-  if (solver_choice == 100 || solver_choice == 102 || solver_choice == 104 ||
-      solver_choice == 105 ||
-      solver_choice == 150 || solver_choice == 151 || solver_choice == 153 ||
-      solver_choice == 1002) {
-    ObjectType = HYPRE_PARCSR;
-  }
-  else if (solver_choice == 101 || solver_choice == 103 ||
-           solver_choice == 106 || solver_choice == 107 ||
-           solver_choice == 152 ||
-           solver_choice == 1003) {
-    ObjectType = HYPRE_SSTRUCT;
-  }
-  else if (solver_choice == 108 || solver_choice == 109) {
-    ObjectType = HYPRE_STRUCT;
-  }
-  else {
+  static const std::pair<int, int> object_types[] = {
+    {100, HYPRE_PARCSR}, {102, HYPRE_PARCSR}, {104, HYPRE_PARCSR}, {105, HYPRE_PARCSR},
+    {150, HYPRE_PARCSR}, {151, HYPRE_PARCSR}, {153, HYPRE_PARCSR}, {1002, HYPRE_PARCSR},
+    {101, HYPRE_SSTRUCT}, {103, HYPRE_SSTRUCT}, {106, HYPRE_SSTRUCT}, {107, HYPRE_SSTRUCT},
+    {152, HYPRE_SSTRUCT}, {1003, HYPRE_SSTRUCT},
+    {108, HYPRE_STRUCT}, {109, HYPRE_STRUCT}
+  };
+
+  const auto* object_entry = std::find_if(std::begin(object_types), std::end(object_types),
+                                          [this] (const auto& entry) { return entry.first == solver_choice; });
+  if (object_entry == std::end(object_types)) {
     std::cout << "MultiLevelEllipticSolver: no such solver" << std::endl;
     exit(1);
   }
+  ObjectType = object_entry->second;
 
   int nparts = fine_level - crse_level + 1;
 

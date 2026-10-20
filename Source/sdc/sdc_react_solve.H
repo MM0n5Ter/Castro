@@ -72,16 +72,20 @@ deferred_solve(const Real substep_dt,
     int ierr;
     Real err_out;
 
-    if (sdc_nonlin_method == deferred_solvers::newton) {
+    switch (sdc_nonlin_method) {
+    case deferred_solvers::newton:
         newton::deferred_newton_subdivide(substep_dt, Conserved_old, cons_new, C, correction_iter, err_out, ierr);
 
         if (ierr != newton_outcome::success) {
             amrex::Abort("Newton subcycling failed in deferred_solve");
         }
-    } else if (sdc_nonlin_method == deferred_solvers::vode) {
-        deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+        break;
 
-    } else if (sdc_nonlin_method == deferred_solvers::stiff_and_newton) {
+    case deferred_solvers::vode:
+        deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+        break;
+
+    case deferred_solvers::stiff_and_newton:
         if (correction_iter == 0) {
             deferred_stiff_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
         }
@@ -91,11 +95,13 @@ deferred_solve(const Real substep_dt,
         if (ierr != newton_outcome::success) {
             amrex::Abort("Newton failure in deferred_solve");
         }
+        break;
 
-    } else if (sdc_nonlin_method == deferred_solvers::hybrid_dogleg) {
+    case deferred_solvers::hybrid_dogleg:
         powell::deferred_dogleg_solve(substep_dt, Conserved_old, cons_new, C, correction_iter);
+        break;
 
-    } else {
+    default:
         amrex::Abort("invalid sdc_nonlin_method value");
     }
 }

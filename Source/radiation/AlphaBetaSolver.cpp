@@ -277,7 +277,8 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
   reltol = _rel_tolerance;
   abstol = _abs_tolerance;
 
-  if (solver_choice == 0) {
+  switch (solver_choice) {
+  case 0:
     HYPRE_StructSMGCreate(MPI_COMM_WORLD, &solver);
     HYPRE_StructSMGSetMemoryUse(solver, 0);
     HYPRE_StructSMGSetMaxIter(solver, maxiter);
@@ -287,8 +288,9 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     HYPRE_StructSMGSetNumPostRelax(solver, 1);
     HYPRE_StructSMGSetLogging(solver, 1);
     HYPRE_StructSMGSetup(solver, A, b, x);
-  }
-  else if (solver_choice == 1) {
+    break;
+
+  case 1:
     HYPRE_StructPFMGCreate(MPI_COMM_WORLD, &solver);
     HYPRE_StructPFMGSetSkipRelax(solver, 0);
     HYPRE_StructPFMGSetMaxIter(solver, maxiter);
@@ -299,13 +301,16 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     HYPRE_StructPFMGSetNumPostRelax(solver, 1);
     HYPRE_StructPFMGSetLogging(solver, 1);
     HYPRE_StructPFMGSetup(solver, A, b, x);
-  }
-  else if (solver_choice == 2) {
+    break;
+
+  case 2:
     HYPRE_StructJacobiCreate(MPI_COMM_WORLD, &solver);
     HYPRE_StructJacobiSetMaxIter(solver, maxiter);
     HYPRE_StructJacobiSetup(solver, A, b, x);
-  }
-  else if (solver_choice == 3 || solver_choice == 4) {
+    break;
+
+  case 3:
+  case 4:
     HYPRE_StructPCGCreate(MPI_COMM_WORLD, &solver);
     HYPRE_StructPCGSetMaxIter(solver, maxiter);
     HYPRE_StructPCGSetRelChange(solver, 0);
@@ -343,8 +348,10 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
 
     HYPRE_StructPCGSetLogging(solver, 1);
     HYPRE_StructPCGSetup(solver, A, b, x);
-  }
-  else if (solver_choice == 5 || solver_choice == 6) {
+    break;
+
+  case 5:
+  case 6:
     HYPRE_StructHybridCreate(MPI_COMM_WORLD, &solver);
     HYPRE_StructHybridSetDSCGMaxIter(solver, maxiter);
     HYPRE_StructHybridSetPCGMaxIter(solver, maxiter);
@@ -386,8 +393,9 @@ void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, 
     }
 
     HYPRE_StructHybridSetup(solver, A, b, x);
-  }
-  else {
+    break;
+
+  default:
       amrex::Error("AlphaBetaSolver: no such solver");
   }
   Gpu::synchronize();

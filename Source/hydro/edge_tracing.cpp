@@ -53,25 +53,11 @@ HydroSim::trace_piecewise_linear(const Box& bx, const int idir,
   }
 #endif
 
-  int QUN;
-  int QUT;
-  int QTRANSV2;
+  constexpr int velocity_order[3][3] = {{QU, QV, QW}, {QV, QW, QU}, {QW, QU, QV}};
 
-  if (idir == 0) {
-    QUN = QU;
-    QUT = QV;
-    QTRANSV2 = QW;
-
-  } else if (idir == 1) {
-    QUN = QV;
-    QUT = QW;
-    QTRANSV2 = QU;
-
-  } else {
-    QUN = QW;
-    QUT = QU;
-    QTRANSV2 = QV;
-  }
+  const int QUN = velocity_order[idir][0];
+  const int QUT = velocity_order[idir][1];
+  const int QTRANSV2 = velocity_order[idir][2];
 
   Real ldensity_floor = small_dens;
   Real local_pressure_floor = pressure_cutoff;
@@ -412,23 +398,11 @@ HydroSim::trace_piecewise_parabolic(const Box& bx,
 #endif
 
 
-  int QUN = -1;
-  int QUT = -1;
-  int QTRANSV2 = -1;
+  constexpr int velocity_comp[3] = {QU, QV, QW};
 
-  if (idir == 0) {
-    QUN = QU;
-    QUT = QV;
-    QTRANSV2 = QW;
-  } else if (idir == 1) {
-    QUN = QV;
-    QUT = QW;
-    QTRANSV2 = QU;
-  } else if (idir == 2) {
-    QUN = QW;
-    QUT = QU;
-    QTRANSV2 = QV;
-  }
+  const int QUN = velocity_comp[idir];
+  const int QUT = velocity_comp[(idir + 1) % 3];
+  const int QTRANSV2 = velocity_comp[(idir + 2) % 3];
 
   Real ldensity_floor = small_dens;
   Real local_pressure_floor = pressure_cutoff;

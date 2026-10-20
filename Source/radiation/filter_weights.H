@@ -19,138 +19,49 @@ namespace filter
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff2 (int i, int j)
     {
-        if (i == 0 && j == 0) {
-            return 0.625_rt;
-        }
-        else if (i == 1 && j == 0) {
-            return 0.25_rt;
-        }
-        else if (i == 2 && j == 0) {
-            return -0.0625_rt;
-        }
-        else if (i == 0 && j == 1) {
-            return 0.375_rt;
-        }
-        else if (i == 1 && j == 1) {
-            return 0.25_rt;
-        }
-        else if (!(i == 2 && j == 1)) {
+        constexpr Real w[2][3] = {
+            {0.625_rt, 0.25_rt, -0.0625_rt},
+            {0.375_rt, 0.25_rt, 0.0625_rt}
+        };
+
+        if (i < 0 || i >= 3 || j < 0 || j >= 2) {
             return 0.0_rt;
-        } else {
-            return 0.0625_rt;
         }
+
+        return w[j][i];
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff3 (int i, int j)
     {
-        if (i == 0 && j == 0) {
-            return 44.0_rt / 64.0_rt;
-        }
-        else if (i == 1 && j == 0) {
-            return 15.0_rt / 64.0_rt;
-        }
-        else if (i == 2 && j == 0) {
-            return -6.0_rt / 64.0_rt;
-        }
-        else if (i == 3 && j == 0) {
-            return 1.0_rt / 64.0_rt;
-        }
-        else if (i == 0 && j == 1) {
-            return 32.0_rt / 64.0_rt;
-        }
-        else if (i == 1 && j == 1) {
-            return 18.0_rt / 64.0_rt;
-        }
-        else if (i == 2 && j == 1) {
-            return 0.e0_rt;
-        }
-        else if (i == 3 && j == 1) {
-            return -2.0_rt / 64.0_rt;
-        }
-        else if (i == 0 && j == 2) {
-            return 20.0_rt / 64.0_rt;
-        }
-        else if (i == 1 && j == 2) {
-            return 15.0_rt / 64.0_rt;
-        }
-        else if (i == 2 && j == 2) {
-            return 6.0_rt / 64.0_rt;
-        }
-        else if (i == 3 && j == 2) {
-            return 1.0_rt / 64.0_rt;
-        }
-        else {
+        constexpr Real w[3][4] = {
+            {44.0_rt / 64.0_rt, 15.0_rt / 64.0_rt, -6.0_rt / 64.0_rt, 1.0_rt / 64.0_rt},
+            {32.0_rt / 64.0_rt, 18.0_rt / 64.0_rt, 0.e0_rt, -2.0_rt / 64.0_rt},
+            {20.0_rt / 64.0_rt, 15.0_rt / 64.0_rt, 6.0_rt / 64.0_rt, 1.0_rt / 64.0_rt}
+        };
+
+        if (i < 0 || i >= 4 || j < 0 || j >= 3) {
             return 0.0_rt;
         }
+
+        return w[j][i];
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     Real ff4 (int i, int j)
     {
-        if (i == 0 && j == 0) {
-            return 186.0_rt / 256.0_rt;
-        }
-        else if (i == 1 && j == 0) {
-            return 56.0_rt / 256.0_rt;
-        }
-        else if (i == 2 && j == 0) {
-            return -28.0_rt / 256.0_rt;
-        }
-        else if (i == 3 && j == 0) {
-            return 8.0_rt / 256.0_rt;
-        }
-        else if (i == 4 && j == 0) {
-            return -1.0_rt / 256.0_rt;
-        }
-        else if (i == 0 && j == 1) {
-            return 146.0_rt / 256.0_rt;
-        }
-        else if (i == 1 && j == 1) {
-            return 72.0_rt / 256.0_rt;
-        }
-        else if (i == 2 && j == 1) {
-            return -12.0_rt / 256.0_rt;
-        }
-        else if (i == 3 && j == 1) {
-            return -8.0_rt / 256.0_rt;
-        }
-        else if (i == 4 && j == 1) {
-            return 3.0_rt / 256.0_rt;
-        }
-        else if (i == 0 && j == 2) {
-            return 110.0_rt / 256.0_rt;
-        }
-        else if (i == 1 && j == 2) {
-            return 72.0_rt / 256.0_rt;
-        }
-        else if (i == 2 && j == 2) {
-            return 12.0_rt / 256.0_rt;
-        }
-        else if (i == 3 && j == 2) {
-            return -8.0_rt / 256.0_rt;
-        }
-        else if (i == 4 && j == 2) {
-            return -3.0_rt / 256.0_rt;
-        }
-        else if (i == 0 && j == 3) {
-            return 70.0_rt / 256.0_rt;
-        }
-        else if (i == 1 && j == 3) {
-            return 56.0_rt / 256.0_rt;
-        }
-        else if (i == 2 && j == 3) {
-            return 28.0_rt / 256.0_rt;
-        }
-        else if (i == 3 && j == 3) {
-            return 8.0_rt / 256.0_rt;
-        }
-        else if (i == 4 && j == 3) {
-            return 1.0_rt / 256.0_rt;
-        }
-        else {
+        constexpr Real w[4][5] = {
+            {186.0_rt / 256.0_rt, 56.0_rt / 256.0_rt, -28.0_rt / 256.0_rt, 8.0_rt / 256.0_rt, -1.0_rt / 256.0_rt},
+            {146.0_rt / 256.0_rt, 72.0_rt / 256.0_rt, -12.0_rt / 256.0_rt, -8.0_rt / 256.0_rt, 3.0_rt / 256.0_rt},
+            {110.0_rt / 256.0_rt, 72.0_rt / 256.0_rt, 12.0_rt / 256.0_rt, -8.0_rt / 256.0_rt, -3.0_rt / 256.0_rt},
+            {70.0_rt / 256.0_rt, 56.0_rt / 256.0_rt, 28.0_rt / 256.0_rt, 8.0_rt / 256.0_rt, 1.0_rt / 256.0_rt}
+        };
+
+        if (i < 0 || i >= 5 || j < 0 || j >= 4) {
             return 0.0_rt;
         }
+
+        return w[j][i];
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE

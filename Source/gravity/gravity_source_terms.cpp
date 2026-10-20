@@ -312,21 +312,19 @@ void HydroSim::assemble_old_gravity_source(MultiFab& source, MultiFab& state_in,
 
             Real SrE{};
 
-            if (hydrosim::gravity_source_mode == 1 || hydrosim::gravity_source_mode == 2) {
-
-
+            switch (hydrosim::gravity_source_mode) {
+            case 1:
+            case 2:
+            case 4:
                 SrE = (uold(i,j,k,UMX) * Sr[0] + uold(i,j,k,UMY) * Sr[1] + uold(i,j,k,UMZ) * Sr[2]) * rhoInv;
-
-            } else if (hydrosim::gravity_source_mode == 3) {
-
+                break;
+            case 3: {
                 Real kinetic_energy_updated = zone_kinetic_energy(snew, rhoInv);
                 SrE = kinetic_energy_updated - kinetic_energy_old;
-
-            } else if (hydrosim::gravity_source_mode == 4) {
-
-
-                SrE = (uold(i,j,k,UMX) * Sr[0] + uold(i,j,k,UMY) * Sr[1] + uold(i,j,k,UMZ) * Sr[2]) * rhoInv;
-
+                break;
+            }
+            default:
+                break;
             }
 
             src[UEDEN] = SrE;

@@ -316,13 +316,16 @@ HydroSim::restart (Amr&     papa,
              for (int d = 0; d < AMREX_SPACEDIM; d++)
              {
                 int dlen =  domain.size()[d];
-                if (restart_grow_factor == 2) {
+                switch (restart_grow_factor) {
+                case 2:
                    lo =   dlen/4    ;
                    hi = 3*dlen/4 - 1;
-                } else if (restart_grow_factor == 3) {
+                   break;
+                case 3:
                    lo =   (dlen)/3    ;
                    hi = 2*(dlen)/3 - 1;
-                } else {
+                   break;
+                default:
                    amrex::Abort("Must have restart_grow_factor = 2 or 3");
                 }
                 pre_grow_domain.setSmall(d,lo);

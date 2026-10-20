@@ -44,45 +44,26 @@ HydroSim::apply_tangential_pass(const Box& bx,
     Real temperature_guess = eos_temp_guess;
     Real species_fraction_tol = massfrac_check_tolerance;
 
-    int ilo = 0;
-    int jlo = 0;
-    int klo = 0;
+    GpuArray<int, 3> lo_shift{0, 0, 0};
+    GpuArray<int, 3> hi_shift{0, 0, 0};
 
-    int ihi = 0;
-    int jhi = 0;
-    int khi = 0;
+    hi_shift[idir_tan] = 1;
 
-    if (idir_tan == 0) {
-        ihi = 1;
-    } else if (idir_tan == 1) {
-        jhi = 1;
-    } else {
-        khi = 1;
-    }
-
-    if (idir_normal == 0) {
-        ilo += d;
-        ihi += d;
-    } else if (idir_normal == 1) {
-        jlo += d;
-        jhi += d;
-    } else {
-        klo += d;
-        khi += d;
-    }
+    lo_shift[idir_normal] += d;
+    hi_shift[idir_normal] += d;
 
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
 
 
-        const int il = i + ilo;
-        const int jl = j + jlo;
-        const int kl = k + klo;
+        const int il = i + lo_shift[0];
+        const int jl = j + lo_shift[1];
+        const int kl = k + lo_shift[2];
 
-        const int ir = i + ihi;
-        const int jr = j + jhi;
-        const int kr = k + khi;
+        const int ir = i + hi_shift[0];
+        const int jr = j + hi_shift[1];
+        const int kr = k + hi_shift[2];
 
 
 #if AMREX_SPACEDIM == 2

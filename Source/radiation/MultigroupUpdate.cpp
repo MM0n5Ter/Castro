@@ -18,6 +18,20 @@
 
 using namespace amrex;
 
+static bool energy_conserving_for_mode(int mode, int it, int maxiter, bool outer_tol_met)
+{
+  switch (mode) {
+  case 1:
+    return outer_tol_met || it >= maxiter;
+  case 2:
+    return it%2 == 0;
+  case 3:
+    return outer_tol_met || it >= maxiter || it%2 == 0;
+  default:
+    return true;
+  }
+}
+
 void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, int ncycle)
 {
   BL_PROFILE("Radiation::MultigroupDiffusion_implicit_update");
@@ -329,41 +343,7 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
       std::cout.precision(oldprec);
     }
 
-    if (matter_update_mode == 0) {
-      energy_conserving_mode = true;
-    }
-    else if (matter_update_mode == 1) {
-      if (outer_tol_met || it >= maxiter) {
-        energy_conserving_mode = true;
-      }
-      else {
-        energy_conserving_mode = false;
-      }
-    }
-    else if (matter_update_mode == 2) {
-      if (it%2 == 0) {
-        energy_conserving_mode = true;
-      }
-      else {
-        energy_conserving_mode = false;
-      }
-    }
-    else if (matter_update_mode == 3) {
-      if (outer_tol_met || it >= maxiter) {
-        energy_conserving_mode = true;
-      }
-      else {
-        if (it%2 == 0) {
-          energy_conserving_mode = true;
-        }
-        else {
-          energy_conserving_mode = false;
-        }
-      }
-    }
-    else {
-      energy_conserving_mode = true;
-    }
+    energy_conserving_mode = energy_conserving_for_mode(matter_update_mode, it, maxiter, outer_tol_met);
 
     advance_matter(rhoe_new, temp_next, rad_energy_new, rad_energy_iter,
                   gas_energy_star, gas_energy_step,

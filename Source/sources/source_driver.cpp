@@ -1,5 +1,7 @@
 #include <HydroSim.H>
 
+#include <utility>
+
 #ifdef RADIATION
 #include <Radiation.H>
 #endif
@@ -449,12 +451,18 @@ HydroSim::log_source_change(const Vector<Real>& update)
 
   if (ParallelDescriptor::IOProcessor()) {
 
-    std::cout << "       mass added: " << update[URHO] << std::endl;
-    std::cout << "       xmom added: " << update[UMX] << std::endl;
-    std::cout << "       ymom added: " << update[UMY] << std::endl;
-    std::cout << "       zmom added: " << update[UMZ] << std::endl;
-    std::cout << "       eint added: " << update[UEINT] << std::endl;
-    std::cout << "       ener added: " << update[UEDEN] << std::endl;
+    static const std::pair<const char*, int> source_labels[] = {
+      {"       mass added: ", URHO},
+      {"       xmom added: ", UMX},
+      {"       ymom added: ", UMY},
+      {"       zmom added: ", UMZ},
+      {"       eint added: ", UEINT},
+      {"       ener added: ", UEDEN}
+    };
+
+    for (const auto& [label, idx] : source_labels) {
+      std::cout << label << update[idx] << std::endl;
+    }
 
     std::cout << std::endl;
 

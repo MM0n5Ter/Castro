@@ -46,85 +46,36 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
     ql.rho = amrex::max(left_prim_arr(i,j,k,QRHO), small_dens);
     qr.rho = amrex::max(right_prim_arr(i,j,k,QRHO), small_dens);
 
-    if (idir == 0) {
-        ql.un = left_prim_arr(i,j,k,QU);
-        ql.ut = left_prim_arr(i,j,k,QV);
-        ql.utt = left_prim_arr(i,j,k,QW);
+    constexpr int vel_comp[3][3] = {{QU, QV, QW}, {QV, QU, QW}, {QW, QU, QV}};
 
-        qr.un = right_prim_arr(i,j,k,QU);
-        qr.ut = right_prim_arr(i,j,k,QV);
-        qr.utt = right_prim_arr(i,j,k,QW);
+    ql.un = left_prim_arr(i,j,k,vel_comp[idir][0]);
+    ql.ut = left_prim_arr(i,j,k,vel_comp[idir][1]);
+    ql.utt = left_prim_arr(i,j,k,vel_comp[idir][2]);
 
-        interface_aux.sound_floor = amrex::max(small,
-                                 small * amrex::max(qthermo_arr(i,j,k,QC), qthermo_arr(i-1,j,k,QC)));
-        interface_aux.mean_sound_speed = 0.5_rt * (qthermo_arr(i,j,k,QC) + qthermo_arr(i-1,j,k,QC));
+    qr.un = right_prim_arr(i,j,k,vel_comp[idir][0]);
+    qr.ut = right_prim_arr(i,j,k,vel_comp[idir][1]);
+    qr.utt = right_prim_arr(i,j,k,vel_comp[idir][2]);
 
-        ql.gamma1_cell = qthermo_arr(i-1,j,k,QGAMMA1);
-        qr.gamma1_cell = qthermo_arr(i,j,k,QGAMMA1);
+    const int il = i - (idir == 0);
+    const int jl = j - (idir == 1);
+    const int kl = k - (idir == 2);
 
-#ifdef RADIATION
-        ql.gamma1_gas = qthermo_arr(i-1,j,k,QGAMMA1G);
-        qr.gamma1_gas = qthermo_arr(i,j,k,QGAMMA1G);
+    interface_aux.sound_floor = amrex::max(small,
+                             small * amrex::max(qthermo_arr(i,j,k,QC), qthermo_arr(il,jl,kl,QC)));
+    interface_aux.mean_sound_speed = 0.5_rt * (qthermo_arr(i,j,k,QC) + qthermo_arr(il,jl,kl,QC));
 
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qthermo_arr(i-1,j,k,QFLUXLIM+g);
-            qr.lam[g] = qthermo_arr(i,j,k,QFLUXLIM+g);
-        }
-#endif
-
-    } else if (idir == 1) {
-        ql.un = left_prim_arr(i,j,k,QV);
-        ql.ut = left_prim_arr(i,j,k,QU);
-        ql.utt = left_prim_arr(i,j,k,QW);
-
-        qr.un = right_prim_arr(i,j,k,QV);
-        qr.ut = right_prim_arr(i,j,k,QU);
-        qr.utt = right_prim_arr(i,j,k,QW);
-
-        interface_aux.sound_floor = amrex::max(small,
-                                 small * amrex::max(qthermo_arr(i,j,k,QC), qthermo_arr(i,j-1,k,QC)));
-        interface_aux.mean_sound_speed = 0.5_rt * (qthermo_arr(i,j,k,QC) + qthermo_arr(i,j-1,k,QC));
-
-        ql.gamma1_cell = qthermo_arr(i,j-1,k,QGAMMA1);
-        qr.gamma1_cell = qthermo_arr(i,j,k,QGAMMA1);
+    ql.gamma1_cell = qthermo_arr(il,jl,kl,QGAMMA1);
+    qr.gamma1_cell = qthermo_arr(i,j,k,QGAMMA1);
 
 #ifdef RADIATION
-        ql.gamma1_gas = qthermo_arr(i,j-1,k,QGAMMA1G);
-        qr.gamma1_gas = qthermo_arr(i,j,k,QGAMMA1G);
+    ql.gamma1_gas = qthermo_arr(il,jl,kl,QGAMMA1G);
+    qr.gamma1_gas = qthermo_arr(i,j,k,QGAMMA1G);
 
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qthermo_arr(i,j-1,k,QFLUXLIM+g);
-            qr.lam[g] = qthermo_arr(i,j,k,QFLUXLIM+g);
-        }
-#endif
-
-    } else {
-        ql.un = left_prim_arr(i,j,k,QW);
-        ql.ut = left_prim_arr(i,j,k,QU);
-        ql.utt = left_prim_arr(i,j,k,QV);
-
-        qr.un = right_prim_arr(i,j,k,QW);
-        qr.ut = right_prim_arr(i,j,k,QU);
-        qr.utt = right_prim_arr(i,j,k,QV);
-
-        interface_aux.sound_floor = amrex::max(small,
-                                 small * amrex::max(qthermo_arr(i,j,k,QC), qthermo_arr(i,j,k-1,QC)));
-        interface_aux.mean_sound_speed = 0.5_rt * (qthermo_arr(i,j,k,QC) + qthermo_arr(i,j,k-1,QC));
-
-        ql.gamma1_cell = qthermo_arr(i,j,k-1,QGAMMA1);
-        qr.gamma1_cell = qthermo_arr(i,j,k,QGAMMA1);
-
-#ifdef RADIATION
-        ql.gamma1_gas = qthermo_arr(i,j,k-1,QGAMMA1G);
-        qr.gamma1_gas = qthermo_arr(i,j,k,QGAMMA1G);
-
-        for (int g = 0; g < NGROUPS; g++) {
-            ql.lam[g] = qthermo_arr(i,j,k-1,QFLUXLIM+g);
-            qr.lam[g] = qthermo_arr(i,j,k,QFLUXLIM+g);
-        }
-#endif
-
+    for (int g = 0; g < NGROUPS; g++) {
+        ql.lam[g] = qthermo_arr(il,jl,kl,QFLUXLIM+g);
+        qr.lam[g] = qthermo_arr(i,j,k,QFLUXLIM+g);
     }
+#endif
 
 #ifndef RADIATION
     ql.p = left_prim_arr(i,j,k,QPRES);

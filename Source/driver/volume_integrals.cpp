@@ -183,6 +183,8 @@ HydroSim::locWeightedSum (const MultiFab& mf, int comp, int idir, bool local)
     auto dx     = geom.CellSizeArray();
     auto problo = geom.ProbLoArray();
 
+    const int axis = (idir == 0 || idir == 1) ? idir : 2;
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel
 #endif
@@ -201,17 +203,7 @@ HydroSim::locWeightedSum (const MultiFab& mf, int comp, int idir, bool local)
 
             GpuArray<Real, 3> loc = zone_center(i, j, k, problo, dx);
 
-            Real ds;
-
-            if (idir == 0) {
-                ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[0];
-            }
-            else if (idir == 1) {
-                ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[1];
-            }
-            else {
-                ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[2];
-            }
+            Real ds = fab(i,j,k) * vol(i,j,k) * zoneWeight * loc[axis];
 
             return {ds};
         });

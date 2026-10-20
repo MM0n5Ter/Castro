@@ -124,28 +124,11 @@ gather_stencil(amrex::Array4<amrex::Real const> const& prim_arr, const int idir,
 
     using namespace reconstruction;
 
-    if (idir == 0) {
-        s[im2] = prim_arr(i-2,j,k,ncomp);
-        s[im1] = prim_arr(i-1,j,k,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i+1,j,k,ncomp);
-        s[ip2] = prim_arr(i+2,j,k,ncomp);
+    constexpr int unit[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
 
-      } else if (idir == 1) {
-        s[im2] = prim_arr(i,j-2,k,ncomp);
-        s[im1] = prim_arr(i,j-1,k,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i,j+1,k,ncomp);
-        s[ip2] = prim_arr(i,j+2,k,ncomp);
-
-      } else {
-        s[im2] = prim_arr(i,j,k-2,ncomp);
-        s[im1] = prim_arr(i,j,k-1,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i,j,k+1,ncomp);
-        s[ip2] = prim_arr(i,j,k+2,ncomp);
-
-      }
+    for (int m = -2; m <= 2; ++m) {
+        s[i0 + m] = prim_arr(i+m*unit[idir][0], j+m*unit[idir][1], k+m*unit[idir][2], ncomp);
+    }
 
 }
 

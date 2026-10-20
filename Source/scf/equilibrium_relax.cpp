@@ -1,4 +1,5 @@
 #include <numbers>
+#include <utility>
 
 #include <HydroSim.H>
 #include <fundamental_constants.H>
@@ -563,21 +564,17 @@ void HydroSim::scf_solve() {
 
 
 
-    if (scf_peak_density <= 0) {
-        amrex::Error("hydrosim.scf_peak_density must be set for SCF relaxation.");
-    }
+    const std::pair<bool, const char*> scf_checks[] = {
+        {scf_peak_density <= 0, "hydrosim.scf_peak_density must be set for SCF relaxation."},
+        {scf_equator_radius <= 0, "Equatorial radius must be positive for SCF relaxation."},
+        {scf_pole_radius <= 0, "Polar radius must be positive for SCF relaxation."},
+        {scf_pole_radius > scf_equator_radius, "Polar radius must not be larger than equatorial radius for SCF relaxation."}
+    };
 
-
-    if (scf_equator_radius <= 0) {
-        amrex::Error("Equatorial radius must be positive for SCF relaxation.");
-    }
-
-    if (scf_pole_radius <= 0) {
-        amrex::Error("Polar radius must be positive for SCF relaxation.");
-    }
-
-    if (scf_pole_radius > scf_equator_radius) {
-        amrex::Error("Polar radius must not be larger than equatorial radius for SCF relaxation.");
+    for (const auto& [failed, message] : scf_checks) {
+        if (failed) {
+            amrex::Error(message);
+        }
     }
 
 

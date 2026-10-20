@@ -2,6 +2,7 @@
 #include <unistd.h>
 #endif
 
+#include <array>
 #include <iomanip>
 #include <iostream>
 #include <format>
@@ -213,15 +214,10 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
       "interior", "inflow", "outflow",
       "symmetry", "slipwall", "noslipwall"};
 
-  jobInfoFile << "   -x: " << bc_labels[lo_bc_flags[0]] << "\n";
-  jobInfoFile << "   +x: " << bc_labels[hi_bc_flags[0]] << "\n";
-  if (AMREX_SPACEDIM >= 2) {
-    jobInfoFile << "   -y: " << bc_labels[lo_bc_flags[1]] << "\n";
-    jobInfoFile << "   +y: " << bc_labels[hi_bc_flags[1]] << "\n";
-  }
-  if (AMREX_SPACEDIM == 3) {
-    jobInfoFile << "   -z: " << bc_labels[lo_bc_flags[2]] << "\n";
-    jobInfoFile << "   +z: " << bc_labels[hi_bc_flags[2]] << "\n";
+  constexpr std::array<char, 3> axis_names{'x', 'y', 'z'};
+  for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+    jobInfoFile << "   -" << axis_names[d] << ": " << bc_labels[lo_bc_flags[d]] << "\n";
+    jobInfoFile << "   +" << axis_names[d] << ": " << bc_labels[hi_bc_flags[d]] << "\n";
   }
 
   jobInfoFile << "\n\n";

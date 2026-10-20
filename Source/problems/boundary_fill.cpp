@@ -49,40 +49,14 @@ void hs_statefill(Box const& bx, FArrayBox& data,
     ambient_region_fill(bx, data.array(dcomp), geom, bcr);
 
 
-#if AMREX_SPACEDIM == 2
-    if ((bcr[URHO].lo(0) == amrex::BCType::ext_dir && bcr[URHO].lo(1) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir && bcr[URHO].hi(1) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir && bcr[URHO].lo(1) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir && bcr[URHO].hi(1) == amrex::BCType::ext_dir)) {
-        amrex::Error("Error: external boundaries meeting at a corner not supported");
+#if AMREX_SPACEDIM >= 2
+    int ext_dirs = 0;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+        if (bcr[URHO].lo(d) == amrex::BCType::ext_dir || bcr[URHO].hi(d) == amrex::BCType::ext_dir) {
+            ++ext_dirs;
+        }
     }
-#endif
-
-#if AMREX_SPACEDIM == 3
-    if ((bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].lo(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].lo(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].lo(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].lo(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].lo(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir) ||
-        (bcr[URHO].hi(0) == amrex::BCType::ext_dir &&
-         (bcr[URHO].hi(1) == amrex::BCType::ext_dir || bcr[URHO].hi(2) == amrex::BCType::ext_dir)) ||
-        (bcr[URHO].hi(1) == amrex::BCType::ext_dir && bcr[URHO].hi(2) == amrex::BCType::ext_dir)) {
+    if (ext_dirs >= 2) {
         amrex::Error("Error: external boundaries meeting at a corner not supported");
     }
 #endif

@@ -480,8 +480,8 @@ HydroSim::shock(const Box& bx,
   {
     Real div_vel = 0.0_rt;
 
-    if (coord_type == 0) {
-
+    switch (coord_type) {
+    case 0:
       div_vel += 0.5_rt * (prim_arr(i+1,j,k,QU) - prim_arr(i-1,j,k,QU)) * dxinv;
 #if (AMREX_SPACEDIM >= 2)
       div_vel += 0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
@@ -489,9 +489,10 @@ HydroSim::shock(const Box& bx,
 #if (AMREX_SPACEDIM == 3)
       div_vel += 0.5_rt * (prim_arr(i,j,k+1,QW) - prim_arr(i,j,k-1,QW)) * dzinv;
 #endif
+      break;
 
 #if AMREX_SPACEDIM <= 2
-   } else if (coord_type == 1) {
+    case 1: {
 
      Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
      Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
@@ -504,9 +505,11 @@ HydroSim::shock(const Box& bx,
      div_vel += 0.5_rt * (rp * prim_arr(i+1,j,k,QU) - rm * prim_arr(i-1,j,k,QU)) / (rc * dx[0]) +
               0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
 #endif
+     break;
+    }
 #endif
 
-    } else if (coord_type == 2) {
+    case 2: {
 
       Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
       Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
@@ -523,10 +526,11 @@ HydroSim::shock(const Box& bx,
                          std::sin(theta_minus) * prim_arr(i,j-1,k,QV)) /
           (rc * std::sin(polar_center) * dx[1]);
 #endif
+      break;
+    }
 
 #ifndef AMREX_USE_GPU
-
-    } else {
+    default:
       amrex::Error("ERROR: invalid coord_type in shock");
 #endif
     }

@@ -81,15 +81,14 @@ Real flatten(int i, int j, int k,
              Array4<Real const> const& prim_arr,
              const int pressure_index)
 {
-    Real flatten_factor = shock_flattening_along(i, j, k, 1, 0, 0, prim_arr, QU, pressure_index);
+    constexpr int velocity_comp[3] = {QU, QV, QW};
+    constexpr int unit[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
 
-#if AMREX_SPACEDIM >= 2
-    flatten_factor = std::min(flatten_factor, shock_flattening_along(i, j, k, 0, 1, 0, prim_arr, QV, pressure_index));
-#endif
+    Real flatten_factor = shock_flattening_along(i, j, k, unit[0][0], unit[0][1], unit[0][2], prim_arr, velocity_comp[0], pressure_index);
 
-#if AMREX_SPACEDIM == 3
-    flatten_factor = std::min(flatten_factor, shock_flattening_along(i, j, k, 0, 0, 1, prim_arr, QW, pressure_index));
-#endif
+    for (int d = 1; d < AMREX_SPACEDIM; ++d) {
+        flatten_factor = std::min(flatten_factor, shock_flattening_along(i, j, k, unit[d][0], unit[d][1], unit[d][2], prim_arr, velocity_comp[d], pressure_index));
+    }
 
     return flatten_factor;
 }

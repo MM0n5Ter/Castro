@@ -21,16 +21,12 @@ void binary_setup ()
     const Real* problo = DefaultGeometry().ProbLo();
     const Real* probhi = DefaultGeometry().ProbHi();
 
-    if (HydroSim::physbc().lo(0) == amrex::PhysBCType::symmetry && problem::center[0] != problo[0]) {
-        amrex::Error("Symmetric lower x-boundary but the center is not on this boundary.");
-    }
+    constexpr const char* axis_name[] = {"x", "y", "z"};
 
-    if (HydroSim::physbc().lo(1) == amrex::PhysBCType::symmetry && problem::center[1] != problo[1]) {
-        amrex::Error("Symmetric lower y-boundary but the center is not on this boundary.");
-    }
-
-    if (HydroSim::physbc().lo(2) == amrex::PhysBCType::symmetry && problem::center[2] != problo[2]) {
-        amrex::Error("Symmetric lower z-boundary but the center is not on this boundary.");
+    for (int n = 0; n < 3; ++n) {
+        if (HydroSim::physbc().lo(n) == amrex::PhysBCType::symmetry && problem::center[n] != problo[n]) {
+            amrex::Error(std::string("Symmetric lower ") + axis_name[n] + "-boundary but the center is not on this boundary.");
+        }
     }
 
 

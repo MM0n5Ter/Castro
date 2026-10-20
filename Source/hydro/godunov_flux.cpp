@@ -36,26 +36,16 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
                Array4<Real> const& godunov_state, const bool keep_full_state) {
 
 
-    int im1, im2, im3;
+    constexpr int mom_comp[3][3] = {{UMX, UMY, UMZ}, {UMY, UMX, UMZ}, {UMZ, UMX, UMY}};
+    constexpr int prim_vel[3][3] = {{QU, QV, QW}, {QV, QU, QW}, {QW, QU, QV}};
+    constexpr int godunov_vel[3][3] = {{GDU, GDV, GDW}, {GDV, GDU, GDW}, {GDW, GDU, GDV}};
+
+    const int im1 = mom_comp[idir][0];
+    const int im2 = mom_comp[idir][1];
+    const int im3 = mom_comp[idir][2];
 
     auto coord = geomdata.Coord();
     auto has_pressure_flux = momentum_flux_has_pressure(idir, idir, coord);
-
-    if (idir == 0) {
-        im1 = UMX;
-        im2 = UMY;
-        im3 = UMZ;
-
-    } else if (!(idir == 1)) {
-        im1 = UMZ;
-        im2 = UMX;
-        im3 = UMY;
-    } else {
-        im1 = UMY;
-        im2 = UMX;
-        im3 = UMZ;
-
-    }
 
     F(i,j,k,URHO) = interface_state.rho * interface_state.un;
 
@@ -116,19 +106,9 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 #ifdef HYBRID_MOMENTUM
     GpuArray<Real, NGDSTATE> godunov_zone;
     godunov_zone[GDDENSITY] = interface_state.rho;
-    if (idir == 0) {
-        godunov_zone[GDU] = interface_state.un;
-        godunov_zone[GDV] = interface_state.ut;
-        godunov_zone[GDW] = interface_state.utt;
-    } else if (idir == 1) {
-        godunov_zone[GDV] = interface_state.un;
-        godunov_zone[GDU] = interface_state.ut;
-        godunov_zone[GDW] = interface_state.utt;
-    } else {
-        godunov_zone[GDW] = interface_state.un;
-        godunov_zone[GDU] = interface_state.ut;
-        godunov_zone[GDV] = interface_state.utt;
-    }
+    godunov_zone[godunov_vel[idir][0]] = interface_state.un;
+    godunov_zone[godunov_vel[idir][1]] = interface_state.ut;
+    godunov_zone[godunov_vel[idir][2]] = interface_state.utt;
     godunov_zone[GDPRESSURE] = interface_state.p;
 #ifdef RADIATION
     for (int g = 0; g < NGROUPS; g++) {
@@ -152,19 +132,9 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 
 
         godunov_state(i,j,k,QRHO) = interface_state.rho;
-        if (idir == 0) {
-            godunov_state(i,j,k,QU) = interface_state.un;
-            godunov_state(i,j,k,QV) = interface_state.ut;
-            godunov_state(i,j,k,QW) = interface_state.utt;
-        } else if (!(idir == 1)) {
-            godunov_state(i,j,k,QW) = interface_state.un;
-            godunov_state(i,j,k,QU) = interface_state.ut;
-            godunov_state(i,j,k,QV) = interface_state.utt;
-        } else {
-            godunov_state(i,j,k,QV) = interface_state.un;
-            godunov_state(i,j,k,QU) = interface_state.ut;
-            godunov_state(i,j,k,QW) = interface_state.utt;
-        }
+        godunov_state(i,j,k,prim_vel[idir][0]) = interface_state.un;
+        godunov_state(i,j,k,prim_vel[idir][1]) = interface_state.ut;
+        godunov_state(i,j,k,prim_vel[idir][2]) = interface_state.utt;
 
         godunov_state(i,j,k,QTEMP) = 0.0_rt;
 
@@ -187,19 +157,9 @@ flux_from_interface_state(const int i, const int j, const int k, const int idir,
 #ifdef HYBRID_MOMENTUM
         godunov_state(i,j,k,GDDENSITY) = interface_state.rho;
 #endif
-        if (idir == 0) {
-            godunov_state(i,j,k,GDU) = interface_state.un;
-            godunov_state(i,j,k,GDV) = interface_state.ut;
-            godunov_state(i,j,k,GDW) = interface_state.utt;
-        } else if (idir == 1) {
-            godunov_state(i,j,k,GDV) = interface_state.un;
-            godunov_state(i,j,k,GDU) = interface_state.ut;
-            godunov_state(i,j,k,GDW) = interface_state.utt;
-        } else {
-            godunov_state(i,j,k,GDW) = interface_state.un;
-            godunov_state(i,j,k,GDU) = interface_state.ut;
-            godunov_state(i,j,k,GDV) = interface_state.utt;
-        }
+        godunov_state(i,j,k,godunov_vel[idir][0]) = interface_state.un;
+        godunov_state(i,j,k,godunov_vel[idir][1]) = interface_state.ut;
+        godunov_state(i,j,k,godunov_vel[idir][2]) = interface_state.utt;
 #ifndef RADIATION
         godunov_state(i,j,k,GDPRESSURE) = interface_state.p;
 #else
@@ -270,23 +230,10 @@ solve_interface_state(const int i, const int j, const int k, const int idir,
 
   interface_aux.boundary_factor = 1.0_rt;
 
-  if (idir == 0) {
-      if ((i == domlo[0] && lo_no_flux_wall) ||
-          (i == domhi[0]+1 && hi_no_flux_wall)) {
-          interface_aux.boundary_factor = 0.0_rt;
-      }
-
-  } else if (!(idir == 1)) {
-      if ((k == domlo[2] && lo_no_flux_wall) ||
-          (k == domhi[2]+1 && hi_no_flux_wall)) {
-          interface_aux.boundary_factor = 0.0_rt;
-      }
-  } else {
-      if ((j == domlo[1] && lo_no_flux_wall) ||
-          (j == domhi[1]+1 && hi_no_flux_wall)) {
-          interface_aux.boundary_factor = 0.0_rt;
-      }
-
+  const amrex::GpuArray<int, 3> zone{i, j, k};
+  if ((zone[idir] == domlo[idir] && lo_no_flux_wall) ||
+      (zone[idir] == domhi[idir]+1 && hi_no_flux_wall)) {
+      interface_aux.boundary_factor = 0.0_rt;
   }
 
 
