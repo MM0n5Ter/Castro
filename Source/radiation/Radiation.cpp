@@ -496,6 +496,9 @@ void Radiation::restart(int level, const BoxArray& grids,
 
   do {
     is >> stream_token;
+    if (!is) {
+      amrex::Error("Radiation::restart: truncated radiation checkpoint header");
+    }
     if (stream_token.find("delta_e_rat") == 0) {
       is >> delta_e_rat_level[level];
     }
@@ -509,6 +512,9 @@ void Radiation::restart(int level, const BoxArray& grids,
 
   std::string Flag;
   is >> Flag;
+  if (!is) {
+    amrex::Error("Radiation::restart: truncated radiation checkpoint header");
+  }
 
   if (Flag == "Present") {
     BL_ASSERT(level > 0);

@@ -1452,7 +1452,9 @@ void MultiLevelEllipticSolver::solve()
 
     HYPRE_BoomerAMGGetNumIterations(solver, &num_iterations);
     HYPRE_BoomerAMGGetFinalRelativeResidualNorm(solver, &res);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid );
+    if (MPI_Comm_rank(MPI_COMM_WORLD, &myid) != MPI_SUCCESS) {
+      amrex::Abort("MultiLevelEllipticSolver::solve: MPI_Comm_rank failed");
+    }
     if (!myid)
     {
        std::cout << num_iterations << " Hypre Multigrid Iterations_inside, Relative Residual "
@@ -1476,7 +1478,9 @@ void MultiLevelEllipticSolver::solve()
 
     HYPRE_PCGGetNumIterations(solver, &num_iterations);
     HYPRE_PCGGetFinalRelativeResidualNorm(solver, &res);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid );
+    if (MPI_Comm_rank(MPI_COMM_WORLD, &myid) != MPI_SUCCESS) {
+      amrex::Abort("MultiLevelEllipticSolver::solve: MPI_Comm_rank failed");
+    }
     if (!myid)
     {
        std::cout << num_iterations << " Hypre Multigrid Iterations_inside, Relative Residual "
@@ -1493,7 +1497,9 @@ void MultiLevelEllipticSolver::solve()
 
     HYPRE_PCGGetNumIterations(solver, &num_iterations);
     HYPRE_PCGGetFinalRelativeResidualNorm(solver, &res);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid );
+    if (MPI_Comm_rank(MPI_COMM_WORLD, &myid) != MPI_SUCCESS) {
+      amrex::Abort("MultiLevelEllipticSolver::solve: MPI_Comm_rank failed");
+    }
     if (!myid)
     {
        std::cout << num_iterations << " Hypre Multigrid Iterations_inside, Relative Residual "

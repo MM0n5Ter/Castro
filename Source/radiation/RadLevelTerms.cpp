@@ -562,6 +562,9 @@ void RadTransportSolver::levelDiffusionTerm(int level, MultiFab& diffusive_face_
   const GeometryData& geomdata = geom.data();
   auto dx = parent->Geom(level).CellSizeArray();
   const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  if (hydrosim == nullptr) {
+    amrex::Abort("RadTransportSolver::levelDiffusionTerm: level is not a HydroSim");
+  }
 
   Array<MultiFab, AMREX_SPACEDIM> diffusion_term_face;
   for (int idim=0; idim<AMREX_SPACEDIM; idim++) {

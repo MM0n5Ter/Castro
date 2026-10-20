@@ -77,6 +77,9 @@ HydroSim::checkPoint(const std::string& dir,
 
   std::ofstream HydroSimHeaderFile;
   HydroSimHeaderFile.open(checkpoint_entry(dir, "CastroHeader").c_str(), std::ios::out);
+  if (!HydroSimHeaderFile.good()) {
+      amrex::FileOpenFailed(checkpoint_entry(dir, "CastroHeader"));
+  }
 
   HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
   HydroSimHeaderFile.close();
@@ -85,6 +88,9 @@ HydroSim::checkPoint(const std::string& dir,
 
   std::ofstream VarNameListFile;
   VarNameListFile.open(checkpoint_entry(dir, "state_names.txt").c_str(), std::ios::out);
+  if (!VarNameListFile.good()) {
+      amrex::FileOpenFailed(checkpoint_entry(dir, "state_names.txt"));
+  }
 
   for (int n = 0; n < NUM_STATE; n++) {
     VarNameListFile << desc_lst[State_Type].name(n) << "\n";
@@ -95,6 +101,9 @@ HydroSim::checkPoint(const std::string& dir,
 
       std::ofstream timestepFile;
       timestepFile.open(checkpoint_entry(dir, "dtHeader").c_str(), std::ios::out);
+      if (!timestepFile.good()) {
+          amrex::FileOpenFailed(checkpoint_entry(dir, "dtHeader"));
+      }
 
       timestepFile << lastDtBeforeWriteLimit << std::endl;
       timestepFile.close();
@@ -103,6 +112,9 @@ HydroSim::checkPoint(const std::string& dir,
 
   std::ofstream CpuTimeFile;
   CpuTimeFile.open(checkpoint_entry(dir, "CPUtime").c_str(), std::ios::out);
+  if (!CpuTimeFile.good()) {
+      amrex::FileOpenFailed(checkpoint_entry(dir, "CPUtime"));
+  }
 
   CpuTimeFile << std::setprecision(17) << getCpuSeconds();
   CpuTimeFile.close();
@@ -112,6 +124,9 @@ HydroSim::checkPoint(const std::string& dir,
 
       std::ofstream PointMassFile;
       PointMassFile.open(checkpoint_entry(dir, "point_mass").c_str(), std::ios::out);
+      if (!PointMassFile.good()) {
+          amrex::FileOpenFailed(checkpoint_entry(dir, "point_mass"));
+      }
 
       PointMassFile << std::setprecision(17) << point_mass << std::endl;
 
@@ -124,6 +139,9 @@ HydroSim::checkPoint(const std::string& dir,
   if (do_frame_spin) {
       std::ofstream SpinPeriodFile;
       SpinPeriodFile.open(checkpoint_entry(dir, "Rotation").c_str(), std::ios::out);
+      if (!SpinPeriodFile.good()) {
+          amrex::FileOpenFailed(checkpoint_entry(dir, "Rotation"));
+      }
 
       SpinPeriodFile << std::scientific;
       SpinPeriodFile.precision(19);

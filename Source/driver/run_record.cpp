@@ -124,6 +124,9 @@ HydroSim::writeRunRecord (const std::string& dir, const Real write_seconds)
   std::string FullPathJobInfoFile = dir;
   FullPathJobInfoFile += "/job_info";
   jobInfoFile.open(FullPathJobInfoFile.c_str(), std::ios::out);
+  if (!jobInfoFile.good()) {
+    amrex::FileOpenFailed(FullPathJobInfoFile);
+  }
 
   std::string PrettyLine = std::string(78, '=') + "\n";
   std::string OtherLine = std::string(78, '-') + "\n";
