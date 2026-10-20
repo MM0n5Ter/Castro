@@ -198,37 +198,6 @@ AlphaBetaSolver::~AlphaBetaSolver()
   HYPRE_StructGridDestroy(hgrid);
 }
 
-void AlphaBetaSolver::setScalars(Real Alpha, Real Beta)
-{
-  alpha = Alpha;
-  beta  = Beta;
-}
-
-void AlphaBetaSolver::setMassCoefficients(const MultiFab &a)
-{
-  BL_ASSERT( a.ok() );
-  BL_ASSERT( a.boxArray() == acoefs->boxArray() );
-  MultiFab::Copy(*acoefs, a, 0, 0, 1, 0);
-}
-
-void AlphaBetaSolver::setFaceCoefficients(const MultiFab &b, int dir)
-{
-  BL_ASSERT( b.ok() );
-  BL_ASSERT( b.boxArray() == bcoefs[dir]->boxArray() );
-  MultiFab::Copy(*bcoefs[dir], b, 0, 0, 1, 0);
-}
-
-void AlphaBetaSolver::setBcAlphaCoef(const MultiFab& a)
-{
-  BL_ASSERT( a.ok() );
-  if (SPa == 0) {
-    const BoxArray& grids = a.boxArray();
-    const DistributionMapping& dmap = a.DistributionMap();
-    SPa.reset(new MultiFab(grids,dmap,1,0));
-  }
-  MultiFab::Copy(*SPa, a, 0, 0, 1, 0);
-}
-
 void AlphaBetaSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, int maxiter)
 {
   BL_PROFILE("AlphaBetaSolver::configureSolver");
@@ -457,6 +426,37 @@ void AlphaBetaSolver::releaseSolver()
        HYPRE_StructSMGDestroy(precond);
     }
   }
+}
+
+void AlphaBetaSolver::setScalars(Real Alpha, Real Beta)
+{
+  alpha = Alpha;
+  beta  = Beta;
+}
+
+void AlphaBetaSolver::setMassCoefficients(const MultiFab &a)
+{
+  BL_ASSERT( a.ok() );
+  BL_ASSERT( a.boxArray() == acoefs->boxArray() );
+  MultiFab::Copy(*acoefs, a, 0, 0, 1, 0);
+}
+
+void AlphaBetaSolver::setFaceCoefficients(const MultiFab &b, int dir)
+{
+  BL_ASSERT( b.ok() );
+  BL_ASSERT( b.boxArray() == bcoefs[dir]->boxArray() );
+  MultiFab::Copy(*bcoefs[dir], b, 0, 0, 1, 0);
+}
+
+void AlphaBetaSolver::setBcAlphaCoef(const MultiFab& a)
+{
+  BL_ASSERT( a.ok() );
+  if (SPa == 0) {
+    const BoxArray& grids = a.boxArray();
+    const DistributionMapping& dmap = a.DistributionMap();
+    SPa.reset(new MultiFab(grids,dmap,1,0));
+  }
+  MultiFab::Copy(*SPa, a, 0, 0, 1, 0);
 }
 
 void AlphaBetaSolver::solve(MultiFab& dest, int icomp, MultiFab& rhs, BoundaryMode bc_variant)

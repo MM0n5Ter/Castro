@@ -9,114 +9,103 @@ using std::string;
 using namespace amrex;
 
 #ifndef TRUE_SDC
-
-step_result
-HydroSim::apply_old_reactions (Real time, Real dt) {
-
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifndef SIMPLIFIED_SDC
-    int burn_outcome{1};
-
-    MultiFab& Reactions_old = get_old_data(Burning_Type);
-    MultiFab& react_new = get_new_data(Burning_Type);
-
-    if (time_scheme != SimplifiedIterCorrection) {
-        burn_outcome = burn_over_state(Sborder, Reactions_old, time, 0.5 * dt, 0);
-
-        if (burn_outcome != 1) {
-            status.success = false;
-            status.reason = "burn unsuccessful";
-
-            return status;
-        }
-
-        clean_state(
-#ifdef MHD
-                    Bx_old_grown, By_old_grown, Bz_old_grown,
-#endif
-                    Sborder, time, Sborder.nGrow());
-
-        MultiFab::Copy(react_new, Reactions_old, 0, 0, react_new.nComp(), react_new.nGrow());
-    }
-#endif
-
-    return status;
-}
-
-step_result
-HydroSim::apply_new_reactions (Real time, Real dt)
+bool
+HydroSim::zones_are_burnable(const MultiFab& State)
 {
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
 
-    step_result status {};
+    Real small = 1.e-10;
+    Real large = 1.e199;
 
-    int burn_outcome{1};
+    bool limit_dens_lower = burn_rho_min >= small;
+    bool limit_dens_upper = burn_rho_max <= large;
 
-    MultiFab& react_new = get_new_data(Burning_Type);
-    MultiFab& S_new = get_new_data(State_Type);
+    bool limit_dens = limit_dens_lower || limit_dens_upper;
 
-#ifdef SIMPLIFIED_SDC
-    MultiFab& Reactions_old = get_old_data(Burning_Type);
+    bool limit_temp_lower = burn_temp_min >= small;
+    bool limit_temp_upper = burn_temp_max <= large;
 
-    if (time_scheme == SimplifiedIterCorrection) {
+    bool limit_temp = limit_temp_lower || limit_temp_upper;
 
-        if (do_react) {
+    bool limit = limit_dens || limit_temp;
 
-            burn_outcome = burn_over_state(time, dt);
+    if (!limit) {
+      return true;
+    }
 
-            if (burn_outcome != 1) {
-                status.success = false;
-                status.reason = "burn unsuccessful";
+    amrex::Vector<Real> lower_limit_values;
+    amrex::Vector<Real> upper_limit_values;
 
-                return status;
+    bool local = true;
+
+    Real dens_lower = small;
+    Real dens_upper = large;
+
+    if (limit_dens_lower) {
+      dens_lower = State.min(URHO, 0, local);
+      lower_limit_values.push_back(dens_lower);
+    }
+
+    if (limit_dens_upper) {
+      dens_upper = State.max(URHO, 0, local);
+      upper_limit_values.push_back(dens_upper);
+    }
+
+    Real temp_lower = small;
+    Real temp_upper = large;
+
+    if (limit_temp_lower) {
+      temp_lower = State.min(UTEMP, 0, local);
+      lower_limit_values.push_back(temp_lower);
+    }
+
+    if (limit_temp_upper) {
+      temp_upper = State.max(UTEMP, 0, local);
+      upper_limit_values.push_back(temp_upper);
+    }
+
+    int small_size = static_cast<int>(lower_limit_values.size());
+
+    if (small_size > 0) {
+        amrex::ParallelDescriptor::ReduceRealMin(lower_limit_values.dataPtr(), small_size);
+
+        if (limit_dens_lower) {
+            dens_lower = lower_limit_values[0];
+            if (limit_temp_lower) {
+                temp_lower = lower_limit_values[1];
             }
-
-            clean_state(S_new, time + dt, S_new.nGrow());
-
-            scan_for_nan(S_new);
-
+        } else {
+            temp_lower = lower_limit_values[0];
         }
-        else {
-
-            MultiFab& SDC_burn_new = get_new_data(Burn_Corr_Type);
-            SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
-
-            Reactions_old.setVal(0.0, Reactions_old.nGrow());
-            react_new.setVal(0.0, react_new.nGrow());
-
-        }
-
     }
 
-#else
+    int large_size = static_cast<int>(upper_limit_values.size());
 
-    if (time_scheme != SimplifiedIterCorrection) {
+    if (large_size > 0) {
+        amrex::ParallelDescriptor::ReduceRealMax(upper_limit_values.dataPtr(), large_size);
 
-        burn_outcome = burn_over_state(S_new, react_new, time - 0.5 * dt, 0.5 * dt, 1);
-
-        if (burn_outcome != 1) {
-            status.success = false;
-            status.reason = "burn unsuccessful";
-
-            return status;
+        if (limit_dens_upper) {
+            dens_upper = upper_limit_values[0];
+            if (limit_temp_upper) {
+                temp_upper = upper_limit_values[1];
+            }
+        } else {
+            temp_upper = upper_limit_values[0];
         }
-
-        clean_state(
-#ifdef MHD
-                    magfield_x_new, magfield_y_new, magfield_z_new,
-#endif
-                    S_new, time, S_new.nGrow());
-
     }
 
-#endif
+    if (dens_upper >= burn_rho_min &&
+        dens_lower <= burn_rho_max &&
+        temp_upper >= burn_temp_min &&
+        temp_lower <= burn_temp_max) {
+        return true;
+    }
 
-    return status;
+    if (verbose > 1) {
+        amrex::Print() << "  No valid zones to burn, skipping burn_over_state()." << std::endl;
+    }
+
+    return false;
+
 }
 
 int
@@ -425,103 +414,112 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
 
 }
 
-bool
-HydroSim::zones_are_burnable(const MultiFab& State)
-{
+step_result
+HydroSim::apply_old_reactions (Real time, Real dt) {
 
-    Real small = 1.e-10;
-    Real large = 1.e199;
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
 
-    bool limit_dens_lower = burn_rho_min >= small;
-    bool limit_dens_upper = burn_rho_max <= large;
+    step_result status {};
 
-    bool limit_dens = limit_dens_lower || limit_dens_upper;
+#ifndef SIMPLIFIED_SDC
+    int burn_outcome{1};
 
-    bool limit_temp_lower = burn_temp_min >= small;
-    bool limit_temp_upper = burn_temp_max <= large;
+    MultiFab& Reactions_old = get_old_data(Burning_Type);
+    MultiFab& react_new = get_new_data(Burning_Type);
 
-    bool limit_temp = limit_temp_lower || limit_temp_upper;
+    if (time_scheme != SimplifiedIterCorrection) {
+        burn_outcome = burn_over_state(Sborder, Reactions_old, time, 0.5 * dt, 0);
 
-    bool limit = limit_dens || limit_temp;
+        if (burn_outcome != 1) {
+            status.success = false;
+            status.reason = "burn unsuccessful";
 
-    if (!limit) {
-      return true;
-    }
-
-    amrex::Vector<Real> lower_limit_values;
-    amrex::Vector<Real> upper_limit_values;
-
-    bool local = true;
-
-    Real dens_lower = small;
-    Real dens_upper = large;
-
-    if (limit_dens_lower) {
-      dens_lower = State.min(URHO, 0, local);
-      lower_limit_values.push_back(dens_lower);
-    }
-
-    if (limit_dens_upper) {
-      dens_upper = State.max(URHO, 0, local);
-      upper_limit_values.push_back(dens_upper);
-    }
-
-    Real temp_lower = small;
-    Real temp_upper = large;
-
-    if (limit_temp_lower) {
-      temp_lower = State.min(UTEMP, 0, local);
-      lower_limit_values.push_back(temp_lower);
-    }
-
-    if (limit_temp_upper) {
-      temp_upper = State.max(UTEMP, 0, local);
-      upper_limit_values.push_back(temp_upper);
-    }
-
-    int small_size = static_cast<int>(lower_limit_values.size());
-
-    if (small_size > 0) {
-        amrex::ParallelDescriptor::ReduceRealMin(lower_limit_values.dataPtr(), small_size);
-
-        if (limit_dens_lower) {
-            dens_lower = lower_limit_values[0];
-            if (limit_temp_lower) {
-                temp_lower = lower_limit_values[1];
-            }
-        } else {
-            temp_lower = lower_limit_values[0];
+            return status;
         }
+
+        clean_state(
+#ifdef MHD
+                    Bx_old_grown, By_old_grown, Bz_old_grown,
+#endif
+                    Sborder, time, Sborder.nGrow());
+
+        MultiFab::Copy(react_new, Reactions_old, 0, 0, react_new.nComp(), react_new.nGrow());
     }
+#endif
 
-    int large_size = static_cast<int>(upper_limit_values.size());
-
-    if (large_size > 0) {
-        amrex::ParallelDescriptor::ReduceRealMax(upper_limit_values.dataPtr(), large_size);
-
-        if (limit_dens_upper) {
-            dens_upper = upper_limit_values[0];
-            if (limit_temp_upper) {
-                temp_upper = upper_limit_values[1];
-            }
-        } else {
-            temp_upper = upper_limit_values[0];
-        }
-    }
-
-    if (dens_upper >= burn_rho_min &&
-        dens_lower <= burn_rho_max &&
-        temp_upper >= burn_temp_min &&
-        temp_lower <= burn_temp_max) {
-        return true;
-    }
-
-    if (verbose > 1) {
-        amrex::Print() << "  No valid zones to burn, skipping burn_over_state()." << std::endl;
-    }
-
-    return false;
-
+    return status;
 }
 
+step_result
+HydroSim::apply_new_reactions (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+    int burn_outcome{1};
+
+    MultiFab& react_new = get_new_data(Burning_Type);
+    MultiFab& S_new = get_new_data(State_Type);
+
+#ifdef SIMPLIFIED_SDC
+    MultiFab& Reactions_old = get_old_data(Burning_Type);
+
+    if (time_scheme == SimplifiedIterCorrection) {
+
+        if (do_react) {
+
+            burn_outcome = burn_over_state(time, dt);
+
+            if (burn_outcome != 1) {
+                status.success = false;
+                status.reason = "burn unsuccessful";
+
+                return status;
+            }
+
+            clean_state(S_new, time + dt, S_new.nGrow());
+
+            scan_for_nan(S_new);
+
+        }
+        else {
+
+            MultiFab& SDC_burn_new = get_new_data(Burn_Corr_Type);
+            SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
+
+            Reactions_old.setVal(0.0, Reactions_old.nGrow());
+            react_new.setVal(0.0, react_new.nGrow());
+
+        }
+
+    }
+
+#else
+
+    if (time_scheme != SimplifiedIterCorrection) {
+
+        burn_outcome = burn_over_state(S_new, react_new, time - 0.5 * dt, 0.5 * dt, 1);
+
+        if (burn_outcome != 1) {
+            status.success = false;
+            status.reason = "burn unsuccessful";
+
+            return status;
+        }
+
+        clean_state(
+#ifdef MHD
+                    magfield_x_new, magfield_y_new, magfield_z_new,
+#endif
+                    S_new, time, S_new.nGrow());
+
+    }
+
+#endif
+
+    return status;
+}
 #endif

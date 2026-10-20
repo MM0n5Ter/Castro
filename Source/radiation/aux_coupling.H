@@ -41,16 +41,6 @@ class AuxVar {
   AuxVar() = default;
 
 
-  void push(AuxVar* p, amrex::Real r) {
-    a.emplace_back(p, r);
-  }
-
-
-  void push(int lev, const amrex::IntVect& iv, amrex::Real r) {
-    a.emplace_back(lev, iv, r);
-  }
-
-
   void add_secondary_link(AuxVar* p) {
 
     if (p->secondary_pushed == 0) {
@@ -59,12 +49,22 @@ class AuxVar {
     }
   }
 
+
   bool empty() {
     return a.empty();
   }
 
+
   [[nodiscard]] bool secondary() const {
     return secondary_pushed;
+  }
+
+  void push(AuxVar* p, amrex::Real r) {
+    a.emplace_back(p, r);
+  }
+
+  void push(int lev, const amrex::IntVect& iv, amrex::Real r) {
+    a.emplace_back(lev, iv, r);
   }
 
   void collapse();

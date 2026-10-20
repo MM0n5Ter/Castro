@@ -18,15 +18,15 @@ public:
     RadBoundaryCondition() : bctype(-1){}
     RadBoundaryCondition(int _bctype) : bctype(_bctype){}
 
-    operator int () const
-    {
-        BL_ASSERT(bctype != -1);
-        return bctype;
-    }
     RadBoundaryCondition& operator = (const int _bctype)
     {
         bctype = _bctype;
         return *this;
+    }
+    operator int () const
+    {
+        BL_ASSERT(bctype != -1);
+        return bctype;
     }
 private:
     int bctype;
@@ -73,6 +73,28 @@ public:
 
     friend std::ostream& operator << (std::ostream&, const RadBoundaryData&);
 
+    const amrex::FabSet &operator[](const amrex::Orientation &_face) const {
+      return amrex::BndryRegister::bndry[_face];
+    }
+    amrex::FabSet &operator[](const amrex::Orientation &_face) {
+      return amrex::BndryRegister::bndry[_face];
+    }
+    void setValue(const amrex::Orientation& _face, int _n, amrex::Real _val)
+    {
+        bndry[_face][_n].setVal<amrex::RunOn::Host>(_val);
+    }
+    void assignFaceMask(const amrex::Orientation& _face, int _n, int _val)
+    {
+        masks[_face][_n]->setVal<amrex::RunOn::Host>(_val);
+    }
+    void setBoundCond(const amrex::Orientation& _face, int _n, const RadBoundaryCondition& _bcn)
+    {
+        bcond[_face][_n] = _bcn;
+    }
+    void setBoundLoc(const amrex::Orientation& _face, int _n, amrex::Real _val)
+    {
+        bcloc[_face][_n] = _val;
+    }
     const amrex::FabSet& bndryValues(const amrex::Orientation& _face) const
     {
         return bndry[_face];
@@ -96,28 +118,6 @@ public:
     const amrex::Geometry& getGeom() const
     {
         return geom;
-    }
-    void setValue(const amrex::Orientation& _face, int _n, amrex::Real _val)
-    {
-        bndry[_face][_n].setVal<amrex::RunOn::Host>(_val);
-    }
-    void assignFaceMask(const amrex::Orientation& _face, int _n, int _val)
-    {
-        masks[_face][_n]->setVal<amrex::RunOn::Host>(_val);
-    }
-    void setBoundCond(const amrex::Orientation& _face, int _n, const RadBoundaryCondition& _bcn)
-    {
-        bcond[_face][_n] = _bcn;
-    }
-    void setBoundLoc(const amrex::Orientation& _face, int _n, amrex::Real _val)
-    {
-        bcloc[_face][_n] = _val;
-    }
-    const amrex::FabSet &operator[](const amrex::Orientation &_face) const {
-      return amrex::BndryRegister::bndry[_face];
-    }
-    amrex::FabSet &operator[](const amrex::Orientation &_face) {
-      return amrex::BndryRegister::bndry[_face];
     }
 
 };

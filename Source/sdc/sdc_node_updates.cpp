@@ -24,6 +24,35 @@ HydroSim::hs_deferred_update_advection_o2_lobatto(const Box& bx,
     });
 }
 
+#ifdef REACTIONS
+void
+HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
+                                  Real substep_dt, Real dt,
+                                  Array4<const Real> const& A_m,
+                                  Array4<const Real> const& Advect_0_old,
+                                  Array4<const Real> const& Advect_1_old,
+                                  Array4<const Real> const& React_0_old,
+                                  Array4<const Real> const& React_1_old,
+                                  Array4<Real> const& C,
+                                  int m_start)
+{
+
+    amrex::ignore_unused(substep_dt);
+    amrex::ignore_unused(dt);
+    amrex::ignore_unused(A_m);
+    amrex::ignore_unused(m_start);
+
+    amrex::ParallelFor(bx, C.nComp(),
+    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+    {
+        C(i,j,k,n) = -React_1_old(i,j,k,n) +
+            0.5_rt * (Advect_0_old(i,j,k,n) + Advect_1_old(i,j,k,n)) +
+            0.5_rt * (React_0_old(i,j,k,n) + React_1_old(i,j,k,n));
+    });
+
+}
+#endif
+
 void
 HydroSim::hs_deferred_update_advection_o2_radau(const Box& bx,
                                          Real substep_dt, Real dt,
@@ -57,6 +86,51 @@ HydroSim::hs_deferred_update_advection_o2_radau(const Box& bx,
         });
     }
 }
+
+#ifdef REACTIONS
+void
+HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
+                                Real substep_dt, Real dt,
+                                Array4<const Real> const& A_m,
+                                Array4<const Real> const& Advect_0_old,
+                                Array4<const Real> const& Advect_1_old,
+                                Array4<const Real> const& Advect_2_old,
+                                Array4<const Real> const& React_0_old,
+                                Array4<const Real> const& React_1_old,
+                                Array4<const Real> const& React_2_old,
+                                Array4<Real> const& C,
+                                int m_start)
+{
+
+    amrex::ignore_unused(Advect_0_old);
+    amrex::ignore_unused(React_0_old);
+
+    if (m_start == 0)
+    {
+        amrex::ParallelFor(bx, C.nComp(),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            C(i,j,k,n) = -React_1_old(i,j,k,n) +
+                (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) +
+                (dt/substep_dt) * (1.0_rt/12.0_rt) *
+                (5.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
+                        (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+        });
+    }
+    else if (m_start == 1)
+    {
+        amrex::ParallelFor(bx, C.nComp(),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            C(i,j,k,n) = -React_2_old(i,j,k,n) +
+                (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) +
+                (dt/substep_dt) * (1.0_rt/3.0_rt) *
+                ((Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
+                 (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+        });
+    }
+}
+#endif
 
 void
 HydroSim::hs_deferred_update_advection_o4_lobatto(const Box& bx,
@@ -95,6 +169,57 @@ HydroSim::hs_deferred_update_advection_o4_lobatto(const Box& bx,
         amrex::Abort("error in hs_deferred_update_advection_o4_lobatto -- should not be here");
     }
 }
+
+#ifdef REACTIONS
+void
+HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
+                                  Real substep_dt, Real dt,
+                                  Array4<const Real> const& A_m,
+                                  Array4<const Real> const& Advect_0_old,
+                                  Array4<const Real> const& Advect_1_old,
+                                  Array4<const Real> const& Advect_2_old,
+                                  Array4<const Real> const& React_0_old,
+                                  Array4<const Real> const& React_1_old,
+                                  Array4<const Real> const& React_2_old,
+                                  Array4<Real> const& C,
+                                  int m_start)
+{
+
+    amrex::ignore_unused(A_m);
+    amrex::ignore_unused(substep_dt);
+    amrex::ignore_unused(dt);
+
+    if (m_start == 0)
+    {
+        amrex::ParallelFor(bx, C.nComp(),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            Real integral = 1.0_rt/12.0_rt * (5.0_rt*(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
+                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
+                                              (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+
+            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) - React_1_old(i,j,k,n) + integral;
+        });
+    }
+    else if (m_start == 1)
+    {
+        amrex::ParallelFor(bx, C.nComp(),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            Real integral = 1.0_rt/12.0_rt * (-(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
+                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
+                                              5.0_rt*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
+
+            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) - React_2_old(i,j,k,n) + integral;
+        });
+    }
+    else
+    {
+        amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
+    }
+
+}
+#endif
 
 void
 HydroSim::hs_deferred_update_advection_o4_radau(const Box& bx,
@@ -152,125 +277,6 @@ HydroSim::hs_deferred_update_advection_o4_radau(const Box& bx,
 }
 
 #ifdef REACTIONS
-void
-HydroSim::hs_deferred_compute_correction_o2_lobatto(const Box& bx,
-                                  Real substep_dt, Real dt,
-                                  Array4<const Real> const& A_m,
-                                  Array4<const Real> const& Advect_0_old,
-                                  Array4<const Real> const& Advect_1_old,
-                                  Array4<const Real> const& React_0_old,
-                                  Array4<const Real> const& React_1_old,
-                                  Array4<Real> const& C,
-                                  int m_start)
-{
-
-    amrex::ignore_unused(substep_dt);
-    amrex::ignore_unused(dt);
-    amrex::ignore_unused(A_m);
-    amrex::ignore_unused(m_start);
-
-    amrex::ParallelFor(bx, C.nComp(),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-    {
-        C(i,j,k,n) = -React_1_old(i,j,k,n) +
-            0.5_rt * (Advect_0_old(i,j,k,n) + Advect_1_old(i,j,k,n)) +
-            0.5_rt * (React_0_old(i,j,k,n) + React_1_old(i,j,k,n));
-    });
-
-}
-
-void
-HydroSim::hs_deferred_compute_correction_o2_radau(const Box& bx,
-                                Real substep_dt, Real dt,
-                                Array4<const Real> const& A_m,
-                                Array4<const Real> const& Advect_0_old,
-                                Array4<const Real> const& Advect_1_old,
-                                Array4<const Real> const& Advect_2_old,
-                                Array4<const Real> const& React_0_old,
-                                Array4<const Real> const& React_1_old,
-                                Array4<const Real> const& React_2_old,
-                                Array4<Real> const& C,
-                                int m_start)
-{
-
-    amrex::ignore_unused(Advect_0_old);
-    amrex::ignore_unused(React_0_old);
-
-    if (m_start == 0)
-    {
-        amrex::ParallelFor(bx, C.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            C(i,j,k,n) = -React_1_old(i,j,k,n) +
-                (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) +
-                (dt/substep_dt) * (1.0_rt/12.0_rt) *
-                (5.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
-                        (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
-        });
-    }
-    else if (m_start == 1)
-    {
-        amrex::ParallelFor(bx, C.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            C(i,j,k,n) = -React_2_old(i,j,k,n) +
-                (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) +
-                (dt/substep_dt) * (1.0_rt/3.0_rt) *
-                ((Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                 (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
-        });
-    }
-}
-
-void
-HydroSim::hs_deferred_compute_correction_o4_lobatto(const Box& bx,
-                                  Real substep_dt, Real dt,
-                                  Array4<const Real> const& A_m,
-                                  Array4<const Real> const& Advect_0_old,
-                                  Array4<const Real> const& Advect_1_old,
-                                  Array4<const Real> const& Advect_2_old,
-                                  Array4<const Real> const& React_0_old,
-                                  Array4<const Real> const& React_1_old,
-                                  Array4<const Real> const& React_2_old,
-                                  Array4<Real> const& C,
-                                  int m_start)
-{
-
-    amrex::ignore_unused(A_m);
-    amrex::ignore_unused(substep_dt);
-    amrex::ignore_unused(dt);
-
-    if (m_start == 0)
-    {
-        amrex::ParallelFor(bx, C.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            Real integral = 1.0_rt/12.0_rt * (5.0_rt*(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
-                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) -
-                                              (Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
-
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_0_old(i,j,k,n)) - React_1_old(i,j,k,n) + integral;
-        });
-    }
-    else if (m_start == 1)
-    {
-        amrex::ParallelFor(bx, C.nComp(),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-        {
-            Real integral = 1.0_rt/12.0_rt * (-(Advect_0_old(i,j,k,n) + React_0_old(i,j,k,n)) +
-                                              8.0_rt*(Advect_1_old(i,j,k,n) + React_1_old(i,j,k,n)) +
-                                              5.0_rt*(Advect_2_old(i,j,k,n) + React_2_old(i,j,k,n)));
-
-            C(i,j,k,n) = (A_m(i,j,k,n) - Advect_1_old(i,j,k,n)) - React_2_old(i,j,k,n) + integral;
-        });
-    }
-    else
-    {
-        amrex::Abort("error in ca_sdc_compute_C4 -- should not be here");
-    }
-
-}
-
 void
 HydroSim::hs_deferred_compute_correction_o4_radau(const Box& bx,
                                 Real substep_dt, Real dt,

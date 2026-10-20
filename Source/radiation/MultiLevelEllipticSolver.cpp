@@ -30,63 +30,6 @@ int MultiLevelEllipticSolver::vl[2] = { 0, 0 };
 int MultiLevelEllipticSolver::vh[2] = { 0, 0 };
 #endif
 
-void MultiLevelEllipticSolver::writeVectorBox(HYPRE_SStructVector x,
-                                        int part,
-                                        const Box& reg,
-                                        const BoxArray& sgr,
-                                        Real *vec)
-{
-  BL_PROFILE("MultiLevelEllipticSolver::writeVectorBox");
-
-  if (sgr.size() > 0) {
-    FArrayBox vec_values_fab;
-    for (int j = 0; j < sgr.size(); j++) {
-      const Box& sreg = sgr[j];
-      vec_values_fab.resize(sreg);
-      Real *vec_values = vec_values_fab.dataPtr();
-      for (IntVect v = sreg.smallEnd(); v <= sreg.bigEnd(); sreg.next(v)) {
-        int is = sreg.index(v);
-        int ir =  reg.index(v);
-        vec_values[is] = vec[ir];
-      }
-      HYPRE_SStructVectorSetBoxValues(x, part, loV(sreg), hiV(sreg), 0, vec_values);
-    }
-  }
-  else {
-    HYPRE_SStructVectorSetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
-  }
-}
-
-void MultiLevelEllipticSolver::readVectorBox(HYPRE_SStructVector x,
-                                        int part,
-                                        const Box& reg,
-                                        const BoxArray& sgr,
-                                        FArrayBox& f, int fcomp)
-{
-  BL_PROFILE("MultiLevelEllipticSolver::readVectorBox");
-
-  BL_ASSERT(f.box() == reg);
-  Real* vec = f.dataPtr(fcomp);
-  if (sgr.size() > 0) {
-    f.setVal<RunOn::Host>(0.0, fcomp);
-    FArrayBox vec_values_fab;
-    for (int j = 0; j < sgr.size(); j++) {
-      const Box& sreg = sgr[j];
-      vec_values_fab.resize(sreg);
-      Real *vec_values = vec_values_fab.dataPtr();
-      HYPRE_SStructVectorGetBoxValues(x, part, loV(sreg), hiV(sreg), 0, vec_values);
-      for (IntVect v = sreg.smallEnd(); v <= sreg.bigEnd(); sreg.next(v)) {
-        int is = sreg.index(v);
-        int ir =  reg.index(v);
-        vec[ir] = vec_values[is];
-      }
-    }
-  }
-  else {
-    HYPRE_SStructVectorGetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
-  }
-}
-
 MultiLevelEllipticSolver::MultiLevelEllipticSolver(int _coarse_lvl, int _fine_lvl,
                                int _solver_choice)
   : crse_level(_coarse_lvl), fine_level(_fine_lvl),
@@ -705,62 +648,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
 
   HYPRE_SStructVectorAssemble(b);
   HYPRE_SStructVectorAssemble(x);
-}
-
-void MultiLevelEllipticSolver::setScalars(Real Alpha, Real Beta)
-{
-  alpha = Alpha;
-  beta  = Beta;
-}
-
-void MultiLevelEllipticSolver::setMassCoefficients(int level, const MultiFab &a)
-{
-  BL_PROFILE("MultiLevelEllipticSolver::setMassCoefficients");
-
-  BL_ASSERT( a.ok() );
-  BL_ASSERT( a.boxArray() == acoefs[level]->boxArray() );
-  MultiFab::Copy(*acoefs[level], a, 0, 0, 1, 0);
-}
-
-void MultiLevelEllipticSolver::setFaceCoefficients(int level, const MultiFab &b, int dir)
-{
-  BL_PROFILE("MultiLevelEllipticSolver::setFaceCoefficients");
-
-  BL_ASSERT( b.ok() );
-  BL_ASSERT( b.boxArray() == (*bcoefs[level])[dir].boxArray() );
-  MultiFab::Copy((*bcoefs[level])[dir], b, 0, 0, 1, 0);
-}
-
-void MultiLevelEllipticSolver::setBcAlphaCoef(int level, const MultiFab& a)
-{
-  BL_ASSERT( a.ok() );
-  if (! SPa[level]) {
-    SPa[level].reset(new MultiFab(grids[level],dmap[level],1,0));
-    BL_ASSERT( a.boxArray() == SPa[level]->boxArray() );
-    BL_ASSERT( a.DistributionMap() == SPa[level]->DistributionMap() );
-  }
-  MultiFab::Copy(*SPa[level], a, 0, 0, 1, 0);
-}
-
-void MultiLevelEllipticSolver::hmac (const Box& bx,
-                           Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
-                           Array4<Real const> const& a,
-                           Real alpha)
-{
-    BL_PROFILE("MultiLevelEllipticSolver::hmac");
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-    {
-        if (alpha == 0.e0_rt) {
-            mat(i,j,k)[0] = 0.e0_rt;
-        }
-        else {
-            mat(i,j,k)[0] = alpha * a(i,j,k);
-        }
-    });
-
-    Gpu::synchronize();
 }
 
 void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_tolerance, int maxiter)
@@ -1769,6 +1656,20 @@ void MultiLevelEllipticSolver::getSolution(int level, MultiFab& dest, int icomp)
   }
 }
 
+void MultiLevelEllipticSolver::getProduct(int level, MultiFab& product)
+{
+  BL_PROFILE("MultiLevelEllipticSolver::getProduct");
+
+  int part = level - crse_level;
+
+  for (MFIter mfi(product); mfi.isValid(); ++mfi) {
+    int i = mfi.index();
+    const Box &reg = grids[level][i];
+
+    readVectorBox(b, part, reg, subgrids[level][i], product[i], 0);
+  }
+}
+
 Real MultiLevelEllipticSolver::currentResidualNorm()
 {
   BL_PROFILE("MultiLevelEllipticSolver::currentResidualNorm");
@@ -1841,6 +1742,62 @@ Real MultiLevelEllipticSolver::currentResidualNorm()
   return bnorm * res / std::sqrt(volume);
 }
 
+void MultiLevelEllipticSolver::setScalars(Real Alpha, Real Beta)
+{
+  alpha = Alpha;
+  beta  = Beta;
+}
+
+void MultiLevelEllipticSolver::setMassCoefficients(int level, const MultiFab &a)
+{
+  BL_PROFILE("MultiLevelEllipticSolver::setMassCoefficients");
+
+  BL_ASSERT( a.ok() );
+  BL_ASSERT( a.boxArray() == acoefs[level]->boxArray() );
+  MultiFab::Copy(*acoefs[level], a, 0, 0, 1, 0);
+}
+
+void MultiLevelEllipticSolver::setFaceCoefficients(int level, const MultiFab &b, int dir)
+{
+  BL_PROFILE("MultiLevelEllipticSolver::setFaceCoefficients");
+
+  BL_ASSERT( b.ok() );
+  BL_ASSERT( b.boxArray() == (*bcoefs[level])[dir].boxArray() );
+  MultiFab::Copy((*bcoefs[level])[dir], b, 0, 0, 1, 0);
+}
+
+void MultiLevelEllipticSolver::setBcAlphaCoef(int level, const MultiFab& a)
+{
+  BL_ASSERT( a.ok() );
+  if (! SPa[level]) {
+    SPa[level].reset(new MultiFab(grids[level],dmap[level],1,0));
+    BL_ASSERT( a.boxArray() == SPa[level]->boxArray() );
+    BL_ASSERT( a.DistributionMap() == SPa[level]->DistributionMap() );
+  }
+  MultiFab::Copy(*SPa[level], a, 0, 0, 1, 0);
+}
+
+void MultiLevelEllipticSolver::hmac (const Box& bx,
+                           Array4<GpuArray<Real, 2 * AMREX_SPACEDIM + 1>> const& mat,
+                           Array4<Real const> const& a,
+                           Real alpha)
+{
+    BL_PROFILE("MultiLevelEllipticSolver::hmac");
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+    {
+        if (alpha == 0.e0_rt) {
+            mat(i,j,k)[0] = 0.e0_rt;
+        }
+        else {
+            mat(i,j,k)[0] = alpha * a(i,j,k);
+        }
+    });
+
+    Gpu::synchronize();
+}
+
 void MultiLevelEllipticSolver::faceFluxAtBoundary(int level,
                                   MultiFab* Flux,
                                   MultiFab& sol_field,
@@ -1911,16 +1868,59 @@ void MultiLevelEllipticSolver::faceFluxAtBoundary(int level,
     }
 }
 
-void MultiLevelEllipticSolver::getProduct(int level, MultiFab& product)
+void MultiLevelEllipticSolver::writeVectorBox(HYPRE_SStructVector x,
+                                        int part,
+                                        const Box& reg,
+                                        const BoxArray& sgr,
+                                        Real *vec)
 {
-  BL_PROFILE("MultiLevelEllipticSolver::getProduct");
+  BL_PROFILE("MultiLevelEllipticSolver::writeVectorBox");
 
-  int part = level - crse_level;
+  if (sgr.size() > 0) {
+    FArrayBox vec_values_fab;
+    for (int j = 0; j < sgr.size(); j++) {
+      const Box& sreg = sgr[j];
+      vec_values_fab.resize(sreg);
+      Real *vec_values = vec_values_fab.dataPtr();
+      for (IntVect v = sreg.smallEnd(); v <= sreg.bigEnd(); sreg.next(v)) {
+        int is = sreg.index(v);
+        int ir =  reg.index(v);
+        vec_values[is] = vec[ir];
+      }
+      HYPRE_SStructVectorSetBoxValues(x, part, loV(sreg), hiV(sreg), 0, vec_values);
+    }
+  }
+  else {
+    HYPRE_SStructVectorSetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
+  }
+}
 
-  for (MFIter mfi(product); mfi.isValid(); ++mfi) {
-    int i = mfi.index();
-    const Box &reg = grids[level][i];
+void MultiLevelEllipticSolver::readVectorBox(HYPRE_SStructVector x,
+                                        int part,
+                                        const Box& reg,
+                                        const BoxArray& sgr,
+                                        FArrayBox& f, int fcomp)
+{
+  BL_PROFILE("MultiLevelEllipticSolver::readVectorBox");
 
-    readVectorBox(b, part, reg, subgrids[level][i], product[i], 0);
+  BL_ASSERT(f.box() == reg);
+  Real* vec = f.dataPtr(fcomp);
+  if (sgr.size() > 0) {
+    f.setVal<RunOn::Host>(0.0, fcomp);
+    FArrayBox vec_values_fab;
+    for (int j = 0; j < sgr.size(); j++) {
+      const Box& sreg = sgr[j];
+      vec_values_fab.resize(sreg);
+      Real *vec_values = vec_values_fab.dataPtr();
+      HYPRE_SStructVectorGetBoxValues(x, part, loV(sreg), hiV(sreg), 0, vec_values);
+      for (IntVect v = sreg.smallEnd(); v <= sreg.bigEnd(); sreg.next(v)) {
+        int is = sreg.index(v);
+        int ir =  reg.index(v);
+        vec[ir] = vec_values[is];
+      }
+    }
+  }
+  else {
+    HYPRE_SStructVectorGetBoxValues(x, part, loV(reg), hiV(reg), 0, vec);
   }
 }

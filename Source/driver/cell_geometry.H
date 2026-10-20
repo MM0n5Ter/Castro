@@ -8,15 +8,25 @@ using namespace amrex;
 
 #if AMREX_SPACEDIM == 1
 constexpr int dg0 = 1;
-constexpr int dg1 = 0;
-constexpr int dg2 = 0;
 #elif AMREX_SPACEDIM == 2
 constexpr int dg0 = 1;
-constexpr int dg1 = 1;
-constexpr int dg2 = 0;
 #else
 constexpr int dg0 = 1;
+#endif
+
+#if AMREX_SPACEDIM == 1
+constexpr int dg1 = 0;
+#elif AMREX_SPACEDIM == 2
 constexpr int dg1 = 1;
+#else
+constexpr int dg1 = 1;
+#endif
+
+#if AMREX_SPACEDIM == 1
+constexpr int dg2 = 0;
+#elif AMREX_SPACEDIM == 2
+constexpr int dg2 = 0;
+#else
 constexpr int dg2 = 1;
 #endif
 
@@ -71,6 +81,23 @@ void position(int i, int j, int k,
         loc[dir] = 0.0_rt;
     }
 
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real distance(GeometryData const& geomdata, const GpuArray<Real, 3>& loc)
+{
+
+    const auto coord = geomdata.Coord();
+
+    if (coord == CoordSys::cartesian) {
+        return std::sqrt(loc[0]*loc[0] + loc[1]*loc[1] + loc[2]*loc[2]);
+    }
+
+    if (coord == CoordSys::RZ) {
+        return std::sqrt(loc[0]*loc[0] + loc[1]*loc[1]);
+    }
+
+    return std::abs(loc[0]);
 }
 
 namespace cell_geometry
@@ -258,23 +285,6 @@ Real area(const int& i, const int& j, const int& k,
 
     return a;
 }
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-Real distance(GeometryData const& geomdata, const GpuArray<Real, 3>& loc)
-{
-
-    const auto coord = geomdata.Coord();
-
-    if (coord == CoordSys::cartesian) {
-        return std::sqrt(loc[0]*loc[0] + loc[1]*loc[1] + loc[2]*loc[2]);
-    }
-
-    if (coord == CoordSys::RZ) {
-        return std::sqrt(loc[0]*loc[0] + loc[1]*loc[1]);
-    }
-
-    return std::abs(loc[0]);
 }
 
 #endif

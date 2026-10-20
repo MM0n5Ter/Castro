@@ -1,13 +1,75 @@
+#ifndef PARABOLIC_EDGE_H
+#define PARABOLIC_EDGE_H
+
 #include <cmath>
 
 #include <AMReX_REAL.H>
 #include <stencil_tools.H>
 
-#ifndef PARABOLIC_EDGE_H
-#define PARABOLIC_EDGE_H
-
 using namespace amrex::literals;
 using namespace reconstruction;
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
+                       const Real lam, const Real dtdx,
+                       Real& Ip, Real& Im) {
+
+  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
+
+  Real sigma = std::abs(lam) * dtdx;
+
+  if (lam <= 0.0_rt) {
+    Ip = sp;
+    Im = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+  } else {
+    Ip = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    Im = sm;
+  }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
+                const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
+                amrex::Real* Ip, amrex::Real* Im) {
+
+  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
+
+  Real speed = u - c;
+  Real sigma = std::abs(speed) * dtdx;
+
+  if (speed <= 0.0_rt) {
+    Ip[0] = sp;
+    Im[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+  } else {
+    Ip[0] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    Im[0] = sm;
+  }
+
+  speed = u;
+  sigma = std::abs(speed) * dtdx;
+
+  if (speed <= 0.0_rt) {
+    Ip[1] = sp;
+    Im[1] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+  } else {
+    Ip[1] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    Im[1] = sm;
+  }
+
+  speed = u + c;
+  sigma = std::abs(speed) * dtdx;
+
+  if (speed <= 0.0_rt) {
+    Ip[2] = sp;
+    Im[2] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+  } else {
+    Ip[2] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
+    Im[2] = sm;
+  }
+
+}
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -140,68 +202,6 @@ reconstruct_parabolic_hydrostatic(const amrex::Real* rho, const amrex::Real* p, 
 
     return use_hydrostatic_edges;
 
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-integrate_parabolic_profile(const amrex::Real sm, const amrex::Real sp, const amrex::Real sc,
-                const amrex::Real u, const amrex::Real c, const amrex::Real dtdx,
-                amrex::Real* Ip, amrex::Real* Im) {
-
-  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
-
-  Real speed = u - c;
-  Real sigma = std::abs(speed) * dtdx;
-
-  if (speed <= 0.0_rt) {
-    Ip[0] = sp;
-    Im[0] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[0] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[0] = sm;
-  }
-
-  speed = u;
-  sigma = std::abs(speed) * dtdx;
-
-  if (speed <= 0.0_rt) {
-    Ip[1] = sp;
-    Im[1] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[1] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[1] = sm;
-  }
-
-  speed = u + c;
-  sigma = std::abs(speed) * dtdx;
-
-  if (speed <= 0.0_rt) {
-    Ip[2] = sp;
-    Im[2] = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip[2] = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im[2] = sm;
-  }
-
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-integrate_parabolic_profile_single(const Real sm, const Real sp, const Real sc,
-                       const Real lam, const Real dtdx,
-                       Real& Ip, Real& Im) {
-
-  Real s6 = 6.0_rt * sc - 3.0_rt * (sm + sp);
-
-  Real sigma = std::abs(lam) * dtdx;
-
-  if (lam <= 0.0_rt) {
-    Ip = sp;
-    Im = sm + 0.5_rt * sigma * (sp - sm + (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-  } else {
-    Ip = sp - 0.5_rt * sigma * (sp - sm - (1.0_rt - (2.0_rt/3.0_rt) * sigma) * s6);
-    Im = sm;
-  }
 }
 
 #endif

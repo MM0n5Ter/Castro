@@ -57,122 +57,155 @@ HydroSim::ctoprim(const Box& bx,
 }
 
 void
-HydroSim::shock(const Box& bx,
-              Array4<Real const> const& prim_arr,
-              Array4<Real const> const& U_source_arr,
-              Array4<Real> const& shk) {
+HydroSim::clamp_state_density(const Box& bx,
+                                   Array4<Real> const& state_arr,
+                                   const int warning_level) {
 
-  const auto dx = geom.CellSizeArray();
-  const auto problo = geom.ProbLoArray();
-  const int coord_type = geom.Coord();
+#ifdef HYBRID_MOMENTUM
+  GeometryData geomdata = geom.data();
+#endif
 
-  Real dxinv = 1.0_rt / dx[0];
-#if AMREX_SPACEDIM >= 2
-  Real dyinv = 1.0_rt / dx[1];
-#endif
-#if AMREX_SPACEDIM == 3
-  Real dzinv = 1.0_rt / dx[2];
-#endif
+  amrex::ignore_unused(warning_level);
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
-    Real div_vel = 0.0_rt;
 
-    if (coord_type == 0) {
-
-      div_vel += 0.5_rt * (prim_arr(i+1,j,k,QU) - prim_arr(i-1,j,k,QU)) * dxinv;
-#if (AMREX_SPACEDIM >= 2)
-      div_vel += 0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
-#endif
-#if (AMREX_SPACEDIM == 3)
-      div_vel += 0.5_rt * (prim_arr(i,j,k+1,QW) - prim_arr(i,j,k-1,QW)) * dzinv;
-#endif
-
-#if AMREX_SPACEDIM <= 2
-   } else if (coord_type == 1) {
-
-     Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-     Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
-     Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
-
-#if (AMREX_SPACEDIM == 1)
-     div_vel += 0.5_rt * (rp * prim_arr(i+1,j,k,QU) - rm * prim_arr(i-1,j,k,QU)) / (rc * dx[0]);
-#endif
-#if (AMREX_SPACEDIM == 2)
-     div_vel += 0.5_rt * (rp * prim_arr(i+1,j,k,QU) - rm * prim_arr(i-1,j,k,QU)) / (rc * dx[0]) +
-              0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
-#endif
-#endif
-
-    } else if (coord_type == 2) {
-
-      Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-      Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
-      Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
-
-      div_vel += 0.5_rt * (rp * rp * prim_arr(i+1,j,k,QU) - rm * rm * prim_arr(i-1,j,k,QU)) / (rc * rc * dx[0]);
-#if AMREX_SPACEDIM == 2
-
-      Real polar_center = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1];
-      Real theta_minus = problo[1] + (static_cast<Real>(j) - 0.5_rt) * dx[1];
-      Real theta_plus = problo[1] + (static_cast<Real>(j) + 1.5_rt) * dx[1];
-
-      div_vel += 0.5_rt * (std::sin(theta_plus) * prim_arr(i,j+1,k,QV) -
-                         std::sin(theta_minus) * prim_arr(i,j-1,k,QV)) /
-          (rc * std::sin(polar_center) * dx[1]);
-#endif
+    if (state_arr(i,j,k,URHO) < small_dens) {
 
 #ifndef AMREX_USE_GPU
-
-    } else {
-      amrex::Error("ERROR: invalid coord_type in shock");
-#endif
-    }
-
-    Real pressure_diff_x = 0.5_rt * (prim_arr(i+1,j,k,QPRES) - prim_arr(i-1,j,k,QPRES));
-    if (shock_sensor_subtract_src == 1) {
-        pressure_diff_x += -0.25_rt * dx[0] * (U_source_arr(i+1,j,k,UMX) + 2.0_rt * U_source_arr(i,j,k,UMX) + U_source_arr(i-1,j,k,UMX));
-    }
-    Real pressure_diff_y = 0.0_rt;
-    Real pressure_diff_z = 0.0_rt;
-#if AMREX_SPACEDIM >= 2
-    pressure_diff_y = 0.5_rt * (prim_arr(i,j+1,k,QPRES) - prim_arr(i,j-1,k,QPRES));
-    if (shock_sensor_subtract_src == 1) {
-        Real dy{dx[1]};
-        if (coord_type == 2) {
-            Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-            dy *= rc;
+      if (warning_level > 1 ||
+          (warning_level > 0 && state_arr(i,j,k,URHO) > hydrosim::retry_density_cutoff)) {
+        std::cout << " " << std::endl;
+        if (state_arr(i,j,k,URHO) < 0.0_rt) {
+          std::cout << ">>> RESETTING NEG.  DENSITY AT " << i << ", " << j << ", " << k << std::endl;
         }
-        pressure_diff_y += -0.25_rt * dy * (U_source_arr(i,j+1,k,UMY) + 2.0_rt * U_source_arr(i,j,k,UMY) + U_source_arr(i,j-1,k,UMY));
-    }
+        else if (state_arr(i,j,k,URHO) == 0.0_rt) {
+          amrex::Error("Density exactly zero at " + std::to_string(i) + ", " +
+                                                    std::to_string(j) + ", " +
+                                                    std::to_string(k));
+        }
+        else {
+          std::cout << ">>> RESETTING SMALL DENSITY AT " << i << ", " << j << ", " << k << std::endl;
+        }
+        std::cout << ">>> FROM " << state_arr(i,j,k,URHO) << " TO " << small_dens << std::endl;
+        std::cout << ">>> IN GRID " << bx << std::endl;
+        std::cout << " " << std::endl;
+      }
 #endif
-#if AMREX_SPACEDIM == 3
-    pressure_diff_z = 0.5_rt * (prim_arr(i,j,k+1,QPRES) - prim_arr(i,j,k-1,QPRES));
-    if (shock_sensor_subtract_src == 1) {
-        pressure_diff_z += -0.25_rt * dx[2] * (U_source_arr(i,j,k+1,UMZ) + 2.0_rt * U_source_arr(i,j,k,UMZ) + U_source_arr(i,j,k-1,UMZ));
-    }
+
+      for (int passive_index = 0; passive_index < npassive; passive_index++) {
+          const int n = passive_cons_index(passive_index);
+          state_arr(i,j,k,n) *= (small_dens / state_arr(i,j,k,URHO));
+      }
+
+      eos_re_t eos_state;
+      eos_state.rho = small_dens;
+      eos_state.T = small_temp;
+      for (int n = 0; n < NumSpec; n++) {
+        eos_state.xn[n] = state_arr(i,j,k,UFS+n) / small_dens;
+      }
+#if NAUX_NET > 0
+      for (int n = 0; n < NumAux; n++) {
+        eos_state.aux[n] = state_arr(i,j,k,UFX+n) / small_dens;
+      }
 #endif
 
-    Real vel = std::sqrt(prim_arr(i,j,k,QU) * prim_arr(i,j,k,QU) +
-                         prim_arr(i,j,k,QV) * prim_arr(i,j,k,QV) +
-                         prim_arr(i,j,k,QW) * prim_arr(i,j,k,QW));
+      eos(eos_input_rt, eos_state);
 
-    Real relative_pressure_grad{0.0_rt};
-    if (vel != 0.0) {
-        relative_pressure_grad = std::abs(pressure_diff_x * prim_arr(i,j,k,QU) +
-                                  pressure_diff_y * prim_arr(i,j,k,QV) +
-                                  pressure_diff_z * prim_arr(i,j,k,QW)) / vel;
-    }
-    relative_pressure_grad /= prim_arr(i,j,k,QPRES);
+      state_arr(i,j,k,URHO ) = eos_state.rho;
+      state_arr(i,j,k,UTEMP) = eos_state.T;
 
-    if (relative_pressure_grad > hydrosim::shock_sensor_threshold && div_vel < 0.0_rt) {
-      shk(i,j,k) = 1.0_rt;
-    } else {
-      shk(i,j,k) = 0.0_rt;
+      state_arr(i,j,k,UMX) = 0.0_rt;
+      state_arr(i,j,k,UMY) = 0.0_rt;
+      state_arr(i,j,k,UMZ) = 0.0_rt;
+
+      state_arr(i,j,k,UEINT) = eos_state.rho * eos_state.e;
+      state_arr(i,j,k,UEDEN) = state_arr(i,j,k,UEINT);
+
+#ifdef HYBRID_MOMENTUM
+      GpuArray<Real, 3> loc;
+
+      position(i, j, k, geomdata, loc);
+
+      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        loc[dir] -= problem::center[dir];
+      }
+
+      GpuArray<Real, 3> cartesian_vector;
+
+      for (int dir = 0; dir < 3; ++dir) {
+        cartesian_vector[dir] = state_arr(i,j,k,UMX+dir);
+      }
+
+      GpuArray<Real, 3> hybrid_vector;
+
+      cartesian_to_hybrid(loc, cartesian_vector, hybrid_vector);
+
+      for (int dir = 0; dir < 3; ++dir) {
+        state_arr(i,j,k,UMR+dir) = hybrid_vector[dir];
+      }
+#endif
     }
   });
+}
 
+void
+HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
+                               Array4<Real> const& qm,
+                               Array4<Real> const& qp) {
+
+    const int* lo_bc = phys_bc.lo();
+    const int* hi_bc = phys_bc.hi();
+
+    const auto domlo = geom.Domain().loVect3d();
+    const auto domhi = geom.Domain().hiVect3d();
+
+    bool at_lo_symmetry = lo_bc[idir] == amrex::PhysBCType::symmetry;
+    bool at_hi_symmetry = hi_bc[idir] == amrex::PhysBCType::symmetry;
+
+    const int QUN = QU + idir;
+
+    if (at_lo_symmetry) {
+
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+
+            if ((idir == 0 && i == domlo[0]) ||
+                (idir == 1 && j == domlo[1]) ||
+                (idir == 2 && k == domlo[2])) {
+                for (int n = 0; n < NQ; n++) {
+                    if (n == QUN) {
+                        qm(i,j,k,QUN) = -qp(i,j,k,QUN);
+                    } else {
+                        qm(i,j,k,n) = qp(i,j,k,n);
+                    }
+                }
+            }
+        });
+    }
+
+    if (at_hi_symmetry) {
+
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+
+            if ((idir == 0 && i == domhi[0]+1) ||
+                (idir == 1 && j == domhi[1]+1) ||
+                (idir == 2 && k == domhi[2]+1)) {
+                for (int n = 0; n < NQ; n++) {
+                    if (n == QUN) {
+                        qp(i,j,k,QUN) = -qm(i,j,k,QUN);
+                    } else {
+                        qp(i,j,k,n) = qm(i,j,k,n);
+                    }
+                }
+            }
+        });
+
+    }
 }
 
 void
@@ -424,153 +457,120 @@ HydroSim::apply_viscosity_radiative(const Box& bx,
 #endif
 
 void
-HydroSim::clamp_state_density(const Box& bx,
-                                   Array4<Real> const& state_arr,
-                                   const int warning_level) {
+HydroSim::shock(const Box& bx,
+              Array4<Real const> const& prim_arr,
+              Array4<Real const> const& U_source_arr,
+              Array4<Real> const& shk) {
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
+  const auto dx = geom.CellSizeArray();
+  const auto problo = geom.ProbLoArray();
+  const int coord_type = geom.Coord();
+
+  Real dxinv = 1.0_rt / dx[0];
+#if AMREX_SPACEDIM >= 2
+  Real dyinv = 1.0_rt / dx[1];
 #endif
-
-  amrex::ignore_unused(warning_level);
+#if AMREX_SPACEDIM == 3
+  Real dzinv = 1.0_rt / dx[2];
+#endif
 
   amrex::ParallelFor(bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
+    Real div_vel = 0.0_rt;
 
-    if (state_arr(i,j,k,URHO) < small_dens) {
+    if (coord_type == 0) {
+
+      div_vel += 0.5_rt * (prim_arr(i+1,j,k,QU) - prim_arr(i-1,j,k,QU)) * dxinv;
+#if (AMREX_SPACEDIM >= 2)
+      div_vel += 0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
+#endif
+#if (AMREX_SPACEDIM == 3)
+      div_vel += 0.5_rt * (prim_arr(i,j,k+1,QW) - prim_arr(i,j,k-1,QW)) * dzinv;
+#endif
+
+#if AMREX_SPACEDIM <= 2
+   } else if (coord_type == 1) {
+
+     Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
+     Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
+     Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
+
+#if (AMREX_SPACEDIM == 1)
+     div_vel += 0.5_rt * (rp * prim_arr(i+1,j,k,QU) - rm * prim_arr(i-1,j,k,QU)) / (rc * dx[0]);
+#endif
+#if (AMREX_SPACEDIM == 2)
+     div_vel += 0.5_rt * (rp * prim_arr(i+1,j,k,QU) - rm * prim_arr(i-1,j,k,QU)) / (rc * dx[0]) +
+              0.5_rt * (prim_arr(i,j+1,k,QV) - prim_arr(i,j-1,k,QV)) * dyinv;
+#endif
+#endif
+
+    } else if (coord_type == 2) {
+
+      Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
+      Real rm = problo[0] + (static_cast<Real>(i) - 0.5_rt) * dx[0];
+      Real rp = problo[0] + (static_cast<Real>(i) + 1.5_rt) * dx[0];
+
+      div_vel += 0.5_rt * (rp * rp * prim_arr(i+1,j,k,QU) - rm * rm * prim_arr(i-1,j,k,QU)) / (rc * rc * dx[0]);
+#if AMREX_SPACEDIM == 2
+
+      Real polar_center = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1];
+      Real theta_minus = problo[1] + (static_cast<Real>(j) - 0.5_rt) * dx[1];
+      Real theta_plus = problo[1] + (static_cast<Real>(j) + 1.5_rt) * dx[1];
+
+      div_vel += 0.5_rt * (std::sin(theta_plus) * prim_arr(i,j+1,k,QV) -
+                         std::sin(theta_minus) * prim_arr(i,j-1,k,QV)) /
+          (rc * std::sin(polar_center) * dx[1]);
+#endif
 
 #ifndef AMREX_USE_GPU
-      if (warning_level > 1 ||
-          (warning_level > 0 && state_arr(i,j,k,URHO) > hydrosim::retry_density_cutoff)) {
-        std::cout << " " << std::endl;
-        if (state_arr(i,j,k,URHO) < 0.0_rt) {
-          std::cout << ">>> RESETTING NEG.  DENSITY AT " << i << ", " << j << ", " << k << std::endl;
+
+    } else {
+      amrex::Error("ERROR: invalid coord_type in shock");
+#endif
+    }
+
+    Real pressure_diff_x = 0.5_rt * (prim_arr(i+1,j,k,QPRES) - prim_arr(i-1,j,k,QPRES));
+    if (shock_sensor_subtract_src == 1) {
+        pressure_diff_x += -0.25_rt * dx[0] * (U_source_arr(i+1,j,k,UMX) + 2.0_rt * U_source_arr(i,j,k,UMX) + U_source_arr(i-1,j,k,UMX));
+    }
+    Real pressure_diff_y = 0.0_rt;
+    Real pressure_diff_z = 0.0_rt;
+#if AMREX_SPACEDIM >= 2
+    pressure_diff_y = 0.5_rt * (prim_arr(i,j+1,k,QPRES) - prim_arr(i,j-1,k,QPRES));
+    if (shock_sensor_subtract_src == 1) {
+        Real dy{dx[1]};
+        if (coord_type == 2) {
+            Real rc = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
+            dy *= rc;
         }
-        else if (state_arr(i,j,k,URHO) == 0.0_rt) {
-          amrex::Error("Density exactly zero at " + std::to_string(i) + ", " +
-                                                    std::to_string(j) + ", " +
-                                                    std::to_string(k));
-        }
-        else {
-          std::cout << ">>> RESETTING SMALL DENSITY AT " << i << ", " << j << ", " << k << std::endl;
-        }
-        std::cout << ">>> FROM " << state_arr(i,j,k,URHO) << " TO " << small_dens << std::endl;
-        std::cout << ">>> IN GRID " << bx << std::endl;
-        std::cout << " " << std::endl;
-      }
+        pressure_diff_y += -0.25_rt * dy * (U_source_arr(i,j+1,k,UMY) + 2.0_rt * U_source_arr(i,j,k,UMY) + U_source_arr(i,j-1,k,UMY));
+    }
+#endif
+#if AMREX_SPACEDIM == 3
+    pressure_diff_z = 0.5_rt * (prim_arr(i,j,k+1,QPRES) - prim_arr(i,j,k-1,QPRES));
+    if (shock_sensor_subtract_src == 1) {
+        pressure_diff_z += -0.25_rt * dx[2] * (U_source_arr(i,j,k+1,UMZ) + 2.0_rt * U_source_arr(i,j,k,UMZ) + U_source_arr(i,j,k-1,UMZ));
+    }
 #endif
 
-      for (int passive_index = 0; passive_index < npassive; passive_index++) {
-          const int n = passive_cons_index(passive_index);
-          state_arr(i,j,k,n) *= (small_dens / state_arr(i,j,k,URHO));
-      }
+    Real vel = std::sqrt(prim_arr(i,j,k,QU) * prim_arr(i,j,k,QU) +
+                         prim_arr(i,j,k,QV) * prim_arr(i,j,k,QV) +
+                         prim_arr(i,j,k,QW) * prim_arr(i,j,k,QW));
 
-      eos_re_t eos_state;
-      eos_state.rho = small_dens;
-      eos_state.T = small_temp;
-      for (int n = 0; n < NumSpec; n++) {
-        eos_state.xn[n] = state_arr(i,j,k,UFS+n) / small_dens;
-      }
-#if NAUX_NET > 0
-      for (int n = 0; n < NumAux; n++) {
-        eos_state.aux[n] = state_arr(i,j,k,UFX+n) / small_dens;
-      }
-#endif
+    Real relative_pressure_grad{0.0_rt};
+    if (vel != 0.0) {
+        relative_pressure_grad = std::abs(pressure_diff_x * prim_arr(i,j,k,QU) +
+                                  pressure_diff_y * prim_arr(i,j,k,QV) +
+                                  pressure_diff_z * prim_arr(i,j,k,QW)) / vel;
+    }
+    relative_pressure_grad /= prim_arr(i,j,k,QPRES);
 
-      eos(eos_input_rt, eos_state);
-
-      state_arr(i,j,k,URHO ) = eos_state.rho;
-      state_arr(i,j,k,UTEMP) = eos_state.T;
-
-      state_arr(i,j,k,UMX) = 0.0_rt;
-      state_arr(i,j,k,UMY) = 0.0_rt;
-      state_arr(i,j,k,UMZ) = 0.0_rt;
-
-      state_arr(i,j,k,UEINT) = eos_state.rho * eos_state.e;
-      state_arr(i,j,k,UEDEN) = state_arr(i,j,k,UEINT);
-
-#ifdef HYBRID_MOMENTUM
-      GpuArray<Real, 3> loc;
-
-      position(i, j, k, geomdata, loc);
-
-      for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-        loc[dir] -= problem::center[dir];
-      }
-
-      GpuArray<Real, 3> cartesian_vector;
-
-      for (int dir = 0; dir < 3; ++dir) {
-        cartesian_vector[dir] = state_arr(i,j,k,UMX+dir);
-      }
-
-      GpuArray<Real, 3> hybrid_vector;
-
-      cartesian_to_hybrid(loc, cartesian_vector, hybrid_vector);
-
-      for (int dir = 0; dir < 3; ++dir) {
-        state_arr(i,j,k,UMR+dir) = hybrid_vector[dir];
-      }
-#endif
+    if (relative_pressure_grad > hydrosim::shock_sensor_threshold && div_vel < 0.0_rt) {
+      shk(i,j,k) = 1.0_rt;
+    } else {
+      shk(i,j,k) = 0.0_rt;
     }
   });
-}
 
-void
-HydroSim::set_reflecting_boundary_states(const Box& bx, const int idir,
-                               Array4<Real> const& qm,
-                               Array4<Real> const& qp) {
-
-    const int* lo_bc = phys_bc.lo();
-    const int* hi_bc = phys_bc.hi();
-
-    const auto domlo = geom.Domain().loVect3d();
-    const auto domhi = geom.Domain().hiVect3d();
-
-    bool at_lo_symmetry = lo_bc[idir] == amrex::PhysBCType::symmetry;
-    bool at_hi_symmetry = hi_bc[idir] == amrex::PhysBCType::symmetry;
-
-    const int QUN = QU + idir;
-
-    if (at_lo_symmetry) {
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-
-            if ((idir == 0 && i == domlo[0]) ||
-                (idir == 1 && j == domlo[1]) ||
-                (idir == 2 && k == domlo[2])) {
-                for (int n = 0; n < NQ; n++) {
-                    if (n == QUN) {
-                        qm(i,j,k,QUN) = -qp(i,j,k,QUN);
-                    } else {
-                        qm(i,j,k,n) = qp(i,j,k,n);
-                    }
-                }
-            }
-        });
-    }
-
-    if (at_hi_symmetry) {
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-
-            if ((idir == 0 && i == domhi[0]+1) ||
-                (idir == 1 && j == domhi[1]+1) ||
-                (idir == 2 && k == domhi[2]+1)) {
-                for (int n = 0; n < NQ; n++) {
-                    if (n == QUN) {
-                        qp(i,j,k,QUN) = -qm(i,j,k,QUN);
-                    } else {
-                        qp(i,j,k,n) = qm(i,j,k,n);
-                    }
-                }
-            }
-        });
-
-    }
 }

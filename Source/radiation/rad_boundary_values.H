@@ -17,12 +17,12 @@ public:
   virtual void setBoundaryFluxConditions(const amrex::BCRec& bc,
                        const BoundaryMode bc_value_mode = Nonzero_BC) = 0;
 
-  const amrex::Vector< std::unique_ptr<amrex::BaseFab<int> > >& boundaryTypes(const amrex::Orientation& _face) const {
-    return bc_type_fabs[_face];
-  }
-
   virtual int isMixedFace(const amrex::Orientation&  ) const {
     return 0;
+  }
+
+  const amrex::Vector< std::unique_ptr<amrex::BaseFab<int> > >& boundaryTypes(const amrex::Orientation& _face) const {
+    return bc_type_fabs[_face];
   }
 
 protected:
@@ -80,13 +80,6 @@ protected:
 
 inline
 void
-RadiativeBoundary::setTime(amrex::Real Time)
-{
-  time = Time;
-}
-
-inline
-void
 RadiativeBoundary::enterCorrection()
 {
   correction = 1;
@@ -97,6 +90,13 @@ void
 RadiativeBoundary::leaveCorrection()
 {
   correction = 0;
+}
+
+inline
+void
+RadiativeBoundary::setTime(amrex::Real Time)
+{
+  time = Time;
 }
 
 class RadiativeBoundaryBuilder : public BaseBoundaryBuilder
@@ -126,21 +126,21 @@ public:
   void setBoundaryFluxConditions(const amrex::BCRec& bc,
                          const BoundaryMode bc_value_mode = Nonzero_BC) override;
 
-   int isMixedFace(const amrex::Orientation& _face) const override {
-       return (bc_kind[_face] > 1) ? 1 : 0;
-  }
-
-  void setHomogValues(const amrex::BCRec& bc, amrex::IntVect& ratio);
-
   static void setTime(amrex::Real Time) {
     time = Time;
   }
 
+  void setHomogValues(const amrex::BCRec& bc, amrex::IntVect& ratio);
+
   static void enterCorrection() {
     correction = 1;
   }
+
   static void leaveCorrection() {
     correction = 0;
+  }
+   int isMixedFace(const amrex::Orientation& _face) const override {
+       return (bc_kind[_face] > 1) ? 1 : 0;
   }
 
 protected:

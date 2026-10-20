@@ -13,6 +13,79 @@ using namespace amrex;
 extern "C"
 {
 #endif
+  void derive_mass_fraction(const Box& bx, FArrayBox& derfab, int  , int  ,
+                  const FArrayBox& datfab, const Geometry&  ,
+                  Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+             der(i,j,k,0) = dat(i,j,k,1) / dat(i,j,k,0);
+      });
+    }
+
+  void derive_elec_frac(const Box& bx, FArrayBox& derfab, int  , int  ,
+                const FArrayBox& datfab, const Geometry&  ,
+                Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+        Real sum = 0.0_rt;
+        Real xn;
+        for (int n = 0; n < NumSpec; n++) {
+          xn = dat(i,j,k,1+n) / dat(i,j,k,0);
+          sum += xn * zion[n] / aion[n];
+        }
+        der(i,j,k,0) = sum;
+      });
+    }
+
+  void derive_atomic_mass(const Box& bx, FArrayBox& derfab, int  , int  ,
+                  const FArrayBox& datfab, const Geometry&  ,
+                  Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+        Real sum = 0.0_rt;
+        Real xn;
+        for (int n = 0; n < NumSpec; n++) {
+          xn = dat(i,j,k,1+n)/dat(i,j,k,0);
+          sum += xn/aion[n];
+        }
+        der(i,j,k,0) = 1.0_rt / sum;
+      });
+    }
+
+    void derive_log_density(const Box& bx, FArrayBox& derfab, int  , int  ,
+                      const FArrayBox& datfab, const Geometry&  ,
+                      Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+        der(i,j,k,0) = std::log10(dat(i,j,k,0));
+      });
+    }
 
     void derive_pressure(const Box& bx, FArrayBox& derfab, int  , int  ,
                     const FArrayBox& datfab, const Geometry&  ,
@@ -85,56 +158,25 @@ extern "C"
       });
     }
 
-    void derive_log_density(const Box& bx, FArrayBox& derfab, int  , int  ,
-                      const FArrayBox& datfab, const Geometry&  ,
-                      Real  , const int*  , int  )
-    {
+  void derive_kinetic_energy (const Box& bx, FArrayBox& derfab, int  , int  ,
+                     const FArrayBox& datfab, const Geometry&  ,
+                     Real  , const int*  , int  )
+  {
 
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
+    auto const dat = datfab.array();
+    auto const kineng = derfab.array();
 
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-        der(i,j,k,0) = std::log10(dat(i,j,k,0));
-      });
-    }
+    amrex::ParallelFor(bx,
+                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                       {
+                         kineng(i,j,k,0) = 0.5_rt / dat(i,j,k,0) * ( dat(i,j,k,1)*dat(i,j,k,1) +
+                                                                     dat(i,j,k,2)*dat(i,j,k,2) +
+                                                                     dat(i,j,k,3)*dat(i,j,k,3) );
+                       });
 
-    void derive_u_plus_c(const Box& bx, FArrayBox& derfab, int  , int  ,
-                      const FArrayBox& datfab, const Geometry&  ,
-                      Real  , const int*  , int  )
-    {
+  }
 
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
-        eos_rep_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
-
-        der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) + eos_state.cs;
-
-      });
-    }
-
-    void derive_u_minus_c(const Box& bx, FArrayBox& derfab, int  , int  ,
+    void derive_entropy(const Box& bx, FArrayBox& derfab, int  , int  ,
                        const FArrayBox& datfab, const Geometry&  ,
                        Real  , const int*  , int  )
     {
@@ -148,7 +190,7 @@ extern "C"
 
         Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
 
-        eos_rep_t eos_state;
+        eos_t eos_state;
         eos_state.rho  = dat(i,j,k,URHO);
         eos_state.T = dat(i,j,k,UTEMP);
         eos_state.e = dat(i,j,k,UEINT) * rhoInv;
@@ -163,8 +205,7 @@ extern "C"
 
         eos(eos_input_re, eos_state);
 
-        der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) - eos_state.cs;
-
+        der(i,j,k,0) = eos_state.s;
       });
     }
 
@@ -236,6 +277,74 @@ extern "C"
       });
     }
 
+    void derive_u_plus_c(const Box& bx, FArrayBox& derfab, int  , int  ,
+                      const FArrayBox& datfab, const Geometry&  ,
+                      Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
+
+        eos_rep_t eos_state;
+        eos_state.rho  = dat(i,j,k,URHO);
+        eos_state.T = dat(i,j,k,UTEMP);
+        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
+        for (int n = 0; n < NumSpec; n++) {
+          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+        }
+#if NAUX_NET > 0
+        for (int n = 0; n < NumAux; n++) {
+          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+        }
+#endif
+
+        eos(eos_input_re, eos_state);
+
+        der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) + eos_state.cs;
+
+      });
+    }
+
+    void derive_u_minus_c(const Box& bx, FArrayBox& derfab, int  , int  ,
+                       const FArrayBox& datfab, const Geometry&  ,
+                       Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
+
+        eos_rep_t eos_state;
+        eos_state.rho  = dat(i,j,k,URHO);
+        eos_state.T = dat(i,j,k,UTEMP);
+        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
+        for (int n = 0; n < NumSpec; n++) {
+          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+        }
+#if NAUX_NET > 0
+        for (int n = 0; n < NumAux; n++) {
+          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+        }
+#endif
+
+        eos(eos_input_re, eos_state);
+
+        der(i,j,k,0) = dat(i,j,k,UMX) / dat(i,j,k,URHO) - eos_state.cs;
+
+      });
+    }
+
     void derive_mach_ratio(const Box& bx, FArrayBox& derfab, int  , int  ,
                           const FArrayBox& datfab, const Geometry&  ,
                           Real  , const int*  , int  )
@@ -273,38 +382,81 @@ extern "C"
       });
     }
 
-    void derive_entropy(const Box& bx, FArrayBox& derfab, int  , int  ,
-                       const FArrayBox& datfab, const Geometry&  ,
-                       Real  , const int*  , int  )
+#ifdef REACTIONS
+    void derive_energy_generation(const Box& bx, FArrayBox& derfab, int  , int  ,
+                    const FArrayBox& datfab, const Geometry&  ,
+                    Real  , const int*  , int  )
     {
-
       auto const dat = datfab.array();
       auto const der = derfab.array();
 
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
       {
+          Real enuc = dat(i,j,k,1) / dat(i,j,k,0);
 
-        Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
-        eos_t eos_state;
-        eos_state.rho  = dat(i,j,k,URHO);
-        eos_state.T = dat(i,j,k,UTEMP);
-        eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-        for (int n = 0; n < NumSpec; n++) {
-          eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-        }
-#if NAUX_NET > 0
-        for (int n = 0; n < NumAux; n++) {
-          eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-        }
-#endif
-
-        eos(eos_input_re, eos_state);
-
-        der(i,j,k,0) = eos_state.s;
+          der(i,j,k,0) = enuc;
       });
     }
+
+    void derive_timescale_ratio(const Box& bx, FArrayBox& derfab, int  , int  ,
+                             const FArrayBox& datfab, const Geometry& geom,
+                             Real  , const int*  , int  )
+    {
+
+      auto const dat = datfab.array();
+      auto const der = derfab.array();
+
+      auto dx = geom.CellSizeArray();
+
+      Real dd = 0.0_rt;
+#if AMREX_SPACEDIM == 1
+      dd = dx[0];
+#elif AMREX_SPACEDIM == 2
+      dd = amrex::min(dx[0], dx[1]);
+#else
+      dd = amrex::min(dx[0], dx[1], dx[2]);
+#endif
+
+      int energy_gen_index = datfab.nComp()-1;
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+        Real enuc = std::abs(dat(i,j,k,energy_gen_index)) / dat(i,j,k,URHO);
+
+        if (enuc > 1.e-100_rt) {
+
+          Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
+
+          eos_rep_t eos_state;
+          eos_state.rho  = dat(i,j,k,URHO);
+          eos_state.T = dat(i,j,k,UTEMP);
+          eos_state.e = dat(i,j,k,UEINT) * rhoInv;
+          for (int n = 0; n < NumSpec; n++) {
+            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
+          }
+#if NAUX_NET > 0
+          for (int n = 0; n < NumAux; n++) {
+            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
+          }
+#endif
+
+          eos(eos_input_re, eos_state);
+
+          Real t_e = eos_state.e / enuc;
+          Real t_s = dd / eos_state.cs;
+
+          der(i,j,k,0) = t_s/t_e;
+
+        } else {
+          der(i,j,k,0) = 0.0_rt;
+        }
+
+      });
+    }
+#endif
 
 #ifdef DIFFUSION
     void derive_conductivity(const Box& bx, FArrayBox& derfab, int  , int  ,
@@ -414,170 +566,6 @@ extern "C"
     }
 #endif
 
-#ifdef REACTIONS
-    void derive_timescale_ratio(const Box& bx, FArrayBox& derfab, int  , int  ,
-                             const FArrayBox& datfab, const Geometry& geom,
-                             Real  , const int*  , int  )
-    {
-
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      auto dx = geom.CellSizeArray();
-
-      Real dd = 0.0_rt;
-#if AMREX_SPACEDIM == 1
-      dd = dx[0];
-#elif AMREX_SPACEDIM == 2
-      dd = amrex::min(dx[0], dx[1]);
-#else
-      dd = amrex::min(dx[0], dx[1], dx[2]);
-#endif
-
-      int energy_gen_index = datfab.nComp()-1;
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-        Real enuc = std::abs(dat(i,j,k,energy_gen_index)) / dat(i,j,k,URHO);
-
-        if (enuc > 1.e-100_rt) {
-
-          Real rhoInv = 1.0_rt / dat(i,j,k,URHO);
-
-          eos_rep_t eos_state;
-          eos_state.rho  = dat(i,j,k,URHO);
-          eos_state.T = dat(i,j,k,UTEMP);
-          eos_state.e = dat(i,j,k,UEINT) * rhoInv;
-          for (int n = 0; n < NumSpec; n++) {
-            eos_state.xn[n] = dat(i,j,k,UFS+n) * rhoInv;
-          }
-#if NAUX_NET > 0
-          for (int n = 0; n < NumAux; n++) {
-            eos_state.aux[n] = dat(i,j,k,UFX+n) * rhoInv;
-          }
-#endif
-
-          eos(eos_input_re, eos_state);
-
-          Real t_e = eos_state.e / enuc;
-          Real t_s = dd / eos_state.cs;
-
-          der(i,j,k,0) = t_s/t_e;
-
-        } else {
-          der(i,j,k,0) = 0.0_rt;
-        }
-
-      });
-    }
-
-    void derive_energy_generation(const Box& bx, FArrayBox& derfab, int  , int  ,
-                    const FArrayBox& datfab, const Geometry&  ,
-                    Real  , const int*  , int  )
-    {
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-          Real enuc = dat(i,j,k,1) / dat(i,j,k,0);
-
-          der(i,j,k,0) = enuc;
-      });
-    }
-#endif
-
-  void derive_kinetic_energy (const Box& bx, FArrayBox& derfab, int  , int  ,
-                     const FArrayBox& datfab, const Geometry&  ,
-                     Real  , const int*  , int  )
-  {
-
-    auto const dat = datfab.array();
-    auto const kineng = derfab.array();
-
-    amrex::ParallelFor(bx,
-                       [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                       {
-                         kineng(i,j,k,0) = 0.5_rt / dat(i,j,k,0) * ( dat(i,j,k,1)*dat(i,j,k,1) +
-                                                                     dat(i,j,k,2)*dat(i,j,k,2) +
-                                                                     dat(i,j,k,3)*dat(i,j,k,3) );
-                       });
-
-  }
-
-  void derive_noop(Real*  , const int*  , const int*  , const int*  ,
-                  const Real*  , const int*  , const int*  , const int*  ,
-                  const int*  , const int*  ,
-                  const int*  , const int*  ,
-                  const Real*  , const Real*  ,
-                  const Real*  , const Real*  , const int*  ,
-                  const int*  , const int*  )
-  {
-
-  }
-
-  void derive_mass_fraction(const Box& bx, FArrayBox& derfab, int  , int  ,
-                  const FArrayBox& datfab, const Geometry&  ,
-                  Real  , const int*  , int  )
-    {
-
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-             der(i,j,k,0) = dat(i,j,k,1) / dat(i,j,k,0);
-      });
-    }
-
-  void derive_elec_frac(const Box& bx, FArrayBox& derfab, int  , int  ,
-                const FArrayBox& datfab, const Geometry&  ,
-                Real  , const int*  , int  )
-    {
-
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-        Real sum = 0.0_rt;
-        Real xn;
-        for (int n = 0; n < NumSpec; n++) {
-          xn = dat(i,j,k,1+n) / dat(i,j,k,0);
-          sum += xn * zion[n] / aion[n];
-        }
-        der(i,j,k,0) = sum;
-      });
-    }
-
-  void derive_atomic_mass(const Box& bx, FArrayBox& derfab, int  , int  ,
-                  const FArrayBox& datfab, const Geometry&  ,
-                  Real  , const int*  , int  )
-    {
-
-      auto const dat = datfab.array();
-      auto const der = derfab.array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-        Real sum = 0.0_rt;
-        Real xn;
-        for (int n = 0; n < NumSpec; n++) {
-          xn = dat(i,j,k,1+n)/dat(i,j,k,0);
-          sum += xn/aion[n];
-        }
-        der(i,j,k,0) = 1.0_rt / sum;
-      });
-    }
-
   void derive_state_error(const Box& bx, FArrayBox& derfab, int  , int  ,
                    const FArrayBox& datfab, const Geometry&  ,
                    Real  , const int*  , int  )
@@ -600,6 +588,16 @@ extern "C"
 
   }
 
+  void derive_noop(Real*  , const int*  , const int*  , const int*  ,
+                  const Real*  , const int*  , const int*  , const int*  ,
+                  const int*  , const int*  ,
+                  const int*  , const int*  ,
+                  const Real*  , const Real*  ,
+                  const Real*  , const Real*  , const int*  ,
+                  const int*  , const int*  )
+  {
+
+  }
 #ifdef __cplusplus
 }
 #endif

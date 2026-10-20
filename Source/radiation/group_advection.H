@@ -1,37 +1,29 @@
 #ifndef RADIATIVE_HYDRO_H
 #define RADIATIVE_HYDRO_H
 
-
-constexpr int rk_order = 3;
-constexpr bool use_nonlinear_recon = false;
-
-constexpr Real freq_courant_number = 0.5_rt;
-
 constexpr Real onethird = 1.0_rt/3.0_rt;
 constexpr Real twothirds = 2.0_rt/3.0_rt;
 constexpr Real onesixth = 1.0_rt/6.0_rt;
-
+constexpr int rk_order = 3;
+constexpr bool use_nonlinear_recon = false;
+constexpr Real freq_courant_number = 0.5_rt;
 constexpr Real B1 = 0.5_rt;
 constexpr Real B2 = 1.0_rt/16.0_rt;
 constexpr Real B3 = 0.5_rt;
 constexpr Real B4 = 9.0_rt/16.0_rt;
 constexpr Real B5 = 8.0_rt/7.0_rt;
 constexpr Real B6 = 7.0_rt/90.0_rt;
-
 constexpr Real C20 = 5.0_rt/8.0_rt;
 constexpr Real C21 = 3.0_rt/8.0_rt;
-
 constexpr Real C40 = 17.0_rt/8.0_rt;
 constexpr Real C41 = 9.0_rt/8.0_rt;
 constexpr Real C42 = -3.0_rt;
 constexpr Real C43 = 0.75_rt;
-
 constexpr Real C50 = -5.0_rt/21.0_rt;
 constexpr Real C51 = 2.0_rt/7.0_rt;
 constexpr Real C52 = 0.0_rt;
 constexpr Real C53 = 4.0_rt;
 constexpr Real C54 = -64.0_rt/21.0_rt;
-
 constexpr Real C60 = -8.0_rt/27.0_rt;
 constexpr Real C61 = -1.0_rt/5.0_rt;
 constexpr Real C62 = 32.0_rt/45.0_rt;
@@ -39,13 +31,11 @@ constexpr Real C63 = -32.0_rt/45.0_rt;
 constexpr Real C64 = 32.0_rt/27.0_rt;
 constexpr Real C65 = 14.0_rt/45.0_rt;
 
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
 MC(const Real r) {
   return amrex::max(0.0_rt, amrex::min(2.0_rt * r, 0.5_rt * (1.0_rt + r), 2.0_rt));
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 Real
@@ -90,7 +80,6 @@ nonlinear_recon5(const Real vm2, const Real vm1, const Real v, const Real vp1, c
 
   return b2 * (w0 * q30 + w1 * q31 + w2 * q32);
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -178,7 +167,6 @@ dudt(Real* u, Real* a, const Real* dx, const int n, Real* rhs_buffer) {
     rhs_buffer[i] = (f(i) - f(i+1)) / dx[i];
   }
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void

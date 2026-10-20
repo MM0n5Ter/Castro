@@ -30,17 +30,18 @@ class AlphaBetaSolver {
   AlphaBetaSolver& operator= (const AlphaBetaSolver& a) = delete;
   AlphaBetaSolver& operator= (const AlphaBetaSolver&& a) = delete;
 
-  void setVerbose(int v) {
-    verbose = v;
+  const amrex::MultiFab& setMassCoefficients() {
+    return *acoefs;
   }
 
   void setScalars(amrex::Real alpha, amrex::Real beta);
 
-  [[nodiscard]] amrex::Real getAlphaScalar() const {
-    return alpha;
+  const amrex::MultiFab& setFaceCoefficients(int dir) {
+    return *bcoefs[dir];
   }
-  [[nodiscard]] amrex::Real getBetaScalar() const {
-    return beta;
+  void setBndry(const BaseBoundary& bd, int _comp = 0) {
+    bdp = &bd;
+    bc_component = _comp;
   }
 
   void setMassCoefficients(const amrex::MultiFab &a);
@@ -49,17 +50,16 @@ class AlphaBetaSolver {
 
   void setBcAlphaCoef(const amrex::MultiFab &Spa);
 
-  const amrex::MultiFab& setMassCoefficients() {
-    return *acoefs;
+  void setVerbose(int v) {
+    verbose = v;
   }
 
-  const amrex::MultiFab& setFaceCoefficients(int dir) {
-    return *bcoefs[dir];
+  [[nodiscard]] amrex::Real getAlphaScalar() const {
+    return alpha;
   }
 
-  void setBndry(const BaseBoundary& bd, int _comp = 0) {
-    bdp = &bd;
-    bc_component = _comp;
+  [[nodiscard]] amrex::Real getBetaScalar() const {
+    return beta;
   }
   const BaseBoundary& getBoundaryData() {
     return *bdp;
@@ -188,9 +188,8 @@ class MultiLevelEllipticSolver {
     return fine_level;
   }
 
-  void setBndry(int level, BaseBoundary& _bd, int _comp = 0) {
-      bd[level] = &_bd;
-      bc_component = _comp;
+  const amrex::MultiFab& setMassCoefficients(int level) {
+    return *acoefs[level];
   }
 
   BaseBoundary& levelBoundaries(int level) {
@@ -208,19 +207,20 @@ class MultiLevelEllipticSolver {
     AlphaBetaSolver::faceGeometryFactors(r, reg, ori, geom);
   }
 
-  void setVerbose(int v) {
-    verbose = v;
+  const amrex::MultiFab& setFaceCoefficients(int level, int dir) {
+      return (*bcoefs[level])[dir];
   }
 
   void makeMatrixLayout();
 
   void setScalars(amrex::Real alpha, amrex::Real beta);
 
-  [[nodiscard]] amrex::Real getAlphaScalar() const {
-    return alpha;
+  void setBndry(int level, BaseBoundary& _bd, int _comp = 0) {
+      bd[level] = &_bd;
+      bc_component = _comp;
   }
-  [[nodiscard]] amrex::Real getBetaScalar() const {
-    return beta;
+  void setVerbose(int v) {
+    verbose = v;
   }
 
   void setMassCoefficients(int level, const amrex::MultiFab &a);
@@ -229,12 +229,12 @@ class MultiLevelEllipticSolver {
 
   void setBcAlphaCoef(int level, const amrex::MultiFab &Spa);
 
-  const amrex::MultiFab& setMassCoefficients(int level) {
-    return *acoefs[level];
+  [[nodiscard]] amrex::Real getAlphaScalar() const {
+    return alpha;
   }
 
-  const amrex::MultiFab& setFaceCoefficients(int level, int dir) {
-      return (*bcoefs[level])[dir];
+  [[nodiscard]] amrex::Real getBetaScalar() const {
+    return beta;
   }
 
   void hmac (const amrex::Box& bx,

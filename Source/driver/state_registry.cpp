@@ -81,6 +81,50 @@ using std::string;
 using namespace amrex;
 
 void
+HydroSim::variableCleanUp ()
+{
+#ifdef GRAVITY
+  if (gravity != nullptr) {
+    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "Deleting gravity in variableCleanUp..." << '\n';
+    }
+    gravity.reset();
+  }
+#endif
+
+#ifdef DIFFUSION
+  if (diffusion != nullptr) {
+    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "Deleting diffusion in variableCleanUp..." << '\n';
+    }
+    diffusion.reset();
+  }
+#endif
+
+#ifdef RADIATION
+  if (radiation != nullptr) {
+      int report = (verbose || radiation->verbose);
+      if (report && ParallelDescriptor::IOProcessor()) {
+          std::cout << "Deleting radiation in variableCleanUp..." << '\n';
+      }
+      radiation.reset();
+      if (report && ParallelDescriptor::IOProcessor()) {
+          std::cout << "                                        done" << std::endl;
+      }
+  }
+#endif
+
+#ifdef AMREX_PARTICLES
+  TracerPC.reset();
+#endif
+
+    desc_lst.clear();
+
+    eos_finalize();
+
+}
+
+void
 HydroSim::variableSetUp ()
 {
 
@@ -863,49 +907,5 @@ HydroSim::variableSetUp ()
     amrex::Error("invalid value of sdc_quadrature");
   }
 #endif
-
-}
-
-void
-HydroSim::variableCleanUp ()
-{
-#ifdef GRAVITY
-  if (gravity != nullptr) {
-    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
-      std::cout << "Deleting gravity in variableCleanUp..." << '\n';
-    }
-    gravity.reset();
-  }
-#endif
-
-#ifdef DIFFUSION
-  if (diffusion != nullptr) {
-    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
-      std::cout << "Deleting diffusion in variableCleanUp..." << '\n';
-    }
-    diffusion.reset();
-  }
-#endif
-
-#ifdef RADIATION
-  if (radiation != nullptr) {
-      int report = (verbose || radiation->verbose);
-      if (report && ParallelDescriptor::IOProcessor()) {
-          std::cout << "Deleting radiation in variableCleanUp..." << '\n';
-      }
-      radiation.reset();
-      if (report && ParallelDescriptor::IOProcessor()) {
-          std::cout << "                                        done" << std::endl;
-      }
-  }
-#endif
-
-#ifdef AMREX_PARTICLES
-  TracerPC.reset();
-#endif
-
-    desc_lst.clear();
-
-    eos_finalize();
 
 }

@@ -8,58 +8,6 @@
 
 using namespace amrex;
 
-
-void
-HydroSim::tangential_pass(const Box& bx,
-                     int idir_tan, int idir_normal,
-                     Array4<Real const> const& qm,
-                     Array4<Real> const& qmo,
-                     Array4<Real const> const& qp,
-                     Array4<Real> const& qpo,
-                     Array4<Real const> const& qthermo_arr,
-                     Array4<Real const> const& flux_tan,
-#ifdef RADIATION
-                     Array4<Real const> const& radiative_flux_tan,
-#endif
-                     Array4<Real const> const& q_t,
-#if AMREX_SPACEDIM == 2
-                     Array4<Real const> const& area_t,
-                     Array4<Real const> const& vol,
-#endif
-                     Real hdt, Real third_dt_dx)
-{
-
-    apply_tangential_pass(bx, idir_tan, idir_normal, -1,
-                        qm, qmo,
-                        qthermo_arr,
-                        flux_tan,
-#ifdef RADIATION
-                        radiative_flux_tan,
-#endif
-                        q_t,
-#if AMREX_SPACEDIM == 2
-                        area_t,
-                        vol,
-#endif
-                        hdt, third_dt_dx);
-
-    apply_tangential_pass(bx, idir_tan, idir_normal, 0,
-                        qp, qpo,
-                        qthermo_arr,
-                        flux_tan,
-#ifdef RADIATION
-                        radiative_flux_tan,
-#endif
-                        q_t,
-#if AMREX_SPACEDIM == 2
-                        area_t,
-                        vol,
-#endif
-                        hdt, third_dt_dx);
-
-}
-
-
 void
 HydroSim::apply_tangential_pass(const Box& bx,
                             int idir_tan, int idir_normal, int d,
@@ -436,63 +384,6 @@ HydroSim::apply_tangential_pass(const Box& bx,
 
 }
 
-
-
-void
-HydroSim::tangential_correction(const Box& bx,
-                    int idir_normal, int idir_tan1, int idir_tan2,
-                    Array4<Real const> const& qm,
-                    Array4<Real> const& qmo,
-                    Array4<Real const> const& qp,
-                    Array4<Real> const& qpo,
-                    Array4<Real const> const& qthermo_arr,
-                    Array4<Real const> const& flux_tan1,
-#ifdef RADIATION
-                    Array4<Real const> const& radiative_flux_tan1,
-#endif
-                    Array4<Real const> const& flux_tan2,
-#ifdef RADIATION
-                    Array4<Real const> const& radiative_flux_tan2,
-#endif
-                    Array4<Real const> const& q_tan1,
-                    Array4<Real const> const& q_tan2,
-                    Real third_dt_dx_tan1, Real third_dt_dx_tan2)
-{
-
-    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, -1,
-                       qm, qmo,
-                       qthermo_arr,
-                       flux_tan1,
-#ifdef RADIATION
-                       radiative_flux_tan1,
-#endif
-                       flux_tan2,
-#ifdef RADIATION
-                       radiative_flux_tan2,
-#endif
-                       q_tan1,
-                       q_tan2,
-                       third_dt_dx_tan1, third_dt_dx_tan2);
-
-    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, 0,
-                       qp, qpo,
-                       qthermo_arr,
-                       flux_tan1,
-#ifdef RADIATION
-                       radiative_flux_tan1,
-#endif
-                       flux_tan2,
-#ifdef RADIATION
-                       radiative_flux_tan2,
-#endif
-                       q_tan1,
-                       q_tan2,
-                       third_dt_dx_tan1, third_dt_dx_tan2);
-
-}
-
-
-
 void
 HydroSim::apply_tangential_correction(const Box& bx,
                            int idir_normal, int idir_tan1, int idir_tan2, int d,
@@ -866,5 +757,108 @@ HydroSim::apply_tangential_correction(const Box& bx,
 #endif
 
     });
+
+}
+
+void
+HydroSim::tangential_pass(const Box& bx,
+                     int idir_tan, int idir_normal,
+                     Array4<Real const> const& qm,
+                     Array4<Real> const& qmo,
+                     Array4<Real const> const& qp,
+                     Array4<Real> const& qpo,
+                     Array4<Real const> const& qthermo_arr,
+                     Array4<Real const> const& flux_tan,
+#ifdef RADIATION
+                     Array4<Real const> const& radiative_flux_tan,
+#endif
+                     Array4<Real const> const& q_t,
+#if AMREX_SPACEDIM == 2
+                     Array4<Real const> const& area_t,
+                     Array4<Real const> const& vol,
+#endif
+                     Real hdt, Real third_dt_dx)
+{
+
+    apply_tangential_pass(bx, idir_tan, idir_normal, -1,
+                        qm, qmo,
+                        qthermo_arr,
+                        flux_tan,
+#ifdef RADIATION
+                        radiative_flux_tan,
+#endif
+                        q_t,
+#if AMREX_SPACEDIM == 2
+                        area_t,
+                        vol,
+#endif
+                        hdt, third_dt_dx);
+
+    apply_tangential_pass(bx, idir_tan, idir_normal, 0,
+                        qp, qpo,
+                        qthermo_arr,
+                        flux_tan,
+#ifdef RADIATION
+                        radiative_flux_tan,
+#endif
+                        q_t,
+#if AMREX_SPACEDIM == 2
+                        area_t,
+                        vol,
+#endif
+                        hdt, third_dt_dx);
+
+}
+
+void
+HydroSim::tangential_correction(const Box& bx,
+                    int idir_normal, int idir_tan1, int idir_tan2,
+                    Array4<Real const> const& qm,
+                    Array4<Real> const& qmo,
+                    Array4<Real const> const& qp,
+                    Array4<Real> const& qpo,
+                    Array4<Real const> const& qthermo_arr,
+                    Array4<Real const> const& flux_tan1,
+#ifdef RADIATION
+                    Array4<Real const> const& radiative_flux_tan1,
+#endif
+                    Array4<Real const> const& flux_tan2,
+#ifdef RADIATION
+                    Array4<Real const> const& radiative_flux_tan2,
+#endif
+                    Array4<Real const> const& q_tan1,
+                    Array4<Real const> const& q_tan2,
+                    Real third_dt_dx_tan1, Real third_dt_dx_tan2)
+{
+
+    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, -1,
+                       qm, qmo,
+                       qthermo_arr,
+                       flux_tan1,
+#ifdef RADIATION
+                       radiative_flux_tan1,
+#endif
+                       flux_tan2,
+#ifdef RADIATION
+                       radiative_flux_tan2,
+#endif
+                       q_tan1,
+                       q_tan2,
+                       third_dt_dx_tan1, third_dt_dx_tan2);
+
+    apply_tangential_correction(bx, idir_normal, idir_tan1, idir_tan2, 0,
+                       qp, qpo,
+                       qthermo_arr,
+                       flux_tan1,
+#ifdef RADIATION
+                       radiative_flux_tan1,
+#endif
+                       flux_tan2,
+#ifdef RADIATION
+                       radiative_flux_tan2,
+#endif
+                       q_tan1,
+                       q_tan2,
+                       third_dt_dx_tan1, third_dt_dx_tan2);
 
 }

@@ -12,8 +12,6 @@
 
 #include <radiation_params.H>
 
-enum RadComponentIds  { Rad  = 0 };
-
 class Radiation {
 
 public:
@@ -116,14 +114,10 @@ public:
 
 
 
-  amrex::Real energyChangeRatioMax(int lev) {
-    return delta_e_rat_level[lev];
+  amrex::FluxRegister* conservativeRegister(int level) {
+      return conservative_register_old[level].get();
   }
 
-
-  amrex::Real tempChangeRatioMax(int lev) {
-    return delta_T_rat_level[lev];
-  }
 
   [[nodiscard]] amrex::Real energyChangeTol() const {
     return delta_e_rat_dt_tol;
@@ -133,8 +127,12 @@ public:
     return delta_T_rat_dt_tol;
   }
 
-  amrex::FluxRegister* conservativeRegister(int level) {
-      return conservative_register_old[level].get();
+  amrex::Real energyChangeRatioMax(int lev) {
+    return delta_e_rat_level[lev];
+  }
+
+  amrex::Real tempChangeRatioMax(int lev) {
+    return delta_T_rat_level[lev];
   }
 
 
@@ -399,5 +397,7 @@ protected:
   amrex::IntVect spot;
 
 };
+
+enum RadComponentIds  { Rad  = 0 };
 
 #endif

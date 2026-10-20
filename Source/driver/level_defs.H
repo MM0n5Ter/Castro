@@ -4,6 +4,20 @@
 #include <string>
 #include <AMReX_REAL.H>
 
+enum stepper_kind : std::uint8_t {
+    CornerTrace = 0,
+    ReservedIntegrator,
+    IterativeCorrection,
+    SimplifiedIterCorrection
+};
+
+struct step_result {
+    bool success{true};
+    amrex::Real proposed_dt{};
+    std::string reason{};
+    step_result() = default;
+};
+
 enum StateType : std::uint8_t {
                State_Type = 0,
 #ifdef RADIATION
@@ -27,7 +41,6 @@ enum StateType : std::uint8_t {
 #endif
 };
 
-
 enum sources : std::uint8_t {
                thermodynamic_src = 0,
 #ifdef DIFFUSION
@@ -48,22 +61,5 @@ enum sources : std::uint8_t {
                external_source,
                geometry_source,
                num_forcing };
-
-
-
-enum stepper_kind : std::uint8_t {
-    CornerTrace = 0,
-    ReservedIntegrator,
-    IterativeCorrection,
-    SimplifiedIterCorrection
-};
-
-
-struct step_result {
-    bool success{true};
-    amrex::Real proposed_dt{};
-    std::string reason{};
-    step_result() = default;
-};
 
 #endif

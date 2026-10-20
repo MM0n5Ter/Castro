@@ -67,18 +67,12 @@ std::vector<int> HydroSim::tag_field_ghosts;
 int          HydroSim::num_tag_fields_default = 0;
 int          HydroSim::radial_grow   = 1;
 BCRec        HydroSim::phys_bc;
-
 int          HydroSim::lastDtWriteLimited = 0;
 Real         HydroSim::lastDtBeforeWriteLimit = 0.0;
-
 params_t     HydroSim::params;
-
 Real         HydroSim::cells_advanced_total = 0.0;
-
 Vector<std::string> HydroSim::forcing_names;
-
 Vector<AMRErrorTag> HydroSim::tag_criteria;
-
 Vector<std::unique_ptr<std::fstream>> HydroSim::run_logs;
 Vector<std::unique_ptr<std::fstream>> HydroSim::user_run_logs;
 
@@ -97,7 +91,6 @@ std::unique_ptr<Diffusion> HydroSim::diffusion;
 #endif
 
 #ifdef RADIATION
-
 std::unique_ptr<Radiation> HydroSim::radiation;
 #endif
 
@@ -107,34 +100,347 @@ IntVect      HydroSim::hydro_tile_size(1024);
 #else
 IntVect      HydroSim::hydro_tile_size(1048576);
 #endif
-IntVect      HydroSim::untiled_size(1024);
 #elif AMREX_SPACEDIM == 2
+
 #ifndef AMREX_USE_GPU
 IntVect      HydroSim::hydro_tile_size(1024,16);
 #else
 IntVect      HydroSim::hydro_tile_size(1048576,1048576);
 #endif
-IntVect      HydroSim::untiled_size(1024,1024);
 #else
+
 #ifndef AMREX_USE_GPU
 IntVect      HydroSim::hydro_tile_size(1024,16,16);
 #else
 IntVect      HydroSim::hydro_tile_size(1048576,1048576,1048576);
 #endif
+#endif
+
+#if AMREX_SPACEDIM == 1
+IntVect      HydroSim::untiled_size(1024);
+#elif AMREX_SPACEDIM == 2
+IntVect      HydroSim::untiled_size(1024,1024);
+#else
 IntVect      HydroSim::untiled_size(1024,1024,1024);
 #endif
 
 int          HydroSim::sweep_tile_tuned = 0;
 Long         HydroSim::largest_tuned_box_pts = 0;
-
 Real         HydroSim::priorCpuSeconds = 0.0;
-
 Real         HydroSim::startCpuSeconds = 0.0;
-
 int          HydroSim::Forcing_Type_Index = -1;
 int          HydroSim::num_field_types = 0;
-
 int          HydroSim::user_init_pending = 0;
+
+HydroSim::HydroSim ()
+    :
+    prev_state(num_field_types)
+{
+}
+
+HydroSim::HydroSim (Amr&            papa,
+                int             lev,
+                const Geometry& level_geom,
+                const BoxArray& bl,
+                const DistributionMapping& dm,
+                Real            time)
+    :
+    AmrLevel(papa,lev,level_geom,bl,dm,time),
+    prev_state(num_field_types)
+{
+    BL_PROFILE("HydroSim::HydroSim()");
+
+    MultiFab::RegionTag level_region_tag(std::format("AmrLevel_Level_{}", lev));
+
+    buildMetrics();
+
+    allocFabs();
+
+    if (do_hydro == 1 && do_reflux == 1) {
+        for (int ilev = 0; ilev <= parent->maxLevel(); ++ilev) {
+            if (parent->nErrorBuf(ilev) == 0) {
+                amrex::Error("n_error_buf = 0 is unsupported when using hydro.");
+            }
+        }
+    }
+
+    for (int k = 0; k < num_field_types; k++) {
+      MultiFab& data = get_new_data(k);
+      data.setVal(0.0, data.nGrow());
+    }
+
+#ifdef GRAVITY
+
+    if (do_gravity_flag == 1) {
+      if (gravity == nullptr) {
+        gravity = std::make_unique<Gravity>(parent, parent->finestLevel(), &phys_bc, URHO);
+      }
+
+      if (!level_geom.isAllPeriodic() && gravity != nullptr)
+      {
+         int grid_points_1d = count_points_1d();
+
+#if (AMREX_SPACEDIM == 1)
+         grid_points_1d += 2 * NUM_GROW;
+#endif
+
+         gravity->set_grid_points_gravity(grid_points_1d);
+      }
+
+      gravity->attach_level(level,this,volume,area.data());
+
+      if (verbose && level == 0 &&  ParallelDescriptor::IOProcessor()) {
+        std::cout << "Setting the gravity type to " << gravity->get_solver_kind() << std::endl;
+      }
+   }
+
+#endif
+
+#ifdef DIFFUSION
+      if (diffusion == nullptr) {
+        diffusion = std::make_unique<Diffusion>(parent, &phys_bc);
+      }
+
+      diffusion->attach_level(level,this,volume,area.data());
+#endif
+
+#ifdef RADIATION
+    if (do_radiative_transfer) {
+      if (radiation == nullptr) {
+        radiation = std::make_unique<Radiation>(parent, this);
+        global::radiation_instance = radiation.get();
+      }
+      radiation->regrid(level, grids, dmap);
+
+      rad_operator = std::make_unique<RadTransportSolver>(parent, level, grids, dmap);
+    }
+#endif
+
+    check_runparams();
+
+}
+
+HydroSim::~HydroSim ()
+{
+#ifdef RADIATION
+    if (radiation != nullptr) {
+      radiation->close(level);
+    }
+#endif
+}
+
+void
+HydroSim::allocFabs()
+{
+    BL_PROFILE("HydroSim::allocFabs()");
+
+    fluxes.resize(3);
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+      fluxes[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, NUM_STATE, 0));
+    }
+
+    for (int dir = AMREX_SPACEDIM; dir < 3; ++dir) {
+      fluxes[dir] = std::make_unique<MultiFab>(MultiFab(get_new_data(State_Type).boxArray(), dmap, NUM_STATE, 0));
+    }
+
+    mass_face_flux.resize(3);
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+      mass_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, 1, 0));
+    }
+
+    for (int dir = AMREX_SPACEDIM; dir < 3; ++dir) {
+      mass_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(get_new_data(State_Type).boxArray(), dmap, 1, 0));
+    }
+
+#if (AMREX_SPACEDIM <= 2)
+    if (!Geom().IsCartesian()) {
+      Pressure_radial.define(getEdgeBoxArray(0), dmap, 1, 0);
+    }
+#endif
+
+#ifdef RADIATION
+    if (Radiation::rad_hydro_coupled) {
+        rad_face_flux.resize(AMREX_SPACEDIM);
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+            rad_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, Radiation::nGroups, 0));
+        }
+    }
+#endif
+
+    if (do_reflux && level > 0) {
+
+        flux_reg.define(grids, dmap, crse_ratio, level, NUM_STATE);
+        flux_reg.setVal(0.0);
+
+#if (AMREX_SPACEDIM < 3)
+        if (!Geom().IsCartesian()) {
+            pressure_flux_reg.define(grids, dmap, crse_ratio, level, 1);
+            pressure_flux_reg.setVal(0.0);
+        }
+#endif
+
+#ifdef RADIATION
+        if (Radiation::rad_hydro_coupled) {
+            rad_edge_reg.define(grids, dmap, crse_ratio, level, Radiation::nGroups);
+            rad_edge_reg.setVal(0.0);
+        }
+#endif
+
+#ifdef GRAVITY
+        if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0) {
+            pot_flux_reg.define(grids, dmap, crse_ratio, level, 1);
+            pot_flux_reg.setVal(0.0);
+        }
+#endif
+
+    }
+
+#ifdef REACTIONS
+    if (keep_burn_weights) {
+        if (hydrosim::time_scheme == CornerTrace) {
+            burn_split_data.define(grids, dmap, 2, 0);
+        }
+        else if (hydrosim::time_scheme == SimplifiedIterCorrection) {
+            burn_split_data.define(grids, dmap, deferred_iters+1, 0);
+        }
+
+        burn_split_data.setVal(0.0);
+    }
+#endif
+
+    if (do_reflux) {
+
+        flux_coarse_scale = -1.0;
+        flux_refined_scale = 1.0;
+
+#if (AMREX_SPACEDIM == 1)
+        pressure_coarse_scale = -1.0;
+        pressure_refined_scale = 1.0;
+#elif (AMREX_SPACEDIM == 2)
+        pressure_coarse_scale = -1.0;
+        pressure_refined_scale = 1.0 / crse_ratio[1];
+#endif
+
+    }
+
+    post_step_regrid = 0;
+
+    lastStepDt = 1.e200;
+
+    if (user_init_pending == 0) {
+
+      user_init_pending = 1;
+
+      user_initialize();
+
+    }
+
+}
+
+void
+HydroSim::allocOldData ()
+{
+    BL_PROFILE("HydroSim::allocOldData");
+
+    MultiFab::RegionTag level_region_tag(std::format("AmrLevel_Level_{}", level));
+    MultiFab::RegionTag statedata_tag(std::format("StateData_Level_{}", level));
+    for (int k = 0; k < num_field_types; k++) {
+        state[k].allocOldData();
+    }
+}
+
+void
+HydroSim::removeOldData()
+{
+    AmrLevel::removeOldData();
+}
+
+void
+HydroSim::setTimeLevel (Real time,
+                      Real dt_old,
+                      Real dt_new)
+{
+    AmrLevel::setTimeLevel(time,dt_old,dt_new);
+}
+
+void
+HydroSim::buildMetrics ()
+{
+    BL_PROFILE("HydroSim::buildMetrics()");
+
+    const int box_count = static_cast<int>(grids.size());
+
+    radius.resize(box_count);
+
+    const Real* dx = geom.CellSize();
+
+    for (int i = 0; i < box_count; i++)
+    {
+        const Box& b = grids[i];
+        int ilo      = b.smallEnd(0)-radial_grow;
+        int ihi      = b.bigEnd(0)+radial_grow;
+        int len      = ihi - ilo + 1;
+
+        radius[i].resize(len);
+
+        Real* rad = radius[i].dataPtr();
+
+        if (Geom().IsCartesian())
+        {
+            for (int j = 0; j < len; j++)
+            {
+                rad[j] = 1.0;
+            }
+        }
+        else
+        {
+            RealBox gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
+
+            const Real xlo = gridloc.lo(0) + (0.5 - radial_grow)*dx[0];
+
+            for (int j = 0; j < len; j++)
+            {
+                rad[j] = xlo + j*dx[0];
+            }
+        }
+    }
+
+    volume.clear();
+    volume.define(grids,dmap,1,NUM_GROW);
+    geom.GetVolume(volume);
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+    {
+        area[dir].clear();
+        area[dir].define(getEdgeBoxArray(dir),dmap,1,NUM_GROW);
+        geom.GetFaceArea(area[dir],dir);
+    }
+    for (int dir = AMREX_SPACEDIM; dir < 3; dir++)
+    {
+        area[dir].clear();
+        area[dir].define(grids, dmap, 1, 0);
+        area[dir].setVal(0.0);
+    }
+
+#if (AMREX_SPACEDIM <= 2)
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
+    {
+        dLogFaceMeasure[dir].clear();
+        geom.GetDLogA(dLogFaceMeasure[dir],grids,dmap,dir,NUM_GROW);
+    }
+
+#if (AMREX_SPACEDIM == 1)
+    dLogFaceMeasure[1].clear();
+    dLogFaceMeasure[1].define(grids, dmap, 1, 0);
+    dLogFaceMeasure[1].setVal(0.0);
+#endif
+
+#endif
+
+    wall_clock_start = 0.0;
+}
 
 void
 HydroSim::read_params ()
@@ -564,316 +870,6 @@ HydroSim::read_params ()
         }
     }
 
-}
-
-HydroSim::HydroSim ()
-    :
-    prev_state(num_field_types)
-{
-}
-
-HydroSim::HydroSim (Amr&            papa,
-                int             lev,
-                const Geometry& level_geom,
-                const BoxArray& bl,
-                const DistributionMapping& dm,
-                Real            time)
-    :
-    AmrLevel(papa,lev,level_geom,bl,dm,time),
-    prev_state(num_field_types)
-{
-    BL_PROFILE("HydroSim::HydroSim()");
-
-    MultiFab::RegionTag level_region_tag(std::format("AmrLevel_Level_{}", lev));
-
-    buildMetrics();
-
-    allocFabs();
-
-    if (do_hydro == 1 && do_reflux == 1) {
-        for (int ilev = 0; ilev <= parent->maxLevel(); ++ilev) {
-            if (parent->nErrorBuf(ilev) == 0) {
-                amrex::Error("n_error_buf = 0 is unsupported when using hydro.");
-            }
-        }
-    }
-
-    for (int k = 0; k < num_field_types; k++) {
-      MultiFab& data = get_new_data(k);
-      data.setVal(0.0, data.nGrow());
-    }
-
-#ifdef GRAVITY
-
-    if (do_gravity_flag == 1) {
-      if (gravity == nullptr) {
-        gravity = std::make_unique<Gravity>(parent, parent->finestLevel(), &phys_bc, URHO);
-      }
-
-      if (!level_geom.isAllPeriodic() && gravity != nullptr)
-      {
-         int grid_points_1d = count_points_1d();
-
-#if (AMREX_SPACEDIM == 1)
-         grid_points_1d += 2 * NUM_GROW;
-#endif
-
-         gravity->set_grid_points_gravity(grid_points_1d);
-      }
-
-      gravity->attach_level(level,this,volume,area.data());
-
-      if (verbose && level == 0 &&  ParallelDescriptor::IOProcessor()) {
-        std::cout << "Setting the gravity type to " << gravity->get_solver_kind() << std::endl;
-      }
-   }
-
-#endif
-
-#ifdef DIFFUSION
-      if (diffusion == nullptr) {
-        diffusion = std::make_unique<Diffusion>(parent, &phys_bc);
-      }
-
-      diffusion->attach_level(level,this,volume,area.data());
-#endif
-
-#ifdef RADIATION
-    if (do_radiative_transfer) {
-      if (radiation == nullptr) {
-        radiation = std::make_unique<Radiation>(parent, this);
-        global::radiation_instance = radiation.get();
-      }
-      radiation->regrid(level, grids, dmap);
-
-      rad_operator = std::make_unique<RadTransportSolver>(parent, level, grids, dmap);
-    }
-#endif
-
-    check_runparams();
-
-}
-
-HydroSim::~HydroSim ()
-{
-#ifdef RADIATION
-    if (radiation != nullptr) {
-      radiation->close(level);
-    }
-#endif
-}
-
-void
-HydroSim::buildMetrics ()
-{
-    BL_PROFILE("HydroSim::buildMetrics()");
-
-    const int box_count = static_cast<int>(grids.size());
-
-    radius.resize(box_count);
-
-    const Real* dx = geom.CellSize();
-
-    for (int i = 0; i < box_count; i++)
-    {
-        const Box& b = grids[i];
-        int ilo      = b.smallEnd(0)-radial_grow;
-        int ihi      = b.bigEnd(0)+radial_grow;
-        int len      = ihi - ilo + 1;
-
-        radius[i].resize(len);
-
-        Real* rad = radius[i].dataPtr();
-
-        if (Geom().IsCartesian())
-        {
-            for (int j = 0; j < len; j++)
-            {
-                rad[j] = 1.0;
-            }
-        }
-        else
-        {
-            RealBox gridloc = RealBox(grids[i],geom.CellSize(),geom.ProbLo());
-
-            const Real xlo = gridloc.lo(0) + (0.5 - radial_grow)*dx[0];
-
-            for (int j = 0; j < len; j++)
-            {
-                rad[j] = xlo + j*dx[0];
-            }
-        }
-    }
-
-    volume.clear();
-    volume.define(grids,dmap,1,NUM_GROW);
-    geom.GetVolume(volume);
-
-    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-    {
-        area[dir].clear();
-        area[dir].define(getEdgeBoxArray(dir),dmap,1,NUM_GROW);
-        geom.GetFaceArea(area[dir],dir);
-    }
-    for (int dir = AMREX_SPACEDIM; dir < 3; dir++)
-    {
-        area[dir].clear();
-        area[dir].define(grids, dmap, 1, 0);
-        area[dir].setVal(0.0);
-    }
-
-#if (AMREX_SPACEDIM <= 2)
-    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
-    {
-        dLogFaceMeasure[dir].clear();
-        geom.GetDLogA(dLogFaceMeasure[dir],grids,dmap,dir,NUM_GROW);
-    }
-
-#if (AMREX_SPACEDIM == 1)
-    dLogFaceMeasure[1].clear();
-    dLogFaceMeasure[1].define(grids, dmap, 1, 0);
-    dLogFaceMeasure[1].setVal(0.0);
-#endif
-
-#endif
-
-    wall_clock_start = 0.0;
-}
-
-void
-HydroSim::allocFabs()
-{
-    BL_PROFILE("HydroSim::allocFabs()");
-
-    fluxes.resize(3);
-
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-      fluxes[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, NUM_STATE, 0));
-    }
-
-    for (int dir = AMREX_SPACEDIM; dir < 3; ++dir) {
-      fluxes[dir] = std::make_unique<MultiFab>(MultiFab(get_new_data(State_Type).boxArray(), dmap, NUM_STATE, 0));
-    }
-
-    mass_face_flux.resize(3);
-
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-      mass_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, 1, 0));
-    }
-
-    for (int dir = AMREX_SPACEDIM; dir < 3; ++dir) {
-      mass_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(get_new_data(State_Type).boxArray(), dmap, 1, 0));
-    }
-
-#if (AMREX_SPACEDIM <= 2)
-    if (!Geom().IsCartesian()) {
-      Pressure_radial.define(getEdgeBoxArray(0), dmap, 1, 0);
-    }
-#endif
-
-#ifdef RADIATION
-    if (Radiation::rad_hydro_coupled) {
-        rad_face_flux.resize(AMREX_SPACEDIM);
-        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-            rad_face_flux[dir] = std::make_unique<MultiFab>(MultiFab(getEdgeBoxArray(dir), dmap, Radiation::nGroups, 0));
-        }
-    }
-#endif
-
-    if (do_reflux && level > 0) {
-
-        flux_reg.define(grids, dmap, crse_ratio, level, NUM_STATE);
-        flux_reg.setVal(0.0);
-
-#if (AMREX_SPACEDIM < 3)
-        if (!Geom().IsCartesian()) {
-            pressure_flux_reg.define(grids, dmap, crse_ratio, level, 1);
-            pressure_flux_reg.setVal(0.0);
-        }
-#endif
-
-#ifdef RADIATION
-        if (Radiation::rad_hydro_coupled) {
-            rad_edge_reg.define(grids, dmap, crse_ratio, level, Radiation::nGroups);
-            rad_edge_reg.setVal(0.0);
-        }
-#endif
-
-#ifdef GRAVITY
-        if (do_gravity_flag && gravity->get_solver_kind() == "PoissonGrav" && gravity->NoSync() == 0) {
-            pot_flux_reg.define(grids, dmap, crse_ratio, level, 1);
-            pot_flux_reg.setVal(0.0);
-        }
-#endif
-
-    }
-
-#ifdef REACTIONS
-    if (keep_burn_weights) {
-        if (hydrosim::time_scheme == CornerTrace) {
-            burn_split_data.define(grids, dmap, 2, 0);
-        }
-        else if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-            burn_split_data.define(grids, dmap, deferred_iters+1, 0);
-        }
-
-        burn_split_data.setVal(0.0);
-    }
-#endif
-
-    if (do_reflux) {
-
-        flux_coarse_scale = -1.0;
-        flux_refined_scale = 1.0;
-
-#if (AMREX_SPACEDIM == 1)
-        pressure_coarse_scale = -1.0;
-        pressure_refined_scale = 1.0;
-#elif (AMREX_SPACEDIM == 2)
-        pressure_coarse_scale = -1.0;
-        pressure_refined_scale = 1.0 / crse_ratio[1];
-#endif
-
-    }
-
-    post_step_regrid = 0;
-
-    lastStepDt = 1.e200;
-
-    if (user_init_pending == 0) {
-
-      user_init_pending = 1;
-
-      user_initialize();
-
-    }
-
-}
-
-void
-HydroSim::setTimeLevel (Real time,
-                      Real dt_old,
-                      Real dt_new)
-{
-    AmrLevel::setTimeLevel(time,dt_old,dt_new);
-}
-
-void
-HydroSim::allocOldData ()
-{
-    BL_PROFILE("HydroSim::allocOldData");
-
-    MultiFab::RegionTag level_region_tag(std::format("AmrLevel_Level_{}", level));
-    MultiFab::RegionTag statedata_tag(std::format("StateData_Level_{}", level));
-    for (int k = 0; k < num_field_types; k++) {
-        state[k].allocOldData();
-    }
-}
-
-void
-HydroSim::removeOldData()
-{
-    AmrLevel::removeOldData();
 }
 
 void

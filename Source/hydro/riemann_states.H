@@ -5,6 +5,13 @@
 
 using namespace amrex::literals;
 
+struct InterfaceAux
+{
+    amrex::Real sound_floor;
+    amrex::Real mean_sound_speed;
+    amrex::Real boundary_factor;
+};
+
 struct InterfaceState
 {
     amrex::Real rho;
@@ -24,39 +31,6 @@ struct InterfaceState
 #endif
 
 };
-
-
-struct InterfaceAux
-{
-    amrex::Real sound_floor;
-    amrex::Real mean_sound_speed;
-    amrex::Real boundary_factor;
-};
-
-
-AMREX_INLINE
-std::ostream& operator<< (std::ostream& o, InterfaceState const& rs)
-{
-    o << "rho  = " << rs.rho << std::endl;
-    o << "p    = " << rs.p << std::endl;
-    o << "rhoe = " << rs.rhoe << std::endl;
-    o << "gamma1_cell = " << rs.gamma1_cell << std::endl;
-    o << "un   = " << rs.un << std::endl;
-    o << "ut   = " << rs.ut << std::endl;
-    o << "utt  = " << rs.utt << std::endl;
-    return o;
-}
-
-
-AMREX_INLINE
-std::ostream& operator<< (std::ostream& o, InterfaceAux const& ra)
-{
-    o << "sound_floor  = " << ra.sound_floor << std::endl;
-    o << "mean_sound_speed    = " << ra.mean_sound_speed << std::endl;
-    o << "boundary_factor = " << ra.boundary_factor << std::endl;
-    return o;
-}
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -235,5 +209,26 @@ fetch_interface_inputs(const int i, const int j, const int k, const int idir,
 
 }
 
+AMREX_INLINE
+std::ostream& operator<< (std::ostream& o, InterfaceState const& rs)
+{
+    o << "rho  = " << rs.rho << std::endl;
+    o << "p    = " << rs.p << std::endl;
+    o << "rhoe = " << rs.rhoe << std::endl;
+    o << "gamma1_cell = " << rs.gamma1_cell << std::endl;
+    o << "un   = " << rs.un << std::endl;
+    o << "ut   = " << rs.ut << std::endl;
+    o << "utt  = " << rs.utt << std::endl;
+    return o;
+}
+
+AMREX_INLINE
+std::ostream& operator<< (std::ostream& o, InterfaceAux const& ra)
+{
+    o << "sound_floor  = " << ra.sound_floor << std::endl;
+    o << "mean_sound_speed    = " << ra.mean_sound_speed << std::endl;
+    o << "boundary_factor = " << ra.boundary_factor << std::endl;
+    return o;
+}
 
 #endif

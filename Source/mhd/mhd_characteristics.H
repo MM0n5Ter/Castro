@@ -5,55 +5,6 @@
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
-      const Real sound_speed,
-      Array1D<Real, 0, NQ-1>& Q,
-      const int dir) {
-
-
-
-  Real ca  = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-
-  int QUN;
-  Real cad;
-  Real cs;
-  Real cf;
-
-  Real as = sound_speed * sound_speed;
-
-  if (dir == 0) {
-    QUN = QU;
-    cad = (Q(QBFIELDX)*Q(QBFIELDX)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  } else if (dir == 1) {
-    QUN = QV;
-    cad = (Q(QBFIELDY)*Q(QBFIELDY)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  } else {
-    QUN = QW;
-    cad = (Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
-    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
-
-  }
-
-  lam(0) = Q(QUN) - std::sqrt(cf);
-  lam(1) = Q(QUN) - std::sqrt(cad);
-  lam(2) = Q(QUN) - std::sqrt(cs);
-  lam(3) = Q(QUN);
-  lam(4) = Q(QUN) + std::sqrt(cs);
-  lam(5) = Q(QUN) + std::sqrt(cad);
-  lam(6) = Q(QUN) + std::sqrt(cf);
-
-}
-
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
 eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
       Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis,
       const Real sound_speed,
@@ -237,7 +188,6 @@ eigenbasis_x(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   right_basis(EIGVEC_BPERP2, 6) = AAs*dir_cos_z;
 
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -423,7 +373,6 @@ eigenbasis_y(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
   right_basis(EIGVEC_BPERP2, 6) = AAs*dir_cos_z;
 
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
@@ -611,6 +560,54 @@ eigenbasis_z(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
+evals(Array1D<Real, 0, NUM_EIGVEC-1>& lam,
+      const Real sound_speed,
+      Array1D<Real, 0, NQ-1>& Q,
+      const int dir) {
+
+
+
+  Real ca  = (Q(QBFIELDX)*Q(QBFIELDX) + Q(QBFIELDY)*Q(QBFIELDY) + Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
+
+  int QUN;
+  Real cad;
+  Real cs;
+  Real cf;
+
+  Real as = sound_speed * sound_speed;
+
+  if (dir == 0) {
+    QUN = QU;
+    cad = (Q(QBFIELDX)*Q(QBFIELDX)) / Q(QRHO);
+    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+
+  } else if (dir == 1) {
+    QUN = QV;
+    cad = (Q(QBFIELDY)*Q(QBFIELDY)) / Q(QRHO);
+    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+
+  } else {
+    QUN = QW;
+    cad = (Q(QBFIELDZ)*Q(QBFIELDZ)) / Q(QRHO);
+    cs = 0.5_rt * ((as + ca) - std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+    cf = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*cad));
+
+  }
+
+  lam(0) = Q(QUN) - std::sqrt(cf);
+  lam(1) = Q(QUN) - std::sqrt(cad);
+  lam(2) = Q(QUN) - std::sqrt(cs);
+  lam(3) = Q(QUN);
+  lam(4) = Q(QUN) + std::sqrt(cs);
+  lam(5) = Q(QUN) + std::sqrt(cad);
+  lam(6) = Q(QUN) + std::sqrt(cf);
+
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
 verify_eigenbasis(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
             Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& right_basis) {
 
@@ -634,4 +631,5 @@ verify_eigenbasis(Array2D<Real, 0, NUM_EIGVEC-1, 0, NUM_EIGVEC-1>& left_basis,
 #endif
   }
 }
+
 #endif

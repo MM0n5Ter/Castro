@@ -23,14 +23,6 @@ Diffusion::Diffusion(Amr* Parent, BCRec* _boundary_rec)
     build_solver_bc();
 }
 
-
-void
-Diffusion::report_run_settings(std::ostream& jobInfoFile)
-{
-#include <diffusion_job_info_tests.H>
-}
-
-
 void
 Diffusion::attach_level (int                   level,
                           AmrLevel*             amr_level_ptr,
@@ -50,15 +42,6 @@ Diffusion::attach_level (int                   level,
     BoxArray ba(LevelTable[level]->boxArray());
     grids[level] = ba;
 }
-
-void
-Diffusion::apply_stencil (int level, MultiFab& Temperature,
-                    MultiFab& CoarseTemperature, MultiFab& ConductionTerm,
-                    Vector<std::unique_ptr<MultiFab> >& conductivity_fields)
-{
-    apply_stencil_multigrid(level, Temperature, CoarseTemperature, ConductionTerm, conductivity_fields);
-}
-
 
 void
 Diffusion::build_solver_bc ()
@@ -131,4 +114,18 @@ Diffusion::apply_stencil_multigrid (int level, MultiFab& Temperature,
     MLMG mlmg(mlabec);
     mlmg.setVerbose(verbose);
     mlmg.apply({&ConductionTerm}, {&Temperature});
+}
+
+void
+Diffusion::apply_stencil (int level, MultiFab& Temperature,
+                    MultiFab& CoarseTemperature, MultiFab& ConductionTerm,
+                    Vector<std::unique_ptr<MultiFab> >& conductivity_fields)
+{
+    apply_stencil_multigrid(level, Temperature, CoarseTemperature, ConductionTerm, conductivity_fields);
+}
+
+void
+Diffusion::report_run_settings(std::ostream& jobInfoFile)
+{
+#include <diffusion_job_info_tests.H>
 }

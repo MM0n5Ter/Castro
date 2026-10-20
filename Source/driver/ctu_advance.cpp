@@ -1,4 +1,3 @@
-
 #include <HydroSim.H>
 
 #ifdef RADIATION
@@ -96,203 +95,6 @@ HydroSim::advance (Real time,
 
     return dt_new;
 }
-
-step_result
-HydroSim::run_advance_ctu (Real time, Real dt)
-{
-
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    BL_PROFILE("HydroSim::run_advance_ctu()");
-
-    step_result status {};
-
-#ifndef TRUE_SDC
-
-
-    int top_level_to_advance = level;
-
-    if (parent->subcyclingMode() == "None" && level == 0) {
-        top_level_to_advance = parent->finestLevel();
-    }
-
-    const Real prev_time = state[State_Type].prevTime();
-    const Real  cur_time = state[State_Type].curTime();
-
-    for (int lev = level; lev <= top_level_to_advance; ++lev) {
-
-        status = getLevel(lev).begin_step_advance(time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).before_advance_hooks(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).run_old_sources(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).before_hydro_hooks(prev_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-#ifndef MHD
-        status = getLevel(lev).assemble_ctu_hydro_source(prev_time, dt);
-#else
-        status = getLevel(lev).assemble_ctu_mhd_source(prev_time, dt);
-#endif
-
-        if (status.success == false) {
-            return status;
-        }
-    }
-
-
-    if (do_reflux && level < top_level_to_advance) {
-        reflux(level, top_level_to_advance, false);
-    }
-
-    for (int lev = level; lev <= top_level_to_advance; ++lev) {
-
-        status = getLevel(lev).after_hydro_hooks(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).run_new_sources(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).after_advance_hooks(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-
-
-        status = getLevel(lev).end_step_advance(cur_time, dt);
-
-        if (status.success == false) {
-            return status;
-        }
-    }
-
-#endif
-
-    return status;
-
-}
-
-
-
-
-
-bool
-HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
-{
-    BL_PROFILE("HydroSim::rerun_advance_ctu()");
-
-    bool retry_needed = false;
-
-    if (!status.success) {
-        retry_needed = true;
-    }
-
-    if (retry_needed) {
-
-        int top_level_to_advance = level;
-
-        if (parent->subcyclingMode() == "None" && level == 0) {
-            top_level_to_advance = parent->finestLevel();
-        }
-
-        for (int lev = level; lev <= top_level_to_advance; ++lev) {
-            if (status.proposed_dt > 0.0_rt && status.proposed_dt < dt) {
-                getLevel(lev).dt_cycle_step = status.proposed_dt;
-            } else {
-                getLevel(lev).dt_cycle_step = std::min(dt, getLevel(lev).dt_cycle_step) * subcycle_backoff_factor;
-            }
-        }
-
-        if (verbose && ParallelDescriptor::IOProcessor()) {
-            std::cout << std::endl;
-            std::cout << Font::Bold << FGColor::Red;
-            std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
-            std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_cycle_step << std::endl;
-            std::cout << ResetDisplay;
-            std::cout << std::endl;
-        }
-
-
-        for (int lev = level; lev <= top_level_to_advance; ++lev) {
-            getLevel(lev).snapshot_for_rerun();
-
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).fluxes[dir]->setVal(0.0);
-            }
-
-            for (int dir = 0; dir < 3; ++dir) {
-                getLevel(lev).mass_face_flux[dir]->setVal(0.0);
-            }
-
-#if (AMREX_SPACEDIM <= 2)
-            if (!Geom().IsCartesian()) {
-                getLevel(lev).Pressure_radial.setVal(0.0);
-            }
-#endif
-
-#ifdef RADIATION
-            if (Radiation::rad_hydro_coupled) {
-                for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-                    getLevel(lev).rad_face_flux[dir]->setVal(0.0);
-                }
-            }
-#endif
-
-#ifdef REACTIONS
-            if (hydrosim::keep_burn_weights) {
-                getLevel(lev).burn_split_data.setVal(0.0);
-            }
-#endif
-
-
-            if (time_scheme == SimplifiedIterCorrection) {
-                getLevel(lev).forcing_corrector.setVal(0.0, getLevel(lev).forcing_corrector.nGrow());
-
-#ifdef REACTIONS
-                MultiFab& SDC_burn_new = getLevel(lev).get_new_data(Burn_Corr_Type);
-                SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
-#endif
-            }
-
-        }
-
-    }
-
-    return retry_needed;
-}
-
-
 
 Real
 HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, int amr_cycles)
@@ -523,4 +325,195 @@ HydroSim::advance_subcycles_ctu(const Real time, const Real dt, int amr_pass, in
 
     return dt_new;
 
+}
+
+step_result
+HydroSim::run_advance_ctu (Real time, Real dt)
+{
+
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    BL_PROFILE("HydroSim::run_advance_ctu()");
+
+    step_result status {};
+
+#ifndef TRUE_SDC
+
+
+    int top_level_to_advance = level;
+
+    if (parent->subcyclingMode() == "None" && level == 0) {
+        top_level_to_advance = parent->finestLevel();
+    }
+
+    const Real prev_time = state[State_Type].prevTime();
+    const Real  cur_time = state[State_Type].curTime();
+
+    for (int lev = level; lev <= top_level_to_advance; ++lev) {
+
+        status = getLevel(lev).begin_step_advance(time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).before_advance_hooks(prev_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).run_old_sources(prev_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).before_hydro_hooks(prev_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+#ifndef MHD
+        status = getLevel(lev).assemble_ctu_hydro_source(prev_time, dt);
+#else
+        status = getLevel(lev).assemble_ctu_mhd_source(prev_time, dt);
+#endif
+
+        if (status.success == false) {
+            return status;
+        }
+    }
+
+
+    if (do_reflux && level < top_level_to_advance) {
+        reflux(level, top_level_to_advance, false);
+    }
+
+    for (int lev = level; lev <= top_level_to_advance; ++lev) {
+
+        status = getLevel(lev).after_hydro_hooks(cur_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).run_new_sources(cur_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).after_advance_hooks(cur_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+
+
+        status = getLevel(lev).end_step_advance(cur_time, dt);
+
+        if (status.success == false) {
+            return status;
+        }
+    }
+
+#endif
+
+    return status;
+
+}
+
+bool
+HydroSim::rerun_advance_ctu(Real dt, const step_result& status)
+{
+    BL_PROFILE("HydroSim::rerun_advance_ctu()");
+
+    bool retry_needed = false;
+
+    if (!status.success) {
+        retry_needed = true;
+    }
+
+    if (retry_needed) {
+
+        int top_level_to_advance = level;
+
+        if (parent->subcyclingMode() == "None" && level == 0) {
+            top_level_to_advance = parent->finestLevel();
+        }
+
+        for (int lev = level; lev <= top_level_to_advance; ++lev) {
+            if (status.proposed_dt > 0.0_rt && status.proposed_dt < dt) {
+                getLevel(lev).dt_cycle_step = status.proposed_dt;
+            } else {
+                getLevel(lev).dt_cycle_step = std::min(dt, getLevel(lev).dt_cycle_step) * subcycle_backoff_factor;
+            }
+        }
+
+        if (verbose && ParallelDescriptor::IOProcessor()) {
+            std::cout << std::endl;
+            std::cout << Font::Bold << FGColor::Red;
+            std::cout << "  Timestep " << dt << " rejected at level " << level << "." << std::endl;
+            std::cout << "  Performing a retry, with subcycled timesteps of maximum length dt = " << dt_cycle_step << std::endl;
+            std::cout << ResetDisplay;
+            std::cout << std::endl;
+        }
+
+
+        for (int lev = level; lev <= top_level_to_advance; ++lev) {
+            getLevel(lev).snapshot_for_rerun();
+
+
+            for (int dir = 0; dir < 3; ++dir) {
+                getLevel(lev).fluxes[dir]->setVal(0.0);
+            }
+
+            for (int dir = 0; dir < 3; ++dir) {
+                getLevel(lev).mass_face_flux[dir]->setVal(0.0);
+            }
+
+#if (AMREX_SPACEDIM <= 2)
+            if (!Geom().IsCartesian()) {
+                getLevel(lev).Pressure_radial.setVal(0.0);
+            }
+#endif
+
+#ifdef RADIATION
+            if (Radiation::rad_hydro_coupled) {
+                for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+                    getLevel(lev).rad_face_flux[dir]->setVal(0.0);
+                }
+            }
+#endif
+
+#ifdef REACTIONS
+            if (hydrosim::keep_burn_weights) {
+                getLevel(lev).burn_split_data.setVal(0.0);
+            }
+#endif
+
+
+            if (time_scheme == SimplifiedIterCorrection) {
+                getLevel(lev).forcing_corrector.setVal(0.0, getLevel(lev).forcing_corrector.nGrow());
+
+#ifdef REACTIONS
+                MultiFab& SDC_burn_new = getLevel(lev).get_new_data(Burn_Corr_Type);
+                SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
+#endif
+            }
+
+        }
+
+    }
+
+    return retry_needed;
 }

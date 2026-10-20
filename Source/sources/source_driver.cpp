@@ -7,100 +7,119 @@
 using namespace amrex;
 
 void
-HydroSim::apply_source_term_to_state(MultiFab& state_to_update, const MultiFab& source, Real dt, int ng)
+HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Real time, Real dt)
 {
-    BL_PROFILE("HydroSim::apply_source_term_to_state()");
+    BL_PROFILE("HydroSim::assemble_old_source()");
 
-    AMREX_ASSERT(source.nGrow() >= ng);
-    AMREX_ASSERT(state_to_update.nGrow() >= ng);
+    BL_ASSERT(src >= 0 && src < num_forcing);
 
-    MultiFab::Saxpy(state_to_update, dt, source, 0, 0, source.nComp(), ng);
-}
-
-void
-HydroSim::blend_source_terms(MultiFab& S_new, MultiFab& source_prev, MultiFab &source_next, Real dt)
-{
-  BL_PROFILE("HydroSim::blend_source_terms()");
-
-  MultiFab::Saxpy(S_new,-0.5*dt,source_prev,0,0,S_new.nComp(),0);
-  MultiFab::Saxpy(S_new, 0.5*dt,source_next,0,0,S_new.nComp(),0);
-}
-
-bool
-HydroSim::source_enabled(int src)
-{
     switch(src) {
 
 #ifdef SPONGE
     case damping_src:
-        if (do_damping_zone) {
-            return true;
-        } else {
-            return false;
-        }
+        assemble_old_damping_source(source, state_in, time, dt);
+        break;
 #endif
 
     case external_source:
-        if (enable_extra_source) {
-            return true;
-        } else {
-            return false;
-        }
-#ifndef MHD
+        assemble_old_external_source(source, state_in, time, dt);
+        break;
+
     case thermodynamic_src:
-        if (time_scheme == IterativeCorrection) {
-            return true;
-        } else {
-          return false;
-        }
-#else
-    case thermodynamic_src:
-        return true;
-#endif
+        assemble_old_thermodynamic_source(source, state_in, time, dt);
+        break;
 
     case geometry_source:
-        if (geom.Coord() == 0 || use_curvilinear_src == 0) {
-          return false;
-        } else {
-          return true;
-        }
+        assemble_old_geometry_source(source, state_in, time, dt);
+        break;
 
 #ifdef DIFFUSION
     case conduction_src:
-        if (conduction_enabled &&
-            !(time_scheme == IterativeCorrection)) {
-          return true;
+        if (!(time_scheme == IterativeCorrection)) {
+          assemble_old_conduction_source(source, state_in, time, dt);
         }
-        else {
-          return false;
-        }
+        break;
 #endif
 
 #ifdef HYBRID_MOMENTUM
     case hybrid_mom_source:
-        return true;
+        assemble_old_hybrid_source(source, state_in, time, dt);
+        break;
 #endif
 
 #ifdef GRAVITY
     case gravity_src:
-        if (do_gravity_flag) {
-            return true;
-        } else {
-            return false;
-        }
+        assemble_old_gravity_source(source, state_in, time, dt);
+        break;
 #endif
 
 #ifdef ROTATION
     case rotation_src:
-        if (do_frame_spin) {
-            return true;
-        } else {
-            return false;
-        }
+        assemble_old_rotation_source(source, state_in, time, dt);
+        break;
 #endif
 
     default:
-        return false;
+        break;
+
+    }
+}
+
+void
+HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& field_old, MultiFab& field_new, Real time, Real dt)
+{
+    BL_PROFILE("HydroSim::assemble_new_source()");
+
+    BL_ASSERT(src >= 0 && src < num_forcing);
+
+    switch(src) {
+
+#ifdef SPONGE
+    case damping_src:
+        assemble_new_damping_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+    case external_source:
+        assemble_new_external_source(source, field_old, field_new, time, dt);
+        break;
+
+#ifdef MHD
+    case thermodynamic_src:
+        assemble_new_thermodynamic_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+    case geometry_source:
+        assemble_new_geometry_source(source, field_old, field_new, time, dt);
+        break;
+
+#ifdef DIFFUSION
+    case conduction_src:
+        assemble_new_conduction_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+#ifdef HYBRID_MOMENTUM
+    case hybrid_mom_source:
+        assemble_new_hybrid_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+#ifdef GRAVITY
+    case gravity_src:
+        assemble_new_gravity_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+#ifdef ROTATION
+    case rotation_src:
+        assemble_new_rotation_source(source, field_old, field_new, time, dt);
+        break;
+#endif
+
+    default:
+        break;
 
     }
 }
@@ -269,124 +288,6 @@ HydroSim::run_new_sources (Real time, Real dt)
     return status;
 }
 
-void
-HydroSim::assemble_old_source(int src, MultiFab& source, MultiFab& state_in, Real time, Real dt)
-{
-    BL_PROFILE("HydroSim::assemble_old_source()");
-
-    BL_ASSERT(src >= 0 && src < num_forcing);
-
-    switch(src) {
-
-#ifdef SPONGE
-    case damping_src:
-        assemble_old_damping_source(source, state_in, time, dt);
-        break;
-#endif
-
-    case external_source:
-        assemble_old_external_source(source, state_in, time, dt);
-        break;
-
-    case thermodynamic_src:
-        assemble_old_thermodynamic_source(source, state_in, time, dt);
-        break;
-
-    case geometry_source:
-        assemble_old_geometry_source(source, state_in, time, dt);
-        break;
-
-#ifdef DIFFUSION
-    case conduction_src:
-        if (!(time_scheme == IterativeCorrection)) {
-          assemble_old_conduction_source(source, state_in, time, dt);
-        }
-        break;
-#endif
-
-#ifdef HYBRID_MOMENTUM
-    case hybrid_mom_source:
-        assemble_old_hybrid_source(source, state_in, time, dt);
-        break;
-#endif
-
-#ifdef GRAVITY
-    case gravity_src:
-        assemble_old_gravity_source(source, state_in, time, dt);
-        break;
-#endif
-
-#ifdef ROTATION
-    case rotation_src:
-        assemble_old_rotation_source(source, state_in, time, dt);
-        break;
-#endif
-
-    default:
-        break;
-
-    }
-}
-
-void
-HydroSim::assemble_new_source(int src, MultiFab& source, MultiFab& field_old, MultiFab& field_new, Real time, Real dt)
-{
-    BL_PROFILE("HydroSim::assemble_new_source()");
-
-    BL_ASSERT(src >= 0 && src < num_forcing);
-
-    switch(src) {
-
-#ifdef SPONGE
-    case damping_src:
-        assemble_new_damping_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-    case external_source:
-        assemble_new_external_source(source, field_old, field_new, time, dt);
-        break;
-
-#ifdef MHD
-    case thermodynamic_src:
-        assemble_new_thermodynamic_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-    case geometry_source:
-        assemble_new_geometry_source(source, field_old, field_new, time, dt);
-        break;
-
-#ifdef DIFFUSION
-    case conduction_src:
-        assemble_new_conduction_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-#ifdef HYBRID_MOMENTUM
-    case hybrid_mom_source:
-        assemble_new_hybrid_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-#ifdef GRAVITY
-    case gravity_src:
-        assemble_new_gravity_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-#ifdef ROTATION
-    case rotation_src:
-        assemble_new_rotation_source(source, field_old, field_new, time, dt);
-        break;
-#endif
-
-    default:
-        break;
-
-    }
-}
-
 bool
 HydroSim::apply_source_terms()
 {
@@ -399,6 +300,139 @@ HydroSim::apply_source_terms()
 
     return false;
 
+}
+
+void
+HydroSim::apply_source_term_to_state(MultiFab& state_to_update, const MultiFab& source, Real dt, int ng)
+{
+    BL_PROFILE("HydroSim::apply_source_term_to_state()");
+
+    AMREX_ASSERT(source.nGrow() >= ng);
+    AMREX_ASSERT(state_to_update.nGrow() >= ng);
+
+    MultiFab::Saxpy(state_to_update, dt, source, 0, 0, source.nComp(), ng);
+}
+
+void
+HydroSim::blend_source_terms(MultiFab& S_new, MultiFab& source_prev, MultiFab &source_next, Real dt)
+{
+  BL_PROFILE("HydroSim::blend_source_terms()");
+
+  MultiFab::Saxpy(S_new,-0.5*dt,source_prev,0,0,S_new.nComp(),0);
+  MultiFab::Saxpy(S_new, 0.5*dt,source_next,0,0,S_new.nComp(),0);
+}
+
+bool
+HydroSim::source_enabled(int src)
+{
+    switch(src) {
+
+#ifdef SPONGE
+    case damping_src:
+        if (do_damping_zone) {
+            return true;
+        } else {
+            return false;
+        }
+#endif
+
+    case external_source:
+        if (enable_extra_source) {
+            return true;
+        } else {
+            return false;
+        }
+#ifndef MHD
+    case thermodynamic_src:
+        if (time_scheme == IterativeCorrection) {
+            return true;
+        } else {
+          return false;
+        }
+#else
+    case thermodynamic_src:
+        return true;
+#endif
+
+    case geometry_source:
+        if (geom.Coord() == 0 || use_curvilinear_src == 0) {
+          return false;
+        } else {
+          return true;
+        }
+
+#ifdef DIFFUSION
+    case conduction_src:
+        if (conduction_enabled &&
+            !(time_scheme == IterativeCorrection)) {
+          return true;
+        }
+        else {
+          return false;
+        }
+#endif
+
+#ifdef HYBRID_MOMENTUM
+    case hybrid_mom_source:
+        return true;
+#endif
+
+#ifdef GRAVITY
+    case gravity_src:
+        if (do_gravity_flag) {
+            return true;
+        } else {
+            return false;
+        }
+#endif
+
+#ifdef ROTATION
+    case rotation_src:
+        if (do_frame_spin) {
+            return true;
+        } else {
+            return false;
+        }
+#endif
+
+    default:
+        return false;
+
+    }
+}
+
+void
+HydroSim::log_all_source_changes(Real dt, bool use_new_state)
+{
+    const MultiFab& source = use_new_state ? get_new_data(Forcing_Type) : get_old_data(Forcing_Type);
+
+    std::string source_name = use_new_state? "new-time sources" : "old-time sources";
+
+    measure_and_log_source_change(source, dt, source_name);
+}
+
+void
+HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const std::string& source_name)
+{
+    bool local = true;
+    Vector<Real> update = measure_source_change(source, dt, local);
+
+#ifdef BL_LAZY
+    Lazy::QueueReduction( [=] () mutable {
+#endif
+        ParallelDescriptor::ReduceRealSum(update.dataPtr(), static_cast<int>(update.size()), ParallelDescriptor::IOProcessorNumber());
+
+        if (ParallelDescriptor::IOProcessor()) {
+            if (std::abs(update[URHO]) != 0.0 || std::abs(update[UEDEN]) != 0.0) {
+                std::cout << std::endl << "  Contributions to the state from " << source_name << ":" << std::endl;
+
+                log_source_change(update);
+            }
+        }
+
+#ifdef BL_LAZY
+    });
+#endif
 }
 
 Vector<Real>
@@ -442,38 +476,4 @@ HydroSim::log_source_change(const Vector<Real>& update)
 
   }
 
-}
-
-void
-HydroSim::measure_and_log_source_change (const MultiFab& source, Real dt, const std::string& source_name)
-{
-    bool local = true;
-    Vector<Real> update = measure_source_change(source, dt, local);
-
-#ifdef BL_LAZY
-    Lazy::QueueReduction( [=] () mutable {
-#endif
-        ParallelDescriptor::ReduceRealSum(update.dataPtr(), static_cast<int>(update.size()), ParallelDescriptor::IOProcessorNumber());
-
-        if (ParallelDescriptor::IOProcessor()) {
-            if (std::abs(update[URHO]) != 0.0 || std::abs(update[UEDEN]) != 0.0) {
-                std::cout << std::endl << "  Contributions to the state from " << source_name << ":" << std::endl;
-
-                log_source_change(update);
-            }
-        }
-
-#ifdef BL_LAZY
-    });
-#endif
-}
-
-void
-HydroSim::log_all_source_changes(Real dt, bool use_new_state)
-{
-    const MultiFab& source = use_new_state ? get_new_data(Forcing_Type) : get_old_data(Forcing_Type);
-
-    std::string source_name = use_new_state? "new-time sources" : "old-time sources";
-
-    measure_and_log_source_change(source, dt, source_name);
 }

@@ -532,6 +532,219 @@ void Radiation::MultigroupDiffusion_implicit_update(int level, int iteration, in
   }
 }
 
+void Radiation::advance_matter(MultiFab& rhoe_new, MultiFab& temp_next,
+                              const MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
+                              const MultiFab& gas_energy_star,
+                              const MultiFab& gas_energy_step,
+                              const MultiFab& thermal_frac, const MultiFab& thermal_frac_z,
+                              const MultiFab& rest_frac,
+                              const MultiFab& couple_source,
+                              const MultiFab& kappa_p, const MultiFab& jg,
+                              const MultiFab& group_weight_mf,
+                              const MultiFab& S_new,
+                              int level, Real delta_t, Real pseudo_transient_tau,
+                              int it, bool energy_conserving_mode)
+{
+    const Real cdt = C::c_light * delta_t;
+    const Real inv_light_dt = 1.e0_rt / (C::c_light * delta_t);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(rhoe_new,true); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+
+        auto gas_energy_new_view = rhoe_new[mfi].array();
+        auto new_state_view = S_new[mfi].array();
+        auto temp_next_view = temp_next[mfi].array();
+        auto rad_energy_new_view = rad_energy_new[mfi].array();
+        auto rad_energy_prev = rad_energy_iter[mfi].array();
+        auto gas_energy_star_view = gas_energy_star[mfi].array();
+        auto gas_energy_step_view = gas_energy_step[mfi].array();
+        auto rest_frac_arr = rest_frac[mfi].array();
+        auto cpT = couple_source[mfi].array();
+        auto thermal_frac_z_view = thermal_frac_z[mfi].array();
+        auto kpp  = kappa_p[mfi].array();
+        auto emission_arr = jg[mfi].array();
+
+        if (energy_conserving_mode) {
+
+            amrex::ParallelFor(bx,
+            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+            {
+                Real H1 = rest_frac_arr(i,j,k);
+
+                Real kappa_weighted_rad_chg = 0.0;
+                for (int g = 0; g < NGROUPS; ++g) {
+                    kappa_weighted_rad_chg += kpp(i,j,k,g) * (rad_energy_new_view(i,j,k,g) - rad_energy_prev(i,j,k,g));
+                }
+
+                Real chg = cdt * kappa_weighted_rad_chg + H1 * ((gas_energy_step_view(i,j,k) - gas_energy_star_view(i,j,k)) + cdt * cpT(i,j,k));
+
+                gas_energy_new_view(i,j,k) = gas_energy_star_view(i,j,k) + chg;
+
+                gas_energy_new_view(i,j,k) = (gas_energy_new_view(i,j,k) + pseudo_transient_tau * gas_energy_star_view(i,j,k)) / (1.e0_rt + pseudo_transient_tau);
+            });
+
+            temp_next[mfi].copy<RunOn::Device>(rhoe_new[mfi],bx);
+            Gpu::synchronize();
+
+            amrex::ParallelFor(bx,
+            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+            {
+
+                if (temp_next_view(i,j,k) <= 0.e0_rt)
+                {
+                    temp_next_view(i,j,k) = small_temp;
+                }
+                else
+                {
+                    Real rhoInv = 1.e0_rt / new_state_view(i,j,k,URHO);
+
+                    eos_re_t eos_state;
+                    eos_state.rho = new_state_view(i,j,k,URHO);
+                    eos_state.T   = new_state_view(i,j,k,UTEMP);
+                    eos_state.e   = temp_next_view(i,j,k) * rhoInv;
+                    for (int n = 0; n < NumSpec; ++n) {
+                        eos_state.xn[n] = new_state_view(i,j,k,UFS+n) * rhoInv;
+                    }
+#if NAUX_NET > 0
+                    for (int n = 0; n < NumAux; ++n) {
+                        eos_state.aux[n] = new_state_view(i,j,k,UFX+n) * rhoInv;
+                    }
+#endif
+
+                    eos(eos_input_re, eos_state);
+
+                    temp_next_view(i,j,k) = eos_state.T;
+                }
+            });
+            Gpu::synchronize();
+        }
+        else {
+
+            const Real fac = 0.01_rt;
+
+            amrex::ParallelFor(bx,
+            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+            {
+                Real cpT = 0.e0_rt;
+
+                for (int g = 0; g < NGROUPS; ++g) {
+                    cpT = cpT + kpp(i,j,k,g) * rad_energy_new_view(i,j,k,g) - emission_arr(i,j,k,g);
+                }
+
+                Real scratch_energy = cpT - (gas_energy_star_view(i,j,k) - gas_energy_step_view(i,j,k)) * inv_light_dt;
+
+                Real temp_update = thermal_frac_z_view(i,j,k) * scratch_energy;
+
+                if (std::abs(temp_update / (temp_next_view(i,j,k) + 1.e-50_rt)) > fac) {
+                    temp_update = std::copysign(fac * temp_next_view(i,j,k), temp_update);
+                }
+
+                temp_next_view(i,j,k) = temp_next_view(i,j,k) + temp_update;
+
+                Real rhoInv = 1.e0_rt / new_state_view(i,j,k,URHO);
+
+                eos_re_t eos_state;
+                eos_state.rho = new_state_view(i,j,k,URHO);
+                eos_state.T   = temp_next_view(i,j,k);
+                for (int n = 0; n < NumSpec; ++n) {
+                    eos_state.xn[n] = new_state_view(i,j,k,UFS+n) * rhoInv;
+                }
+#if NAUX_NET > 0
+                for (int n = 0; n < NumAux; ++n) {
+                    eos_state.aux[n] = new_state_view(i,j,k,UFX+n) * rhoInv;
+                }
+#endif
+
+                eos(eos_input_rt, eos_state);
+
+                gas_energy_new_view(i,j,k) = eos_state.rho * eos_state.e;
+            });
+        }
+    }
+}
+
+void Radiation::update_state_energy(MultiFab& state, const MultiFab& rhoe,
+                                    const MultiFab& temp,
+                                    const BoxArray& grids,
+                                    Real& energy_rel_chg, Real& dT, int level)
+{
+  BL_PROFILE("Radiation::update_state_energy (MultigroupDiffusion)");
+
+  const DistributionMapping& dmap = state.DistributionMap();
+
+  MultiFab msk(grids,dmap,1,0);
+
+  {
+      BoxArray baf;
+
+      if (level < parent->finestLevel()) {
+          baf = parent->boxArray(level+1);
+          baf.coarsen(parent->refRatio(level));
+      }
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(msk); mfi.isValid(); ++mfi)
+      {
+          msk[mfi].setVal<RunOn::Device>(1.0);
+
+          if (level < parent->finestLevel()) {
+              std::vector< std::pair<int,Box> > isects = baf.intersections(mfi.validbox());
+              for (int ii = 0; ii < isects.size(); ii++) {
+                  msk[mfi].setVal<RunOn::Device>(0.0, isects[ii].second, 0);
+              }
+          }
+      }
+  }
+
+  ReduceOps<ReduceOpMax, ReduceOpMax> reduce_op;
+  ReduceData<Real, Real> reduce_data(reduce_op);
+  using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(state,true); mfi.isValid(); ++mfi)
+  {
+      const Box& reg  = mfi.tilebox();
+
+      auto state_arr = state[mfi].array();
+      auto temp_field_arr = temp[mfi].array();
+      auto gas_energy_arr = rhoe[mfi].array();
+      auto valid_mask_arr = msk[mfi].array();
+
+      reduce_op.eval(reg, reduce_data,
+      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+      {
+          Real ei = state_arr(i,j,k,UEINT);
+          Real energy_rel_loc = std::abs((gas_energy_arr(i,j,k) - ei) *
+                                    valid_mask_arr(i,j,k) / (ei + 1.e-50_rt));
+          Real ek = state_arr(i,j,k,UEDEN) - state_arr(i,j,k,UEINT);
+          state_arr(i,j,k,UEINT) = gas_energy_arr(i,j,k);
+          state_arr(i,j,k,UEDEN) = gas_energy_arr(i,j,k) + ek;
+
+          Real temp_old = state_arr(i,j,k,UTEMP);
+          Real temp_rel_loc = std::abs((temp_field_arr(i,j,k) - temp_old) *
+                                    valid_mask_arr(i,j,k) / (temp_old + 1.e-50_rt));
+          state_arr(i,j,k,UTEMP) = temp_field_arr(i,j,k);
+
+          return {energy_rel_loc, temp_rel_loc};
+      });
+
+  }
+
+  ReduceTuple hv = reduce_data.value();
+  energy_rel_chg = amrex::get<0>(hv);
+  dT = amrex::get<1>(hv);
+
+  ParallelDescriptor::ReduceRealMax(energy_rel_chg);
+  ParallelDescriptor::ReduceRealMax(dT);
+}
+
 void Radiation::check_rad_convergence(Real& relative, Real& absolute, Real& rad_energy_err,
                                      const MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
                                      const MultiFab& kappa_p,
@@ -675,6 +888,301 @@ void Radiation::check_matter_convergence(const MultiFab& rhoe_new, const MultiFa
   abs_resid   = data[3];
   rel_temp    = data[4];
   abs_temp    = data[5];
+}
+
+void Radiation::local_convergence_boost(MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
+                            const MultiFab& kappa_p,
+                            const MultiFab& thermal_frac,
+                            const MultiFab& group_weight_mf,
+                            Real delta_t, Real pseudo_transient_tau)
+{
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(rad_energy_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+
+        auto Ern = rad_energy_new[mfi].array();
+        auto Erl = rad_energy_iter[mfi].array();
+        auto kap = kappa_p[mfi].array();
+        auto thermal_frac_arr = thermal_frac[mfi].array();
+        auto group_weight_arr = group_weight_mf[mfi].array();
+
+        Real inv_light_dt = 1.0_rt / (C::c_light * delta_t);
+
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+        {
+            Real Hg[NGROUPS], kappa_shift[NGROUPS];
+            Real rad_source_term = 0.0_rt;
+            Real p = 1.0_rt;
+
+            for (int g = 0; g < NGROUPS; ++g) {
+                Hg[g] = group_weight_arr(i,j,k,g) * thermal_frac_arr(i,j,k);
+                kappa_shift[g] = kap(i,j,k,g) + (1.e0_rt + pseudo_transient_tau) * inv_light_dt;
+                Real kk = kap(i,j,k,g) / kappa_shift[g];
+
+                p -= Hg[g] * kk;
+                rad_source_term += kap(i,j,k,g) * (Ern(i,j,k,g) - Erl(i,j,k,g));
+            }
+
+            for (int g = 0; g < NGROUPS; ++g) {
+                Ern(i,j,k,g) = Ern(i,j,k,g) + (Hg[g] * rad_source_term) / (kappa_shift[g] * p + 1.e-50_rt);
+            }
+        });
+    }
+}
+
+void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_iter,
+                           MultiFab& kappa_p, MultiFab& kappa_r,
+                           MultiFab& thermal_frac, MultiFab& rest_frac,
+                           MultiFab& group_weight_mf,
+                           Array<MultiFab, AMREX_SPACEDIM>& lambda,
+                           RadTransportSolver* solver, MultiGroupBoundary& multigroup_boundary,
+                           const BoxArray& grids, int level, Real time,
+                           Real delta_t, Real pseudo_transient_tau)
+{
+  const Geometry& geom = parent->Geom(level);
+  auto dx = parent->Geom(level).CellSizeArray();
+  const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
+  const DistributionMapping& dmap = hydrosim->DistributionMap();
+
+  if (nGroups > 1) {
+    solver->setSolverScale(1.0);
+  }
+  else {
+    solver->setSolverScale(0.0);
+  }
+  multigroup_boundary.enterCorrection();
+
+  MultiFab rad_energy_zeros(grids, dmap, 1, 0);
+  rad_energy_zeros.setVal(0.0);
+  fetchMultigridBndryZeroRad(multigroup_boundary, rad_energy_zeros, level);
+
+  MultiFab spec(grids, dmap, nGroups, 1);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+    const Box& bx = mfi.tilebox();
+
+    auto kappa_planck_arr = kappa_p[mfi].array();
+    auto group_weight_arr = group_weight_mf[mfi].array();
+    auto spectral_weight_arr = spec[mfi].array();
+
+    Real inv_light_dt = 1.e0_rt / (C::c_light * delta_t);
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+    {
+        Real epsilon[NGROUPS];
+        Real sum_epsilon = 0.0;
+        for (int g = 0; g < NGROUPS; ++g) {
+            Real kappa_shift = kappa_planck_arr(i,j,k,g) + (1.e0_rt + pseudo_transient_tau) * inv_light_dt;
+            epsilon[g] = group_weight_arr(i,j,k,g) / kappa_shift;
+            sum_epsilon += epsilon[g];
+        }
+
+        if (sum_epsilon == 0.e0_rt) {
+            for (int g = 0; g < NGROUPS; ++g) {
+                spectral_weight_arr(i,j,k,g) = 0.e0_rt;
+            }
+        } else {
+            for (int g = 0; g < NGROUPS; ++g) {
+                spectral_weight_arr(i,j,k,g) = epsilon[g] / sum_epsilon;
+            }
+        }
+    });
+  }
+
+  for (int indx = 0; indx < nGroups; indx++) {
+    extendBorderValues(spec, indx);
+  }
+  spec.FillBoundary(parent->Geom(level).periodicity());
+
+  solver->levelBoundary(multigroup_boundary,0);
+
+  MultiFab acoefs(grids, dmap, 1, 0);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(acoefs, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& bx = mfi.tilebox();
+
+      auto rest_frac_arr = rest_frac[mfi].array();
+      auto spectral_weight_arr = spec[mfi].array();
+      auto kappa_planck_arr = kappa_p[mfi].array();
+      auto diag_coef_arr = acoefs[mfi].array();
+
+      const Real dt1 = (1.e0_rt + pseudo_transient_tau) / delta_t;
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+      {
+          Real kappa_avg = 0.0;
+          for (int g = 0; g < NGROUPS; ++g) {
+              kappa_avg += spectral_weight_arr(i,j,k,g) * kappa_planck_arr(i,j,k,g);
+          }
+
+          Real H1 = rest_frac_arr(i,j,k);
+
+          diag_coef_arr(i,j,k) = H1 * kappa_avg * C::c_light + dt1;
+      });
+  }
+
+  solver->applyCellMetrics(level, acoefs);
+  solver->setLevelDiagCoeffs(level, acoefs);
+
+  const DistributionMapping& dm = hydrosim->DistributionMap();
+
+  Array<MultiFab, AMREX_SPACEDIM> bcoefs, cell_coefs, edge_group_coef;
+  for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+    const BoxArray& edge_boxes = hydrosim->getEdgeBoxArray(idim);
+
+    bcoefs[idim].define(edge_boxes, dm, 1, 0);
+    bcoefs[idim].setVal(0.0);
+
+    edge_group_coef [idim].define(edge_boxes, dm, 1, 0);
+
+    if (nGroups > 1) {
+        cell_coefs[idim].define(edge_boxes, dm, 2, 0);
+        cell_coefs[idim].setVal(0.0);
+    }
+  }
+
+  for (int rad_group_idx = 0; rad_group_idx < nGroups; rad_group_idx++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
+      solver->computeFaceCoeffs(edge_group_coef[idim], idim, kappa_r, rad_group_idx,
+                            lambda[idim], rad_group_idx, c, geom);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+      for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+          const Box&  bx  = mfi.nodaltilebox(idim);
+
+          auto dir_coef_arr = bcoefs[idim][mfi].array();
+          auto edge_group_coef_arr = edge_group_coef[idim][mfi].array();
+          auto spectral_weight_arr = spec[mfi].array(rad_group_idx);
+          auto grad_coef_arr = cell_coefs[idim][mfi].array();
+
+          amrex::ParallelFor(bx,
+          [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+          {
+              if (idim == 0) {
+                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i-1,j,k) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
+              }
+              else if (idim == 1) {
+                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i,j-1,k) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
+              }
+              else {
+                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i,j,k-1) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
+              }
+          });
+
+          if (nGroups > 1) {
+              amrex::ParallelFor(bx,
+              [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+              {
+                  int ioff, joff, koff;
+                  Real h1;
+
+                  if (idim == 0) {
+                      ioff = 1;
+                      joff = 0;
+                      koff = 0;
+                      h1 = 1.e0_rt / dx[0];
+                  }
+                  else if (idim == 1) {
+                      ioff = 0;
+                      joff = 1;
+                      koff = 0;
+                      h1 = 1.e0_rt / dx[1];
+                  }
+                  else {
+                      ioff = 0;
+                      joff = 0;
+                      koff = 1;
+                      h1 = 1.e0_rt / dx[2];
+                  }
+
+                  Real spec_grad = (spectral_weight_arr(i,j,k) - spectral_weight_arr(i-ioff,j-joff,k-koff)) * h1;
+                  Real foo = -0.5e0_rt * edge_group_coef_arr(i,j,k) * spec_grad;
+                  grad_coef_arr(i,j,k,0) += foo;
+                  grad_coef_arr(i,j,k,1) += foo;
+              });
+          }
+      }
+    }
+  }
+
+  for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
+    solver->setLevelFaceCoeffs(level, bcoefs[idim], idim);
+
+    if (nGroups > 1) {
+      solver->setLevelCellCoeffs(level, cell_coefs[idim], idim);
+    }
+  }
+
+  MultiFab rhs(grids,dmap,1,0);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(rhs, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& bx = mfi.tilebox();
+
+      auto Ern = rad_energy_new[mfi].array();
+      auto Erl = rad_energy_iter[mfi].array();
+      auto kap = kappa_p[mfi].array();
+      auto thermal_frac_arr = thermal_frac[mfi].array();
+      auto rhs_arr = rhs[mfi].array();
+
+      amrex::ParallelFor(bx,
+      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+      {
+          Real rad_source_term = 0.0;
+          for (int g = 0; g < NGROUPS; ++g) {
+              rad_source_term += kap(i,j,k,g) * (Ern(i,j,k,g) - Erl(i,j,k,g));
+          }
+
+          Real H = thermal_frac_arr(i,j,k);
+
+          rhs_arr(i,j,k) = C::c_light * H * rad_source_term;
+      });
+  }
+
+  solver->applyCellMetrics(level, rhs);
+
+  MultiFab accel(grids,dmap,1,0);
+  accel.setVal(0.0);
+  solver->levelSolveSystem(level, accel, 0, rhs, 0.01);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+      const Box& reg  = mfi.tilebox();
+
+      auto rad_energy_new_arr = rad_energy_new[mfi].array();
+      auto spectral_weight_arr = spec[mfi].array();
+      auto correction_arr = accel[mfi].array();
+
+      amrex::ParallelFor(reg,
+      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+      {
+          for (int n = 0; n < NGROUPS; ++n) {
+              rad_energy_new_arr(i,j,k,n) = rad_energy_new_arr(i,j,k,n) + spectral_weight_arr(i,j,k,n) * correction_arr(i,j,k);
+          }
+      });
+  }
+
+  multigroup_boundary.leaveCorrection();
+  fetchMultigridBndry(multigroup_boundary, rad_energy_new, time, level);
+
+  solver->restoreSolverScale();
 }
 
 void Radiation::build_coupling_term(MultiFab& couple_source,
@@ -941,514 +1449,6 @@ void Radiation::eos_fill_opacity_emission(const MultiFab& S_new,
   if (ngrow == 0 && !lagged_opac) {
       kappa_r.FillBoundary(geom.periodicity());
   }
-}
-
-void Radiation::gray_correction(MultiFab& rad_energy_new, MultiFab& rad_energy_iter,
-                           MultiFab& kappa_p, MultiFab& kappa_r,
-                           MultiFab& thermal_frac, MultiFab& rest_frac,
-                           MultiFab& group_weight_mf,
-                           Array<MultiFab, AMREX_SPACEDIM>& lambda,
-                           RadTransportSolver* solver, MultiGroupBoundary& multigroup_boundary,
-                           const BoxArray& grids, int level, Real time,
-                           Real delta_t, Real pseudo_transient_tau)
-{
-  const Geometry& geom = parent->Geom(level);
-  auto dx = parent->Geom(level).CellSizeArray();
-  const HydroSim *hydrosim = dynamic_cast<HydroSim*>(&parent->getLevel(level));
-  const DistributionMapping& dmap = hydrosim->DistributionMap();
-
-  if (nGroups > 1) {
-    solver->setSolverScale(1.0);
-  }
-  else {
-    solver->setSolverScale(0.0);
-  }
-  multigroup_boundary.enterCorrection();
-
-  MultiFab rad_energy_zeros(grids, dmap, 1, 0);
-  rad_energy_zeros.setVal(0.0);
-  fetchMultigridBndryZeroRad(multigroup_boundary, rad_energy_zeros, level);
-
-  MultiFab spec(grids, dmap, nGroups, 1);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-    const Box& bx = mfi.tilebox();
-
-    auto kappa_planck_arr = kappa_p[mfi].array();
-    auto group_weight_arr = group_weight_mf[mfi].array();
-    auto spectral_weight_arr = spec[mfi].array();
-
-    Real inv_light_dt = 1.e0_rt / (C::c_light * delta_t);
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-    {
-        Real epsilon[NGROUPS];
-        Real sum_epsilon = 0.0;
-        for (int g = 0; g < NGROUPS; ++g) {
-            Real kappa_shift = kappa_planck_arr(i,j,k,g) + (1.e0_rt + pseudo_transient_tau) * inv_light_dt;
-            epsilon[g] = group_weight_arr(i,j,k,g) / kappa_shift;
-            sum_epsilon += epsilon[g];
-        }
-
-        if (sum_epsilon == 0.e0_rt) {
-            for (int g = 0; g < NGROUPS; ++g) {
-                spectral_weight_arr(i,j,k,g) = 0.e0_rt;
-            }
-        } else {
-            for (int g = 0; g < NGROUPS; ++g) {
-                spectral_weight_arr(i,j,k,g) = epsilon[g] / sum_epsilon;
-            }
-        }
-    });
-  }
-
-  for (int indx = 0; indx < nGroups; indx++) {
-    extendBorderValues(spec, indx);
-  }
-  spec.FillBoundary(parent->Geom(level).periodicity());
-
-  solver->levelBoundary(multigroup_boundary,0);
-
-  MultiFab acoefs(grids, dmap, 1, 0);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(acoefs, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-      const Box& bx = mfi.tilebox();
-
-      auto rest_frac_arr = rest_frac[mfi].array();
-      auto spectral_weight_arr = spec[mfi].array();
-      auto kappa_planck_arr = kappa_p[mfi].array();
-      auto diag_coef_arr = acoefs[mfi].array();
-
-      const Real dt1 = (1.e0_rt + pseudo_transient_tau) / delta_t;
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-      {
-          Real kappa_avg = 0.0;
-          for (int g = 0; g < NGROUPS; ++g) {
-              kappa_avg += spectral_weight_arr(i,j,k,g) * kappa_planck_arr(i,j,k,g);
-          }
-
-          Real H1 = rest_frac_arr(i,j,k);
-
-          diag_coef_arr(i,j,k) = H1 * kappa_avg * C::c_light + dt1;
-      });
-  }
-
-  solver->applyCellMetrics(level, acoefs);
-  solver->setLevelDiagCoeffs(level, acoefs);
-
-  const DistributionMapping& dm = hydrosim->DistributionMap();
-
-  Array<MultiFab, AMREX_SPACEDIM> bcoefs, cell_coefs, edge_group_coef;
-  for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-    const BoxArray& edge_boxes = hydrosim->getEdgeBoxArray(idim);
-
-    bcoefs[idim].define(edge_boxes, dm, 1, 0);
-    bcoefs[idim].setVal(0.0);
-
-    edge_group_coef [idim].define(edge_boxes, dm, 1, 0);
-
-    if (nGroups > 1) {
-        cell_coefs[idim].define(edge_boxes, dm, 2, 0);
-        cell_coefs[idim].setVal(0.0);
-    }
-  }
-
-  for (int rad_group_idx = 0; rad_group_idx < nGroups; rad_group_idx++) {
-    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
-      solver->computeFaceCoeffs(edge_group_coef[idim], idim, kappa_r, rad_group_idx,
-                            lambda[idim], rad_group_idx, c, geom);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-      for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-          const Box&  bx  = mfi.nodaltilebox(idim);
-
-          auto dir_coef_arr = bcoefs[idim][mfi].array();
-          auto edge_group_coef_arr = edge_group_coef[idim][mfi].array();
-          auto spectral_weight_arr = spec[mfi].array(rad_group_idx);
-          auto grad_coef_arr = cell_coefs[idim][mfi].array();
-
-          amrex::ParallelFor(bx,
-          [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-          {
-              if (idim == 0) {
-                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i-1,j,k) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
-              }
-              else if (idim == 1) {
-                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i,j-1,k) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
-              }
-              else {
-                  dir_coef_arr(i,j,k) += 0.5e0_rt * (spectral_weight_arr(i,j,k-1) + spectral_weight_arr(i,j,k)) * edge_group_coef_arr(i,j,k);
-              }
-          });
-
-          if (nGroups > 1) {
-              amrex::ParallelFor(bx,
-              [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-              {
-                  int ioff, joff, koff;
-                  Real h1;
-
-                  if (idim == 0) {
-                      ioff = 1;
-                      joff = 0;
-                      koff = 0;
-                      h1 = 1.e0_rt / dx[0];
-                  }
-                  else if (idim == 1) {
-                      ioff = 0;
-                      joff = 1;
-                      koff = 0;
-                      h1 = 1.e0_rt / dx[1];
-                  }
-                  else {
-                      ioff = 0;
-                      joff = 0;
-                      koff = 1;
-                      h1 = 1.e0_rt / dx[2];
-                  }
-
-                  Real spec_grad = (spectral_weight_arr(i,j,k) - spectral_weight_arr(i-ioff,j-joff,k-koff)) * h1;
-                  Real foo = -0.5e0_rt * edge_group_coef_arr(i,j,k) * spec_grad;
-                  grad_coef_arr(i,j,k,0) += foo;
-                  grad_coef_arr(i,j,k,1) += foo;
-              });
-          }
-      }
-    }
-  }
-
-  for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-    solver->setLevelFaceCoeffs(level, bcoefs[idim], idim);
-
-    if (nGroups > 1) {
-      solver->setLevelCellCoeffs(level, cell_coefs[idim], idim);
-    }
-  }
-
-  MultiFab rhs(grids,dmap,1,0);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(rhs, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-      const Box& bx = mfi.tilebox();
-
-      auto Ern = rad_energy_new[mfi].array();
-      auto Erl = rad_energy_iter[mfi].array();
-      auto kap = kappa_p[mfi].array();
-      auto thermal_frac_arr = thermal_frac[mfi].array();
-      auto rhs_arr = rhs[mfi].array();
-
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-      {
-          Real rad_source_term = 0.0;
-          for (int g = 0; g < NGROUPS; ++g) {
-              rad_source_term += kap(i,j,k,g) * (Ern(i,j,k,g) - Erl(i,j,k,g));
-          }
-
-          Real H = thermal_frac_arr(i,j,k);
-
-          rhs_arr(i,j,k) = C::c_light * H * rad_source_term;
-      });
-  }
-
-  solver->applyCellMetrics(level, rhs);
-
-  MultiFab accel(grids,dmap,1,0);
-  accel.setVal(0.0);
-  solver->levelSolveSystem(level, accel, 0, rhs, 0.01);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(spec, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-      const Box& reg  = mfi.tilebox();
-
-      auto rad_energy_new_arr = rad_energy_new[mfi].array();
-      auto spectral_weight_arr = spec[mfi].array();
-      auto correction_arr = accel[mfi].array();
-
-      amrex::ParallelFor(reg,
-      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-      {
-          for (int n = 0; n < NGROUPS; ++n) {
-              rad_energy_new_arr(i,j,k,n) = rad_energy_new_arr(i,j,k,n) + spectral_weight_arr(i,j,k,n) * correction_arr(i,j,k);
-          }
-      });
-  }
-
-  multigroup_boundary.leaveCorrection();
-  fetchMultigridBndry(multigroup_boundary, rad_energy_new, time, level);
-
-  solver->restoreSolverScale();
-}
-
-void Radiation::local_convergence_boost(MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
-                            const MultiFab& kappa_p,
-                            const MultiFab& thermal_frac,
-                            const MultiFab& group_weight_mf,
-                            Real delta_t, Real pseudo_transient_tau)
-{
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(rad_energy_new, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.tilebox();
-
-        auto Ern = rad_energy_new[mfi].array();
-        auto Erl = rad_energy_iter[mfi].array();
-        auto kap = kappa_p[mfi].array();
-        auto thermal_frac_arr = thermal_frac[mfi].array();
-        auto group_weight_arr = group_weight_mf[mfi].array();
-
-        Real inv_light_dt = 1.0_rt / (C::c_light * delta_t);
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-        {
-            Real Hg[NGROUPS], kappa_shift[NGROUPS];
-            Real rad_source_term = 0.0_rt;
-            Real p = 1.0_rt;
-
-            for (int g = 0; g < NGROUPS; ++g) {
-                Hg[g] = group_weight_arr(i,j,k,g) * thermal_frac_arr(i,j,k);
-                kappa_shift[g] = kap(i,j,k,g) + (1.e0_rt + pseudo_transient_tau) * inv_light_dt;
-                Real kk = kap(i,j,k,g) / kappa_shift[g];
-
-                p -= Hg[g] * kk;
-                rad_source_term += kap(i,j,k,g) * (Ern(i,j,k,g) - Erl(i,j,k,g));
-            }
-
-            for (int g = 0; g < NGROUPS; ++g) {
-                Ern(i,j,k,g) = Ern(i,j,k,g) + (Hg[g] * rad_source_term) / (kappa_shift[g] * p + 1.e-50_rt);
-            }
-        });
-    }
-}
-
-void Radiation::update_state_energy(MultiFab& state, const MultiFab& rhoe,
-                                    const MultiFab& temp,
-                                    const BoxArray& grids,
-                                    Real& energy_rel_chg, Real& dT, int level)
-{
-  BL_PROFILE("Radiation::update_state_energy (MultigroupDiffusion)");
-
-  const DistributionMapping& dmap = state.DistributionMap();
-
-  MultiFab msk(grids,dmap,1,0);
-
-  {
-      BoxArray baf;
-
-      if (level < parent->finestLevel()) {
-          baf = parent->boxArray(level+1);
-          baf.coarsen(parent->refRatio(level));
-      }
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-      for (MFIter mfi(msk); mfi.isValid(); ++mfi)
-      {
-          msk[mfi].setVal<RunOn::Device>(1.0);
-
-          if (level < parent->finestLevel()) {
-              std::vector< std::pair<int,Box> > isects = baf.intersections(mfi.validbox());
-              for (int ii = 0; ii < isects.size(); ii++) {
-                  msk[mfi].setVal<RunOn::Device>(0.0, isects[ii].second, 0);
-              }
-          }
-      }
-  }
-
-  ReduceOps<ReduceOpMax, ReduceOpMax> reduce_op;
-  ReduceData<Real, Real> reduce_data(reduce_op);
-  using ReduceTuple = typename decltype(reduce_data)::Type;
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(state,true); mfi.isValid(); ++mfi)
-  {
-      const Box& reg  = mfi.tilebox();
-
-      auto state_arr = state[mfi].array();
-      auto temp_field_arr = temp[mfi].array();
-      auto gas_energy_arr = rhoe[mfi].array();
-      auto valid_mask_arr = msk[mfi].array();
-
-      reduce_op.eval(reg, reduce_data,
-      [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
-      {
-          Real ei = state_arr(i,j,k,UEINT);
-          Real energy_rel_loc = std::abs((gas_energy_arr(i,j,k) - ei) *
-                                    valid_mask_arr(i,j,k) / (ei + 1.e-50_rt));
-          Real ek = state_arr(i,j,k,UEDEN) - state_arr(i,j,k,UEINT);
-          state_arr(i,j,k,UEINT) = gas_energy_arr(i,j,k);
-          state_arr(i,j,k,UEDEN) = gas_energy_arr(i,j,k) + ek;
-
-          Real temp_old = state_arr(i,j,k,UTEMP);
-          Real temp_rel_loc = std::abs((temp_field_arr(i,j,k) - temp_old) *
-                                    valid_mask_arr(i,j,k) / (temp_old + 1.e-50_rt));
-          state_arr(i,j,k,UTEMP) = temp_field_arr(i,j,k);
-
-          return {energy_rel_loc, temp_rel_loc};
-      });
-
-  }
-
-  ReduceTuple hv = reduce_data.value();
-  energy_rel_chg = amrex::get<0>(hv);
-  dT = amrex::get<1>(hv);
-
-  ParallelDescriptor::ReduceRealMax(energy_rel_chg);
-  ParallelDescriptor::ReduceRealMax(dT);
-}
-
-void Radiation::advance_matter(MultiFab& rhoe_new, MultiFab& temp_next,
-                              const MultiFab& rad_energy_new, const MultiFab& rad_energy_iter,
-                              const MultiFab& gas_energy_star,
-                              const MultiFab& gas_energy_step,
-                              const MultiFab& thermal_frac, const MultiFab& thermal_frac_z,
-                              const MultiFab& rest_frac,
-                              const MultiFab& couple_source,
-                              const MultiFab& kappa_p, const MultiFab& jg,
-                              const MultiFab& group_weight_mf,
-                              const MultiFab& S_new,
-                              int level, Real delta_t, Real pseudo_transient_tau,
-                              int it, bool energy_conserving_mode)
-{
-    const Real cdt = C::c_light * delta_t;
-    const Real inv_light_dt = 1.e0_rt / (C::c_light * delta_t);
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(rhoe_new,true); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.tilebox();
-
-        auto gas_energy_new_view = rhoe_new[mfi].array();
-        auto new_state_view = S_new[mfi].array();
-        auto temp_next_view = temp_next[mfi].array();
-        auto rad_energy_new_view = rad_energy_new[mfi].array();
-        auto rad_energy_prev = rad_energy_iter[mfi].array();
-        auto gas_energy_star_view = gas_energy_star[mfi].array();
-        auto gas_energy_step_view = gas_energy_step[mfi].array();
-        auto rest_frac_arr = rest_frac[mfi].array();
-        auto cpT = couple_source[mfi].array();
-        auto thermal_frac_z_view = thermal_frac_z[mfi].array();
-        auto kpp  = kappa_p[mfi].array();
-        auto emission_arr = jg[mfi].array();
-
-        if (energy_conserving_mode) {
-
-            amrex::ParallelFor(bx,
-            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-            {
-                Real H1 = rest_frac_arr(i,j,k);
-
-                Real kappa_weighted_rad_chg = 0.0;
-                for (int g = 0; g < NGROUPS; ++g) {
-                    kappa_weighted_rad_chg += kpp(i,j,k,g) * (rad_energy_new_view(i,j,k,g) - rad_energy_prev(i,j,k,g));
-                }
-
-                Real chg = cdt * kappa_weighted_rad_chg + H1 * ((gas_energy_step_view(i,j,k) - gas_energy_star_view(i,j,k)) + cdt * cpT(i,j,k));
-
-                gas_energy_new_view(i,j,k) = gas_energy_star_view(i,j,k) + chg;
-
-                gas_energy_new_view(i,j,k) = (gas_energy_new_view(i,j,k) + pseudo_transient_tau * gas_energy_star_view(i,j,k)) / (1.e0_rt + pseudo_transient_tau);
-            });
-
-            temp_next[mfi].copy<RunOn::Device>(rhoe_new[mfi],bx);
-            Gpu::synchronize();
-
-            amrex::ParallelFor(bx,
-            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-            {
-
-                if (temp_next_view(i,j,k) <= 0.e0_rt)
-                {
-                    temp_next_view(i,j,k) = small_temp;
-                }
-                else
-                {
-                    Real rhoInv = 1.e0_rt / new_state_view(i,j,k,URHO);
-
-                    eos_re_t eos_state;
-                    eos_state.rho = new_state_view(i,j,k,URHO);
-                    eos_state.T   = new_state_view(i,j,k,UTEMP);
-                    eos_state.e   = temp_next_view(i,j,k) * rhoInv;
-                    for (int n = 0; n < NumSpec; ++n) {
-                        eos_state.xn[n] = new_state_view(i,j,k,UFS+n) * rhoInv;
-                    }
-#if NAUX_NET > 0
-                    for (int n = 0; n < NumAux; ++n) {
-                        eos_state.aux[n] = new_state_view(i,j,k,UFX+n) * rhoInv;
-                    }
-#endif
-
-                    eos(eos_input_re, eos_state);
-
-                    temp_next_view(i,j,k) = eos_state.T;
-                }
-            });
-            Gpu::synchronize();
-        }
-        else {
-
-            const Real fac = 0.01_rt;
-
-            amrex::ParallelFor(bx,
-            [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-            {
-                Real cpT = 0.e0_rt;
-
-                for (int g = 0; g < NGROUPS; ++g) {
-                    cpT = cpT + kpp(i,j,k,g) * rad_energy_new_view(i,j,k,g) - emission_arr(i,j,k,g);
-                }
-
-                Real scratch_energy = cpT - (gas_energy_star_view(i,j,k) - gas_energy_step_view(i,j,k)) * inv_light_dt;
-
-                Real temp_update = thermal_frac_z_view(i,j,k) * scratch_energy;
-
-                if (std::abs(temp_update / (temp_next_view(i,j,k) + 1.e-50_rt)) > fac) {
-                    temp_update = std::copysign(fac * temp_next_view(i,j,k), temp_update);
-                }
-
-                temp_next_view(i,j,k) = temp_next_view(i,j,k) + temp_update;
-
-                Real rhoInv = 1.e0_rt / new_state_view(i,j,k,URHO);
-
-                eos_re_t eos_state;
-                eos_state.rho = new_state_view(i,j,k,URHO);
-                eos_state.T   = temp_next_view(i,j,k);
-                for (int n = 0; n < NumSpec; ++n) {
-                    eos_state.xn[n] = new_state_view(i,j,k,UFS+n) * rhoInv;
-                }
-#if NAUX_NET > 0
-                for (int n = 0; n < NumAux; ++n) {
-                    eos_state.aux[n] = new_state_view(i,j,k,UFX+n) * rhoInv;
-                }
-#endif
-
-                eos(eos_input_rt, eos_state);
-
-                gas_energy_new_view(i,j,k) = eos_state.rho * eos_state.e;
-            });
-        }
-    }
 }
 
 void Radiation::bisect_temperature(MultiFab& rhoe_new, MultiFab& temp_next,

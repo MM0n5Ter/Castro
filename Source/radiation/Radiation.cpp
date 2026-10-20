@@ -16,17 +16,14 @@
 using namespace amrex;
 
 Radiation::Solver_Kind Radiation::SolverKind = Radiation::UnsetSolver;
-
 Real Radiation::radiativeToEnergy = 0.;
 Real Radiation::EnergyToRadFactor = 0.;
 Real Radiation::fluxFromRad = 0.;
-
 int Radiation::groups_enabled = 0;
 int Radiation::nGroups = NGROUPS;
 int Radiation::accelerate = 1;
 int Radiation::rad_hydro_coupled = 0;
 int Radiation::lorentz_energy_term = 1;
-
 int Radiation::comp_limiter  = -1;
 int Radiation::icomp_kappa_planck      = -1;
 int Radiation::icomp_kappa_rosseland      = -1;
@@ -40,215 +37,17 @@ int Radiation::limiter_filter_strength = 0;
 int Radiation::filter_primitive_interval = 0;
 int Radiation::filter_prim_temperature = 4;
 int Radiation::filter_primitive_S = 0;
-
 Real Radiation::mev_to_erg = 0.0;
 Real Radiation::clight          = 0.0;
 Real Radiation::planckConst         = 0.0;
 Real Radiation::boltzmannConst          = 0.0;
 Real Radiation::Avogadro        = 0.0;
-
 Real Radiation::c               = 0.0;
 Real Radiation::sigma           = 0.0;
 Real Radiation::radConstant            = 0.0;
-
 int Radiation::active_group_id = -1;
 std::string Radiation::group_label = "Radiation";
-
 int Radiation::hydro_only = 0;
-
-void Radiation::load_static_settings()
-{
-  ParmParse pp("radiation");
-
-  {
-    int solver_type = Radiation::SolverKind;
-    pp.get("SolverKind", solver_type);
-    SolverKind = static_cast<Solver_Kind>(solver_type);
-  }
-
-  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
-    groups_enabled = 1;
-  }
-  else {
-    groups_enabled = 0;
-  }
-
-  if (!groups_enabled && Radiation::nGroups > 1) {
-      amrex::Error("Radiation::nGroups > 1 but using single group solver");
-  }
-
-  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
-    accelerate = 2;
-  }
-  pp.query("accelerate", accelerate);
-
-  if (Radiation::SolverKind == Radiation::SingleGroupFLDSolver ||
-      Radiation::SolverKind == Radiation::MultiGroupFLDSolver ) {
-    Radiation::rad_hydro_coupled = 1;
-    pp.query("rad_hydro_coupled", rad_hydro_coupled);
-  }
-
-  if (SolverKind == SingleGroupFLDSolver) {
-    radiation::frequency_advection_mode = 1;
-    if (radiation::moving_frame) {
-      lorentz_energy_term = 0;
-    }
-    else {
-      lorentz_energy_term = 1;
-      pp.query("lorentz_energy_term", lorentz_energy_term);
-    }
-  }
-
-  pp.query("filter_limiter_T", filter_limiter_T);
-  limiter_filter_strength = filter_limiter_T - 1;
-  pp.query("limiter_filter_strength", limiter_filter_strength);
-  if (filter_limiter_T > 4) {
-    amrex::Error("filter_limiter_T > 4");
-  }
-  if (filter_limiter_T < 0) {
-    amrex::Error("filter_limiter_T < 0");
-  }
-  if (filter_limiter_T > 0) {
-    if (limiter_filter_strength >= filter_limiter_T) {
-      amrex::Error("Invalid limiter_filter_strength; S must be less than T when T > 0.");
-    }
-  }
-
-  pp.query("filter_primitive_interval", filter_primitive_interval);
-  pp.query("filter_prim_temperature", filter_prim_temperature);
-  filter_primitive_S = filter_prim_temperature - 1;
-  pp.query("filter_primitive_S", filter_primitive_S);
-  if (filter_prim_temperature > 4) {
-    amrex::Error("filter_prim_temperature > 4");
-  }
-  if (filter_prim_temperature < 0) {
-    amrex::Error("filter_prim_temperature < 0");
-  }
-  if (filter_prim_temperature > 0) {
-    if (filter_primitive_S >= filter_prim_temperature) {
-      amrex::Error("Invalid filter_primitive_S; S must be less than T when T > 0.");
-    }
-  }
-
-  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
-
-    Radiation::nGroups = NGROUPS;
-
-    int configured_group_count = -1;
-    pp.query("nGroups", configured_group_count);
-
-    if (configured_group_count > 0 && configured_group_count != Radiation::nGroups) {
-      amrex::Error("you set the number of groups at runtime, but this does not match the compiled value");
-    }
-
-  }
-  else if (Radiation::SolverKind != Radiation::OneGroupSolver &&
-           Radiation::SolverKind != Radiation::SingleGroupFLDSolver) {
-      amrex::Error("Unknown Radiation::SolverKind");
-  }
-
-  {
-      if (radiation::plot_flux_limiter) {
-          comp_limiter = plot_var_names.size();
-
-          if (!groups_enabled || radiation::limiter == 0) {
-              plot_var_names.push_back("lambda");
-          } else {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "lambda" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          }
-      }
-      if (radiation::plot_planck_opacity) {
-          icomp_kappa_planck = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("kappa_P");
-          } else {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "kappa_P" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          }
-      }
-      if (radiation::plot_rosseland_opacity) {
-          icomp_kappa_rosseland = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("kappa_R");
-          } else {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "kappa_R" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          }
-      }
-      if (radiation::plot_lab_rad_energy) {
-          comp_lab_energy = plot_var_names.size();
-          if (!groups_enabled) {
-              plot_var_names.push_back("Erlab");
-          } else {
-              for (int g=0; g<nGroups; ++g) {
-                  std::ostringstream ss;
-                  ss << "Erlab" << g;
-                  plot_var_names.push_back(ss.str());
-              }
-          }
-      }
-      if (radiation::plot_lab_rad_flux) {
-          icomp_lab_flux = plot_var_names.size();
-          std::string frame = "lab";
-          Vector<std::string> axis_labels;
-          axis_labels.push_back("x");
-          axis_labels.push_back("y");
-          axis_labels.push_back("z");
-          if (!groups_enabled) {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  std::ostringstream ss;
-                  ss << "Fr" << frame << axis_labels[idim];
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  for (int g=0; g<nGroups; ++g) {
-                      std::ostringstream ss;
-                      ss << "Fr" << frame << g << axis_labels[idim];
-                      plot_var_names.push_back(ss.str());
-                  }
-              }
-          }
-      }
-      if (radiation::plot_moving_flux) {
-          icomp_comoving_flux = plot_var_names.size();
-          std::string frame = "com";
-          Vector<std::string> axis_labels;
-          axis_labels.push_back("x");
-          axis_labels.push_back("y");
-          axis_labels.push_back("z");
-          if (!groups_enabled) {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  std::ostringstream ss;
-                  ss << "Fr" << frame << axis_labels[idim];
-                  plot_var_names.push_back(ss.str());
-              }
-          } else {
-              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
-                  for (int g=0; g<nGroups; ++g) {
-                      std::ostringstream ss;
-                      ss << "Fr" << frame << g << axis_labels[idim];
-                      plot_var_names.push_back(ss.str());
-                  }
-              }
-          }
-      }
-      num_plot_vars = plot_var_names.size();
-  }
-
-  amrex::Print() << "radiation initialized, nGroups = " << Radiation::nGroups << std::endl;
-
-}
 
 Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
   : parent(Parent)
@@ -467,6 +266,205 @@ Radiation::Radiation(Amr* Parent, HydroSim* hydrosim, int restart)
 
 }
 
+void Radiation::load_static_settings()
+{
+  ParmParse pp("radiation");
+
+  {
+    int solver_type = Radiation::SolverKind;
+    pp.get("SolverKind", solver_type);
+    SolverKind = static_cast<Solver_Kind>(solver_type);
+  }
+
+  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
+    groups_enabled = 1;
+  }
+  else {
+    groups_enabled = 0;
+  }
+
+  if (!groups_enabled && Radiation::nGroups > 1) {
+      amrex::Error("Radiation::nGroups > 1 but using single group solver");
+  }
+
+  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
+    accelerate = 2;
+  }
+  pp.query("accelerate", accelerate);
+
+  if (Radiation::SolverKind == Radiation::SingleGroupFLDSolver ||
+      Radiation::SolverKind == Radiation::MultiGroupFLDSolver ) {
+    Radiation::rad_hydro_coupled = 1;
+    pp.query("rad_hydro_coupled", rad_hydro_coupled);
+  }
+
+  if (SolverKind == SingleGroupFLDSolver) {
+    radiation::frequency_advection_mode = 1;
+    if (radiation::moving_frame) {
+      lorentz_energy_term = 0;
+    }
+    else {
+      lorentz_energy_term = 1;
+      pp.query("lorentz_energy_term", lorentz_energy_term);
+    }
+  }
+
+  pp.query("filter_limiter_T", filter_limiter_T);
+  limiter_filter_strength = filter_limiter_T - 1;
+  pp.query("limiter_filter_strength", limiter_filter_strength);
+  if (filter_limiter_T > 4) {
+    amrex::Error("filter_limiter_T > 4");
+  }
+  if (filter_limiter_T < 0) {
+    amrex::Error("filter_limiter_T < 0");
+  }
+  if (filter_limiter_T > 0) {
+    if (limiter_filter_strength >= filter_limiter_T) {
+      amrex::Error("Invalid limiter_filter_strength; S must be less than T when T > 0.");
+    }
+  }
+
+  pp.query("filter_primitive_interval", filter_primitive_interval);
+  pp.query("filter_prim_temperature", filter_prim_temperature);
+  filter_primitive_S = filter_prim_temperature - 1;
+  pp.query("filter_primitive_S", filter_primitive_S);
+  if (filter_prim_temperature > 4) {
+    amrex::Error("filter_prim_temperature > 4");
+  }
+  if (filter_prim_temperature < 0) {
+    amrex::Error("filter_prim_temperature < 0");
+  }
+  if (filter_prim_temperature > 0) {
+    if (filter_primitive_S >= filter_prim_temperature) {
+      amrex::Error("Invalid filter_primitive_S; S must be less than T when T > 0.");
+    }
+  }
+
+  if (Radiation::SolverKind == Radiation::MultiGroupFLDSolver) {
+
+    Radiation::nGroups = NGROUPS;
+
+    int configured_group_count = -1;
+    pp.query("nGroups", configured_group_count);
+
+    if (configured_group_count > 0 && configured_group_count != Radiation::nGroups) {
+      amrex::Error("you set the number of groups at runtime, but this does not match the compiled value");
+    }
+
+  }
+  else if (Radiation::SolverKind != Radiation::OneGroupSolver &&
+           Radiation::SolverKind != Radiation::SingleGroupFLDSolver) {
+      amrex::Error("Unknown Radiation::SolverKind");
+  }
+
+  {
+      if (radiation::plot_flux_limiter) {
+          comp_limiter = plot_var_names.size();
+
+          if (!groups_enabled || radiation::limiter == 0) {
+              plot_var_names.push_back("lambda");
+          } else {
+              for (int g=0; g<nGroups; ++g) {
+                  std::ostringstream ss;
+                  ss << "lambda" << g;
+                  plot_var_names.push_back(ss.str());
+              }
+          }
+      }
+      if (radiation::plot_planck_opacity) {
+          icomp_kappa_planck = plot_var_names.size();
+          if (!groups_enabled) {
+              plot_var_names.push_back("kappa_P");
+          } else {
+              for (int g=0; g<nGroups; ++g) {
+                  std::ostringstream ss;
+                  ss << "kappa_P" << g;
+                  plot_var_names.push_back(ss.str());
+              }
+          }
+      }
+      if (radiation::plot_rosseland_opacity) {
+          icomp_kappa_rosseland = plot_var_names.size();
+          if (!groups_enabled) {
+              plot_var_names.push_back("kappa_R");
+          } else {
+              for (int g=0; g<nGroups; ++g) {
+                  std::ostringstream ss;
+                  ss << "kappa_R" << g;
+                  plot_var_names.push_back(ss.str());
+              }
+          }
+      }
+      if (radiation::plot_lab_rad_energy) {
+          comp_lab_energy = plot_var_names.size();
+          if (!groups_enabled) {
+              plot_var_names.push_back("Erlab");
+          } else {
+              for (int g=0; g<nGroups; ++g) {
+                  std::ostringstream ss;
+                  ss << "Erlab" << g;
+                  plot_var_names.push_back(ss.str());
+              }
+          }
+      }
+      if (radiation::plot_lab_rad_flux) {
+          icomp_lab_flux = plot_var_names.size();
+          std::string frame = "lab";
+          Vector<std::string> axis_labels;
+          axis_labels.push_back("x");
+          axis_labels.push_back("y");
+          axis_labels.push_back("z");
+          if (!groups_enabled) {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  std::ostringstream ss;
+                  ss << "Fr" << frame << axis_labels[idim];
+                  plot_var_names.push_back(ss.str());
+              }
+          } else {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  for (int g=0; g<nGroups; ++g) {
+                      std::ostringstream ss;
+                      ss << "Fr" << frame << g << axis_labels[idim];
+                      plot_var_names.push_back(ss.str());
+                  }
+              }
+          }
+      }
+      if (radiation::plot_moving_flux) {
+          icomp_comoving_flux = plot_var_names.size();
+          std::string frame = "com";
+          Vector<std::string> axis_labels;
+          axis_labels.push_back("x");
+          axis_labels.push_back("y");
+          axis_labels.push_back("z");
+          if (!groups_enabled) {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  std::ostringstream ss;
+                  ss << "Fr" << frame << axis_labels[idim];
+                  plot_var_names.push_back(ss.str());
+              }
+          } else {
+              for (int idim=0; idim<AMREX_SPACEDIM; ++idim) {
+                  for (int g=0; g<nGroups; ++g) {
+                      std::ostringstream ss;
+                      ss << "Fr" << frame << g << axis_labels[idim];
+                      plot_var_names.push_back(ss.str());
+                  }
+              }
+          }
+      }
+      num_plot_vars = plot_var_names.size();
+  }
+
+  amrex::Print() << "radiation initialized, nGroups = " << Radiation::nGroups << std::endl;
+
+}
+
+void Radiation::post_init(int level)
+{
+    return;
+}
+
 void Radiation::regrid(int level, const BoxArray& grids, const DistributionMapping& dmap)
 {
   BL_PROFILE("Radiation::Regrid");
@@ -497,36 +495,36 @@ void Radiation::regrid(int level, const BoxArray& grids, const DistributionMappi
   }
 }
 
-void Radiation::close(int level)
+void Radiation::begin_timestep(int level)
 {
-  if (level > parent->finestLevel()) {
-    if (verbose > 0 && ParallelDescriptor::IOProcessor()) {
-      std::cout << "Clearing radiation object at level " << level
-            << "..." << std::endl;
-    }
-    flux_accum_reg[level].reset();
-    flux_candidate_regs[level].reset();
+  BL_PROFILE("Radiation::begin_timestep");
+  int fine_level = parent->finestLevel();
+  int ncycle     = parent->nCycle(level);
 
-    flux_div[level].reset();
+  static int done = 0;
+  if (level < fine_level) {
 
-    plot_fields[level].reset();
-
-    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
-      std::cout << "                                       done" << std::endl;
-    }
-
-    BL_ASSERT(level > 0);
-    int clev = level - 1;
-
-    if (clev == parent->finestLevel()) {
-      int ncycle    = parent->nCycle(clev);
-      int iteration = parent->levelSteps(clev);
-      iteration = (clev > 0) ? iteration % ncycle : iteration;
-      if (iteration > 0) {
-        reset_flux_records(clev, ncycle);
+      int fine_lvl = level + 1;
+      if (!flux_accum_reg[fine_lvl]) {
+          const BoxArray& grids = parent->getLevel(fine_lvl).boxArray();
+          const DistributionMapping& dmap = parent->getLevel(fine_lvl).DistributionMap();
+          const IntVect& crse_ratio = parent->refRatio(level);
+          flux_accum_reg[fine_lvl].reset(new FluxRegister(grids, dmap, crse_ratio, fine_lvl, nGroups));
+          flux_accum_reg[fine_lvl]->setVal(0.0);
       }
-    }
   }
+
+  int iteration = parent->levelSteps(level);
+  iteration = (level > 0) ? iteration % ncycle : done;
+  if (level < fine_level || iteration == 0) {
+      reset_flux_records(level, ncycle);
+      done = 1;
+  }
+}
+
+void Radiation::select_active_group(int rad_group_idx)
+{
+  active_group_id = rad_group_idx;
 }
 
 void Radiation::restart(int level, const BoxArray& grids,
@@ -613,39 +611,34 @@ void Radiation::checkPoint(int level,
   }
 }
 
-void Radiation::post_init(int level)
+void Radiation::close(int level)
 {
-    return;
-}
+  if (level > parent->finestLevel()) {
+    if (verbose > 0 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "Clearing radiation object at level " << level
+            << "..." << std::endl;
+    }
+    flux_accum_reg[level].reset();
+    flux_candidate_regs[level].reset();
 
-void Radiation::begin_timestep(int level)
-{
-  BL_PROFILE("Radiation::begin_timestep");
-  int fine_level = parent->finestLevel();
-  int ncycle     = parent->nCycle(level);
+    flux_div[level].reset();
 
-  static int done = 0;
-  if (level < fine_level) {
+    plot_fields[level].reset();
 
-      int fine_lvl = level + 1;
-      if (!flux_accum_reg[fine_lvl]) {
-          const BoxArray& grids = parent->getLevel(fine_lvl).boxArray();
-          const DistributionMapping& dmap = parent->getLevel(fine_lvl).DistributionMap();
-          const IntVect& crse_ratio = parent->refRatio(level);
-          flux_accum_reg[fine_lvl].reset(new FluxRegister(grids, dmap, crse_ratio, fine_lvl, nGroups));
-          flux_accum_reg[fine_lvl]->setVal(0.0);
+    if (verbose > 1 && ParallelDescriptor::IOProcessor()) {
+      std::cout << "                                       done" << std::endl;
+    }
+
+    BL_ASSERT(level > 0);
+    int clev = level - 1;
+
+    if (clev == parent->finestLevel()) {
+      int ncycle    = parent->nCycle(clev);
+      int iteration = parent->levelSteps(clev);
+      iteration = (clev > 0) ? iteration % ncycle : iteration;
+      if (iteration > 0) {
+        reset_flux_records(clev, ncycle);
       }
+    }
   }
-
-  int iteration = parent->levelSteps(level);
-  iteration = (level > 0) ? iteration % ncycle : done;
-  if (level < fine_level || iteration == 0) {
-      reset_flux_records(level, ncycle);
-      done = 1;
-  }
-}
-
-void Radiation::select_active_group(int rad_group_idx)
-{
-  active_group_id = rad_group_idx;
 }

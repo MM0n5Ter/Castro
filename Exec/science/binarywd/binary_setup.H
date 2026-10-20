@@ -34,7 +34,6 @@ void set_small ();
 
 void update_roche_radii ();
 
-
 namespace binarywd
 {
     extern AMREX_GPU_MANAGED amrex::Real mdot_P;
@@ -45,18 +44,6 @@ namespace binarywd
     extern AMREX_GPU_MANAGED amrex::Real rad_S[7];
     extern AMREX_GPU_MANAGED amrex::Real vol_S[7];
     extern AMREX_GPU_MANAGED amrex::Real rho_avg_S;
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real point_accel (Real M, Real r)
-{
-    return -C::Gconst * M / (r * r) * std::copysign(1.0_rt, r);
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real tidal_gradient (Real M, Real r)
-{
-    return 2.0_rt * C::Gconst * M / (r * r * r) * std::copysign(1.0_rt, r);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
@@ -72,6 +59,18 @@ Real centrifugal_slope (Real M, Real a, Real r)
     amrex::ignore_unused(r);
 
     return C::Gconst * M / (a * a * a);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real point_accel (Real M, Real r)
+{
+    return -C::Gconst * M / (r * r) * std::copysign(1.0_rt, r);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real tidal_gradient (Real M, Real r)
+{
+    return 2.0_rt * C::Gconst * M / (r * r * r) * std::copysign(1.0_rt, r);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE

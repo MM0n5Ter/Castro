@@ -25,6 +25,7 @@ using namespace amrex;
 const int* fab_low_corner = (fab).loVect();           \
 const int* fab_high_corner = (fab).hiVect();           \
 REAL* fab_values = (fab).dataPtr();
+
 #define DECLARE_CONST_EXTENTS(fab,fab_values,fab_low_corner,fab_high_corner)  \
 const int* fab_low_corner = (fab).loVect();           \
 const int* fab_high_corner = (fab).hiVect();           \
@@ -35,25 +36,6 @@ RadBoundaryData::RadBoundaryData(const BoxArray& _grids, const DistributionMappi
     : BndryRegister(), geom(_geom)
 {
     define(_grids,_dmap,_ncomp,_geom);
-}
-
-std::ostream& operator << (std::ostream& os, const RadBoundaryData &mgb)
-{
-    const BoxArray& grds = mgb.boxes();
-    int ngrds = grds.size();
-    os << "[RadBoundaryData with " << ngrds << " grids:\n";
-    for (int grd = 0; grd < ngrds; grd++){
-        for (OrientationIter face; face; ++face) {
-            Orientation f = face();
-            os << "::: face " << f << " of grid " << grds[grd] << "\n";
-            os << "BC = " << mgb.bcond[f][grd]
-               << " LOC = " << mgb.bcloc[f][grd] << "\n";
-            os << *mgb.masks[f][grd];
-            os << mgb.bndry[f][grd];
-        }
-        os << "--------------------------------------------------" << std::endl;
-    }
-    return os;
 }
 
 void
@@ -125,10 +107,38 @@ RadBoundaryData::define(const BoxArray& _grids, const DistributionMapping& _dmap
     }
 }
 
+std::ostream& operator << (std::ostream& os, const RadBoundaryData &mgb)
+{
+    const BoxArray& grds = mgb.boxes();
+    int ngrds = grds.size();
+    os << "[RadBoundaryData with " << ngrds << " grids:\n";
+    for (int grd = 0; grd < ngrds; grd++){
+        for (OrientationIter face; face; ++face) {
+            Orientation f = face();
+            os << "::: face " << f << " of grid " << grds[grd] << "\n";
+            os << "BC = " << mgb.bcond[f][grd]
+               << " LOC = " << mgb.bcloc[f][grd] << "\n";
+            os << *mgb.masks[f][grd];
+            os << mgb.bndry[f][grd];
+        }
+        os << "--------------------------------------------------" << std::endl;
+    }
+    return os;
+}
+
 RadInterpBoundaryData::RadInterpBoundaryData(const BoxArray& _grids, const DistributionMapping& _dmap,
                                        int _ncomp, const Geometry& geom)
     : RadBoundaryData(_grids,_dmap,_ncomp,geom)
 {
+}
+
+void RadInterpBoundaryData::setBoundaryConditions(const BCRec& phys_bc,
+                                    const Geometry& geom, int ratio)
+{
+
+    IntVect uniform_ratio = ratio * IntVect::TheUnitVector();
+    setBoundaryConditions(phys_bc, geom, uniform_ratio);
+
 }
 
 void
@@ -439,13 +449,3 @@ RadInterpBoundaryData::setBndryValues(BndryRegister& crse, int c_start,
         bndry[face()].copyFrom(fine,0,f_start,bnd_start,num_comp);
     }
 }
-
-void RadInterpBoundaryData::setBoundaryConditions(const BCRec& phys_bc,
-                                    const Geometry& geom, int ratio)
-{
-
-    IntVect uniform_ratio = ratio * IntVect::TheUnitVector();
-    setBoundaryConditions(phys_bc, geom, uniform_ratio);
-
-}
-

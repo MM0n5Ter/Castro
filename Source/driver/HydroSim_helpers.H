@@ -16,36 +16,6 @@ using namespace amrex;
 #endif
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-constexpr int passive_cons_index (int passive_index)
-{
-    if (passive_index < NumAdvected) {
-        return UFA + passive_index;
-    }
-
-    if (passive_index < NumAdvected + NumSpec) {
-        return UFS + passive_index - NumAdvected;
-    }
-
-    return UFX + passive_index - NumAdvected - NumSpec;
-
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-constexpr int passive_prim_index (int passive_index)
-{
-    if (passive_index < NumAdvected) {
-        return QFA + passive_index;
-    }
-
-    if (passive_index < NumAdvected + NumSpec) {
-        return QFS + passive_index - NumAdvected;
-    }
-
-    return QFX + passive_index - NumAdvected - NumSpec;
-
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool momentum_flux_has_pressure (const int momentum_axis, const int flux_axis, const int coord)
 {
 
@@ -76,6 +46,36 @@ bool momentum_flux_has_pressure (const int momentum_axis, const int flux_axis, c
     return (momentum_axis == flux_axis);
 
 #endif
+
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+constexpr int passive_prim_index (int passive_index)
+{
+    if (passive_index < NumAdvected) {
+        return QFA + passive_index;
+    }
+
+    if (passive_index < NumAdvected + NumSpec) {
+        return QFS + passive_index - NumAdvected;
+    }
+
+    return QFX + passive_index - NumAdvected - NumSpec;
+
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+constexpr int passive_cons_index (int passive_index)
+{
+    if (passive_index < NumAdvected) {
+        return UFA + passive_index;
+    }
+
+    if (passive_index < NumAdvected + NumSpec) {
+        return UFS + passive_index - NumAdvected;
+    }
+
+    return UFX + passive_index - NumAdvected - NumSpec;
 
 }
 

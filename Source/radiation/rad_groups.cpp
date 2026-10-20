@@ -14,6 +14,33 @@
 
 using namespace amrex;
 
+void Radiation::dump_group_table(ostream& os)
+{
+  os << "# total number of groups = " << nGroups << std::endl;
+
+  if (nGroups > 1) {
+    os << "# group center, group weight" << group_unit_label << std::endl;
+    int oldprec = os.precision(10);
+    for (int i = 0; i < nGroups; i++) {
+      os.width(3);
+      os << i << ": ";
+      os.width(15);
+      os <<  freq_center[i] * group_output_scale << ", ";
+      os.width(15);
+      os << freq_width[i] * group_output_scale << std::endl;
+    }
+    os.precision(oldprec);
+  }
+
+  if (xnu.size() > 0) {
+    os << "# group lower boundaries" << std::endl;
+    for (int i = 0; i < xnu.size(); i++) {
+      os << "group(" << i << ") = "
+         << xnu[i] * group_output_scale << std::endl;
+    }
+  }
+}
+
 void Radiation::build_groups(int verbose)
 {
   group_output_scale   = 1.0;
@@ -120,33 +147,6 @@ void Radiation::build_groups(int verbose)
 
     if (verbose >= 1) {
       dump_group_table(std::cout);
-    }
-  }
-}
-
-void Radiation::dump_group_table(ostream& os)
-{
-  os << "# total number of groups = " << nGroups << std::endl;
-
-  if (nGroups > 1) {
-    os << "# group center, group weight" << group_unit_label << std::endl;
-    int oldprec = os.precision(10);
-    for (int i = 0; i < nGroups; i++) {
-      os.width(3);
-      os << i << ": ";
-      os.width(15);
-      os <<  freq_center[i] * group_output_scale << ", ";
-      os.width(15);
-      os << freq_width[i] * group_output_scale << std::endl;
-    }
-    os.precision(oldprec);
-  }
-
-  if (xnu.size() > 0) {
-    os << "# group lower boundaries" << std::endl;
-    for (int i = 0; i < xnu.size(); i++) {
-      os << "group(" << i << ") = "
-         << xnu[i] * group_output_scale << std::endl;
     }
   }
 }

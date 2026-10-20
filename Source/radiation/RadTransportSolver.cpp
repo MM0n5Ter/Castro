@@ -121,16 +121,10 @@ void RadTransportSolver::levelBoundary(MultiGroupBoundary& multigroup_boundary, 
   }
 }
 
-void RadTransportSolver::setLevelDiagCoeffs(int level, const MultiFab& acoefs)
+void RadTransportSolver::setLevelCellCoeffs(int level, const MultiFab& cell_coefs, int dir)
 {
-    if (hd) {
-        hd->setMassCoefficients(acoefs);
-    }
-    else if (hm) {
-        hm->setMassCoefficients(level, acoefs);
-    }
-    else if (hem) {
-        hem->setMassCoefficients(level, acoefs);
+    if (hem) {
+      hem->setAdvectionCoefficients(level, cell_coefs, dir);
     }
 }
 
@@ -147,11 +141,26 @@ void RadTransportSolver::setLevelFaceCoeffs(int level, const MultiFab& bcoefs, i
     }
 }
 
-void RadTransportSolver::setLevelCellCoeffs(int level, const MultiFab& cell_coefs, int dir)
+void RadTransportSolver::setLevelDiagCoeffs(int level, const MultiFab& acoefs)
 {
-    if (hem) {
-      hem->setAdvectionCoefficients(level, cell_coefs, dir);
+    if (hd) {
+        hd->setMassCoefficients(acoefs);
     }
+    else if (hm) {
+        hm->setMassCoefficients(level, acoefs);
+    }
+    else if (hem) {
+        hem->setMassCoefficients(level, acoefs);
+    }
+}
+
+void RadTransportSolver::setSolverScale(Real cScale, Real d1Scale, Real d2Scale)
+{
+  if (hem) {
+    hem-> advectionScale() =  cScale;
+    hem->gradientScale1() = d1Scale;
+    hem->gradientScale2() = d2Scale;
+  }
 }
 
 void RadTransportSolver::levelSolveSystem(int level,
@@ -215,15 +224,6 @@ void RadTransportSolver::levelSolveSystem(int level,
     }
     res *= sync_residual_scale;
     hem->releaseSolver();
-  }
-}
-
-void RadTransportSolver::setSolverScale(Real cScale, Real d1Scale, Real d2Scale)
-{
-  if (hem) {
-    hem-> advectionScale() =  cScale;
-    hem->gradientScale1() = d1Scale;
-    hem->gradientScale2() = d2Scale;
   }
 }
 

@@ -8,10 +8,6 @@
 using BndryFunc = StateDescriptor::BndryFunc;
 
 namespace {
-    Box the_same_box (const Box& b) { return b; }
-
-    Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
-
     constexpr std::array<int, 6> scalar_bc{
         amrex::BCType::int_dir,
         amrex::BCType::ext_dir,
@@ -48,17 +44,9 @@ namespace {
     };
 #endif
 
-    void
-    set_scalar_bc (BCRec& bc, const BCRec& phys_bc)
-    {
-        const int* lo_bc = phys_bc.lo();
-        const int* hi_bc = phys_bc.hi();
-        for (int i = 0; i < AMREX_SPACEDIM; i++)
-        {
-            bc.setLo(i,scalar_bc[lo_bc[i]]);
-            bc.setHi(i,scalar_bc[hi_bc[i]]);
-        }
-    }
+    Box the_same_box (const Box& b) { return b; }
+
+    Box grow_box_by_one (const Box& b) { return amrex::grow(b,1); }
 
     void
     set_x_vel_bc(BCRec& bc, const BCRec& phys_bc)
@@ -109,6 +97,18 @@ namespace {
         bc.setLo(2,norm_vel_bc[lo_bc[2]]);
         bc.setHi(2,norm_vel_bc[hi_bc[2]]);
 #endif
+    }
+
+    void
+    set_scalar_bc (BCRec& bc, const BCRec& phys_bc)
+    {
+        const int* lo_bc = phys_bc.lo();
+        const int* hi_bc = phys_bc.hi();
+        for (int i = 0; i < AMREX_SPACEDIM; i++)
+        {
+            bc.setLo(i,scalar_bc[lo_bc[i]]);
+            bc.setHi(i,scalar_bc[hi_bc[i]]);
+        }
     }
 
 #ifdef MHD

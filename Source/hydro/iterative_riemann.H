@@ -13,7 +13,6 @@ using namespace amrex::literals;
 #endif
 
 namespace ShockPairSolver {
-
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
     compute_wave_speed_sq(const amrex::Real p, const amrex::Real v,
@@ -43,6 +42,196 @@ namespace ShockPairSolver {
       wsq = amrex::max(wsq, (0.5_rt * (gam - 1.0_rt)/gam)*csq);
     }
 
+    AMREX_GPU_HOST_DEVICE AMREX_INLINE
+    void
+    shock_pair_direct(const InterfaceState& ql, const InterfaceState& qr, const InterfaceAux& interface_aux,
+              InterfaceState& interface_state) {
+
+
+
+
+      amrex::Real impedance_floor = small_dens * interface_aux.sound_floor;
+
+      amrex::Real wl = amrex::max(impedance_floor, std::sqrt(std::abs(ql.gamma1_cell * ql.p * ql.rho)));
+      amrex::Real wr = amrex::max(impedance_floor, std::sqrt(std::abs(qr.gamma1_cell * qr.p * qr.rho)));
+
+      amrex::Real inv_impedance_sum = 1.0_rt/(wl + wr);
+      amrex::Real pstar = ((wr * ql.p + wl * qr.p) + wl * wr * (ql.un - qr.un)) * inv_impedance_sum;
+      amrex::Real ustar = ((wl * ql.un + wr * qr.un) + (ql.p - qr.p)) * inv_impedance_sum;
+
+      pstar = amrex::max(pstar, pressure_cutoff);
+
+
+      if (std::abs(ustar) < solver_constants::small_velocity_ratio * 0.5_rt * (std::abs(ql.un) + std::abs(qr.un))) {
+          ustar = 0.0_rt;
+      }
+
+
+      amrex::Real sgnm = std::copysign(1.0_rt, ustar);
+      if (ustar == 0.0_rt) {
+          sgnm = 0.0_rt;
+      }
+
+      amrex::Real fp = 0.5_rt*(1.0_rt + sgnm);
+      amrex::Real fm = 0.5_rt*(1.0_rt - sgnm);
+
+      amrex::Real ro = fp * ql.rho + fm * qr.rho;
+      amrex::Real uo = fp * ql.un + fm * qr.un;
+      amrex::Real po = fp * ql.p + fm * qr.p;
+      amrex::Real reo = fp * ql.rhoe + fm * qr.rhoe;
+      amrex::Real upwind_gamma1 = fp * ql.gamma1_cell + fm * qr.gamma1_cell;
+    #ifdef RADIATION
+      for (int g = 0; g < NGROUPS; g++) {
+          interface_state.lam[g] = fp * ql.lam[g] + fm * qr.lam[g];
+      }
+
+      if (ustar == 0) {
+          for (int g = 0; g < NGROUPS; g++) {
+              interface_state.lam[g] = 2.0_rt * (ql.lam[g] * qr.lam[g]) / (ql.lam[g] + qr.lam[g] + 1.e-50_rt);
+          }
+      }
+
+      amrex::Real upwind_pressure_gas = fp * ql.p_g + fm * qr.p_g;
+      amrex::Real upwind_energy_density_group[NGROUPS];
+      amrex::Real upwind_pressure_group[NGROUPS];
+      for (int g = 0; g < NGROUPS; g++) {
+          upwind_energy_density_group[g] = fp * ql.er[g] + fm * qr.er[g];
+          upwind_pressure_group[g] = interface_state.lam[g] * upwind_energy_density_group[g];
+      }
+      amrex::Real upwind_energy_density_gas = fp * ql.energy_density_gas + fm * qr.energy_density_gas;
+      amrex::Real gamma1_upwind_gas = fp * ql.gamma1_gas + fm * qr.gamma1_gas;
+    #endif
+
+      ro = amrex::max(small_dens, ro);
+
+      amrex::Real inv_upwind_density = 1.0_rt / ro;
+
+      amrex::Real co = std::sqrt(std::abs(upwind_gamma1 * po * inv_upwind_density));
+      co = amrex::max(interface_aux.sound_floor, co);
+      amrex::Real inv_sound_squared = 1.0_rt / (co*co);
+
+
+      interface_state.ut = fp * ql.ut + fm * qr.ut;
+      interface_state.utt = fp * ql.utt + fm * qr.utt;
+
+
+      amrex::Real drho = (pstar - po)*inv_sound_squared;
+      amrex::Real rstar = ro + drho;
+      rstar = amrex::max(small_dens, rstar);
+
+    #ifdef RADIATION
+      amrex::Real star_energy_gas = upwind_energy_density_gas + drho*(upwind_energy_density_gas + upwind_pressure_gas)*inv_upwind_density;
+
+      amrex::Real sound_speed_gas = std::sqrt(std::abs(gamma1_upwind_gas*upwind_pressure_gas*inv_upwind_density));
+      sound_speed_gas = amrex::max(interface_aux.sound_floor, sound_speed_gas);
+
+      amrex::Real star_pressure_gas = upwind_pressure_gas + drho*sound_speed_gas*sound_speed_gas;
+      star_pressure_gas = amrex::max(star_pressure_gas, pressure_cutoff);
+
+      amrex::Real star_energy_group[NGROUPS];
+      for (int g = 0; g < NGROUPS; g++) {
+          star_energy_group[g] = upwind_energy_density_group[g] + drho*(upwind_energy_density_group[g] + upwind_pressure_group[g])*inv_upwind_density;
+      }
+    #else
+      amrex::Real enthalpy_jump_coeff = (reo + po)*inv_upwind_density*inv_sound_squared;
+      amrex::Real star_energy = reo + (pstar - po)*enthalpy_jump_coeff;
+    #endif
+
+      amrex::Real cstar = std::sqrt(std::abs(upwind_gamma1*pstar/rstar));
+      cstar = amrex::max(cstar, interface_aux.sound_floor);
+
+
+
+      amrex::Real spout = co - sgnm*uo;
+      amrex::Real spin = cstar - sgnm*ustar;
+
+      amrex::Real shock_vel = 0.5_rt*(spin + spout);
+
+      if (pstar-po > 0.0_rt) {
+          spin = shock_vel;
+          spout = shock_vel;
+      }
+
+      amrex::Real scr = spout - spin;
+      if (spout-spin == 0.0_rt) {
+          scr = solver_constants::small * interface_aux.mean_sound_speed;
+      }
+
+      amrex::Real frac = (1.0_rt + (spout + spin)/scr)*0.5_rt;
+      frac = amrex::Clamp(frac, 0.0_rt, 1.0_rt);
+
+      interface_state.rho = frac*rstar + (1.0_rt - frac)*ro;
+      interface_state.un = frac*ustar + (1.0_rt - frac)*uo;
+
+    #ifdef RADIATION
+      amrex::Real godunov_pressure_total = frac*pstar + (1.0_rt - frac)*po;
+      amrex::Real godunov_pressure_gas = frac*star_pressure_gas + (1.0_rt - frac)*upwind_pressure_gas;
+      amrex::Real godunov_energy_density_gas = frac*star_energy_gas + (1.0_rt - frac)*upwind_energy_density_gas;
+      amrex::Real godunov_energy_density_group[NGROUPS];
+      for (int g = 0; g < NGROUPS; g++) {
+          godunov_energy_density_group[g] = frac*star_energy_group[g] + (1.0_rt - frac)*upwind_energy_density_group[g];
+      }
+    #else
+      interface_state.p = frac*pstar + (1.0_rt - frac)*po;
+      amrex::Real godunov_energy_density = frac*star_energy + (1.0_rt - frac)*reo;
+    #endif
+
+
+      if (spout < 0.0_rt) {
+          interface_state.rho = ro;
+          interface_state.un = uo;
+    #ifdef RADIATION
+          godunov_pressure_total = po;
+          godunov_pressure_gas = upwind_pressure_gas;
+          godunov_energy_density_gas = upwind_energy_density_gas;
+          for (int g = 0; g < NGROUPS; g++) {
+              godunov_energy_density_group[g] = upwind_energy_density_group[g];
+          }
+    #else
+          interface_state.p = po;
+          godunov_energy_density = reo;
+    #endif
+      }
+
+      if (spin >= 0.0_rt) {
+          interface_state.rho = rstar;
+          interface_state.un = ustar;
+    #ifdef RADIATION
+          godunov_pressure_total = pstar;
+          godunov_pressure_gas = star_pressure_gas;
+          godunov_energy_density_gas = star_energy_gas;
+          for (int g = 0; g < NGROUPS; g++) {
+              godunov_energy_density_group[g] = star_energy_group[g];
+          }
+    #else
+          interface_state.p = pstar;
+          godunov_energy_density = star_energy;
+    #endif
+        }
+
+    #ifdef RADIATION
+      for (int g = 0; g < NGROUPS; g++) {
+          interface_state.er[g] = amrex::max(godunov_energy_density_group[g], 0.0_rt);
+      }
+
+      interface_state.p_g = godunov_pressure_gas;
+      interface_state.p = godunov_pressure_total;
+      interface_state.energy_density_gas = godunov_energy_density_gas;
+
+      interface_state.rhoe = godunov_energy_density_gas;
+      for (int g = 0; g < NGROUPS; g++) {
+          interface_state.rhoe += godunov_energy_density_group[g];
+      }
+
+    #else
+      interface_state.p = amrex::max(interface_state.p, pressure_cutoff);
+      interface_state.rhoe = godunov_energy_density;
+    #endif
+
+      interface_state.un = interface_state.un * interface_aux.boundary_factor;
+
+
+    }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
@@ -120,7 +309,6 @@ namespace ShockPairSolver {
 
       pstar = star_pressure_mid;
     }
-
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
@@ -416,197 +604,6 @@ namespace ShockPairSolver {
 
 
     }
-
-
-    AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
-    shock_pair_direct(const InterfaceState& ql, const InterfaceState& qr, const InterfaceAux& interface_aux,
-              InterfaceState& interface_state) {
-
-
-
-
-      amrex::Real impedance_floor = small_dens * interface_aux.sound_floor;
-
-      amrex::Real wl = amrex::max(impedance_floor, std::sqrt(std::abs(ql.gamma1_cell * ql.p * ql.rho)));
-      amrex::Real wr = amrex::max(impedance_floor, std::sqrt(std::abs(qr.gamma1_cell * qr.p * qr.rho)));
-
-      amrex::Real inv_impedance_sum = 1.0_rt/(wl + wr);
-      amrex::Real pstar = ((wr * ql.p + wl * qr.p) + wl * wr * (ql.un - qr.un)) * inv_impedance_sum;
-      amrex::Real ustar = ((wl * ql.un + wr * qr.un) + (ql.p - qr.p)) * inv_impedance_sum;
-
-      pstar = amrex::max(pstar, pressure_cutoff);
-
-
-      if (std::abs(ustar) < solver_constants::small_velocity_ratio * 0.5_rt * (std::abs(ql.un) + std::abs(qr.un))) {
-          ustar = 0.0_rt;
-      }
-
-
-      amrex::Real sgnm = std::copysign(1.0_rt, ustar);
-      if (ustar == 0.0_rt) {
-          sgnm = 0.0_rt;
-      }
-
-      amrex::Real fp = 0.5_rt*(1.0_rt + sgnm);
-      amrex::Real fm = 0.5_rt*(1.0_rt - sgnm);
-
-      amrex::Real ro = fp * ql.rho + fm * qr.rho;
-      amrex::Real uo = fp * ql.un + fm * qr.un;
-      amrex::Real po = fp * ql.p + fm * qr.p;
-      amrex::Real reo = fp * ql.rhoe + fm * qr.rhoe;
-      amrex::Real upwind_gamma1 = fp * ql.gamma1_cell + fm * qr.gamma1_cell;
-    #ifdef RADIATION
-      for (int g = 0; g < NGROUPS; g++) {
-          interface_state.lam[g] = fp * ql.lam[g] + fm * qr.lam[g];
-      }
-
-      if (ustar == 0) {
-          for (int g = 0; g < NGROUPS; g++) {
-              interface_state.lam[g] = 2.0_rt * (ql.lam[g] * qr.lam[g]) / (ql.lam[g] + qr.lam[g] + 1.e-50_rt);
-          }
-      }
-
-      amrex::Real upwind_pressure_gas = fp * ql.p_g + fm * qr.p_g;
-      amrex::Real upwind_energy_density_group[NGROUPS];
-      amrex::Real upwind_pressure_group[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          upwind_energy_density_group[g] = fp * ql.er[g] + fm * qr.er[g];
-          upwind_pressure_group[g] = interface_state.lam[g] * upwind_energy_density_group[g];
-      }
-      amrex::Real upwind_energy_density_gas = fp * ql.energy_density_gas + fm * qr.energy_density_gas;
-      amrex::Real gamma1_upwind_gas = fp * ql.gamma1_gas + fm * qr.gamma1_gas;
-    #endif
-
-      ro = amrex::max(small_dens, ro);
-
-      amrex::Real inv_upwind_density = 1.0_rt / ro;
-
-      amrex::Real co = std::sqrt(std::abs(upwind_gamma1 * po * inv_upwind_density));
-      co = amrex::max(interface_aux.sound_floor, co);
-      amrex::Real inv_sound_squared = 1.0_rt / (co*co);
-
-
-      interface_state.ut = fp * ql.ut + fm * qr.ut;
-      interface_state.utt = fp * ql.utt + fm * qr.utt;
-
-
-      amrex::Real drho = (pstar - po)*inv_sound_squared;
-      amrex::Real rstar = ro + drho;
-      rstar = amrex::max(small_dens, rstar);
-
-    #ifdef RADIATION
-      amrex::Real star_energy_gas = upwind_energy_density_gas + drho*(upwind_energy_density_gas + upwind_pressure_gas)*inv_upwind_density;
-
-      amrex::Real sound_speed_gas = std::sqrt(std::abs(gamma1_upwind_gas*upwind_pressure_gas*inv_upwind_density));
-      sound_speed_gas = amrex::max(interface_aux.sound_floor, sound_speed_gas);
-
-      amrex::Real star_pressure_gas = upwind_pressure_gas + drho*sound_speed_gas*sound_speed_gas;
-      star_pressure_gas = amrex::max(star_pressure_gas, pressure_cutoff);
-
-      amrex::Real star_energy_group[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          star_energy_group[g] = upwind_energy_density_group[g] + drho*(upwind_energy_density_group[g] + upwind_pressure_group[g])*inv_upwind_density;
-      }
-    #else
-      amrex::Real enthalpy_jump_coeff = (reo + po)*inv_upwind_density*inv_sound_squared;
-      amrex::Real star_energy = reo + (pstar - po)*enthalpy_jump_coeff;
-    #endif
-
-      amrex::Real cstar = std::sqrt(std::abs(upwind_gamma1*pstar/rstar));
-      cstar = amrex::max(cstar, interface_aux.sound_floor);
-
-
-
-      amrex::Real spout = co - sgnm*uo;
-      amrex::Real spin = cstar - sgnm*ustar;
-
-      amrex::Real shock_vel = 0.5_rt*(spin + spout);
-
-      if (pstar-po > 0.0_rt) {
-          spin = shock_vel;
-          spout = shock_vel;
-      }
-
-      amrex::Real scr = spout - spin;
-      if (spout-spin == 0.0_rt) {
-          scr = solver_constants::small * interface_aux.mean_sound_speed;
-      }
-
-      amrex::Real frac = (1.0_rt + (spout + spin)/scr)*0.5_rt;
-      frac = amrex::Clamp(frac, 0.0_rt, 1.0_rt);
-
-      interface_state.rho = frac*rstar + (1.0_rt - frac)*ro;
-      interface_state.un = frac*ustar + (1.0_rt - frac)*uo;
-
-    #ifdef RADIATION
-      amrex::Real godunov_pressure_total = frac*pstar + (1.0_rt - frac)*po;
-      amrex::Real godunov_pressure_gas = frac*star_pressure_gas + (1.0_rt - frac)*upwind_pressure_gas;
-      amrex::Real godunov_energy_density_gas = frac*star_energy_gas + (1.0_rt - frac)*upwind_energy_density_gas;
-      amrex::Real godunov_energy_density_group[NGROUPS];
-      for (int g = 0; g < NGROUPS; g++) {
-          godunov_energy_density_group[g] = frac*star_energy_group[g] + (1.0_rt - frac)*upwind_energy_density_group[g];
-      }
-    #else
-      interface_state.p = frac*pstar + (1.0_rt - frac)*po;
-      amrex::Real godunov_energy_density = frac*star_energy + (1.0_rt - frac)*reo;
-    #endif
-
-
-      if (spout < 0.0_rt) {
-          interface_state.rho = ro;
-          interface_state.un = uo;
-    #ifdef RADIATION
-          godunov_pressure_total = po;
-          godunov_pressure_gas = upwind_pressure_gas;
-          godunov_energy_density_gas = upwind_energy_density_gas;
-          for (int g = 0; g < NGROUPS; g++) {
-              godunov_energy_density_group[g] = upwind_energy_density_group[g];
-          }
-    #else
-          interface_state.p = po;
-          godunov_energy_density = reo;
-    #endif
-      }
-
-      if (spin >= 0.0_rt) {
-          interface_state.rho = rstar;
-          interface_state.un = ustar;
-    #ifdef RADIATION
-          godunov_pressure_total = pstar;
-          godunov_pressure_gas = star_pressure_gas;
-          godunov_energy_density_gas = star_energy_gas;
-          for (int g = 0; g < NGROUPS; g++) {
-              godunov_energy_density_group[g] = star_energy_group[g];
-          }
-    #else
-          interface_state.p = pstar;
-          godunov_energy_density = star_energy;
-    #endif
-        }
-
-    #ifdef RADIATION
-      for (int g = 0; g < NGROUPS; g++) {
-          interface_state.er[g] = amrex::max(godunov_energy_density_group[g], 0.0_rt);
-      }
-
-      interface_state.p_g = godunov_pressure_gas;
-      interface_state.p = godunov_pressure_total;
-      interface_state.energy_density_gas = godunov_energy_density_gas;
-
-      interface_state.rhoe = godunov_energy_density_gas;
-      for (int g = 0; g < NGROUPS; g++) {
-          interface_state.rhoe += godunov_energy_density_group[g];
-      }
-
-    #else
-      interface_state.p = amrex::max(interface_state.p, pressure_cutoff);
-      interface_state.rhoe = godunov_energy_density;
-    #endif
-
-      interface_state.un = interface_state.un * interface_aux.boundary_factor;
-
-
-    }
 }
+
 #endif

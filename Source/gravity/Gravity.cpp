@@ -28,20 +28,16 @@ int Gravity::verify_solves_flag  = 1;
 #else
 int Gravity::verify_solves_flag  = 0;
 #endif
-Real Gravity::mass_shift    =  0.0;
 
+Real Gravity::mass_shift    =  0.0;
 AMREX_GPU_MANAGED Real multipole::volumeScale;
 AMREX_GPU_MANAGED Real multipole::parityScale;
-
 AMREX_GPU_MANAGED Real multipole::rmax;
-
 AMREX_GPU_MANAGED Array1D<bool, 0, 2> multipole::doFoldedAddLo;
 AMREX_GPU_MANAGED Array1D<bool, 0, 2> multipole::doFoldedAddHi;
 AMREX_GPU_MANAGED bool multipole::doFoldedAdd;
-
 AMREX_GPU_MANAGED Array1D<bool, 0, 2> multipole::doMirrorLo;
 AMREX_GPU_MANAGED Array1D<bool, 0, 2> multipole::doMirrorHi;
-
 AMREX_GPU_MANAGED Array2D<Real, 0, multipole::max_moment_order, 0, multipole::max_moment_order> multipole::factorialTable;
 AMREX_GPU_MANAGED Array1D<Real, 0, multipole::max_moment_order> multipole::axis_parity_table;
 AMREX_GPU_MANAGED Array2D<Real, 0, multipole::max_moment_order, 0, multipole::max_moment_order> multipole::azimuth_parity_table;
@@ -87,6 +83,65 @@ Gravity::Gravity(Amr* Parent, int _top_level_hint, BCRec* _boundary_rec, int _de
 }
 
 Gravity::~Gravity() = default;
+
+void
+Gravity::attach_level (int                   level,
+                        AmrLevel*             amr_level_ptr,
+                        MultiFab&             _cell_volume,
+                        MultiFab*             _face_area)
+{
+    if (gravity::verbose > 1) {
+        amrex::Print() << "Installing Gravity level " << level << '\n';
+    }
+
+    LevelTable[level] = amr_level_ptr;
+
+    volume[level] = &_cell_volume;
+
+    area[level] = _face_area;
+
+    level_solve_residual_norm[level] = 0.0;
+
+    const Geometry& geom = amr_level_ptr->Geom();
+
+    if (gravity::gravity_model_name == "PoissonGrav") {
+
+       const DistributionMapping& dm = amr_level_ptr->DistributionMap();
+
+       phi_gradient_old[level].resize(AMREX_SPACEDIM);
+       for (int n=0; n<AMREX_SPACEDIM; ++n) {
+           phi_gradient_old[level][n] = std::make_unique<MultiFab>(amr_level_ptr->getEdgeBoxArray(n),dm,1,1);
+       }
+       phi_gradient_new[level].resize(AMREX_SPACEDIM);
+       for (int n=0; n<AMREX_SPACEDIM; ++n) {
+           phi_gradient_new[level][n] = std::make_unique<MultiFab>(amr_level_ptr->getEdgeBoxArray(n),dm,1,1);
+       }
+
+    } else if (gravity::gravity_model_name == "MonopoleGrav") {
+
+        if (!geom.isAllPeriodic())
+        {
+           int n1d = gravity::radial_bin_ratio*level_point_count;
+
+           radial_field_old[level].resize(n1d);
+           radial_field_new[level].resize(n1d);
+           radial_shell_mass[level].resize(n1d);
+           radial_shell_vol[level].resize(n1d);
+#ifdef GR_GRAV
+           radial_shell_pres[level].resize(n1d);
+#endif
+        }
+
+    }
+
+    allocated_top_level = level;
+}
+
+void
+Gravity::set_grid_points_gravity (int numpts)
+{
+  level_point_count = numpts;
+}
 
 void
 Gravity::read_params ()
@@ -223,62 +278,42 @@ Gravity::report_run_settings(std::ostream& jobInfoFile)
 }
 
 void
-Gravity::set_grid_points_gravity (int numpts)
+Gravity::swapTimeLevels (int level)
 {
-  level_point_count = numpts;
+    BL_PROFILE("Gravity::swapTimeLevels()");
+
+    if (gravity::gravity_model_name == "PoissonGrav") {
+        for (int n=0; n < AMREX_SPACEDIM; n++) {
+            std::swap(phi_gradient_old[level][n], phi_gradient_new[level][n]);
+            phi_gradient_new[level][n]->setVal(1.e50);
+        }
+    }
+}
+
+Vector<std::unique_ptr<MultiFab> >&
+Gravity::get_potential_gradient_curr(int level)
+{
+  return phi_gradient_new[level];
+}
+
+Vector<std::unique_ptr<MultiFab> >&
+Gravity::get_potential_gradient_prev(int level)
+{
+  return phi_gradient_old[level];
+}
+
+MultiFab*
+Gravity::read_prev_grad_comp(int level, int comp)
+{
+  return phi_gradient_old[level][comp].get();
 }
 
 void
-Gravity::attach_level (int                   level,
-                        AmrLevel*             amr_level_ptr,
-                        MultiFab&             _cell_volume,
-                        MultiFab*             _face_area)
+Gravity::accumulate_grad_phi_now(int level, Vector<std::unique_ptr<MultiFab> >& addend)
 {
-    if (gravity::verbose > 1) {
-        amrex::Print() << "Installing Gravity level " << level << '\n';
+    for (int n = 0; n < AMREX_SPACEDIM; n++) {
+        phi_gradient_new[level][n]->plus(*addend[n],0,1,0);
     }
-
-    LevelTable[level] = amr_level_ptr;
-
-    volume[level] = &_cell_volume;
-
-    area[level] = _face_area;
-
-    level_solve_residual_norm[level] = 0.0;
-
-    const Geometry& geom = amr_level_ptr->Geom();
-
-    if (gravity::gravity_model_name == "PoissonGrav") {
-
-       const DistributionMapping& dm = amr_level_ptr->DistributionMap();
-
-       phi_gradient_old[level].resize(AMREX_SPACEDIM);
-       for (int n=0; n<AMREX_SPACEDIM; ++n) {
-           phi_gradient_old[level][n] = std::make_unique<MultiFab>(amr_level_ptr->getEdgeBoxArray(n),dm,1,1);
-       }
-       phi_gradient_new[level].resize(AMREX_SPACEDIM);
-       for (int n=0; n<AMREX_SPACEDIM; ++n) {
-           phi_gradient_new[level][n] = std::make_unique<MultiFab>(amr_level_ptr->getEdgeBoxArray(n),dm,1,1);
-       }
-
-    } else if (gravity::gravity_model_name == "MonopoleGrav") {
-
-        if (!geom.isAllPeriodic())
-        {
-           int n1d = gravity::radial_bin_ratio*level_point_count;
-
-           radial_field_old[level].resize(n1d);
-           radial_field_new[level].resize(n1d);
-           radial_shell_mass[level].resize(n1d);
-           radial_shell_vol[level].resize(n1d);
-#ifdef GR_GRAV
-           radial_shell_pres[level].resize(n1d);
-#endif
-        }
-
-    }
-
-    allocated_top_level = level;
 }
 
 std::string Gravity::get_solver_kind()
@@ -304,45 +339,6 @@ int Gravity::CompositeFixEnabled()
 int Gravity::get_self_check_flag()
 {
   return verify_solves_flag;
-}
-
-Vector<std::unique_ptr<MultiFab> >&
-Gravity::get_potential_gradient_prev(int level)
-{
-  return phi_gradient_old[level];
-}
-
-MultiFab*
-Gravity::read_prev_grad_comp(int level, int comp)
-{
-  return phi_gradient_old[level][comp].get();
-}
-
-Vector<std::unique_ptr<MultiFab> >&
-Gravity::get_potential_gradient_curr(int level)
-{
-  return phi_gradient_new[level];
-}
-
-void
-Gravity::accumulate_grad_phi_now(int level, Vector<std::unique_ptr<MultiFab> >& addend)
-{
-    for (int n = 0; n < AMREX_SPACEDIM; n++) {
-        phi_gradient_new[level][n]->plus(*addend[n],0,1,0);
-    }
-}
-
-void
-Gravity::swapTimeLevels (int level)
-{
-    BL_PROFILE("Gravity::swapTimeLevels()");
-
-    if (gravity::gravity_model_name == "PoissonGrav") {
-        for (int n=0; n < AMREX_SPACEDIM; n++) {
-            std::swap(phi_gradient_old[level][n], phi_gradient_new[level][n]);
-            phi_gradient_new[level][n]->setVal(1.e50);
-        }
-    }
 }
 
 void

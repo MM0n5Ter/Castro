@@ -19,6 +19,30 @@ namespace multipole {
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void evaluateLegendreByDegree (int l, Real& legendreValue, Real& legendreValue1, Real& legendreValue2, Real x)
+{
+
+    if (l == 0) {
+
+        legendreValue = 1.0_rt;
+
+    }
+    else if (l == 1) {
+
+        legendreValue1 = legendreValue;
+        legendreValue  = x;
+
+    }
+    else {
+
+        legendreValue2 = legendreValue1;
+        legendreValue1 = legendreValue;
+        legendreValue  = ((2*l - 1) * x * legendreValue1 - (l-1) * legendreValue2) / l;
+
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& assocLegendreValue1, Real& assocLegendreValue2, Real x)
 {
 
@@ -49,27 +73,186 @@ void evaluateAssociatedLegendre (int l, int m, Real& assocLegendreValue, Real& a
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void evaluateLegendreByDegree (int l, Real& legendreValue, Real& legendreValue1, Real& legendreValue2, Real x)
+Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& boundaryLoc,
+                              const GpuArray<Real, 3>& problo, const GpuArray<Real, 3>& probhi,
+                              Real rho, Real dV,
+                              const GpuArray<bool, 3>& doFoldedAddLo, const GpuArray<bool, 3>& doFoldedAddHi)
 {
 
-    if (l == 0) {
+    Real boundaryTerm = 0.0_rt;
 
-        legendreValue = 1.0_rt;
+    Real x, y, z, r;
+
+    if (doFoldedAddLo[0]) {
+
+        x = 2.0_rt * problo[0] - loc[0];
+        y = loc[1];
+        z = loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
+
+        if (doFoldedAddLo[1]) {
+
+            x = 2.0_rt * problo[0] - loc[0];
+            y = 2.0_rt * problo[1] - loc[1];
+            z = loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
+
+        if (doFoldedAddLo[2]) {
+
+            x = 2.0_rt * problo[0] - loc[0];
+            y = loc[1];
+            z = 2.0_rt * problo[2] - loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
+
+        if (doFoldedAddLo[1] && doFoldedAddLo[2]) {
+
+            x = 2.0_rt * problo[0] - loc[0];
+            y = 2.0_rt * problo[1] - loc[1];
+            z = 2.0_rt * problo[2] - loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
 
     }
-    else if (l == 1) {
 
-        legendreValue1 = legendreValue;
-        legendreValue  = x;
+    if (doFoldedAddLo[1]) {
+
+        x = loc[0];
+        y = 2.0_rt * problo[1] - loc[1];
+        z = loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
+
+        if (doFoldedAddLo[2]) {
+
+            x = loc[0];
+            y = 2.0_rt * problo[1] - loc[1];
+            z = 2.0_rt * problo[2] - loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
 
     }
-    else {
 
-        legendreValue2 = legendreValue1;
-        legendreValue1 = legendreValue;
-        legendreValue  = ((2*l - 1) * x * legendreValue1 - (l-1) * legendreValue2) / l;
+    if (doFoldedAddLo[2]) {
+
+        x = loc[0];
+        y = loc[1];
+        z = 2.0_rt * problo[2] - loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
 
     }
+
+    if (doFoldedAddHi[0]) {
+
+        x = 2.0_rt * probhi[0] - loc[0];
+        y = loc[1];
+        z = loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
+
+        if (doFoldedAddHi[1]) {
+
+            x = 2.0_rt * probhi[0] - loc[0];
+            y = 2.0_rt * probhi[1] - loc[1];
+            z = loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
+
+       if (doFoldedAddHi[2]) {
+
+           x = 2.0_rt * probhi[0] - loc[0];
+           y = loc[1];
+           z = 2.0_rt * probhi[2] - loc[2];
+
+           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+           boundaryTerm -= C::Gconst * rho * dV / r;
+
+       }
+
+       if (doFoldedAddHi[1] && doFoldedAddHi[2]) {
+
+           x = 2.0_rt * probhi[0] - loc[0];
+           y = 2.0_rt * probhi[1] - loc[1];
+           z = 2.0_rt * probhi[2] - loc[2];
+
+           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+           boundaryTerm -= C::Gconst * rho * dV / r;
+
+       }
+
+    }
+
+    if (doFoldedAddHi[1]) {
+
+        x = loc[0];
+        y = 2.0_rt * probhi[1] - loc[1];
+        z = loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
+
+        if (doFoldedAddHi[2]) {
+
+            x = loc[0];
+            y = 2.0_rt * probhi[1] - loc[1];
+            z = 2.0_rt * probhi[2] - loc[2];
+
+            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+            boundaryTerm -= C::Gconst * rho * dV / r;
+
+        }
+
+    }
+
+    if (doFoldedAddHi[2]) {
+
+        x = loc[0];
+        y = loc[1];
+        z = 2.0_rt * probhi[2] - loc[2];
+
+        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
+
+        boundaryTerm -= C::Gconst * rho * dV / r;
+
+    }
+
+    return boundaryTerm;
+
 }
 
 AMREX_GPU_DEVICE AMREX_INLINE
@@ -283,189 +466,6 @@ void accumulate_mirror_moments(Real x, Real y, Real z,
         accumulate_moments(cosPolar, sampleAzimuth, r, rho, vol, qL0, qLC, qLS, qU0, qUC, qUS, npts, nlo, index, handler);
 
     }
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real accumulate_mirror_contribution(const GpuArray<Real, 3>& loc, const GpuArray<Real, 3>& boundaryLoc,
-                              const GpuArray<Real, 3>& problo, const GpuArray<Real, 3>& probhi,
-                              Real rho, Real dV,
-                              const GpuArray<bool, 3>& doFoldedAddLo, const GpuArray<bool, 3>& doFoldedAddHi)
-{
-
-    Real boundaryTerm = 0.0_rt;
-
-    Real x, y, z, r;
-
-    if (doFoldedAddLo[0]) {
-
-        x = 2.0_rt * problo[0] - loc[0];
-        y = loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-        if (doFoldedAddLo[1]) {
-
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-        if (doFoldedAddLo[2]) {
-
-            x = 2.0_rt * problo[0] - loc[0];
-            y = loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-        if (doFoldedAddLo[1] && doFoldedAddLo[2]) {
-
-            x = 2.0_rt * problo[0] - loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-    }
-
-    if (doFoldedAddLo[1]) {
-
-        x = loc[0];
-        y = 2.0_rt * problo[1] - loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-        if (doFoldedAddLo[2]) {
-
-            x = loc[0];
-            y = 2.0_rt * problo[1] - loc[1];
-            z = 2.0_rt * problo[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-    }
-
-    if (doFoldedAddLo[2]) {
-
-        x = loc[0];
-        y = loc[1];
-        z = 2.0_rt * problo[2] - loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-    }
-
-    if (doFoldedAddHi[0]) {
-
-        x = 2.0_rt * probhi[0] - loc[0];
-        y = loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-        if (doFoldedAddHi[1]) {
-
-            x = 2.0_rt * probhi[0] - loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
-            z = loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-       if (doFoldedAddHi[2]) {
-
-           x = 2.0_rt * probhi[0] - loc[0];
-           y = loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
-
-           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-           boundaryTerm -= C::Gconst * rho * dV / r;
-
-       }
-
-       if (doFoldedAddHi[1] && doFoldedAddHi[2]) {
-
-           x = 2.0_rt * probhi[0] - loc[0];
-           y = 2.0_rt * probhi[1] - loc[1];
-           z = 2.0_rt * probhi[2] - loc[2];
-
-           r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-           boundaryTerm -= C::Gconst * rho * dV / r;
-
-       }
-
-    }
-
-    if (doFoldedAddHi[1]) {
-
-        x = loc[0];
-        y = 2.0_rt * probhi[1] - loc[1];
-        z = loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-        if (doFoldedAddHi[2]) {
-
-            x = loc[0];
-            y = 2.0_rt * probhi[1] - loc[1];
-            z = 2.0_rt * probhi[2] - loc[2];
-
-            r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-            boundaryTerm -= C::Gconst * rho * dV / r;
-
-        }
-
-    }
-
-    if (doFoldedAddHi[2]) {
-
-        x = loc[0];
-        y = loc[1];
-        z = 2.0_rt * probhi[2] - loc[2];
-
-        r = std::sqrt((x - boundaryLoc[0]) * (x - boundaryLoc[0]) + (y - boundaryLoc[1]) * (y - boundaryLoc[1]) + (z - boundaryLoc[2]) * (z - boundaryLoc[2]));
-
-        boundaryTerm -= C::Gconst * rho * dV / r;
-
-    }
-
-    return boundaryTerm;
-
 }
 
 #endif

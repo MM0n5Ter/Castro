@@ -33,28 +33,8 @@ std::string inputs_name{};
 
 amrex::LevelBld* getLevelBld ();
 
+void set_amrex_defaults ();
 
-void set_amrex_defaults ()
-{
-    {
-        ParmParse pp("amrex");
-#ifndef RADIATION
-        if (!pp.contains("the_arena_is_managed")) {
-            pp.add("the_arena_is_managed", false);
-        }
-#endif
-        if (!pp.contains("abort_on_out_of_gpu_memory")) {
-            pp.add("abort_on_out_of_gpu_memory", true);
-        }
-    }
-
-    {
-        ParmParse pp("amr");
-        if (!pp.contains("message_int")) {
-            pp.add("message_int", 1);
-        }
-    }
-}
 
 int
 main (int   argc,
@@ -228,4 +208,26 @@ main (int   argc,
     amrex::Finalize();
 
     return 0;
+}
+
+void set_amrex_defaults ()
+{
+    {
+        ParmParse pp("amrex");
+#ifndef RADIATION
+        if (!pp.contains("the_arena_is_managed")) {
+            pp.add("the_arena_is_managed", false);
+        }
+#endif
+        if (!pp.contains("abort_on_out_of_gpu_memory")) {
+            pp.add("abort_on_out_of_gpu_memory", true);
+        }
+    }
+
+    {
+        ParmParse pp("amr");
+        if (!pp.contains("message_int")) {
+            pp.add("message_int", 1);
+        }
+    }
 }

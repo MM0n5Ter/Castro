@@ -44,6 +44,121 @@ namespace
 }
 
 void
+HydroSim::checkPoint(const std::string& dir,
+                   std::ostream&  os,
+                   VisMF::How     how,
+                   bool  )
+{
+
+  const Real io_begin_clock = ParallelDescriptor::second();
+
+  AmrLevel::checkPoint(dir, os, how, dump_old);
+
+  const Real write_seconds = ParallelDescriptor::second() - io_begin_clock;
+
+#ifdef RADIATION
+  if (do_radiative_transfer) {
+    radiation->checkPoint(level, dir, os, how);
+  }
+#endif
+
+#ifdef AMREX_PARTICLES
+  ParticleSaveRestart(dir);
+#endif
+
+  if (level == 0 && ParallelDescriptor::IOProcessor())
+    {
+        {
+            std::ofstream HydroSimHeaderFile;
+            std::string FullPathHydroSimHeaderFile = dir;
+            FullPathHydroSimHeaderFile += "/CastroHeader";
+            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
+
+            HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
+            HydroSimHeaderFile.close();
+
+            writeRunRecord(dir, write_seconds);
+
+            std::ofstream VarNameListFile;
+            std::string FullPathVarNameList = dir;
+            FullPathVarNameList += "/state_names.txt";
+            VarNameListFile.open(FullPathVarNameList.c_str(), std::ios::out);
+
+            for (int n = 0; n < NUM_STATE; n++) {
+              VarNameListFile << desc_lst[State_Type].name(n) << "\n";
+            }
+            VarNameListFile.close();
+        }
+
+        if (lastDtWriteLimited == 1) {
+
+            std::ofstream timestepFile;
+            std::string FullPathTimestepFile = dir;
+            FullPathTimestepFile += "/dtHeader";
+            timestepFile.open(FullPathTimestepFile.c_str(), std::ios::out);
+
+            timestepFile << lastDtBeforeWriteLimit << std::endl;
+            timestepFile.close();
+
+        }
+
+        {
+            std::ofstream CpuTimeFile;
+            std::string FullPathCpuTimeFile = dir;
+            FullPathCpuTimeFile += "/CPUtime";
+            CpuTimeFile.open(FullPathCpuTimeFile.c_str(), std::ios::out);
+
+            CpuTimeFile << std::setprecision(17) << getCpuSeconds();
+            CpuTimeFile.close();
+        }
+
+#ifdef GRAVITY
+        if (use_central_mass) {
+
+            std::ofstream PointMassFile;
+            std::string FullPathPointMassFile = dir;
+            FullPathPointMassFile += "/point_mass";
+            PointMassFile.open(FullPathPointMassFile.c_str(), std::ios::out);
+
+            PointMassFile << std::setprecision(17) << point_mass << std::endl;
+
+            PointMassFile.close();
+
+        }
+#endif
+
+#ifdef ROTATION
+        if (do_frame_spin) {
+            std::ofstream SpinPeriodFile;
+            std::string FullPathSpinPeriodFile = dir;
+            FullPathSpinPeriodFile += "/Rotation";
+            SpinPeriodFile.open(FullPathSpinPeriodFile.c_str(), std::ios::out);
+
+            SpinPeriodFile << std::scientific;
+            SpinPeriodFile.precision(19);
+
+            SpinPeriodFile << std::setw(30) << hydrosim::spin_period << std::endl;
+
+            SpinPeriodFile.close();
+        }
+#endif
+
+        {
+            user_checkpoint(dir);
+        }
+    }
+
+}
+
+void
+HydroSim::set_state_in_checkpoint (Vector<int>& state_in_checkpoint)
+{
+    for (int i=0; i<num_field_types; ++i) {
+        state_in_checkpoint[i] = 1;
+    }
+}
+
+void
 HydroSim::restart (Amr&     papa,
                  istream& is,
                  bool     bReadSpecial)
@@ -356,119 +471,4 @@ HydroSim::restart (Amr&     papa,
         parent->setLevelCount(level, restart_step_override);
 
     }
-}
-
-void
-HydroSim::set_state_in_checkpoint (Vector<int>& state_in_checkpoint)
-{
-    for (int i=0; i<num_field_types; ++i) {
-        state_in_checkpoint[i] = 1;
-    }
-}
-
-void
-HydroSim::checkPoint(const std::string& dir,
-                   std::ostream&  os,
-                   VisMF::How     how,
-                   bool  )
-{
-
-  const Real io_begin_clock = ParallelDescriptor::second();
-
-  AmrLevel::checkPoint(dir, os, how, dump_old);
-
-  const Real write_seconds = ParallelDescriptor::second() - io_begin_clock;
-
-#ifdef RADIATION
-  if (do_radiative_transfer) {
-    radiation->checkPoint(level, dir, os, how);
-  }
-#endif
-
-#ifdef AMREX_PARTICLES
-  ParticleSaveRestart(dir);
-#endif
-
-  if (level == 0 && ParallelDescriptor::IOProcessor())
-    {
-        {
-            std::ofstream HydroSimHeaderFile;
-            std::string FullPathHydroSimHeaderFile = dir;
-            FullPathHydroSimHeaderFile += "/CastroHeader";
-            HydroSimHeaderFile.open(FullPathHydroSimHeaderFile.c_str(), std::ios::out);
-
-            HydroSimHeaderFile << "Checkpoint version: " << current_version << std::endl;
-            HydroSimHeaderFile.close();
-
-            writeRunRecord(dir, write_seconds);
-
-            std::ofstream VarNameListFile;
-            std::string FullPathVarNameList = dir;
-            FullPathVarNameList += "/state_names.txt";
-            VarNameListFile.open(FullPathVarNameList.c_str(), std::ios::out);
-
-            for (int n = 0; n < NUM_STATE; n++) {
-              VarNameListFile << desc_lst[State_Type].name(n) << "\n";
-            }
-            VarNameListFile.close();
-        }
-
-        if (lastDtWriteLimited == 1) {
-
-            std::ofstream timestepFile;
-            std::string FullPathTimestepFile = dir;
-            FullPathTimestepFile += "/dtHeader";
-            timestepFile.open(FullPathTimestepFile.c_str(), std::ios::out);
-
-            timestepFile << lastDtBeforeWriteLimit << std::endl;
-            timestepFile.close();
-
-        }
-
-        {
-            std::ofstream CpuTimeFile;
-            std::string FullPathCpuTimeFile = dir;
-            FullPathCpuTimeFile += "/CPUtime";
-            CpuTimeFile.open(FullPathCpuTimeFile.c_str(), std::ios::out);
-
-            CpuTimeFile << std::setprecision(17) << getCpuSeconds();
-            CpuTimeFile.close();
-        }
-
-#ifdef GRAVITY
-        if (use_central_mass) {
-
-            std::ofstream PointMassFile;
-            std::string FullPathPointMassFile = dir;
-            FullPathPointMassFile += "/point_mass";
-            PointMassFile.open(FullPathPointMassFile.c_str(), std::ios::out);
-
-            PointMassFile << std::setprecision(17) << point_mass << std::endl;
-
-            PointMassFile.close();
-
-        }
-#endif
-
-#ifdef ROTATION
-        if (do_frame_spin) {
-            std::ofstream SpinPeriodFile;
-            std::string FullPathSpinPeriodFile = dir;
-            FullPathSpinPeriodFile += "/Rotation";
-            SpinPeriodFile.open(FullPathSpinPeriodFile.c_str(), std::ios::out);
-
-            SpinPeriodFile << std::scientific;
-            SpinPeriodFile.precision(19);
-
-            SpinPeriodFile << std::setw(30) << hydrosim::spin_period << std::endl;
-
-            SpinPeriodFile.close();
-        }
-#endif
-
-        {
-            user_checkpoint(dir);
-        }
-    }
-
 }

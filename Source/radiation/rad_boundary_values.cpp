@@ -1,4 +1,3 @@
-
 #include <AMReX_ParmParse.H>
 #include <AMReX_LO_BCTYPES.H>
 #include <rad_boundary_values.H>
@@ -103,46 +102,16 @@ void RadiativeBoundary::init(Real bv)
   }
 }
 
-void RadiativeBoundary::setBoundaryConditions(const BCRec& bc,
-                             const Geometry& geom, IntVect& ratio)
+void RadiativeBoundary::setHomogValues(const BCRec& bc, IntVect& ratio)
 {
 
-  const BoxArray& grids = boxes();
-  int ngrds = grids.size();
-  const Real* dx = geom.CellSize();
-  const Box& domain = geom.Domain();
+  setBoundaryConditions(bc, geom, ratio);
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-    Vector<Real> &bloc = bcloc[face];
-    Vector<RadBoundaryCondition> &bctag = bcond[face];
-
-    int dir = face.coordDir();
-    Real delta = dx[dir]*ratio[dir];
-    int face_bc_type = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
-
-    for (int i = 0; i < ngrds; i++) {
-      const Box& grd = grids[i];
-
-      if (domain[face] == grd[face] && !geom.isPeriodic(dir)) {
-        if (face_bc_type == AMREX_LO_DIRICHLET   || face_bc_type == AMREX_LO_NEUMANN ||
-            face_bc_type == AMREX_LO_REFLECT_ODD) {
-          bctag[i] = face_bc_type;
-          bloc[i] = 0.;
-        }
-        else if (face_bc_type == AMREX_LO_MARSHAK || face_bc_type == AMREX_LO_SANCHEZ_POMRANING) {
-          bctag[i] = face_bc_type;
-          bloc[i] = 0.;
-        }
-        else {
-          std::cerr << "RadiativeBoundary---Not a recognized boundary condition" << std::endl;
-          exit(1);
-        }
-      }
-      else {
-        bctag[i] = AMREX_LO_DIRICHLET;
-        bloc[i] = 0.5*delta;
-      }
+    for (FabSetIter bi(bndry[face]); bi.isValid(); ++bi) {
+      FArrayBox& bnd_fab = bndry[face][bi];
+      bnd_fab.setVal<RunOn::Host>(0.0);
     }
   }
 }
@@ -198,17 +167,46 @@ void RadiativeBoundary::setBoundaryFluxConditions(const BCRec& bc, const Boundar
   }
 }
 
-
-void RadiativeBoundary::setHomogValues(const BCRec& bc, IntVect& ratio)
+void RadiativeBoundary::setBoundaryConditions(const BCRec& bc,
+                             const Geometry& geom, IntVect& ratio)
 {
 
-  setBoundaryConditions(bc, geom, ratio);
+  const BoxArray& grids = boxes();
+  int ngrds = grids.size();
+  const Real* dx = geom.CellSize();
+  const Box& domain = geom.Domain();
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-    for (FabSetIter bi(bndry[face]); bi.isValid(); ++bi) {
-      FArrayBox& bnd_fab = bndry[face][bi];
-      bnd_fab.setVal<RunOn::Host>(0.0);
+    Vector<Real> &bloc = bcloc[face];
+    Vector<RadBoundaryCondition> &bctag = bcond[face];
+
+    int dir = face.coordDir();
+    Real delta = dx[dir]*ratio[dir];
+    int face_bc_type = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
+
+    for (int i = 0; i < ngrds; i++) {
+      const Box& grd = grids[i];
+
+      if (domain[face] == grd[face] && !geom.isPeriodic(dir)) {
+        if (face_bc_type == AMREX_LO_DIRICHLET   || face_bc_type == AMREX_LO_NEUMANN ||
+            face_bc_type == AMREX_LO_REFLECT_ODD) {
+          bctag[i] = face_bc_type;
+          bloc[i] = 0.;
+        }
+        else if (face_bc_type == AMREX_LO_MARSHAK || face_bc_type == AMREX_LO_SANCHEZ_POMRANING) {
+          bctag[i] = face_bc_type;
+          bloc[i] = 0.;
+        }
+        else {
+          std::cerr << "RadiativeBoundary---Not a recognized boundary condition" << std::endl;
+          exit(1);
+        }
+      }
+      else {
+        bctag[i] = AMREX_LO_DIRICHLET;
+        bloc[i] = 0.5*delta;
+      }
     }
   }
 }
@@ -304,46 +302,16 @@ void MultiGroupBoundary::init(const int _num_groups)
   }
 }
 
-void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
-                             const Geometry& geom, IntVect& ratio)
+void MultiGroupBoundary::setHomogValues(const BCRec& bc, IntVect& ratio)
 {
 
-  const BoxArray& grids = boxes();
-  int ngrds = grids.size();
-  const Real* dx = geom.CellSize();
-  const Box& domain = geom.Domain();
+  setBoundaryConditions(bc, geom, ratio);
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-    Vector<Real> &bloc = bcloc[face];
-    Vector<RadBoundaryCondition> &bctag = bcond[face];
-
-    int dir = face.coordDir();
-    Real delta = dx[dir]*ratio[dir];
-    int face_bc_type = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
-
-    for (int i = 0; i < ngrds; i++) {
-      const Box& grd = grids[i];
-
-      if (domain[face] == grd[face] && !geom.isPeriodic(dir)) {
-        if (face_bc_type == AMREX_LO_DIRICHLET   || face_bc_type == AMREX_LO_NEUMANN ||
-            face_bc_type == AMREX_LO_REFLECT_ODD) {
-          bctag[i] = face_bc_type;
-          bloc[i] = 0.;
-        }
-        else if (face_bc_type == AMREX_LO_MARSHAK || face_bc_type == AMREX_LO_SANCHEZ_POMRANING) {
-          bctag[i] = face_bc_type;
-          bloc[i] = 0.;
-        }
-        else {
-          std::cerr << "MultiGroupBoundary---Not a recognized boundary condition" << std::endl;
-          exit(1);
-        }
-      }
-      else {
-        bctag[i] = AMREX_LO_DIRICHLET;
-        bloc[i] = 0.5*delta;
-      }
+    for (FabSetIter bi(bndry[face]); bi.isValid(); ++bi) {
+      FArrayBox& bnd_fab = bndry[face][bi];
+      bnd_fab.setVal<RunOn::Host>(0.);
     }
   }
 }
@@ -411,16 +379,46 @@ void MultiGroupBoundary::setBoundaryFluxConditions(const BCRec& bc, const Bounda
   }
 }
 
-void MultiGroupBoundary::setHomogValues(const BCRec& bc, IntVect& ratio)
+void MultiGroupBoundary::setBoundaryConditions(const BCRec& bc,
+                             const Geometry& geom, IntVect& ratio)
 {
 
-  setBoundaryConditions(bc, geom, ratio);
+  const BoxArray& grids = boxes();
+  int ngrds = grids.size();
+  const Real* dx = geom.CellSize();
+  const Box& domain = geom.Domain();
 
   for (OrientationIter fi; fi; ++fi) {
     Orientation face(fi());
-    for (FabSetIter bi(bndry[face]); bi.isValid(); ++bi) {
-      FArrayBox& bnd_fab = bndry[face][bi];
-      bnd_fab.setVal<RunOn::Host>(0.);
+    Vector<Real> &bloc = bcloc[face];
+    Vector<RadBoundaryCondition> &bctag = bcond[face];
+
+    int dir = face.coordDir();
+    Real delta = dx[dir]*ratio[dir];
+    int face_bc_type = (face.isLow() ? bc.lo(dir) : bc.hi(dir));
+
+    for (int i = 0; i < ngrds; i++) {
+      const Box& grd = grids[i];
+
+      if (domain[face] == grd[face] && !geom.isPeriodic(dir)) {
+        if (face_bc_type == AMREX_LO_DIRICHLET   || face_bc_type == AMREX_LO_NEUMANN ||
+            face_bc_type == AMREX_LO_REFLECT_ODD) {
+          bctag[i] = face_bc_type;
+          bloc[i] = 0.;
+        }
+        else if (face_bc_type == AMREX_LO_MARSHAK || face_bc_type == AMREX_LO_SANCHEZ_POMRANING) {
+          bctag[i] = face_bc_type;
+          bloc[i] = 0.;
+        }
+        else {
+          std::cerr << "MultiGroupBoundary---Not a recognized boundary condition" << std::endl;
+          exit(1);
+        }
+      }
+      else {
+        bctag[i] = AMREX_LO_DIRICHLET;
+        bloc[i] = 0.5*delta;
+      }
     }
   }
 }

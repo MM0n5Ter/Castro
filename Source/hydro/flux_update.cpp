@@ -33,131 +33,6 @@ using namespace amrex;
 using namespace reconstruction;
 
 void
-HydroSim::lines_cons_update(const Box& bx,
-#ifdef SHOCK_VAR
-                   Array4<Real const> const& shk,
-#endif
-                   Array4<Real const> const& sourceTerms,
-                   Array4<Real> const& update,
-                   const Real dt,
-                   Array4<Real const> const& xface_flux,
-#if AMREX_SPACEDIM >= 2
-                   Array4<Real const> const& flux1,
-#endif
-#if AMREX_SPACEDIM == 3
-                   Array4<Real const> const& flux2,
-#endif
-                   Array4<Real const> const& face_area0,
-#if AMREX_SPACEDIM >= 2
-                   Array4<Real const> const& area1,
-#endif
-#if AMREX_SPACEDIM == 3
-                   Array4<Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM <= 2
-                   Array4<Real const> const& q0,
-#if AMREX_SPACEDIM == 2
-                   Array4<Real const> const& q1,
-#endif
-#endif
-                   Array4<Real const> const& vol) {
-
-  amrex::ignore_unused(dt);
-
-#if AMREX_SPACEDIM <= 2
-  const auto dx = geom.CellSizeArray();
-  auto coord = geom.Coord();
-#if AMREX_SPACEDIM == 2
-  auto prob_lo = geom.ProbLoArray();
-#endif
-#endif
-
-  amrex::ParallelFor(bx, NUM_STATE,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-  {
-
-#if AMREX_SPACEDIM == 1
-    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) ) / vol(i,j,k);
-
-#elif AMREX_SPACEDIM == 2
-    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) +
-                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) ) / vol(i,j,k);
-
-#else
-    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) +
-                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) +
-                        flux2(i,j,k,n) * area2(i,j,k) - flux2(i,j,k+1,n) * area2(i,j,k+1) ) / vol(i,j,k);
-#endif
-
-#if AMREX_SPACEDIM <= 2
-    if (do_hydro == 1) {
-        if (n == UMX && !momentum_flux_has_pressure(0, 0, coord)) {
-
-            update(i,j,k,UMX) -= (q0(i+1,j,k,GDPRESSURE) - q0(i,j,k,GDPRESSURE)) / dx[0];
-
-#if AMREX_SPACEDIM == 2
-        } else if (n == UMY && !momentum_flux_has_pressure(1, 1, coord)) {
-
-            Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
-            update(i,j,k,UMY) -= (q1(i,j+1,k,GDPRESSURE) - q1(i,j,k,GDPRESSURE)) / (r * dx[1]);
-#endif
-        }
-    }
-#endif
-
-    if (n < NUM_SOURCE) {
-      update(i,j,k,n) += sourceTerms(i,j,k,n);
-    }
-
-  });
-
-#ifdef SHOCK_VAR
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-    update(i,j,k,UFLAG_SHOCK) = shk(i,j,k) / dt;
-  });
-#endif
-
-}
-
-void
-HydroSim::lines_diffusion_flux(const Box& bx,
-                           const int idir,
-                           Array4<Real const> const& U,
-                           Array4<Real const> const& cond,
-                           Array4<Real> const& flux) {
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-    Real face_conductivity;
-    Real diffusion_term;
-
-    if (idir == 0) {
-      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i-1,j,k));
-      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i-1,j,k,UTEMP)) / dx[0];
-
-    } else if (idir == 1) {
-      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i,j-1,k));
-      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i,j-1,k,UTEMP)) / dx[1];
-
-    } else {
-      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i,j,k-1));
-      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i,j,k-1,UTEMP)) / dx[2];
-    }
-
-    flux(i,j,k,UEINT) += diffusion_term;
-    flux(i,j,k,UEDEN) += diffusion_term;
-
-  });
-}
-
-void
 HydroSim::flux_from_state(const Box& bx,
                             Array4<Real const> const& interface_state,
                             Array4<Real> const& F,
@@ -283,6 +158,131 @@ HydroSim::save_godunov_state(const Box& bx,
     }
 #endif
   });
+}
+
+void
+HydroSim::lines_diffusion_flux(const Box& bx,
+                           const int idir,
+                           Array4<Real const> const& U,
+                           Array4<Real const> const& cond,
+                           Array4<Real> const& flux) {
+
+  const auto dx = geom.CellSizeArray();
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+
+    Real face_conductivity;
+    Real diffusion_term;
+
+    if (idir == 0) {
+      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i-1,j,k));
+      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i-1,j,k,UTEMP)) / dx[0];
+
+    } else if (idir == 1) {
+      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i,j-1,k));
+      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i,j-1,k,UTEMP)) / dx[1];
+
+    } else {
+      face_conductivity = 0.5_rt * (cond(i,j,k) + cond(i,j,k-1));
+      diffusion_term = -face_conductivity * (U(i,j,k,UTEMP) - U(i,j,k-1,UTEMP)) / dx[2];
+    }
+
+    flux(i,j,k,UEINT) += diffusion_term;
+    flux(i,j,k,UEDEN) += diffusion_term;
+
+  });
+}
+
+void
+HydroSim::lines_cons_update(const Box& bx,
+#ifdef SHOCK_VAR
+                   Array4<Real const> const& shk,
+#endif
+                   Array4<Real const> const& sourceTerms,
+                   Array4<Real> const& update,
+                   const Real dt,
+                   Array4<Real const> const& xface_flux,
+#if AMREX_SPACEDIM >= 2
+                   Array4<Real const> const& flux1,
+#endif
+#if AMREX_SPACEDIM == 3
+                   Array4<Real const> const& flux2,
+#endif
+                   Array4<Real const> const& face_area0,
+#if AMREX_SPACEDIM >= 2
+                   Array4<Real const> const& area1,
+#endif
+#if AMREX_SPACEDIM == 3
+                   Array4<Real const> const& area2,
+#endif
+#if AMREX_SPACEDIM <= 2
+                   Array4<Real const> const& q0,
+#if AMREX_SPACEDIM == 2
+                   Array4<Real const> const& q1,
+#endif
+#endif
+                   Array4<Real const> const& vol) {
+
+  amrex::ignore_unused(dt);
+
+#if AMREX_SPACEDIM <= 2
+  const auto dx = geom.CellSizeArray();
+  auto coord = geom.Coord();
+#if AMREX_SPACEDIM == 2
+  auto prob_lo = geom.ProbLoArray();
+#endif
+#endif
+
+  amrex::ParallelFor(bx, NUM_STATE,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+  {
+
+#if AMREX_SPACEDIM == 1
+    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) ) / vol(i,j,k);
+
+#elif AMREX_SPACEDIM == 2
+    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) +
+                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) ) / vol(i,j,k);
+
+#else
+    update(i,j,k,n) += (xface_flux(i,j,k,n) * face_area0(i,j,k) - xface_flux(i+1,j,k,n) * face_area0(i+1,j,k) +
+                        flux1(i,j,k,n) * area1(i,j,k) - flux1(i,j+1,k,n) * area1(i,j+1,k) +
+                        flux2(i,j,k,n) * area2(i,j,k) - flux2(i,j,k+1,n) * area2(i,j,k+1) ) / vol(i,j,k);
+#endif
+
+#if AMREX_SPACEDIM <= 2
+    if (do_hydro == 1) {
+        if (n == UMX && !momentum_flux_has_pressure(0, 0, coord)) {
+
+            update(i,j,k,UMX) -= (q0(i+1,j,k,GDPRESSURE) - q0(i,j,k,GDPRESSURE)) / dx[0];
+
+#if AMREX_SPACEDIM == 2
+        } else if (n == UMY && !momentum_flux_has_pressure(1, 1, coord)) {
+
+            Real r = prob_lo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0];
+            update(i,j,k,UMY) -= (q1(i,j+1,k,GDPRESSURE) - q1(i,j,k,GDPRESSURE)) / (r * dx[1]);
+#endif
+        }
+    }
+#endif
+
+    if (n < NUM_SOURCE) {
+      update(i,j,k,n) += sourceTerms(i,j,k,n);
+    }
+
+  });
+
+#ifdef SHOCK_VAR
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    update(i,j,k,UFLAG_SHOCK) = shk(i,j,k) / dt;
+  });
+#endif
+
 }
 
 void

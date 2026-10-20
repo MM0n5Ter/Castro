@@ -10,6 +10,61 @@
 using namespace amrex;
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void face_geometry_factors (int i, int j, int k, int lo, int hi,
+                  const GeometryData& geomdata, int face_normal_dir, int side_is_low, Real& r)
+{
+    const Real* problo = geomdata.ProbLo();
+    const Real* dx = geomdata.CellSize();
+
+    if (face_normal_dir == 0) {
+
+        if (geomdata.Coord() == 0) {
+
+            r = 1.0_rt;
+
+        }
+        else {
+
+            if (side_is_low == 1) {
+
+                r = problo[0] + lo * dx[0];
+
+            }
+            else {
+
+                r = problo[0] + (hi + 1) * dx[0];
+
+            }
+
+            if (geomdata.Coord() == 2) {
+
+                r = r * r;
+
+            }
+
+        }
+
+    }
+    else {
+
+        if (geomdata.Coord() == 0) {
+
+            r = 1.0_rt;
+
+        }
+        else {
+
+            GpuArray<Real, 3> loc;
+            position(i, j, k, geomdata, loc);
+
+            r = loc[0];
+
+        }
+
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void cell_center_geometry_factors(int i, int j, int k, const GeometryData& geomdata,
                         Real& r, Real& s)
 {
@@ -130,91 +185,6 @@ void edge_center_geometry_factors (int i, int j, int k, int idir, const Geometry
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void face_geometry_factors (int i, int j, int k, int lo, int hi,
-                  const GeometryData& geomdata, int face_normal_dir, int side_is_low, Real& r)
-{
-    const Real* problo = geomdata.ProbLo();
-    const Real* dx = geomdata.CellSize();
-
-    if (face_normal_dir == 0) {
-
-        if (geomdata.Coord() == 0) {
-
-            r = 1.0_rt;
-
-        }
-        else {
-
-            if (side_is_low == 1) {
-
-                r = problo[0] + lo * dx[0];
-
-            }
-            else {
-
-                r = problo[0] + (hi + 1) * dx[0];
-
-            }
-
-            if (geomdata.Coord() == 2) {
-
-                r = r * r;
-
-            }
-
-        }
-
-    }
-    else {
-
-        if (geomdata.Coord() == 0) {
-
-            r = 1.0_rt;
-
-        }
-        else {
-
-            GpuArray<Real, 3> loc;
-            position(i, j, k, geomdata, loc);
-
-            r = loc[0];
-
-        }
-
-    }
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-compute_total_pressure_sound(const Real* lam, const Real* q,
-                  Real cg,
-                  Real& total_pressure, Real& total_sound_speed, Real& gamma1_total) {
-
-  Real rad_sound_speed_sq = 0.0_rt;
-  Real prad = 0.0_rt;
-
-  for (int g = 0; g < NGROUPS; g++) {
-    Real radiation_gamma = 0.0;
-    if (radiation::moving_frame) {
-      Real RadClosure = Eddington_factor(lam[g]);
-      radiation_gamma = (3.0_rt - RadClosure)/2.0_rt;
-    } else {
-      radiation_gamma = lam[g] + 1.0_rt;
-    }
-
-    prad += lam[g]*q[QRADENG+g];
-    rad_sound_speed_sq += radiation_gamma * (lam[g]*q[QRADENG+g]) / q[QRHO];
-  }
-
-  total_pressure = q[QPRES] + prad;
-
-  total_sound_speed = cg*cg + rad_sound_speed_sq;
-  gamma1_total = total_sound_speed * q[QRHO] / total_pressure;
-
-  total_sound_speed = std::sqrt(total_sound_speed);
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
 amrex::Real face_opacity_average(Real a, Real b, Real d, int opt)
 {
 #ifndef AMREX_USE_GPU
@@ -312,6 +282,36 @@ void coarse_to_fine_face (Array4<Real> const fine,
             }
         }
     }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+compute_total_pressure_sound(const Real* lam, const Real* q,
+                  Real cg,
+                  Real& total_pressure, Real& total_sound_speed, Real& gamma1_total) {
+
+  Real rad_sound_speed_sq = 0.0_rt;
+  Real prad = 0.0_rt;
+
+  for (int g = 0; g < NGROUPS; g++) {
+    Real radiation_gamma = 0.0;
+    if (radiation::moving_frame) {
+      Real RadClosure = Eddington_factor(lam[g]);
+      radiation_gamma = (3.0_rt - RadClosure)/2.0_rt;
+    } else {
+      radiation_gamma = lam[g] + 1.0_rt;
+    }
+
+    prad += lam[g]*q[QRADENG+g];
+    rad_sound_speed_sq += radiation_gamma * (lam[g]*q[QRADENG+g]) / q[QRHO];
+  }
+
+  total_pressure = q[QPRES] + prad;
+
+  total_sound_speed = cg*cg + rad_sound_speed_sq;
+  gamma1_total = total_sound_speed * q[QRHO] / total_pressure;
+
+  total_sound_speed = std::sqrt(total_sound_speed);
 }
 
 #endif

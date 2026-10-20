@@ -19,6 +19,76 @@
 using namespace amrex;
 
 void
+HydroSim::corner_plm_states(const Box& bx, const Box& vbx,
+                       Array4<Real const> const& field_arr,
+                       Array4<Real const> const& inv_density_arr,
+                       Array4<Real const> const& prim_arr,
+                       Array4<Real const> const& qthermo_arr,
+                       Array4<Real const> const& prim_source,
+                       Array4<Real> const& qxm,
+                       Array4<Real> const& qxp,
+#if AMREX_SPACEDIM >= 2
+                       Array4<Real> const& qym,
+                       Array4<Real> const& qyp,
+#endif
+#if AMREX_SPACEDIM == 3
+                       Array4<Real> const& qzm,
+                       Array4<Real> const& qzp,
+#endif
+#if AMREX_SPACEDIM < 3
+                       Array4<Real const> const& logAreaRateX,
+#endif
+#if AMREX_SPACEDIM == 2
+                       Array4<Real const> const& logAreaRateY,
+#endif
+                       const Real dt) {
+
+#ifdef RADIATION
+#ifndef AMREX_USE_GPU
+  amrex::Error("ppm_recon_kind <=0 is not supported in with radiation");
+#endif
+#endif
+
+  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
+
+    if (idir == 0) {
+      trace_piecewise_linear(bx, 0,
+                field_arr, inv_density_arr, prim_arr, qthermo_arr,
+                qxm, qxp,
+#if AMREX_SPACEDIM < 3
+                logAreaRateX,
+#endif
+                prim_source, vbx, dt);
+
+      set_reflecting_boundary_states(bx, 0, qxm, qxp);
+
+#if AMREX_SPACEDIM >= 2
+    } else if (idir == 1) {
+      trace_piecewise_linear(bx, 1,
+                field_arr, inv_density_arr, prim_arr, qthermo_arr,
+                qym, qyp,
+#if AMREX_SPACEDIM < 3
+                logAreaRateY,
+#endif
+                prim_source, vbx, dt);
+
+      set_reflecting_boundary_states(bx, 1, qym, qyp);
+#endif
+
+#if AMREX_SPACEDIM == 3
+    } else {
+      trace_piecewise_linear(bx, 2,
+                field_arr, inv_density_arr, prim_arr, qthermo_arr,
+                qzm, qzp,
+                prim_source, vbx, dt);
+
+      set_reflecting_boundary_states(bx, 2, qzm, qzp);
+#endif
+    }
+  }
+}
+
+void
 HydroSim::corner_ppm_states(const Box& bx, const Box& vbx,
                        Array4<Real const> const& field_arr,
                        Array4<Real const> const& inv_density_arr,
@@ -155,76 +225,6 @@ HydroSim::corner_ppm_rad_states(const Box& bx, const Box& vbx,
   }
 }
 #endif
-
-void
-HydroSim::corner_plm_states(const Box& bx, const Box& vbx,
-                       Array4<Real const> const& field_arr,
-                       Array4<Real const> const& inv_density_arr,
-                       Array4<Real const> const& prim_arr,
-                       Array4<Real const> const& qthermo_arr,
-                       Array4<Real const> const& prim_source,
-                       Array4<Real> const& qxm,
-                       Array4<Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                       Array4<Real> const& qym,
-                       Array4<Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                       Array4<Real> const& qzm,
-                       Array4<Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                       Array4<Real const> const& logAreaRateX,
-#endif
-#if AMREX_SPACEDIM == 2
-                       Array4<Real const> const& logAreaRateY,
-#endif
-                       const Real dt) {
-
-#ifdef RADIATION
-#ifndef AMREX_USE_GPU
-  amrex::Error("ppm_recon_kind <=0 is not supported in with radiation");
-#endif
-#endif
-
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-
-    if (idir == 0) {
-      trace_piecewise_linear(bx, 0,
-                field_arr, inv_density_arr, prim_arr, qthermo_arr,
-                qxm, qxp,
-#if AMREX_SPACEDIM < 3
-                logAreaRateX,
-#endif
-                prim_source, vbx, dt);
-
-      set_reflecting_boundary_states(bx, 0, qxm, qxp);
-
-#if AMREX_SPACEDIM >= 2
-    } else if (idir == 1) {
-      trace_piecewise_linear(bx, 1,
-                field_arr, inv_density_arr, prim_arr, qthermo_arr,
-                qym, qyp,
-#if AMREX_SPACEDIM < 3
-                logAreaRateY,
-#endif
-                prim_source, vbx, dt);
-
-      set_reflecting_boundary_states(bx, 1, qym, qyp);
-#endif
-
-#if AMREX_SPACEDIM == 3
-    } else {
-      trace_piecewise_linear(bx, 2,
-                field_arr, inv_density_arr, prim_arr, qthermo_arr,
-                qzm, qzp,
-                prim_source, vbx, dt);
-
-      set_reflecting_boundary_states(bx, 2, qzm, qzp);
-#endif
-    }
-  }
-}
 
 void
 HydroSim::lines_plm_reconstruct(const Box& bx,

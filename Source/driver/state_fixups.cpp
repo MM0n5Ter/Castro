@@ -677,42 +677,6 @@ HydroSim::clean_state(
 
 #ifdef MHD
 void
-HydroSim::add_bfield_energy( MultiFab& Bx,
-                        MultiFab& By,
-                        MultiFab& Bz,
-                        MultiFab& State)
-{
-
-#ifdef AMREX_USE_OMP
-#pragma omp parallel
-#endif
-  for (MFIter mfi(State, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-  {
-      const Box& box = mfi.tilebox();
-      auto cons_state_arr = State.array(mfi);
-      auto magfield_x_arr = Bx.array(mfi);
-      auto magfield_y_arr = By.array(mfi);
-      auto magfield_z_arr = Bz.array(mfi);
-
-      ParallelFor(box,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-      {
-
-          Real magfield_x_cell = 0.5_rt * (magfield_x_arr(i,j,k) + magfield_x_arr(i+1,j,k));
-          Real magfield_y_cell = 0.5_rt * (magfield_y_arr(i,j,k) + magfield_y_arr(i,j+1,k));
-          Real magfield_z_cell = 0.5_rt * (magfield_z_arr(i,j,k) + magfield_z_arr(i,j,k+1));
-
-          cons_state_arr(i,j,k,UEDEN) += 0.5_rt * (magfield_x_cell * magfield_x_cell +
-                                          magfield_y_cell * magfield_y_cell +
-                                          magfield_z_cell * magfield_z_cell);
-
-      });
-
-  }
-
-}
-
-void
 HydroSim::check_div_bfield( MultiFab& Bx,
                      MultiFab& By,
                      MultiFab& Bz,
@@ -767,6 +731,42 @@ HydroSim::check_div_bfield( MultiFab& Bx,
 
   if (init_mag_div_failed != 0) {
      amrex::Error("Error: initial data has divergence of B not zero");
+  }
+
+}
+
+void
+HydroSim::add_bfield_energy( MultiFab& Bx,
+                        MultiFab& By,
+                        MultiFab& Bz,
+                        MultiFab& State)
+{
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+  for (MFIter mfi(State, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+  {
+      const Box& box = mfi.tilebox();
+      auto cons_state_arr = State.array(mfi);
+      auto magfield_x_arr = Bx.array(mfi);
+      auto magfield_y_arr = By.array(mfi);
+      auto magfield_z_arr = Bz.array(mfi);
+
+      ParallelFor(box,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+      {
+
+          Real magfield_x_cell = 0.5_rt * (magfield_x_arr(i,j,k) + magfield_x_arr(i+1,j,k));
+          Real magfield_y_cell = 0.5_rt * (magfield_y_arr(i,j,k) + magfield_y_arr(i,j+1,k));
+          Real magfield_z_cell = 0.5_rt * (magfield_z_arr(i,j,k) + magfield_z_arr(i,j,k+1));
+
+          cons_state_arr(i,j,k,UEDEN) += 0.5_rt * (magfield_x_cell * magfield_x_cell +
+                                          magfield_y_cell * magfield_y_cell +
+                                          magfield_z_cell * magfield_z_cell);
+
+      });
+
   }
 
 }

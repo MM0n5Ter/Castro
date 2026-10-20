@@ -12,12 +12,12 @@ public:
 
 
   Diffusion(amrex::Amr* Parent, amrex::BCRec* _boundary_rec);
-  ~Diffusion () = default;
-
   Diffusion (const Diffusion&) = delete;
+
   Diffusion (Diffusion&&) = delete;
   Diffusion& operator= (const Diffusion&) = delete;
   Diffusion& operator= (Diffusion&&) = delete;
+  ~Diffusion () = default;
 
   void read_params ();
 

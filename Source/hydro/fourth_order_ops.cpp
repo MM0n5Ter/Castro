@@ -7,6 +7,104 @@
 using namespace amrex;
 
 void
+HydroSim::laplacian_of_state(const Box& bx,
+                         Array4<Real const> const& U,
+                         Array4<Real> const& lap, const int ncomp,
+                         GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+
+
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
+  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
+  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
+    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+  }
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    lap(i,j,k) = (1.0_rt/24.0_rt) *
+      laplacian_at(i, j, k, ncomp, U,
+                        lo_wrap, hi_wrap, domlo, domhi);
+  });
+
+}
+
+void
+HydroSim::build_fourth_average(const Box& bx,
+                            Array4<Real> const& prim_arr,
+                            Array4<Real const> const& q_mean_arr,
+                            GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+
+
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
+  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
+  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
+    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+  }
+
+  amrex::ParallelFor(bx, prim_arr.nComp(),
+  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+  {
+    Real lap = laplacian_at(i, j, k, n, q_mean_arr,
+                                 lo_wrap, hi_wrap, domlo, domhi);
+
+    prim_arr(i,j,k,n) += (1.0_rt/24.0_rt) * lap;
+  });
+}
+
+void
+HydroSim::build_fourth_in_place(const Box& bx,
+                             Array4<Real> const& prim_arr,
+                             Array4<Real> const& tmp,
+                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+
+
+  for (int n = 0; n < prim_arr.nComp(); n++) {
+    build_fourth_in_place_n(bx, prim_arr, n, tmp, domlo, domhi);
+  }
+}
+
+void
+HydroSim::build_fourth_in_place_n(const Box& bx,
+                               Array4<Real> const& prim_arr, const int ncomp,
+                               Array4<Real> const& tmp,
+                               GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
+
+
+  const int* lo_bc = phys_bc.lo();
+  const int* hi_bc = phys_bc.hi();
+
+  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
+  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
+  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
+    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
+    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
+  }
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    tmp(i,j,k) = laplacian_at(i, j, k, ncomp, prim_arr,
+                                   lo_wrap, hi_wrap, domlo, domhi);
+  });
+
+  amrex::ParallelFor(bx,
+  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+  {
+    prim_arr(i,j,k,ncomp) += (1.0_rt/24.0_rt) * tmp(i,j,k);
+  });
+
+}
+
+void
 HydroSim::build_center_state(const Box& bx,
                          Array4<Real const> const& U,
                          Array4<Real> const& centered_state,
@@ -81,108 +179,6 @@ HydroSim::build_center_state_in_place(const Box& bx,
       U(i,j,k,n) = U(i,j,k,n) - (1.0_rt/24.0_rt) * tmp(i,j,k);
     });
   }
-}
-
-
-void
-HydroSim::laplacian_of_state(const Box& bx,
-                         Array4<Real const> const& U,
-                         Array4<Real> const& lap, const int ncomp,
-                         GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
-
-
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-
-  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
-  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
-  }
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-    lap(i,j,k) = (1.0_rt/24.0_rt) *
-      laplacian_at(i, j, k, ncomp, U,
-                        lo_wrap, hi_wrap, domlo, domhi);
-  });
-
-}
-
-
-void
-HydroSim::build_fourth_average(const Box& bx,
-                            Array4<Real> const& prim_arr,
-                            Array4<Real const> const& q_mean_arr,
-                            GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
-
-
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-
-  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
-  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
-  }
-
-  amrex::ParallelFor(bx, prim_arr.nComp(),
-  [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
-  {
-    Real lap = laplacian_at(i, j, k, n, q_mean_arr,
-                                 lo_wrap, hi_wrap, domlo, domhi);
-
-    prim_arr(i,j,k,n) += (1.0_rt/24.0_rt) * lap;
-  });
-}
-
-
-void
-HydroSim::build_fourth_in_place(const Box& bx,
-                             Array4<Real> const& prim_arr,
-                             Array4<Real> const& tmp,
-                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
-
-
-  for (int n = 0; n < prim_arr.nComp(); n++) {
-    build_fourth_in_place_n(bx, prim_arr, n, tmp, domlo, domhi);
-  }
-}
-
-
-void
-HydroSim::build_fourth_in_place_n(const Box& bx,
-                               Array4<Real> const& prim_arr, const int ncomp,
-                               Array4<Real> const& tmp,
-                               GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi) {
-
-
-  const int* lo_bc = phys_bc.lo();
-  const int* hi_bc = phys_bc.hi();
-
-  GpuArray<bool, AMREX_SPACEDIM> lo_wrap;
-  GpuArray<bool, AMREX_SPACEDIM> hi_wrap;
-  for (int idir = 0; idir < AMREX_SPACEDIM; idir++) {
-    lo_wrap[idir] = lo_bc[idir] == amrex::PhysBCType::interior;
-    hi_wrap[idir] = hi_bc[idir] == amrex::PhysBCType::interior;
-  }
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-    tmp(i,j,k) = laplacian_at(i, j, k, ncomp, prim_arr,
-                                   lo_wrap, hi_wrap, domlo, domhi);
-  });
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-    prim_arr(i,j,k,ncomp) += (1.0_rt/24.0_rt) * tmp(i,j,k);
-  });
-
 }
 
 void

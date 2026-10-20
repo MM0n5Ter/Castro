@@ -21,69 +21,34 @@ namespace reconstruction {
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-gather_stencil(amrex::Array4<amrex::Real const> const& prim_arr, const int idir,
-             const int i, const int j, const int k, const int ncomp,
-             amrex::Real* s) {
+add_geometric_pressure_source(amrex::Array4<amrex::Real const> const& prim_arr,
+                       amrex::Array4<amrex::Real const> const& qthermo_arr,
+                       amrex::Array4<amrex::Real const> const& dloga,
+                       const int i, const int j, const int k,
+                       const int ncomp, amrex::Real* s) {
 
     using namespace reconstruction;
 
-    if (idir == 0) {
-        s[im2] = prim_arr(i-2,j,k,ncomp);
-        s[im1] = prim_arr(i-1,j,k,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i+1,j,k,ncomp);
-        s[ip2] = prim_arr(i+2,j,k,ncomp);
 
-      } else if (idir == 1) {
-        s[im2] = prim_arr(i,j-2,k,ncomp);
-        s[im1] = prim_arr(i,j-1,k,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i,j+1,k,ncomp);
-        s[ip2] = prim_arr(i,j+2,k,ncomp);
 
-      } else {
-        s[im2] = prim_arr(i,j,k-2,ncomp);
-        s[im1] = prim_arr(i,j,k-1,ncomp);
-        s[i0]  = prim_arr(i,j,k,ncomp);
-        s[ip1] = prim_arr(i,j,k+1,ncomp);
-        s[ip2] = prim_arr(i,j,k+2,ncomp);
 
-      }
 
-}
+    if (ncomp == QU) {
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-fill_passive_stencil(amrex::Array4<amrex::Real const> const& field_arr,
-                     amrex::Array4<amrex::Real const> const& inv_density_arr,
-                     const int idir,
-                     const int i, const int j, const int k, const int ncomp,
-                     amrex::Real* s) {
+        s[im2] += -dloga(i-2,j,k) * prim_arr(i-2,j,k,QPRES) * qthermo_arr(i-2,j,k,QGAMMA1) * prim_arr(i-2,j,k,ncomp);
+        s[im1] += -dloga(i-1,j,k) * prim_arr(i-1,j,k,QPRES) * qthermo_arr(i-1,j,k,QGAMMA1) * prim_arr(i-1,j,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i+1,j,k) * prim_arr(i+1,j,k,QPRES) * qthermo_arr(i+1,j,k,QGAMMA1) * prim_arr(i+1,j,k,ncomp);
+        s[ip2] += -dloga(i+2,j,k) * prim_arr(i+2,j,k,QPRES) * qthermo_arr(i+2,j,k,QGAMMA1) * prim_arr(i+2,j,k,ncomp);
 
-    using namespace reconstruction;
+    } else if (ncomp == QV) {
 
-    if (idir == 0) {
-        s[im2] = field_arr(i-2,j,k,ncomp) * inv_density_arr(i-2,j,k);
-        s[im1] = field_arr(i-1,j,k,ncomp) * inv_density_arr(i-1,j,k);
-        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
-        s[ip1] = field_arr(i+1,j,k,ncomp) * inv_density_arr(i+1,j,k);
-        s[ip2] = field_arr(i+2,j,k,ncomp) * inv_density_arr(i+2,j,k);
-
-      } else if (idir == 1) {
-        s[im2] = field_arr(i,j-2,k,ncomp) * inv_density_arr(i,j-2,k);
-        s[im1] = field_arr(i,j-1,k,ncomp) * inv_density_arr(i,j-1,k);
-        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
-        s[ip1] = field_arr(i,j+1,k,ncomp) * inv_density_arr(i,j+1,k);
-        s[ip2] = field_arr(i,j+2,k,ncomp) * inv_density_arr(i,j+2,k);
-
-      } else {
-        s[im2] = field_arr(i,j,k-2,ncomp) * inv_density_arr(i,j,k-2);
-        s[im1] = field_arr(i,j,k-1,ncomp) * inv_density_arr(i,j,k-1);
-        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
-        s[ip1] = field_arr(i,j,k+1,ncomp) * inv_density_arr(i,j,k+1);
-        s[ip2] = field_arr(i,j,k+2,ncomp) * inv_density_arr(i,j,k+2);
-
-      }
+        s[im2] += -dloga(i,j-2,k) * prim_arr(i,j-2,k,QPRES) * qthermo_arr(i,j-2,k,QGAMMA1) * prim_arr(i,j-2,k,ncomp);
+        s[im1] += -dloga(i,j-1,k) * prim_arr(i,j-1,k,QPRES) * qthermo_arr(i,j-1,k,QGAMMA1) * prim_arr(i,j-1,k,ncomp);
+        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
+        s[ip1] += -dloga(i,j+1,k) * prim_arr(i,j+1,k,QPRES) * qthermo_arr(i,j+1,k,QGAMMA1) * prim_arr(i,j+1,k,ncomp);
+        s[ip2] += -dloga(i,j+2,k) * prim_arr(i,j+2,k,QPRES) * qthermo_arr(i,j+2,k,QGAMMA1) * prim_arr(i,j+2,k,ncomp);
+    }
 
 }
 
@@ -153,34 +118,69 @@ add_geometric_energy_source(amrex::Array4<amrex::Real const> const& prim_arr,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-add_geometric_pressure_source(amrex::Array4<amrex::Real const> const& prim_arr,
-                       amrex::Array4<amrex::Real const> const& qthermo_arr,
-                       amrex::Array4<amrex::Real const> const& dloga,
-                       const int i, const int j, const int k,
-                       const int ncomp, amrex::Real* s) {
+gather_stencil(amrex::Array4<amrex::Real const> const& prim_arr, const int idir,
+             const int i, const int j, const int k, const int ncomp,
+             amrex::Real* s) {
 
     using namespace reconstruction;
 
+    if (idir == 0) {
+        s[im2] = prim_arr(i-2,j,k,ncomp);
+        s[im1] = prim_arr(i-1,j,k,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i+1,j,k,ncomp);
+        s[ip2] = prim_arr(i+2,j,k,ncomp);
 
+      } else if (idir == 1) {
+        s[im2] = prim_arr(i,j-2,k,ncomp);
+        s[im1] = prim_arr(i,j-1,k,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i,j+1,k,ncomp);
+        s[ip2] = prim_arr(i,j+2,k,ncomp);
 
+      } else {
+        s[im2] = prim_arr(i,j,k-2,ncomp);
+        s[im1] = prim_arr(i,j,k-1,ncomp);
+        s[i0]  = prim_arr(i,j,k,ncomp);
+        s[ip1] = prim_arr(i,j,k+1,ncomp);
+        s[ip2] = prim_arr(i,j,k+2,ncomp);
 
+      }
 
-    if (ncomp == QU) {
+}
 
-        s[im2] += -dloga(i-2,j,k) * prim_arr(i-2,j,k,QPRES) * qthermo_arr(i-2,j,k,QGAMMA1) * prim_arr(i-2,j,k,ncomp);
-        s[im1] += -dloga(i-1,j,k) * prim_arr(i-1,j,k,QPRES) * qthermo_arr(i-1,j,k,QGAMMA1) * prim_arr(i-1,j,k,ncomp);
-        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i+1,j,k) * prim_arr(i+1,j,k,QPRES) * qthermo_arr(i+1,j,k,QGAMMA1) * prim_arr(i+1,j,k,ncomp);
-        s[ip2] += -dloga(i+2,j,k) * prim_arr(i+2,j,k,QPRES) * qthermo_arr(i+2,j,k,QGAMMA1) * prim_arr(i+2,j,k,ncomp);
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+fill_passive_stencil(amrex::Array4<amrex::Real const> const& field_arr,
+                     amrex::Array4<amrex::Real const> const& inv_density_arr,
+                     const int idir,
+                     const int i, const int j, const int k, const int ncomp,
+                     amrex::Real* s) {
 
-    } else if (ncomp == QV) {
+    using namespace reconstruction;
 
-        s[im2] += -dloga(i,j-2,k) * prim_arr(i,j-2,k,QPRES) * qthermo_arr(i,j-2,k,QGAMMA1) * prim_arr(i,j-2,k,ncomp);
-        s[im1] += -dloga(i,j-1,k) * prim_arr(i,j-1,k,QPRES) * qthermo_arr(i,j-1,k,QGAMMA1) * prim_arr(i,j-1,k,ncomp);
-        s[i0] += -dloga(i,j,k) * prim_arr(i,j,k,QPRES) * qthermo_arr(i,j,k,QGAMMA1) * prim_arr(i,j,k,ncomp);
-        s[ip1] += -dloga(i,j+1,k) * prim_arr(i,j+1,k,QPRES) * qthermo_arr(i,j+1,k,QGAMMA1) * prim_arr(i,j+1,k,ncomp);
-        s[ip2] += -dloga(i,j+2,k) * prim_arr(i,j+2,k,QPRES) * qthermo_arr(i,j+2,k,QGAMMA1) * prim_arr(i,j+2,k,ncomp);
-    }
+    if (idir == 0) {
+        s[im2] = field_arr(i-2,j,k,ncomp) * inv_density_arr(i-2,j,k);
+        s[im1] = field_arr(i-1,j,k,ncomp) * inv_density_arr(i-1,j,k);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i+1,j,k,ncomp) * inv_density_arr(i+1,j,k);
+        s[ip2] = field_arr(i+2,j,k,ncomp) * inv_density_arr(i+2,j,k);
+
+      } else if (idir == 1) {
+        s[im2] = field_arr(i,j-2,k,ncomp) * inv_density_arr(i,j-2,k);
+        s[im1] = field_arr(i,j-1,k,ncomp) * inv_density_arr(i,j-1,k);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i,j+1,k,ncomp) * inv_density_arr(i,j+1,k);
+        s[ip2] = field_arr(i,j+2,k,ncomp) * inv_density_arr(i,j+2,k);
+
+      } else {
+        s[im2] = field_arr(i,j,k-2,ncomp) * inv_density_arr(i,j,k-2);
+        s[im1] = field_arr(i,j,k-1,ncomp) * inv_density_arr(i,j,k-1);
+        s[i0]  = field_arr(i,j,k,ncomp) * inv_density_arr(i,j,k);
+        s[ip1] = field_arr(i,j,k+1,ncomp) * inv_density_arr(i,j,k+1);
+        s[ip2] = field_arr(i,j,k+2,ncomp) * inv_density_arr(i,j,k+2);
+
+      }
 
 }
 
@@ -215,6 +215,5 @@ source_trace_needed(amrex::Array4<amrex::Real const> const& prim_source, const i
 
     return trace_enabled;
 }
-
 
 #endif

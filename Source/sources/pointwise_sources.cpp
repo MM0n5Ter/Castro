@@ -2,7 +2,6 @@
 #include <HydroSim.H>
 #include <user_source.H>
 
-
 #ifdef HYBRID_MOMENTUM
 #include <hybrid_momentum.H>
 #endif

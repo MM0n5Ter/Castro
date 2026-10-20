@@ -1,4 +1,3 @@
-
 #include <AMReX_LevelBld.H>
 #include <HydroSim.H>
 
@@ -18,14 +17,6 @@ class HydroSimBuilder
                           const DistributionMapping& dm,
                           Real            time) override;
 };
-
-HydroSimBuilder HydroSim_builder;
-
-LevelBld*
-getLevelBld ()
-{
-    return &HydroSim_builder;
-}
 
 void
 HydroSimBuilder::variableSetUp ()
@@ -54,4 +45,12 @@ HydroSimBuilder::operator() (Amr&            papa,
                        Real            time)
 {
     return new HydroSim(papa, lev, level_geom, ba, dm, time);
+}
+
+HydroSimBuilder HydroSim_builder;
+
+LevelBld*
+getLevelBld ()
+{
+    return &HydroSim_builder;
 }

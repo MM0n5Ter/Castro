@@ -4,6 +4,80 @@
 #include <AMReX_REAL.H>
 
 namespace HLL {
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    void
+    conserved_state(const Real* prim_vals, Real* U) {
+
+      U[URHO] = prim_vals[QRHO];
+
+      U[UMX]  = prim_vals[QRHO]*prim_vals[QU];
+      U[UMY]  = prim_vals[QRHO]*prim_vals[QV];
+      U[UMZ]  = prim_vals[QRHO]*prim_vals[QW];
+
+      U[UEDEN] = prim_vals[QEINTDENS] + 0.5_rt*prim_vals[QRHO]*(prim_vals[QU]*prim_vals[QU] + prim_vals[QV]*prim_vals[QV] + prim_vals[QW]*prim_vals[QW]);
+      U[UEINT] = prim_vals[QEINTDENS];
+
+      U[UTEMP] = 0.0;
+
+    #ifdef SHOCK_VAR
+      U[UFLAG_SHOCK] = 0.0;
+    #endif
+
+    #ifdef NSE_NET
+      U[UPROTON_MU] = 0.0;
+      U[UNEUTRON_MU] = 0.0;
+    #endif
+
+      for (int passive_index = 0; passive_index < npassive; passive_index++) {
+          const int n  = passive_cons_index(passive_index);
+          const int nqs = passive_prim_index(passive_index);
+          U[n] = prim_vals[QRHO]*prim_vals[nqs];
+      }
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    void
+    compute_flux(const int idir, const Real boundary_factor, const int coord,
+                 const Real* U, const Real p,
+                 Real* F) {
+
+      Real normal_velocity = U[UMX+idir]/U[URHO];
+
+      if (boundary_factor == 0) {
+        normal_velocity = 0.0;
+      }
+
+      F[URHO] = U[URHO]*normal_velocity;
+
+      F[UMX] = U[UMX]*normal_velocity;
+      F[UMY] = U[UMY]*normal_velocity;
+      F[UMZ] = U[UMZ]*normal_velocity;
+
+      auto has_pressure_flux = momentum_flux_has_pressure(idir, idir, coord);
+
+      if (has_pressure_flux) {
+        F[UMX+idir] = F[UMX+idir] + p;
+      }
+
+      F[UEINT] = U[UEINT]*normal_velocity;
+      F[UEDEN] = (U[UEDEN] + p)*normal_velocity;
+
+      F[UTEMP] = 0.0;
+
+    #ifdef SHOCK_VAR
+      F[UFLAG_SHOCK] = 0.0;
+    #endif
+
+    #ifdef NSE_NET
+      F[UPROTON_MU] = 0.0;
+      F[UNEUTRON_MU] = 0.0;
+    #endif
+
+      for (int passive_index=0; passive_index < npassive; passive_index++) {
+          const int n = passive_cons_index(passive_index);
+          F[n] = U[n]*normal_velocity;
+      }
+    }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     void
@@ -60,209 +134,6 @@ namespace HLL {
           U[n] = contact_factor*prim_vals[nqs];
       }
     }
-
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
-    compute_flux(const int idir, const Real boundary_factor, const int coord,
-                 const Real* U, const Real p,
-                 Real* F) {
-
-      Real normal_velocity = U[UMX+idir]/U[URHO];
-
-      if (boundary_factor == 0) {
-        normal_velocity = 0.0;
-      }
-
-      F[URHO] = U[URHO]*normal_velocity;
-
-      F[UMX] = U[UMX]*normal_velocity;
-      F[UMY] = U[UMY]*normal_velocity;
-      F[UMZ] = U[UMZ]*normal_velocity;
-
-      auto has_pressure_flux = momentum_flux_has_pressure(idir, idir, coord);
-
-      if (has_pressure_flux) {
-        F[UMX+idir] = F[UMX+idir] + p;
-      }
-
-      F[UEINT] = U[UEINT]*normal_velocity;
-      F[UEDEN] = (U[UEDEN] + p)*normal_velocity;
-
-      F[UTEMP] = 0.0;
-
-    #ifdef SHOCK_VAR
-      F[UFLAG_SHOCK] = 0.0;
-    #endif
-
-    #ifdef NSE_NET
-      F[UPROTON_MU] = 0.0;
-      F[UNEUTRON_MU] = 0.0;
-    #endif
-
-      for (int passive_index=0; passive_index < npassive; passive_index++) {
-          const int n = passive_cons_index(passive_index);
-          F[n] = U[n]*normal_velocity;
-      }
-    }
-
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-    void
-    conserved_state(const Real* prim_vals, Real* U) {
-
-      U[URHO] = prim_vals[QRHO];
-
-      U[UMX]  = prim_vals[QRHO]*prim_vals[QU];
-      U[UMY]  = prim_vals[QRHO]*prim_vals[QV];
-      U[UMZ]  = prim_vals[QRHO]*prim_vals[QW];
-
-      U[UEDEN] = prim_vals[QEINTDENS] + 0.5_rt*prim_vals[QRHO]*(prim_vals[QU]*prim_vals[QU] + prim_vals[QV]*prim_vals[QV] + prim_vals[QW]*prim_vals[QW]);
-      U[UEINT] = prim_vals[QEINTDENS];
-
-      U[UTEMP] = 0.0;
-
-    #ifdef SHOCK_VAR
-      U[UFLAG_SHOCK] = 0.0;
-    #endif
-
-    #ifdef NSE_NET
-      U[UPROTON_MU] = 0.0;
-      U[UNEUTRON_MU] = 0.0;
-    #endif
-
-      for (int passive_index = 0; passive_index < npassive; passive_index++) {
-          const int n  = passive_cons_index(passive_index);
-          const int nqs = passive_prim_index(passive_index);
-          U[n] = prim_vals[QRHO]*prim_vals[nqs];
-      }
-    }
-
-
-    AMREX_GPU_HOST_DEVICE AMREX_INLINE
-    void
-    HLL(const Real* ql, const Real* qr,
-        const Real cl, const Real cr,
-        const int idir, const int coord,
-        Real* two_wave_flux) {
-
-
-
-      constexpr Real small_speed_gap = 1.e-10_rt;
-
-      int normal_vel_index, tan_vel_index, tan2_vel_index;
-      int momentum_index, momentum_tan_index, momentum_tan2_index;
-
-      if (idir == 0) {
-        normal_vel_index = QU;
-        tan_vel_index = QV;
-        tan2_vel_index = QW;
-
-        momentum_index = UMX;
-        momentum_tan_index = UMY;
-        momentum_tan2_index = UMZ;
-
-      } else if (idir == 1) {
-        normal_vel_index = QV;
-        tan_vel_index = QU;
-        tan2_vel_index = QW;
-
-        momentum_index = UMY;
-        momentum_tan_index = UMX;
-        momentum_tan2_index = UMZ;
-
-      } else {
-        normal_vel_index = QW;
-        tan_vel_index = QU;
-        tan2_vel_index = QV;
-
-        momentum_index = UMZ;
-        momentum_tan_index = UMX;
-        momentum_tan2_index = UMY;
-      }
-
-      Real left_sqrt_rho = std::sqrt(ql[QRHO]);
-      Real right_sqrt_rho = std::sqrt(qr[QRHO]);
-
-      Real inv_sqrt_rho_sum = 1.0_rt/(left_sqrt_rho + right_sqrt_rho);
-
-
-      Real mean_sound_speed = std::sqrt( (left_sqrt_rho*cl*cl + right_sqrt_rho*cr*cr)*inv_sqrt_rho_sum +
-                             0.5_rt*left_sqrt_rho*right_sqrt_rho*inv_sqrt_rho_sum*inv_sqrt_rho_sum*std::pow(qr[normal_vel_index] - ql[normal_vel_index], 2));
-
-
-      Real roe_velocity = (left_sqrt_rho*ql[normal_vel_index] + right_sqrt_rho*qr[normal_vel_index])*inv_sqrt_rho_sum;
-
-      Real a1 = roe_velocity - mean_sound_speed;
-      Real a4 = roe_velocity + mean_sound_speed;
-
-
-      Real bl = std::min(a1, ql[normal_vel_index] - cl);
-      Real br = std::max(a4, qr[normal_vel_index] + cr);
-
-      Real bm = std::min(0.0_rt, bl);
-      Real bp = std::max(0.0_rt, br);
-
-      Real bd = bp - bm;
-
-      if (std::abs(bd) < small_speed_gap * std::max(std::abs(bm), std::abs(bp))) {
-          return;
-      }
-
-
-      bd = 1.0_rt/bd;
-
-
-      Real left_flux_tmp = ql[QRHO]*ql[normal_vel_index];
-      Real right_flux_tmp = qr[QRHO]*qr[normal_vel_index];
-
-      two_wave_flux[URHO] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO] - ql[QRHO]);
-
-      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[normal_vel_index];
-      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[normal_vel_index];
-      if (momentum_flux_has_pressure(idir, idir, coord)) {
-        left_flux_tmp = left_flux_tmp + ql[QPRES];
-        right_flux_tmp = right_flux_tmp + qr[QPRES];
-      }
-
-      two_wave_flux[momentum_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[normal_vel_index] - ql[QRHO]*ql[normal_vel_index]);
-
-      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan_vel_index];
-      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan_vel_index];
-
-      two_wave_flux[momentum_tan_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan_vel_index] - ql[QRHO]*ql[tan_vel_index]);
-
-
-      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan2_vel_index];
-      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan2_vel_index];
-
-      two_wave_flux[momentum_tan2_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan2_vel_index] - ql[QRHO]*ql[tan2_vel_index]);
-
-      Real leftTotalEnergy = ql[QEINTDENS] + 0.5_rt*ql[QRHO]*(ql[normal_vel_index]*ql[normal_vel_index] + ql[tan_vel_index]*ql[tan_vel_index] + ql[tan2_vel_index]*ql[tan2_vel_index]);
-      left_flux_tmp = ql[normal_vel_index]*(leftTotalEnergy + ql[QPRES]);
-
-      Real rightTotalEnergy = qr[QEINTDENS] + 0.5_rt*qr[QRHO]*(qr[normal_vel_index]*qr[normal_vel_index] + qr[tan_vel_index]*qr[tan_vel_index] + qr[tan2_vel_index]*qr[tan2_vel_index]);
-      right_flux_tmp = qr[normal_vel_index]*(rightTotalEnergy + qr[QPRES]);
-
-      two_wave_flux[UEDEN] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(rightTotalEnergy - leftTotalEnergy);
-
-
-      left_flux_tmp = ql[QEINTDENS]*ql[normal_vel_index];
-      right_flux_tmp = qr[QEINTDENS]*qr[normal_vel_index];
-
-      two_wave_flux[UEINT] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QEINTDENS] - ql[QEINTDENS]);
-
-
-      for (int passive_index = 0; passive_index < npassive; passive_index++) {
-          const int n  = passive_cons_index(passive_index);
-          const int nqs = passive_prim_index(passive_index);
-
-          left_flux_tmp = ql[QRHO]*ql[nqs]*ql[normal_vel_index];
-          right_flux_tmp = qr[QRHO]*qr[nqs]*qr[normal_vel_index];
-
-          two_wave_flux[n] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[nqs] - ql[QRHO]*ql[nqs]);
-      }
-    }
-
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
@@ -507,6 +378,131 @@ namespace HLL {
         }
 
 
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_INLINE
+    void
+    HLL(const Real* ql, const Real* qr,
+        const Real cl, const Real cr,
+        const int idir, const int coord,
+        Real* two_wave_flux) {
+
+
+
+      constexpr Real small_speed_gap = 1.e-10_rt;
+
+      int normal_vel_index, tan_vel_index, tan2_vel_index;
+      int momentum_index, momentum_tan_index, momentum_tan2_index;
+
+      if (idir == 0) {
+        normal_vel_index = QU;
+        tan_vel_index = QV;
+        tan2_vel_index = QW;
+
+        momentum_index = UMX;
+        momentum_tan_index = UMY;
+        momentum_tan2_index = UMZ;
+
+      } else if (idir == 1) {
+        normal_vel_index = QV;
+        tan_vel_index = QU;
+        tan2_vel_index = QW;
+
+        momentum_index = UMY;
+        momentum_tan_index = UMX;
+        momentum_tan2_index = UMZ;
+
+      } else {
+        normal_vel_index = QW;
+        tan_vel_index = QU;
+        tan2_vel_index = QV;
+
+        momentum_index = UMZ;
+        momentum_tan_index = UMX;
+        momentum_tan2_index = UMY;
+      }
+
+      Real left_sqrt_rho = std::sqrt(ql[QRHO]);
+      Real right_sqrt_rho = std::sqrt(qr[QRHO]);
+
+      Real inv_sqrt_rho_sum = 1.0_rt/(left_sqrt_rho + right_sqrt_rho);
+
+
+      Real mean_sound_speed = std::sqrt( (left_sqrt_rho*cl*cl + right_sqrt_rho*cr*cr)*inv_sqrt_rho_sum +
+                             0.5_rt*left_sqrt_rho*right_sqrt_rho*inv_sqrt_rho_sum*inv_sqrt_rho_sum*std::pow(qr[normal_vel_index] - ql[normal_vel_index], 2));
+
+
+      Real roe_velocity = (left_sqrt_rho*ql[normal_vel_index] + right_sqrt_rho*qr[normal_vel_index])*inv_sqrt_rho_sum;
+
+      Real a1 = roe_velocity - mean_sound_speed;
+      Real a4 = roe_velocity + mean_sound_speed;
+
+
+      Real bl = std::min(a1, ql[normal_vel_index] - cl);
+      Real br = std::max(a4, qr[normal_vel_index] + cr);
+
+      Real bm = std::min(0.0_rt, bl);
+      Real bp = std::max(0.0_rt, br);
+
+      Real bd = bp - bm;
+
+      if (std::abs(bd) < small_speed_gap * std::max(std::abs(bm), std::abs(bp))) {
+          return;
+      }
+
+
+      bd = 1.0_rt/bd;
+
+
+      Real left_flux_tmp = ql[QRHO]*ql[normal_vel_index];
+      Real right_flux_tmp = qr[QRHO]*qr[normal_vel_index];
+
+      two_wave_flux[URHO] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO] - ql[QRHO]);
+
+      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[normal_vel_index];
+      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[normal_vel_index];
+      if (momentum_flux_has_pressure(idir, idir, coord)) {
+        left_flux_tmp = left_flux_tmp + ql[QPRES];
+        right_flux_tmp = right_flux_tmp + qr[QPRES];
+      }
+
+      two_wave_flux[momentum_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[normal_vel_index] - ql[QRHO]*ql[normal_vel_index]);
+
+      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan_vel_index];
+      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan_vel_index];
+
+      two_wave_flux[momentum_tan_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan_vel_index] - ql[QRHO]*ql[tan_vel_index]);
+
+
+      left_flux_tmp = ql[QRHO]*ql[normal_vel_index]*ql[tan2_vel_index];
+      right_flux_tmp = qr[QRHO]*qr[normal_vel_index]*qr[tan2_vel_index];
+
+      two_wave_flux[momentum_tan2_index] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[tan2_vel_index] - ql[QRHO]*ql[tan2_vel_index]);
+
+      Real leftTotalEnergy = ql[QEINTDENS] + 0.5_rt*ql[QRHO]*(ql[normal_vel_index]*ql[normal_vel_index] + ql[tan_vel_index]*ql[tan_vel_index] + ql[tan2_vel_index]*ql[tan2_vel_index]);
+      left_flux_tmp = ql[normal_vel_index]*(leftTotalEnergy + ql[QPRES]);
+
+      Real rightTotalEnergy = qr[QEINTDENS] + 0.5_rt*qr[QRHO]*(qr[normal_vel_index]*qr[normal_vel_index] + qr[tan_vel_index]*qr[tan_vel_index] + qr[tan2_vel_index]*qr[tan2_vel_index]);
+      right_flux_tmp = qr[normal_vel_index]*(rightTotalEnergy + qr[QPRES]);
+
+      two_wave_flux[UEDEN] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(rightTotalEnergy - leftTotalEnergy);
+
+
+      left_flux_tmp = ql[QEINTDENS]*ql[normal_vel_index];
+      right_flux_tmp = qr[QEINTDENS]*qr[normal_vel_index];
+
+      two_wave_flux[UEINT] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QEINTDENS] - ql[QEINTDENS]);
+
+
+      for (int passive_index = 0; passive_index < npassive; passive_index++) {
+          const int n  = passive_cons_index(passive_index);
+          const int nqs = passive_prim_index(passive_index);
+
+          left_flux_tmp = ql[QRHO]*ql[nqs]*ql[normal_vel_index];
+          right_flux_tmp = qr[QRHO]*qr[nqs]*qr[normal_vel_index];
+
+          two_wave_flux[n] = (bp*left_flux_tmp - bm*right_flux_tmp)*bd + bp*bm*bd*(qr[QRHO]*qr[nqs] - ql[QRHO]*ql[nqs]);
+      }
     }
 }
 

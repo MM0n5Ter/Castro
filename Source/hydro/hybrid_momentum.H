@@ -6,23 +6,6 @@
 using namespace amrex;
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void cartesian_to_hybrid(const GpuArray<Real, 3>& loc,
-                      const GpuArray<Real, 3>& cartesian_vector,
-                      GpuArray<Real, 3>& hybrid_vector)
-{
-
-    Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                        std::numeric_limits<Real>::min());
-    Real InvRadius = 1.0_rt / R;
-
-
-    hybrid_vector[0] = cartesian_vector[0] * (loc[0] * InvRadius) + cartesian_vector[1] * (loc[1] * InvRadius);
-    hybrid_vector[1] = cartesian_vector[1] * loc[0] - cartesian_vector[0] * loc[1];
-    hybrid_vector[2] = cartesian_vector[2];
-}
-
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void hybrid_to_cartesian(const GpuArray<Real, 3>& loc,
                       const GpuArray<Real, 3>& hybrid_vector,
                       GpuArray<Real, 3>& cartesian_vector)
@@ -38,22 +21,21 @@ void hybrid_to_cartesian(const GpuArray<Real, 3>& loc,
     cartesian_vector[2] = hybrid_vector[2];
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void compute_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
-                                const GpuArray<Real, 3>& cartesian_source_vector,
-                                GpuArray<Real, 3>& hybrid_source_vector)
+void cartesian_to_hybrid(const GpuArray<Real, 3>& loc,
+                      const GpuArray<Real, 3>& cartesian_vector,
+                      GpuArray<Real, 3>& hybrid_vector)
 {
+
     Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
                         std::numeric_limits<Real>::min());
     Real InvRadius = 1.0_rt / R;
 
 
-    hybrid_source_vector[0] = cartesian_source_vector[0] * (loc[0] * InvRadius) + cartesian_source_vector[1] * (loc[1] * InvRadius);
-    hybrid_source_vector[1] = cartesian_source_vector[1] * loc[0] - cartesian_source_vector[0] * loc[1];
-    hybrid_source_vector[2] = cartesian_source_vector[2];
+    hybrid_vector[0] = cartesian_vector[0] * (loc[0] * InvRadius) + cartesian_vector[1] * (loc[1] * InvRadius);
+    hybrid_vector[1] = cartesian_vector[1] * loc[0] - cartesian_vector[0] * loc[1];
+    hybrid_vector[2] = cartesian_vector[2];
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void hybrid_flux_from_state(const GpuArray<Real, NGDSTATE>& state, const GeometryData& geomdata,
@@ -108,6 +90,21 @@ void hybrid_flux_from_state(const GpuArray<Real, NGDSTATE>& state, const Geometr
         flux[UMP] = hybrid_vector[2] * advect_velocity + state[GDPRESSURE];
     }
 
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void compute_hybrid_momentum_source(const GpuArray<Real, 3>& loc,
+                                const GpuArray<Real, 3>& cartesian_source_vector,
+                                GpuArray<Real, 3>& hybrid_source_vector)
+{
+    Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
+                        std::numeric_limits<Real>::min());
+    Real InvRadius = 1.0_rt / R;
+
+
+    hybrid_source_vector[0] = cartesian_source_vector[0] * (loc[0] * InvRadius) + cartesian_source_vector[1] * (loc[1] * InvRadius);
+    hybrid_source_vector[1] = cartesian_source_vector[1] * loc[0] - cartesian_source_vector[0] * loc[1];
+    hybrid_source_vector[2] = cartesian_source_vector[2];
 }
 
 #endif

@@ -1,4 +1,3 @@
-
 #include <HypreSolvers.H>
 #include <elliptic_face_ops.H>
 #include <AMReX_LO_BCTYPES.H>
@@ -15,56 +14,6 @@ using namespace amrex;
 
 ExtendedMultiLevelSolver::~ExtendedMultiLevelSolver()
 {
-}
-
-void ExtendedMultiLevelSolver::setAuxMassCoefficients(int level, const MultiFab &a2, int dir)
-{
-  BL_PROFILE("ExtendedMultiLevelSolver::setAuxMassCoefficients");
-
-  BL_ASSERT( a2.ok() );
-
-  int ncomp=1;
-  int ngrow=0;
-
-  if (!aux_mass_coefs[level]) {
-    aux_mass_coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
-
-    for (int i = 0; i < AMREX_SPACEDIM; i++) {
-      BoxArray edge_boxes(grids[level]);
-      edge_boxes.surroundingNodes(i);
-      (*aux_mass_coefs[level])[i].define(edge_boxes, dmap[level], ncomp, ngrow);
-      (*aux_mass_coefs[level])[i].setVal(0.0);
-    }
-  }
-
-  BL_ASSERT( a2.boxArray() == (*aux_mass_coefs[level])[dir].boxArray() );
-
-  MultiFab::Copy((*aux_mass_coefs[level])[dir], a2, 0, 0, ncomp, ngrow);
-}
-
-void ExtendedMultiLevelSolver::setAdvectionCoefficients(int level, const MultiFab &c, int dir)
-{
-  BL_PROFILE("ExtendedMultiLevelSolver::setAdvectionCoefficients");
-
-  BL_ASSERT( c.ok() );
-
-  int ncomp=2;
-  int ngrow=0;
-
-  if (!cell_coefs[level]) {
-    cell_coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
-
-    for (int i = 0; i < AMREX_SPACEDIM; i++) {
-      BoxArray edge_boxes(grids[level]);
-      edge_boxes.surroundingNodes(i);
-      (*cell_coefs[level])[i].define(edge_boxes, dmap[level], ncomp, ngrow);
-      (*cell_coefs[level])[i].setVal(0.0);
-    }
-  }
-
-  BL_ASSERT( c.boxArray() == (*cell_coefs[level])[dir].boxArray() );
-
-  MultiFab::Copy((*cell_coefs[level])[dir], c, 0, 0, ncomp, ngrow);
 }
 
 void ExtendedMultiLevelSolver::setGradientCoefficients1(int level, const MultiFab &d1, int dir)
@@ -113,6 +62,56 @@ void ExtendedMultiLevelSolver::setGradientCoefficients2(int level, const MultiFa
   BL_ASSERT( d2.boxArray() == (*gradient_coefs2[level])[dir].boxArray() );
 
   MultiFab::Copy((*gradient_coefs2[level])[dir], d2, 0, 0, ncomp, ngrow);
+}
+
+void ExtendedMultiLevelSolver::setAdvectionCoefficients(int level, const MultiFab &c, int dir)
+{
+  BL_PROFILE("ExtendedMultiLevelSolver::setAdvectionCoefficients");
+
+  BL_ASSERT( c.ok() );
+
+  int ncomp=2;
+  int ngrow=0;
+
+  if (!cell_coefs[level]) {
+    cell_coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+
+    for (int i = 0; i < AMREX_SPACEDIM; i++) {
+      BoxArray edge_boxes(grids[level]);
+      edge_boxes.surroundingNodes(i);
+      (*cell_coefs[level])[i].define(edge_boxes, dmap[level], ncomp, ngrow);
+      (*cell_coefs[level])[i].setVal(0.0);
+    }
+  }
+
+  BL_ASSERT( c.boxArray() == (*cell_coefs[level])[dir].boxArray() );
+
+  MultiFab::Copy((*cell_coefs[level])[dir], c, 0, 0, ncomp, ngrow);
+}
+
+void ExtendedMultiLevelSolver::setAuxMassCoefficients(int level, const MultiFab &a2, int dir)
+{
+  BL_PROFILE("ExtendedMultiLevelSolver::setAuxMassCoefficients");
+
+  BL_ASSERT( a2.ok() );
+
+  int ncomp=1;
+  int ngrow=0;
+
+  if (!aux_mass_coefs[level]) {
+    aux_mass_coefs[level].reset(new Array<MultiFab, AMREX_SPACEDIM>);
+
+    for (int i = 0; i < AMREX_SPACEDIM; i++) {
+      BoxArray edge_boxes(grids[level]);
+      edge_boxes.surroundingNodes(i);
+      (*aux_mass_coefs[level])[i].define(edge_boxes, dmap[level], ncomp, ngrow);
+      (*aux_mass_coefs[level])[i].setVal(0.0);
+    }
+  }
+
+  BL_ASSERT( a2.boxArray() == (*aux_mass_coefs[level])[dir].boxArray() );
+
+  MultiFab::Copy((*aux_mass_coefs[level])[dir], a2, 0, 0, ncomp, ngrow);
 }
 
 static void
@@ -749,18 +748,6 @@ void ExtendedMultiLevelSolver::assembleMatrix()
   }
 }
 
-void ExtendedMultiLevelSolver::fillLevelVectors(int level,
-                                         MultiFab& dest,
-                                         int icomp,
-                                         MultiFab& rhs,
-                                         BoundaryMode bc_variant)
-{
-  BL_PROFILE("ExtendedMultiLevelSolver::fillLevelVectors");
-
-  loadLevelSolution(level, dest, icomp);
-  fillLevelRhs(level, rhs, bc_variant);
-}
-
 void ExtendedMultiLevelSolver::fillLevelRhs(int level,
                                          MultiFab& rhs,
                                          BoundaryMode bc_variant)
@@ -902,6 +889,17 @@ void ExtendedMultiLevelSolver::fillLevelRhs(int level,
   }
 }
 
+void ExtendedMultiLevelSolver::fillLevelVectors(int level,
+                                         MultiFab& dest,
+                                         int icomp,
+                                         MultiFab& rhs,
+                                         BoundaryMode bc_variant)
+{
+  BL_PROFILE("ExtendedMultiLevelSolver::fillLevelVectors");
+
+  loadLevelSolution(level, dest, icomp);
+  fillLevelRhs(level, rhs, bc_variant);
+}
 
 void ExtendedMultiLevelSolver::computeBoundaryTerm(int level,
                                       MultiFab* diffusive_face_term,

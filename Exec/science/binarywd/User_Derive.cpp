@@ -134,6 +134,135 @@ void ca_derinertialmomentumz(const Box& bx, FArrayBox& derfab, int  , int  ,
     });
 }
 
+void ca_derinertialradmomx(const Box& bx, FArrayBox& derfab, int  , int  ,
+                           const FArrayBox& datfab, const Geometry& geom,
+                           Real time, const int*  , int  )
+{
+
+    auto const dat = datfab.array();
+    auto const der = derfab.array();
+
+    const auto dx = geom.CellSizeArray();
+    const auto problo = geom.ProbLoArray();
+
+    const auto geomdata = geom.data();
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+    {
+        GpuArray<Real, 3> loc;
+        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
+
+#if AMREX_SPACEDIM >= 2
+        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
+#else
+        loc[1] = 0.0_rt;
+#endif
+
+#if AMREX_SPACEDIM == 3
+        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
+#else
+        loc[2] = 0.0_rt;
+#endif
+
+        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
+        GpuArray<Real, 3> inertial_mom{mom};
+#ifdef ROTATION
+        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+#endif
+
+        Real radInv = 1.0_rt / std::sqrt(loc[1] * loc[1] + loc[2] * loc[2]);
+
+        der(i,j,k,0) = loc[1] * radInv * inertial_mom[1] + loc[2] * radInv * inertial_mom[2];
+    });
+}
+
+void ca_derinertialradmomy(const Box& bx, FArrayBox& derfab, int  , int  ,
+                           const FArrayBox& datfab, const Geometry& geom,
+                           Real time, const int*  , int  )
+{
+
+    auto const dat = datfab.array();
+    auto const der = derfab.array();
+
+    const auto dx = geom.CellSizeArray();
+    const auto problo = geom.ProbLoArray();
+
+    const auto geomdata = geom.data();
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+    {
+        GpuArray<Real, 3> loc;
+        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
+
+#if AMREX_SPACEDIM >= 2
+        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
+#else
+        loc[1] = 0.0_rt;
+#endif
+
+#if AMREX_SPACEDIM == 3
+        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
+#else
+        loc[2] = 0.0_rt;
+#endif
+
+        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
+        GpuArray<Real, 3> inertial_mom{mom};
+#ifdef ROTATION
+        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+#endif
+
+        Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[2] * loc[2]);
+
+        der(i,j,k,0) = loc[0] * radInv * inertial_mom[0] + loc[2] * radInv * inertial_mom[2];
+    });
+}
+
+void ca_derinertialradmomz(const Box& bx, FArrayBox& derfab, int  , int  ,
+                           const FArrayBox& datfab, const Geometry& geom,
+                           Real time, const int*  , int  )
+{
+
+    auto const dat = datfab.array();
+    auto const der = derfab.array();
+
+    const auto dx = geom.CellSizeArray();
+    const auto problo = geom.ProbLoArray();
+
+    const auto geomdata = geom.data();
+
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
+    {
+        GpuArray<Real, 3> loc;
+        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
+
+#if AMREX_SPACEDIM >= 2
+        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
+#else
+        loc[1] = 0.0_rt;
+#endif
+
+#if AMREX_SPACEDIM == 3
+        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
+#else
+        loc[2] = 0.0_rt;
+#endif
+
+        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
+        GpuArray<Real, 3> inertial_mom{mom};
+#ifdef ROTATION
+        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
+#endif
+
+        Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
+
+        der(i,j,k,0) = loc[0] * radInv * inertial_mom[0] + loc[1] * radInv * inertial_mom[1];
+    });
+}
+
 void ca_derinertialangmomx(const Box& bx, FArrayBox& derfab, int  , int  ,
                            const FArrayBox& datfab, const Geometry& geom,
                            Real time, const int*  , int  )
@@ -266,134 +395,5 @@ void ca_derinertialangmomz(const Box& bx, FArrayBox& derfab, int  , int  ,
         cross_product(loc, inertial_velocity, angular_vel);
 
         der(i,j,k,0) = rho * angular_vel[2];
-    });
-}
-
-void ca_derinertialradmomx(const Box& bx, FArrayBox& derfab, int  , int  ,
-                           const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int*  , int  )
-{
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    const auto dx = geom.CellSizeArray();
-    const auto problo = geom.ProbLoArray();
-
-    const auto geomdata = geom.data();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-    {
-        GpuArray<Real, 3> loc;
-        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
-
-#if AMREX_SPACEDIM >= 2
-        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
-#else
-        loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
-#else
-        loc[2] = 0.0_rt;
-#endif
-
-        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
-        GpuArray<Real, 3> inertial_mom{mom};
-#ifdef ROTATION
-        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
-#endif
-
-        Real radInv = 1.0_rt / std::sqrt(loc[1] * loc[1] + loc[2] * loc[2]);
-
-        der(i,j,k,0) = loc[1] * radInv * inertial_mom[1] + loc[2] * radInv * inertial_mom[2];
-    });
-}
-
-void ca_derinertialradmomy(const Box& bx, FArrayBox& derfab, int  , int  ,
-                           const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int*  , int  )
-{
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    const auto dx = geom.CellSizeArray();
-    const auto problo = geom.ProbLoArray();
-
-    const auto geomdata = geom.data();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-    {
-        GpuArray<Real, 3> loc;
-        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
-
-#if AMREX_SPACEDIM >= 2
-        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
-#else
-        loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
-#else
-        loc[2] = 0.0_rt;
-#endif
-
-        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
-        GpuArray<Real, 3> inertial_mom{mom};
-#ifdef ROTATION
-        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
-#endif
-
-        Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[2] * loc[2]);
-
-        der(i,j,k,0) = loc[0] * radInv * inertial_mom[0] + loc[2] * radInv * inertial_mom[2];
-    });
-}
-
-void ca_derinertialradmomz(const Box& bx, FArrayBox& derfab, int  , int  ,
-                           const FArrayBox& datfab, const Geometry& geom,
-                           Real time, const int*  , int  )
-{
-
-    auto const dat = datfab.array();
-    auto const der = derfab.array();
-
-    const auto dx = geom.CellSizeArray();
-    const auto problo = geom.ProbLoArray();
-
-    const auto geomdata = geom.data();
-
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k)
-    {
-        GpuArray<Real, 3> loc;
-        loc[0] = problo[0] + (static_cast<Real>(i) + 0.5_rt) * dx[0] - problem::center[0];
-
-#if AMREX_SPACEDIM >= 2
-        loc[1] = problo[1] + (static_cast<Real>(j) + 0.5_rt) * dx[1] - problem::center[1];
-#else
-        loc[1] = 0.0_rt;
-#endif
-
-#if AMREX_SPACEDIM == 3
-        loc[2] = problo[2] + (static_cast<Real>(k) + 0.5_rt) * dx[2] - problem::center[2];
-#else
-        loc[2] = 0.0_rt;
-#endif
-
-        GpuArray<Real, 3> mom{dat(i,j,k,1), dat(i,j,k,2), dat(i,j,k,3)};
-        GpuArray<Real, 3> inertial_mom{mom};
-#ifdef ROTATION
-        frame_to_inertial_velocity(i, j, k, geomdata, time, inertial_mom);
-#endif
-
-        Real radInv = 1.0_rt / std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
-
-        der(i,j,k,0) = loc[0] * radInv * inertial_mom[0] + loc[1] * radInv * inertial_mom[1];
     });
 }

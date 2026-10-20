@@ -18,12 +18,126 @@ constexpr int EIGVEC_BPERP2 = 6;
 constexpr int NUM_EIGVEC = 7;
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+int
+levi_civita_sign(const int i, const int j, const int k) {
+
+  int val;
+
+  if (i == j || j == k || i == k) {
+    val = 0;
+  } else if ((i == 0 && j == 1 && k == 2) ||
+             (i == 1 && j == 2 && k == 0) ||
+             (i == 2 && j == 0 && k == 1)) {
+    val = 1;
+  } else {
+    val = -1;
+  }
+
+  return val;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 fast_magnetosonic_speed(Real& c, Real as, Real ca, Real bd) {
 
 
   c = 0.5_rt * ((as + ca) + std::sqrt((as + ca)*(as + ca) - 4.0_rt*as*bd));
   c = std::sqrt(c);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
+
+
+
+  zone_prim[QRHO] = cons_zone[URHO];
+  zone_prim[QU] = cons_zone[UMX] / zone_prim[QRHO];
+  zone_prim[QV] = cons_zone[UMY] / zone_prim[QRHO];
+  zone_prim[QW] = cons_zone[UMZ] / zone_prim[QRHO];
+  zone_prim[QEINTDENS] = cons_zone[UEDEN] -
+    0.5_rt * zone_prim[QRHO] * (zone_prim[QU] * zone_prim[QU] +
+                             zone_prim[QV] * zone_prim[QV] +
+                             zone_prim[QW] * zone_prim[QW]) -
+    0.5_rt * (cons_zone[UBX] * cons_zone[UBX] +
+              cons_zone[UBY] * cons_zone[UBY] +
+              cons_zone[UBZ] * cons_zone[UBZ]);
+
+
+  for (int n = 0; n < NumSpec; n++) {
+    zone_prim[QFS+n] = cons_zone[UFS+n] / cons_zone[URHO];
+  }
+
+  eos_t eos_state;
+
+  eos_state.rho = zone_prim[QRHO];
+  eos_state.e = zone_prim[QEINTDENS] / eos_state.rho;
+  for (int n = 0; n < NumSpec; n++) {
+    eos_state.xn[n] = zone_prim[QFS+n];
+  }
+#if NAUX_NET > 0
+  for (int n = 0; n < NumAux; n++) {
+    eos_state.aux[n] = zone_prim[QFX+n];
+  }
+#endif
+  eos_state.T = 100.0_rt;
+
+  eos(eos_input_re, eos_state);
+
+  zone_prim[QTEMP] = eos_state.T;
+  zone_prim[QPRES] = eos_state.p;
+
+  zone_prim[QBFIELDX] = cons_zone[UBX];
+  zone_prim[QBFIELDY] = cons_zone[UBY];
+  zone_prim[QBFIELDZ] = cons_zone[UBZ];
+
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+void
+PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
+     Array1D<Real, 0, NUM_STATE+2>& U,
+     Real& gam1) {
+
+  U(URHO) = q(QRHO);
+  U(UMX) = q(QRHO) * q(QU);
+  U(UMY) = q(QRHO) * q(QV);
+  U(UMZ) = q(QRHO) * q(QW);
+
+  eos_t eos_state;
+
+  eos_state.rho = q(QRHO);
+  eos_state.p = q(QPRES);
+  for (int n = 0; n < NumSpec; n++) {
+    eos_state.xn[n] = q(QFS+n);
+  }
+#if NAUX_NET > 0
+  for (int n = 0; n < NumAux; n++) {
+    eos_state.aux[n] = q(QFX+n);
+  }
+#endif
+  eos_state.T = 100.0;
+
+  eos(eos_input_rp, eos_state);
+
+  Real B2 = q(QBFIELDX) * q(QBFIELDX) + q(QBFIELDY) * q(QBFIELDY) + q(QBFIELDZ) * q(QBFIELDZ);
+
+  U(UEINT) = eos_state.rho * eos_state.e;
+  U(UEDEN) = U(UEINT) +
+    0.5_rt * q(QRHO) * (q(QU) * q(QU) + q(QV) * q(QV) + q(QW) * q(QW)) + 0.5_rt * B2;
+
+  U(UBX) = q(QBFIELDX);
+  U(UBY) = q(QBFIELDY);
+  U(UBZ) = q(QBFIELDZ);
+
+  for (int n = 0; n < NumSpec; n++) {
+    U(UFS+n) = U(URHO) * q(QFS+n);
+  }
+
+  U(UTEMP) = eos_state.T;
+
+  gam1 = eos_state.gam1;
+
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -75,7 +189,6 @@ to_prim_flux(Real* prim_flux, const Real* flx, const Real* zone_prim) {
   prim_flux[QTEMP] = 0.0_rt;
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
 electric(const Real* zone_prim, Real& cell_efield, const int comp) {
@@ -93,122 +206,4 @@ electric(const Real* zone_prim, Real& cell_efield, const int comp) {
 
 }
 
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-ConservedToPrimitive(Real* zone_prim, const Real* cons_zone) {
-
-
-
-  zone_prim[QRHO] = cons_zone[URHO];
-  zone_prim[QU] = cons_zone[UMX] / zone_prim[QRHO];
-  zone_prim[QV] = cons_zone[UMY] / zone_prim[QRHO];
-  zone_prim[QW] = cons_zone[UMZ] / zone_prim[QRHO];
-  zone_prim[QEINTDENS] = cons_zone[UEDEN] -
-    0.5_rt * zone_prim[QRHO] * (zone_prim[QU] * zone_prim[QU] +
-                             zone_prim[QV] * zone_prim[QV] +
-                             zone_prim[QW] * zone_prim[QW]) -
-    0.5_rt * (cons_zone[UBX] * cons_zone[UBX] +
-              cons_zone[UBY] * cons_zone[UBY] +
-              cons_zone[UBZ] * cons_zone[UBZ]);
-
-
-  for (int n = 0; n < NumSpec; n++) {
-    zone_prim[QFS+n] = cons_zone[UFS+n] / cons_zone[URHO];
-  }
-
-  eos_t eos_state;
-
-  eos_state.rho = zone_prim[QRHO];
-  eos_state.e = zone_prim[QEINTDENS] / eos_state.rho;
-  for (int n = 0; n < NumSpec; n++) {
-    eos_state.xn[n] = zone_prim[QFS+n];
-  }
-#if NAUX_NET > 0
-  for (int n = 0; n < NumAux; n++) {
-    eos_state.aux[n] = zone_prim[QFX+n];
-  }
 #endif
-  eos_state.T = 100.0_rt;
-
-  eos(eos_input_re, eos_state);
-
-  zone_prim[QTEMP] = eos_state.T;
-  zone_prim[QPRES] = eos_state.p;
-
-  zone_prim[QBFIELDX] = cons_zone[UBX];
-  zone_prim[QBFIELDY] = cons_zone[UBY];
-  zone_prim[QBFIELDZ] = cons_zone[UBZ];
-
-}
-
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void
-PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
-     Array1D<Real, 0, NUM_STATE+2>& U,
-     Real& gam1) {
-
-  U(URHO) = q(QRHO);
-  U(UMX) = q(QRHO) * q(QU);
-  U(UMY) = q(QRHO) * q(QV);
-  U(UMZ) = q(QRHO) * q(QW);
-
-  eos_t eos_state;
-
-  eos_state.rho = q(QRHO);
-  eos_state.p = q(QPRES);
-  for (int n = 0; n < NumSpec; n++) {
-    eos_state.xn[n] = q(QFS+n);
-  }
-#if NAUX_NET > 0
-  for (int n = 0; n < NumAux; n++) {
-    eos_state.aux[n] = q(QFX+n);
-  }
-#endif
-  eos_state.T = 100.0;
-
-  eos(eos_input_rp, eos_state);
-
-  Real B2 = q(QBFIELDX) * q(QBFIELDX) + q(QBFIELDY) * q(QBFIELDY) + q(QBFIELDZ) * q(QBFIELDZ);
-
-  U(UEINT) = eos_state.rho * eos_state.e;
-  U(UEDEN) = U(UEINT) +
-    0.5_rt * q(QRHO) * (q(QU) * q(QU) + q(QV) * q(QV) + q(QW) * q(QW)) + 0.5_rt * B2;
-
-  U(UBX) = q(QBFIELDX);
-  U(UBY) = q(QBFIELDY);
-  U(UBZ) = q(QBFIELDZ);
-
-  for (int n = 0; n < NumSpec; n++) {
-    U(UFS+n) = U(URHO) * q(QFS+n);
-  }
-
-  U(UTEMP) = eos_state.T;
-
-  gam1 = eos_state.gam1;
-
-}
-
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-int
-levi_civita_sign(const int i, const int j, const int k) {
-
-  int val;
-
-  if (i == j || j == k || i == k) {
-    val = 0;
-  } else if ((i == 0 && j == 1 && k == 2) ||
-             (i == 1 && j == 2 && k == 0) ||
-             (i == 2 && j == 0 && k == 1)) {
-    val = 1;
-  } else {
-    val = -1;
-  }
-
-  return val;
-}
-
-#endif
-

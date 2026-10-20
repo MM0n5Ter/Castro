@@ -13,6 +13,174 @@
 
 using namespace amrex;
 
+void
+HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
+{
+    BL_PROFILE("HydroSim::verify_courant_limit()");
+
+    int cfl_breach = 0;
+
+    auto dx = geom.CellSizeArray();
+    const auto problo = geom.ProbLoArray();
+    const auto coord = geom.Coord();
+    amrex::ignore_unused(problo, coord);
+
+    Real dtdx = dt / dx[0];
+
+    Real dtdy = 0.0_rt;
+    if (AMREX_SPACEDIM >= 2) {
+      dtdy = dt / dx[1];
+      if (coord == 2) {
+          dtdy /= problo[0] + 0.5_rt * dx[0];
+      }
+    }
+
+    Real dtdz = 0.0_rt;
+    if (AMREX_SPACEDIM == 3) {
+      dtdz = dt / dx[2];
+    }
+
+    ReduceOps<ReduceOpMax> reduce_op;
+    ReduceData<Real> reduce_data(reduce_op);
+    using ReduceTuple = typename decltype(reduce_data)::Type;
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    for (MFIter mfi(State, hydro_tile_size); mfi.isValid(); ++mfi) {
+
+        const Box& bx = mfi.tilebox();
+
+        auto U = State.array(mfi);
+
+        reduce_op.eval(bx, reduce_data,
+        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+
+            Real rho = U(i,j,k,URHO);
+            Real rhoInv = 1.0 / rho;
+
+            Real u = U(i,j,k,UMX) * rhoInv;
+            Real v = U(i,j,k,UMY) * rhoInv;
+            Real w = U(i,j,k,UMZ) * rhoInv;
+
+            eos_rep_t eos_state;
+
+            eos_state.rho = U(i,j,k,URHO);
+            eos_state.T = U(i,j,k,UTEMP);
+            eos_state.e = U(i,j,k,UEINT) * rhoInv;
+            for (int n = 0; n < NumSpec; n++) {
+                eos_state.xn[n] = U(i,j,k,UFS+n) * rhoInv;
+            }
+#if NAUX_NET > 0
+            for (int n = 0; n < NumAux; n++) {
+                eos_state.aux[n] = U(i,j,k,UFX+n) * rhoInv;
+            }
+#endif
+
+            eos(eos_input_re, eos_state);
+
+            Real cs = eos_state.cs;
+
+            Real courant_x = (cs + std::abs(u)) * dtdx;
+            Real courant_y = (cs + std::abs(v)) * dtdy;
+            Real courant_z = (cs + std::abs(w)) * dtdz;
+
+            if (hydrosim::time_scheme == 0) {
+
+#ifndef AMREX_USE_GPU
+                if (verbose == 1) {
+
+                    if (courant_x > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
+                        std::cout << ">>> ... (u+c) * dt / dx > 1 " << courant_x << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... u = " << u << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                    if (courant_y > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
+                        std::cout << ">>> ... (v+c) * dt / dx > 1 " << courant_y << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... v = " << v << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                    if (courant_z > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
+                        std::cout << ">>> ... (w+c) * dt / dx > 1 " << courant_z << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... w = " << w << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                }
+#endif
+
+
+                return {amrex::max(courant_x, courant_y, courant_z)};
+
+            }
+            else {
+
+                Real courant_combined = courant_x;
+                if (AMREX_SPACEDIM >= 2) {
+                    courant_combined += courant_y;
+                }
+                if (AMREX_SPACEDIM == 3) {
+                    courant_combined += courant_z;
+                }
+
+#ifndef AMREX_USE_GPU
+                if (verbose == 1) {
+
+                    if (courant_combined > 1.0_rt) {
+                        std::cout << std::endl;
+                        std::cout << Font::Bold << FGColor::Yellow;
+                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
+                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
+                        std::cout << ">>> ... u = " << u << " v = " << v
+                                  << " w = " << w << " c = " << cs << std::endl;
+                        std::cout << ">>> ... density = " << rho << std::endl;
+                        std::cout << ResetDisplay;
+                    }
+
+                }
+#endif
+
+                return {courant_combined};
+
+            }
+
+        });
+
+    }
+
+    ReduceTuple hv = reduce_data.value();
+    Real courant_max = amrex::get<0>(hv);
+
+    ParallelDescriptor::ReduceRealMax(courant_max);
+
+    if (courant_max > 1.0) {
+        amrex::Print() << Font::Bold << FGColor::Yellow << "[WARNING] EFFECTIVE CFL AT LEVEL " << level << " IS " << courant_max << ResetDisplay << std::endl << std::endl;
+        cfl_breach = 1;
+    }
+
+    if (cfl_breach) {
+        amrex::Abort("CFL is too high at this level; go back to a checkpoint and restart with lower CFL number");
+    }
+}
+
 step_result
 HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 {
@@ -1327,172 +1495,4 @@ HydroSim::assemble_ctu_hydro_source(Real time, Real dt)
 #endif
 
   return status;
-}
-
-void
-HydroSim::verify_courant_limit(const MultiFab& State, const Real dt)
-{
-    BL_PROFILE("HydroSim::verify_courant_limit()");
-
-    int cfl_breach = 0;
-
-    auto dx = geom.CellSizeArray();
-    const auto problo = geom.ProbLoArray();
-    const auto coord = geom.Coord();
-    amrex::ignore_unused(problo, coord);
-
-    Real dtdx = dt / dx[0];
-
-    Real dtdy = 0.0_rt;
-    if (AMREX_SPACEDIM >= 2) {
-      dtdy = dt / dx[1];
-      if (coord == 2) {
-          dtdy /= problo[0] + 0.5_rt * dx[0];
-      }
-    }
-
-    Real dtdz = 0.0_rt;
-    if (AMREX_SPACEDIM == 3) {
-      dtdz = dt / dx[2];
-    }
-
-    ReduceOps<ReduceOpMax> reduce_op;
-    ReduceData<Real> reduce_data(reduce_op);
-    using ReduceTuple = typename decltype(reduce_data)::Type;
-
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-    for (MFIter mfi(State, hydro_tile_size); mfi.isValid(); ++mfi) {
-
-        const Box& bx = mfi.tilebox();
-
-        auto U = State.array(mfi);
-
-        reduce_op.eval(bx, reduce_data,
-        [=] AMREX_GPU_HOST_DEVICE (int i, int j, int k) -> ReduceTuple
-        {
-
-            Real rho = U(i,j,k,URHO);
-            Real rhoInv = 1.0 / rho;
-
-            Real u = U(i,j,k,UMX) * rhoInv;
-            Real v = U(i,j,k,UMY) * rhoInv;
-            Real w = U(i,j,k,UMZ) * rhoInv;
-
-            eos_rep_t eos_state;
-
-            eos_state.rho = U(i,j,k,URHO);
-            eos_state.T = U(i,j,k,UTEMP);
-            eos_state.e = U(i,j,k,UEINT) * rhoInv;
-            for (int n = 0; n < NumSpec; n++) {
-                eos_state.xn[n] = U(i,j,k,UFS+n) * rhoInv;
-            }
-#if NAUX_NET > 0
-            for (int n = 0; n < NumAux; n++) {
-                eos_state.aux[n] = U(i,j,k,UFX+n) * rhoInv;
-            }
-#endif
-
-            eos(eos_input_re, eos_state);
-
-            Real cs = eos_state.cs;
-
-            Real courant_x = (cs + std::abs(u)) * dtdx;
-            Real courant_y = (cs + std::abs(v)) * dtdy;
-            Real courant_z = (cs + std::abs(w)) * dtdz;
-
-            if (hydrosim::time_scheme == 0) {
-
-#ifndef AMREX_USE_GPU
-                if (verbose == 1) {
-
-                    if (courant_x > 1.0_rt) {
-                        std::cout << std::endl;
-                        std::cout << Font::Bold << FGColor::Yellow;
-                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
-                        std::cout << ">>> ... (u+c) * dt / dx > 1 " << courant_x << std::endl;
-                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
-                        std::cout << ">>> ... u = " << u << " c = " << cs << std::endl;
-                        std::cout << ">>> ... density = " << rho << std::endl;
-                        std::cout << ResetDisplay;
-                    }
-
-                    if (courant_y > 1.0_rt) {
-                        std::cout << std::endl;
-                        std::cout << Font::Bold << FGColor::Yellow;
-                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
-                        std::cout << ">>> ... (v+c) * dt / dx > 1 " << courant_y << std::endl;
-                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
-                        std::cout << ">>> ... v = " << v << " c = " << cs << std::endl;
-                        std::cout << ">>> ... density = " << rho << std::endl;
-                        std::cout << ResetDisplay;
-                    }
-
-                    if (courant_z > 1.0_rt) {
-                        std::cout << std::endl;
-                        std::cout << Font::Bold << FGColor::Yellow;
-                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
-                        std::cout << ">>> ... (w+c) * dt / dx > 1 " << courant_z << std::endl;
-                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
-                        std::cout << ">>> ... w = " << w << " c = " << cs << std::endl;
-                        std::cout << ">>> ... density = " << rho << std::endl;
-                        std::cout << ResetDisplay;
-                    }
-
-                }
-#endif
-
-
-                return {amrex::max(courant_x, courant_y, courant_z)};
-
-            }
-            else {
-
-                Real courant_combined = courant_x;
-                if (AMREX_SPACEDIM >= 2) {
-                    courant_combined += courant_y;
-                }
-                if (AMREX_SPACEDIM == 3) {
-                    courant_combined += courant_z;
-                }
-
-#ifndef AMREX_USE_GPU
-                if (verbose == 1) {
-
-                    if (courant_combined > 1.0_rt) {
-                        std::cout << std::endl;
-                        std::cout << Font::Bold << FGColor::Yellow;
-                        std::cout << "[WARNING] CFL violation in verify_courant_limit" << std::endl;
-                        std::cout << ">>> ... at cell i = " << i << " j = " << j << " k = " << k << std::endl;
-                        std::cout << ">>> ... u = " << u << " v = " << v
-                                  << " w = " << w << " c = " << cs << std::endl;
-                        std::cout << ">>> ... density = " << rho << std::endl;
-                        std::cout << ResetDisplay;
-                    }
-
-                }
-#endif
-
-                return {courant_combined};
-
-            }
-
-        });
-
-    }
-
-    ReduceTuple hv = reduce_data.value();
-    Real courant_max = amrex::get<0>(hv);
-
-    ParallelDescriptor::ReduceRealMax(courant_max);
-
-    if (courant_max > 1.0) {
-        amrex::Print() << Font::Bold << FGColor::Yellow << "[WARNING] EFFECTIVE CFL AT LEVEL " << level << " IS " << courant_max << ResetDisplay << std::endl << std::endl;
-        cfl_breach = 1;
-    }
-
-    if (cfl_breach) {
-        amrex::Abort("CFL is too high at this level; go back to a checkpoint and restart with lower CFL number");
-    }
 }

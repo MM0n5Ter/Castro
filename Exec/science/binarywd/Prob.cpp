@@ -12,28 +12,6 @@
 
 using namespace amrex;
 
-void
-HydroSim::user_post_timestep()
-{
-    BL_PROFILE("HydroSim::user_post_timestep()");
-
-    using namespace binarywd;
-    using namespace problem;
-
-    if (level != 0) return;
-
-    Real time = state[State_Type].curTime();
-    Real dt = parent->dtLevel(0);
-
-    if (time == 0.0) dt = 0.0;
-
-    wd_update(time, dt);
-
-    update_relaxation(time, dt);
-
-    problem_sums();
-}
-
 void HydroSim::user_post_init() {
 
   using namespace binarywd;
@@ -77,16 +55,26 @@ void HydroSim::user_post_restart() {
 
 }
 
-void HydroSim::writeGitHashes(std::ostream& log) {
+void
+HydroSim::user_post_timestep()
+{
+    BL_PROFILE("HydroSim::user_post_timestep()");
 
-  const char* hydrosim_hash       = buildInfoGetGitHash(1);
-  const char* framework_hash        = buildInfoGetGitHash(2);
-  const char* physics_lib_hash = buildInfoGetGitHash(3);
+    using namespace binarywd;
+    using namespace problem;
 
-  log << "# HydroSim       git hash: " << hydrosim_hash       << std::endl;
-  log << "# AMReX        git hash: " << framework_hash        << std::endl;
-  log << "# Microphysics git hash: " << physics_lib_hash << std::endl;
+    if (level != 0) return;
 
+    Real time = state[State_Type].curTime();
+    Real dt = parent->dtLevel(0);
+
+    if (time == 0.0) dt = 0.0;
+
+    wd_update(time, dt);
+
+    update_relaxation(time, dt);
+
+    problem_sums();
 }
 
 void
@@ -388,4 +376,16 @@ HydroSim::update_relaxation(Real time, Real dt) {
     if (relaxation_is_done == 1 && radial_damping_velocity_factor > 0.0_rt && radial_damping_is_done != 1) {
         amrex::Print() << "Radial damping force will now take effect." << std::endl;
     }
+}
+
+void HydroSim::writeGitHashes(std::ostream& log) {
+
+  const char* hydrosim_hash       = buildInfoGetGitHash(1);
+  const char* framework_hash        = buildInfoGetGitHash(2);
+  const char* physics_lib_hash = buildInfoGetGitHash(3);
+
+  log << "# HydroSim       git hash: " << hydrosim_hash       << std::endl;
+  log << "# AMReX        git hash: " << framework_hash        << std::endl;
+  log << "# Microphysics git hash: " << physics_lib_hash << std::endl;
+
 }

@@ -42,6 +42,57 @@ burning_permitted(GpuArray<Real, NUM_STATE> const& state) {
     return true;
 }
 
+template <typename T>
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
+
+#ifdef SIMPLIFIED_SDC
+#ifndef AMREX_USE_GPU
+    amrex::Error("we shouldn't be here with the simplified SDC method (USE_SIMPLIFIED_SDC=TRUE)");
+#endif
+#else
+
+
+    if (integrator_rp::jacobian == 2) {
+
+        jac_info_t jac_info;
+        jac_info.h = dt;
+
+
+        numerical_jac(burn_state, jac_info, Jac);
+
+    } else {
+        actual_jac(burn_state, Jac);
+
+
+        for (int n = 1; n <= NumSpec; n++) {
+            for (int m = 1; m <= neqs; m++) {
+                Jac(n,m) = Jac(n,m) * aion[n-1];
+            }
+        }
+
+        for (int m = 1; m <= neqs; m++) {
+            for (int n = 1; n <= NumSpec; n++) {
+                Jac(m,n) = Jac(m,n) * aion_inv[n-1];
+            }
+        }
+
+
+
+        eos_xderivs_t eos_xderivs = composition_derivatives(burn_state);
+
+        for (int m = 1; m <= neqs; m++) {
+            for (int n = 1; n <= NumSpec; n++) {
+                Jac(m, n) -= eos_xderivs.dedX[n-1] * Jac(m, net_ienuc);
+            }
+        }
+    }
+#endif
+
+
+}
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 zone_react_source(burn_t& burn_state,
@@ -103,57 +154,6 @@ zone_react_source(const int i, const int j, const int k,
     for (int n = 0; n < NUM_STATE; ++n) {
         R(i,j,k,n) = scaled_grad_arr[n];
     }
-}
-
-template <typename T>
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
-zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
-
-#ifdef SIMPLIFIED_SDC
-#ifndef AMREX_USE_GPU
-    amrex::Error("we shouldn't be here with the simplified SDC method (USE_SIMPLIFIED_SDC=TRUE)");
-#endif
-#else
-
-
-    if (integrator_rp::jacobian == 2) {
-
-        jac_info_t jac_info;
-        jac_info.h = dt;
-
-
-        numerical_jac(burn_state, jac_info, Jac);
-
-    } else {
-        actual_jac(burn_state, Jac);
-
-
-        for (int n = 1; n <= NumSpec; n++) {
-            for (int m = 1; m <= neqs; m++) {
-                Jac(n,m) = Jac(n,m) * aion[n-1];
-            }
-        }
-
-        for (int m = 1; m <= neqs; m++) {
-            for (int n = 1; n <= NumSpec; n++) {
-                Jac(m,n) = Jac(m,n) * aion_inv[n-1];
-            }
-        }
-
-
-
-        eos_xderivs_t eos_xderivs = composition_derivatives(burn_state);
-
-        for (int m = 1; m <= neqs; m++) {
-            for (int n = 1; n <= NumSpec; n++) {
-                Jac(m, n) -= eos_xderivs.dedX[n-1] * Jac(m, net_ienuc);
-            }
-        }
-    }
-#endif
-
-
 }
 
 #endif

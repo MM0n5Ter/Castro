@@ -9,9 +9,7 @@ using namespace amrex;
 
 #ifdef GRAVITY
 #ifdef ROTATION
-
 namespace scf {
-
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     Real scale_factor (int i, int j, int k,
                        const GeometryData& geomdata,
@@ -43,47 +41,6 @@ namespace scf {
 
         return scale;
     }
-
-}
-
-void HydroSim::scf_solve() {
-
-    AMREX_ASSERT(level == 0);
-
-
-
-    if (scf_peak_density <= 0) {
-        amrex::Error("hydrosim.scf_peak_density must be set for SCF relaxation.");
-    }
-
-
-    if (scf_equator_radius <= 0) {
-        amrex::Error("Equatorial radius must be positive for SCF relaxation.");
-    }
-
-    if (scf_pole_radius <= 0) {
-        amrex::Error("Polar radius must be positive for SCF relaxation.");
-    }
-
-    if (scf_pole_radius > scf_equator_radius) {
-        amrex::Error("Polar radius must not be larger than equatorial radius for SCF relaxation.");
-    }
-
-
-    run_equilibrium_solve();
-
-
-    for (int lev = 0; lev <= parent->finestLevel(); ++lev)
-    {
-        MultiFab& gravity_new = getLevel(lev).get_new_data(Accel_Type);
-        gravity->get_new_gravity_vector(lev, gravity_new, getLevel(lev).state[Accel_Type].curTime());
-    }
-
-
-    for (int lev = parent->finestLevel()-1; lev >= 0; --lev) {
-        getLevel(lev).avgDown();
-    }
-
 }
 
 void
@@ -605,6 +562,46 @@ HydroSim::run_equilibrium_solve()
 
         ctr++;
 
+    }
+
+}
+
+void HydroSim::scf_solve() {
+
+    AMREX_ASSERT(level == 0);
+
+
+
+    if (scf_peak_density <= 0) {
+        amrex::Error("hydrosim.scf_peak_density must be set for SCF relaxation.");
+    }
+
+
+    if (scf_equator_radius <= 0) {
+        amrex::Error("Equatorial radius must be positive for SCF relaxation.");
+    }
+
+    if (scf_pole_radius <= 0) {
+        amrex::Error("Polar radius must be positive for SCF relaxation.");
+    }
+
+    if (scf_pole_radius > scf_equator_radius) {
+        amrex::Error("Polar radius must not be larger than equatorial radius for SCF relaxation.");
+    }
+
+
+    run_equilibrium_solve();
+
+
+    for (int lev = 0; lev <= parent->finestLevel(); ++lev)
+    {
+        MultiFab& gravity_new = getLevel(lev).get_new_data(Accel_Type);
+        gravity->get_new_gravity_vector(lev, gravity_new, getLevel(lev).state[Accel_Type].curTime());
+    }
+
+
+    for (int lev = parent->finestLevel()-1; lev >= 0; --lev) {
+        getLevel(lev).avgDown();
     }
 
 }

@@ -78,167 +78,6 @@
 using std::string;
 using namespace amrex;
 
-step_result
-HydroSim::begin_step_advance (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-
-    BL_PROFILE("HydroSim::begin_step_advance()");
-
-    step_result status {};
-
-#ifdef RADIATION
-    if (do_radiative_transfer) {
-      get_old_data(Radiation_Type).setBndry(0.0);
-      get_new_data(Radiation_Type).setBndry(0.0);
-    }
-    else {
-      get_old_data(Radiation_Type).setVal(0.0);
-      get_new_data(Radiation_Type).setVal(0.0);
-    }
-#endif
-
-#ifdef GRAVITY
-    if (track_center == 1) {
-        define_tracked_center(get_old_data(State_Type), time);
-    }
-#endif
-
-    if (time_scheme == CornerTrace || time_scheme == SimplifiedIterCorrection) {
-#ifdef MHD
-      MultiFab& bfield_x_old = get_old_data(Bfield_Type_x);
-      MultiFab& bfield_y_old = get_old_data(Bfield_Type_y);
-      MultiFab& bfield_z_old = get_old_data(Bfield_Type_z);
-
-      Bx_old_grown.define(bfield_x_old.boxArray(), bfield_x_old.DistributionMap(), 1, NUM_GROW);
-      By_old_grown.define(bfield_y_old.boxArray(), bfield_y_old.DistributionMap(), 1, NUM_GROW);
-      Bz_old_grown.define(bfield_z_old.boxArray(), bfield_z_old.DistributionMap(), 1, NUM_GROW);
-
-      FillPatch(*this, Bx_old_grown, NUM_GROW, time, Bfield_Type_x, 0, 1);
-      FillPatch(*this, By_old_grown, NUM_GROW, time, Bfield_Type_y, 0, 1);
-      FillPatch(*this, Bz_old_grown, NUM_GROW, time, Bfield_Type_z, 0, 1);
-#endif
-      Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
-      const Real prev_time = state[State_Type].prevTime();
-      fill_ghost_field(Sborder, prev_time, NUM_GROW);
-      clean_state(
-#ifdef MHD
-                  Bx_old_grown, By_old_grown, Bz_old_grown,
-#endif
-                  Sborder, prev_time, NUM_GROW);
-
-    } else if (time_scheme == IterativeCorrection) {
-
-      Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
-
-    } else {
-      amrex::Abort("invalid time_scheme");
-    }
-
-#ifdef SHOCK_VAR
-
-    Sborder.setVal(0.0, UFLAG_SHOCK, 1, Sborder.nGrow());
-#endif
-
-    if (hydrosim::time_scheme == CornerTrace ||
-        hydrosim::time_scheme == SimplifiedIterCorrection) {
-        if (!retry_active) {
-            create_forcing_corrector();
-        }
-    }
-
-    const MultiFab& S_old = get_old_data(State_Type);
-
-    scan_for_nan(S_old);
-
-    bool is_opening_step_on_level = true;
-
-    for (int lev = level; lev >= 0; --lev) {
-        if (getLevel(lev).iteration > 1) {
-            is_opening_step_on_level = false;
-            break;
-        }
-    }
-
-    if (hydrosim::dt_validity_before_advance && !is_opening_step_on_level) {
-        int use_new_state = 0;
-
-        std::string dtEstimate_output;
-
-        Real dt_old_estimate;
-
-        {
-            StdoutCapture redirection;
-            dt_old_estimate = estTimeStep(use_new_state);
-            dtEstimate_output = redirection.getBufferedText();
-        }
-
-        if (hydrosim::change_max * dt_old_estimate < dt) {
-            status.success = false;
-            std::cout << dtEstimate_output;
-            status.reason = "pre-advance timestep validity check failed";
-        }
-    }
-
-    return status;
-}
-
-step_result
-HydroSim::end_step_advance (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-
-    BL_PROFILE("HydroSim::end_step_advance()");
-
-    step_result status {};
-
-    if (hydrosim::time_scheme == CornerTrace ||
-        hydrosim::time_scheme == SimplifiedIterCorrection) {
-        if (hydrosim::dt_validity_after_advance) {
-
-            bool do_step_validation = true;
-
-            if (hydrosim::time_scheme == SimplifiedIterCorrection &&
-                correction_iter < deferred_iters - 1) {
-                do_step_validation = false;
-            }
-
-            if (do_step_validation) {
-                int use_new_state = 1;
-
-                std::string dtEstimate_output;
-
-                Real candidate_dt;
-
-                {
-                    StdoutCapture redirection;
-                    candidate_dt = estTimeStep(use_new_state);
-                    dtEstimate_output = redirection.getBufferedText();
-                }
-
-                if (hydrosim::change_max * candidate_dt < dt) {
-                    status.success = false;
-                    std::cout << dtEstimate_output;
-                    status.reason = "post-advance timestep validity check failed";
-                    return status;
-                }
-            }
-        }
-    }
-
-#ifdef RADIATION
-    if (!do_hydro && Radiation::rad_hydro_coupled) {
-        MultiFab& rad_energy_old = get_old_data(Radiation_Type);
-        MultiFab& rad_energy_new = get_new_data(Radiation_Type);
-        MultiFab::Copy(rad_energy_new, rad_energy_old, 0, 0, rad_energy_old.nComp(), 0);
-    }
-#endif
-
-    Sborder.clear();
-
-    return status;
-}
-
 void
 HydroSim::begin_advance(Real time, Real dt, int amr_pass)
 {
@@ -445,6 +284,309 @@ HydroSim::begin_advance(Real time, Real dt, int amr_pass)
 
 }
 
+step_result
+HydroSim::begin_step_advance (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+
+    BL_PROFILE("HydroSim::begin_step_advance()");
+
+    step_result status {};
+
+#ifdef RADIATION
+    if (do_radiative_transfer) {
+      get_old_data(Radiation_Type).setBndry(0.0);
+      get_new_data(Radiation_Type).setBndry(0.0);
+    }
+    else {
+      get_old_data(Radiation_Type).setVal(0.0);
+      get_new_data(Radiation_Type).setVal(0.0);
+    }
+#endif
+
+#ifdef GRAVITY
+    if (track_center == 1) {
+        define_tracked_center(get_old_data(State_Type), time);
+    }
+#endif
+
+    if (time_scheme == CornerTrace || time_scheme == SimplifiedIterCorrection) {
+#ifdef MHD
+      MultiFab& bfield_x_old = get_old_data(Bfield_Type_x);
+      MultiFab& bfield_y_old = get_old_data(Bfield_Type_y);
+      MultiFab& bfield_z_old = get_old_data(Bfield_Type_z);
+
+      Bx_old_grown.define(bfield_x_old.boxArray(), bfield_x_old.DistributionMap(), 1, NUM_GROW);
+      By_old_grown.define(bfield_y_old.boxArray(), bfield_y_old.DistributionMap(), 1, NUM_GROW);
+      Bz_old_grown.define(bfield_z_old.boxArray(), bfield_z_old.DistributionMap(), 1, NUM_GROW);
+
+      FillPatch(*this, Bx_old_grown, NUM_GROW, time, Bfield_Type_x, 0, 1);
+      FillPatch(*this, By_old_grown, NUM_GROW, time, Bfield_Type_y, 0, 1);
+      FillPatch(*this, Bz_old_grown, NUM_GROW, time, Bfield_Type_z, 0, 1);
+#endif
+      Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
+      const Real prev_time = state[State_Type].prevTime();
+      fill_ghost_field(Sborder, prev_time, NUM_GROW);
+      clean_state(
+#ifdef MHD
+                  Bx_old_grown, By_old_grown, Bz_old_grown,
+#endif
+                  Sborder, prev_time, NUM_GROW);
+
+    } else if (time_scheme == IterativeCorrection) {
+
+      Sborder.define(grids, dmap, NUM_STATE, NUM_GROW, MFInfo().SetTag("Sborder"));
+
+    } else {
+      amrex::Abort("invalid time_scheme");
+    }
+
+#ifdef SHOCK_VAR
+
+    Sborder.setVal(0.0, UFLAG_SHOCK, 1, Sborder.nGrow());
+#endif
+
+    if (hydrosim::time_scheme == CornerTrace ||
+        hydrosim::time_scheme == SimplifiedIterCorrection) {
+        if (!retry_active) {
+            create_forcing_corrector();
+        }
+    }
+
+    const MultiFab& S_old = get_old_data(State_Type);
+
+    scan_for_nan(S_old);
+
+    bool is_opening_step_on_level = true;
+
+    for (int lev = level; lev >= 0; --lev) {
+        if (getLevel(lev).iteration > 1) {
+            is_opening_step_on_level = false;
+            break;
+        }
+    }
+
+    if (hydrosim::dt_validity_before_advance && !is_opening_step_on_level) {
+        int use_new_state = 0;
+
+        std::string dtEstimate_output;
+
+        Real dt_old_estimate;
+
+        {
+            StdoutCapture redirection;
+            dt_old_estimate = estTimeStep(use_new_state);
+            dtEstimate_output = redirection.getBufferedText();
+        }
+
+        if (hydrosim::change_max * dt_old_estimate < dt) {
+            status.success = false;
+            std::cout << dtEstimate_output;
+            status.reason = "pre-advance timestep validity check failed";
+        }
+    }
+
+    return status;
+}
+
+step_result
+HydroSim::before_hydro_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifdef REACTIONS
+
+    if (hydrosim::time_scheme == SimplifiedIterCorrection) {
+        MultiFab& reaction_source_arr = get_new_data(Burn_Corr_Type);
+
+        AmrLevel::FillPatch(*this, reaction_source_arr, reaction_source_arr.nGrow(), time + dt, Burn_Corr_Type, 0, reaction_source_arr.nComp());
+    }
+#endif
+
+    return status;
+}
+
+step_result
+HydroSim::after_hydro_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifdef GRAVITY
+    assemble_new_gravity(time);
+#endif
+
+    return status;
+}
+
+step_result
+HydroSim::end_step_advance (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+
+    BL_PROFILE("HydroSim::end_step_advance()");
+
+    step_result status {};
+
+    if (hydrosim::time_scheme == CornerTrace ||
+        hydrosim::time_scheme == SimplifiedIterCorrection) {
+        if (hydrosim::dt_validity_after_advance) {
+
+            bool do_step_validation = true;
+
+            if (hydrosim::time_scheme == SimplifiedIterCorrection &&
+                correction_iter < deferred_iters - 1) {
+                do_step_validation = false;
+            }
+
+            if (do_step_validation) {
+                int use_new_state = 1;
+
+                std::string dtEstimate_output;
+
+                Real candidate_dt;
+
+                {
+                    StdoutCapture redirection;
+                    candidate_dt = estTimeStep(use_new_state);
+                    dtEstimate_output = redirection.getBufferedText();
+                }
+
+                if (hydrosim::change_max * candidate_dt < dt) {
+                    status.success = false;
+                    std::cout << dtEstimate_output;
+                    status.reason = "post-advance timestep validity check failed";
+                    return status;
+                }
+            }
+        }
+    }
+
+#ifdef RADIATION
+    if (!do_hydro && Radiation::rad_hydro_coupled) {
+        MultiFab& rad_energy_old = get_old_data(Radiation_Type);
+        MultiFab& rad_energy_new = get_new_data(Radiation_Type);
+        MultiFab::Copy(rad_energy_new, rad_energy_old, 0, 0, rad_energy_old.nComp(), 0);
+    }
+#endif
+
+    Sborder.clear();
+
+    return status;
+}
+
+step_result
+HydroSim::before_advance_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+
+#ifdef GRAVITY
+    assemble_old_gravity(time);
+#endif
+
+#ifdef SHOCK_VAR
+
+
+    const bool modify_state_flag{false};
+    run_old_sources(time, dt, modify_state_flag);
+
+    MultiFab& S_old = get_old_data(State_Type);
+    MultiFab& old_forcing = get_old_data(Forcing_Type);
+
+    FArrayBox shk(The_Async_Arena());
+    FArrayBox prim_tmp(The_Async_Arena()), qthermo_tmp(The_Async_Arena());
+
+    for (MFIter mfi(Sborder, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+        const Box& obx = amrex::grow(bx, 1);
+
+        shk.resize(bx, 1);
+#ifdef RADIATION
+        prim_tmp.resize(obx, NQ);
+#else
+        prim_tmp.resize(obx, NQPRIMBASE);
+#endif
+        qthermo_tmp.resize(obx, NQEXTRAQ);
+
+        Array4<Real> const shock_flag_arr = shk.array();
+        Array4<Real> const prim_arr = prim_tmp.array();
+        Array4<Real> const qthermo_arr = qthermo_tmp.array();
+
+        Array4<Real const> const Ghost_state_old_arr = Sborder.array(mfi);
+        Array4<Real> const state_old_arr = S_old.array(mfi);
+        Array4<Real> const prev_source_arr = old_forcing.array(mfi);
+
+        ctoprim(obx, time, Ghost_state_old_arr, prim_arr, qthermo_arr);
+
+        shock(bx, prim_arr, prev_source_arr, shock_flag_arr);
+
+
+
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            state_old_arr(i,j,k,UFLAG_SHOCK) = shock_flag_arr(i,j,k);
+        });
+
+    }
+
+
+    if (Sborder.nGrow() > 0) {
+      AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, UFLAG_SHOCK, 1, UFLAG_SHOCK);
+    }
+
+#endif
+
+
+#ifndef TRUE_SDC
+#ifdef REACTIONS
+    status = apply_old_reactions(time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+#endif
+#endif
+
+
+
+    MultiFab& S_new = get_new_data(State_Type);
+
+    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, S_new.nGrow());
+
+    return status;
+}
+
+step_result
+HydroSim::after_advance_hooks (Real time, Real dt)
+{
+    amrex::ignore_unused(time);
+    amrex::ignore_unused(dt);
+
+    step_result status {};
+
+#ifndef TRUE_SDC
+#ifdef REACTIONS
+    status = apply_new_reactions(time, dt);
+
+    if (status.success == false) {
+        return status;
+    }
+#endif
+#endif
+
+    return status;
+}
+
 void
 HydroSim::end_advance()
 {
@@ -617,146 +759,4 @@ HydroSim::create_forcing_corrector()
 
     }
 
-}
-
-step_result
-HydroSim::before_hydro_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifdef REACTIONS
-
-    if (hydrosim::time_scheme == SimplifiedIterCorrection) {
-        MultiFab& reaction_source_arr = get_new_data(Burn_Corr_Type);
-
-        AmrLevel::FillPatch(*this, reaction_source_arr, reaction_source_arr.nGrow(), time + dt, Burn_Corr_Type, 0, reaction_source_arr.nComp());
-    }
-#endif
-
-    return status;
-}
-
-step_result
-HydroSim::after_hydro_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifdef GRAVITY
-    assemble_new_gravity(time);
-#endif
-
-    return status;
-}
-
-step_result
-HydroSim::before_advance_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-
-#ifdef GRAVITY
-    assemble_old_gravity(time);
-#endif
-
-#ifdef SHOCK_VAR
-
-
-    const bool modify_state_flag{false};
-    run_old_sources(time, dt, modify_state_flag);
-
-    MultiFab& S_old = get_old_data(State_Type);
-    MultiFab& old_forcing = get_old_data(Forcing_Type);
-
-    FArrayBox shk(The_Async_Arena());
-    FArrayBox prim_tmp(The_Async_Arena()), qthermo_tmp(The_Async_Arena());
-
-    for (MFIter mfi(Sborder, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const Box& bx = mfi.tilebox();
-        const Box& obx = amrex::grow(bx, 1);
-
-        shk.resize(bx, 1);
-#ifdef RADIATION
-        prim_tmp.resize(obx, NQ);
-#else
-        prim_tmp.resize(obx, NQPRIMBASE);
-#endif
-        qthermo_tmp.resize(obx, NQEXTRAQ);
-
-        Array4<Real> const shock_flag_arr = shk.array();
-        Array4<Real> const prim_arr = prim_tmp.array();
-        Array4<Real> const qthermo_arr = qthermo_tmp.array();
-
-        Array4<Real const> const Ghost_state_old_arr = Sborder.array(mfi);
-        Array4<Real> const state_old_arr = S_old.array(mfi);
-        Array4<Real> const prev_source_arr = old_forcing.array(mfi);
-
-        ctoprim(obx, time, Ghost_state_old_arr, prim_arr, qthermo_arr);
-
-        shock(bx, prim_arr, prev_source_arr, shock_flag_arr);
-
-
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-            state_old_arr(i,j,k,UFLAG_SHOCK) = shock_flag_arr(i,j,k);
-        });
-
-    }
-
-
-    if (Sborder.nGrow() > 0) {
-      AmrLevel::FillPatch(*this, Sborder, Sborder.nGrow(), time, State_Type, UFLAG_SHOCK, 1, UFLAG_SHOCK);
-    }
-
-#endif
-
-
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-    status = apply_old_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
-#endif
-#endif
-
-
-
-    MultiFab& S_new = get_new_data(State_Type);
-
-    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, S_new.nGrow());
-
-    return status;
-}
-
-step_result
-HydroSim::after_advance_hooks (Real time, Real dt)
-{
-    amrex::ignore_unused(time);
-    amrex::ignore_unused(dt);
-
-    step_result status {};
-
-#ifndef TRUE_SDC
-#ifdef REACTIONS
-    status = apply_new_reactions(time, dt);
-
-    if (status.success == false) {
-        return status;
-    }
-#endif
-#endif
-
-    return status;
 }

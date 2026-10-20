@@ -9,19 +9,6 @@
 
 using namespace amrex::literals;
 
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-Real factorial (int n)
-{
-    Real fact = 1.0_rt;
-
-    for (int i = 2; i <= n; ++i) {
-        fact *= static_cast<Real>(i);
-    }
-
-    return fact;
-}
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 cross_product(amrex::GpuArray<amrex::Real, 3> const& a,
@@ -33,7 +20,6 @@ cross_product(amrex::GpuArray<amrex::Real, 3> const& a,
   c[2] = a[0] * b[1] - a[1] * b[0];
 
 }
-
 
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 amrex::Real cot(amrex::Real x) {
@@ -47,4 +33,17 @@ amrex::Real cot(amrex::Real x) {
     }
     return std::cos(x) / std::sin(x);
 }
+
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+Real factorial (int n)
+{
+    Real fact = 1.0_rt;
+
+    for (int i = 2; i <= n; ++i) {
+        fact *= static_cast<Real>(i);
+    }
+
+    return fact;
+}
+
 #endif

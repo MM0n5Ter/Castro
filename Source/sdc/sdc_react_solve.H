@@ -21,6 +21,24 @@ namespace deferred_solvers {
     };
 }
 
+#ifdef REACTIONS
+AMREX_GPU_HOST_DEVICE AMREX_INLINE
+void
+instant_reaction_rate(const int i, const int j, const int k,
+                    Array4<const Real> const& state,
+                    Array4<Real> const& React_source) {
+
+
+    if (burning_permitted(i, j, k, state)) {
+        zone_react_source(i, j, k, state, React_source);
+    } else {
+        for (int n = 0; n < NUM_STATE; ++n) {
+            React_source(i, j, k, n) = 0.0_rt;
+        }
+    }
+}
+#endif
+
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 normalize_species_deferred(const int i, const int j, const int k,
@@ -43,9 +61,6 @@ normalize_species_deferred(const int i, const int j, const int k,
 }
 
 #ifdef REACTIONS
-
-
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 deferred_solve(const Real substep_dt,
@@ -166,7 +181,6 @@ deferred_update_o2(const int i, const int j, const int k,
     }
 }
 
-
 AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 deferred_update_centers_o4(const int i, const int j, const int k,
@@ -184,23 +198,6 @@ deferred_update_centers_o4(const int i, const int j, const int k,
         }
     }
 }
-
-AMREX_GPU_HOST_DEVICE AMREX_INLINE
-void
-instant_reaction_rate(const int i, const int j, const int k,
-                    Array4<const Real> const& state,
-                    Array4<Real> const& React_source) {
-
-
-    if (burning_permitted(i, j, k, state)) {
-        zone_react_source(i, j, k, state, React_source);
-    } else {
-        for (int n = 0; n < NUM_STATE; ++n) {
-            React_source(i, j, k, n) = 0.0_rt;
-        }
-    }
-}
-
 #endif
 
 #endif
