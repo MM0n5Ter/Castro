@@ -354,7 +354,7 @@ class MultiLevelEllipticSolver {
                                  int part,
                                  const amrex::Box& reg,
                                  const amrex::BoxArray& sgr,
-                                 amrex::Real *vec);
+                                 amrex::FArrayBox& f, int fcomp);
 
   static void readVectorBox(HYPRE_SStructVector x,
                                  int part,

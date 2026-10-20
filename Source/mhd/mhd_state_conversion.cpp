@@ -71,9 +71,9 @@ HydroSim::primitive_half_update(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real div_terms[NUM_STATE+3];
-    Real prim_flux_div[NQ];
-    Real zone_prim[NQ];
+    GpuArray<Real, NUM_STATE+3> div_terms;
+    GpuArray<Real, NQ> prim_flux_div;
+    GpuArray<Real, NQ> zone_prim;
 
     for (int n = 0; n < NUM_STATE+3; n++) {
       div_terms[n] = (flxx(i+1,j,k,n) - flxx(i,j,k,n)) / dx[0];

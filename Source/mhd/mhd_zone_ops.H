@@ -135,7 +135,7 @@ PrimToConsAndGamma(Array1D<Real, 0, NQ-1>& q,
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void
-to_prim_flux(Real* prim_flux, const Real* flx, const Real* zone_prim) {
+to_prim_flux(GpuArray<Real, NQ>& prim_flux, GpuArray<Real, NUM_STATE+3> const& flx, GpuArray<Real, NQ> const& zone_prim) {
 
 
 

@@ -153,7 +153,7 @@ HydroSim::rsrc(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real Sr[3] = {};
+    GpuArray<Real, 3> Sr{};
     Real src[NUM_SOURCE] = {};
 
 
@@ -293,8 +293,8 @@ HydroSim::apply_rotation_correction(const Box& bx,
   [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
   {
 
-    Real mom_source_old[3] = {};
-    Real mom_source_new[3] = {};
+    GpuArray<Real, 3> mom_source_old{};
+    GpuArray<Real, 3> mom_source_new{};
     Real mom_source_corr[3] = {};
     Real src[NUM_SOURCE] = {};
 
@@ -365,7 +365,7 @@ HydroSim::apply_rotation_correction(const Box& bx,
 
 
 
-      Real acc[3];
+      GpuArray<Real, 3> acc;
       with_coriolis = false;
       fictitious_acceleration(loc, velocity_new, omega, coord, with_coriolis, acc);
 
@@ -440,7 +440,7 @@ HydroSim::apply_rotation_correction(const Box& bx,
       velocity_new[1] = snew[UMY] * rho_new_inv;
       velocity_new[2] = snew[UMZ] * rho_new_inv;
 
-      Real acc[3];
+      GpuArray<Real, 3> acc;
       with_coriolis = true;
       fictitious_acceleration(loc, velocity_new, omega, coord, with_coriolis, acc);
 
@@ -490,7 +490,7 @@ HydroSim::apply_rotation_correction(const Box& bx,
               }
 
               GpuArray<Real, 3> temp_velocity{};
-              Real temp_spin_source[3];
+              GpuArray<Real, 3> temp_spin_source;
 
               with_coriolis = false;
               fictitious_acceleration(loc, temp_velocity, omega, coord, with_coriolis, temp_spin_source);

@@ -853,13 +853,7 @@ Gravity::get_new_gravity_vector(int level, MultiFab& gravity_field_out, Real tim
 void
 Gravity::check_residual (const Box& bx,
                         Array4<Real> const& poisson_rhs,
-                        Array4<Real> const& ecx,
-#if AMREX_SPACEDIM >= 2
-                        Array4<Real> const& ecy,
-#endif
-#if AMREX_SPACEDIM == 3
-                        Array4<Real> const& ecz,
-#endif
+                        const GpuArray<Array4<Real const>, AMREX_SPACEDIM>& edge_grad,
                         const GpuArray<Real, AMREX_SPACEDIM>& dx,
                         const GpuArray<Real, AMREX_SPACEDIM>& problo,
                         int coord_type)
@@ -872,12 +866,12 @@ Gravity::check_residual (const Box& bx,
     {
         if (coord_type == 0) {
 
-            Real laplacian_val = (ecx(i+1,j,k) - ecx(i,j,k)) / dx[0];
+            Real laplacian_val = (edge_grad[0](i+1,j,k) - edge_grad[0](i,j,k)) / dx[0];
 #if AMREX_SPACEDIM >= 2
-            laplacian_val += (ecy(i,j+1,k) - ecy(i,j,k)) / dx[1];
+            laplacian_val += (edge_grad[1](i,j+1,k) - edge_grad[1](i,j,k)) / dx[1];
 #endif
 #if AMREX_SPACEDIM == 3
-            laplacian_val += (ecz(i,j,k+1) - ecz(i,j,k)) / dx[2];
+            laplacian_val += (edge_grad[2](i,j,k+1) - edge_grad[2](i,j,k)) / dx[2];
 #endif
 
             poisson_rhs(i,j,k) -= laplacian_val;
@@ -888,9 +882,9 @@ Gravity::check_residual (const Box& bx,
             Real rhi  = rlo + dx[0];
             Real rcen = 0.5_rt * (rlo + rhi);
 
-            Real laplacian_val = (rhi * ecx(i+1,j,k) - rlo * ecx(i,j,k)) / (rcen * dx[0]);
+            Real laplacian_val = (rhi * edge_grad[0](i+1,j,k) - rlo * edge_grad[0](i,j,k)) / (rcen * dx[0]);
 #if AMREX_SPACEDIM >= 2
-            laplacian_val += (ecy(i,j+1,k) - ecy(i,j,k)) / dx[1];
+            laplacian_val += (edge_grad[1](i,j+1,k) - edge_grad[1](i,j,k)) / dx[1];
 #endif
 
             poisson_rhs(i,j,k) -= laplacian_val;
@@ -901,7 +895,7 @@ Gravity::check_residual (const Box& bx,
             Real rhi  = rlo + dx[0];
             Real rcen = 0.5_rt * (rlo + rhi);
 
-            Real laplacian_val = (rhi * rhi * ecx(i+1,j,k) - rlo * rlo * ecx(i,j,k)) / (rcen * rcen * dx[0]);
+            Real laplacian_val = (rhi * rhi * edge_grad[0](i+1,j,k) - rlo * rlo * edge_grad[0](i,j,k)) / (rcen * rcen * dx[0]);
             poisson_rhs(i,j,k) -= laplacian_val;
 
         }
@@ -1084,13 +1078,9 @@ Gravity::verify_level_grad_phi_now(int level)
 
         check_residual(bx,
                       Rhs.array(mfi),
-                      (*phi_gradient_new[level][0]).array(mfi),
-#if AMREX_SPACEDIM >= 2
-                      (*phi_gradient_new[level][1]).array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                      (*phi_gradient_new[level][2]).array(mfi),
-#endif
+                      {AMREX_D_DECL((*phi_gradient_new[level][0]).const_array(mfi),
+                                   (*phi_gradient_new[level][1]).const_array(mfi),
+                                   (*phi_gradient_new[level][2]).const_array(mfi))},
                       dx, problo, coord_type);
     }
 
@@ -1141,13 +1131,9 @@ Gravity::verify_level_grad_phi_before(int level)
 
         check_residual(bx,
                       Rhs.array(mfi),
-                      (*phi_gradient_old[level][0]).array(mfi),
-#if AMREX_SPACEDIM >= 2
-                      (*phi_gradient_old[level][1]).array(mfi),
-#endif
-#if AMREX_SPACEDIM == 3
-                      (*phi_gradient_old[level][2]).array(mfi),
-#endif
+                      {AMREX_D_DECL((*phi_gradient_old[level][0]).const_array(mfi),
+                                   (*phi_gradient_old[level][1]).const_array(mfi),
+                                   (*phi_gradient_old[level][2]).const_array(mfi))},
                       dx, problo, coord_type);
     }
 

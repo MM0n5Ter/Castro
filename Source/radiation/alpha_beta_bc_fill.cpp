@@ -975,7 +975,7 @@ void AlphaBetaSolver::faceFluxAtBoundary(MultiFab* Flux, MultiFab& sol_field, in
                                  fs.array(bc_component),
                                  msk.array(),
                                  (*bcoefs[idim])[si].array(),
-                                 beta, dx, bc_variant);
+                                 beta, geom.CellSizeArray(), bc_variant);
                 }
             }
         }

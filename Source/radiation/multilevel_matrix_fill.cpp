@@ -973,13 +973,11 @@ void MultiLevelEllipticSolver::fillLevelRhs(int level,
     }
     Elixir f_hold = scratch_fab.elixir();
 
-    Real* vec = f->dataPtr();
-
     if (bc_variant) {
       addBoundaryRhs(level, mfi, reg, f->array());
     }
 
-    writeVectorBox(b, part, reg, subgrids[level][i], vec);
+    writeVectorBox(b, part, reg, subgrids[level][i], *f, 0);
   }
 }
 
@@ -993,7 +991,6 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
 
   int part = level - crse_level;
 
-  Real *vec;
   FArrayBox scratch_fab;
   for (MFIter mfi(dest); mfi.isValid(); ++mfi) {
     int i = mfi.index();
@@ -1012,9 +1009,7 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
     }
     Elixir f_hold = scratch_fab.elixir();
 
-    vec = f->dataPtr(fcomp);
-
-    writeVectorBox(x, part, reg, subgrids[level][i], vec);
+    writeVectorBox(x, part, reg, subgrids[level][i], *f, fcomp);
 
     f->copy<RunOn::Device>(rhs[mfi], 0, fcomp, 1);
 
@@ -1022,7 +1017,7 @@ void MultiLevelEllipticSolver::fillLevelVectors(int level,
       addBoundaryRhs(level, mfi, reg, f->array(fcomp));
     }
 
-    writeVectorBox(b, part, reg, subgrids[level][i], vec);
+    writeVectorBox(b, part, reg, subgrids[level][i], *f, fcomp);
   }
 }
 
@@ -1061,8 +1056,6 @@ void MultiLevelEllipticSolver::loadLevelSolution(int level,
     }
     Elixir f_hold = scratch_fab.elixir();
 
-    Real* vec = f->dataPtr(fcomp);
-
-    writeVectorBox(x, part, reg, subgrids[level][i], vec);
+    writeVectorBox(x, part, reg, subgrids[level][i], *f, fcomp);
   }
 }

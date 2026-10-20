@@ -1814,7 +1814,7 @@ void MultiLevelEllipticSolver::faceFluxAtBoundary(int level,
                                  fs.array(bc_component),
                                  msk.array(),
                                  (*bcoefs[level])[idim][mfi].array(),
-                                 beta, geom[level].CellSize(), bc_variant);
+                                 beta, geom[level].CellSizeArray(), bc_variant);
                 }
             }
         }
@@ -1825,9 +1825,11 @@ void MultiLevelEllipticSolver::writeVectorBox(HYPRE_SStructVector x,
                                         int part,
                                         const Box& reg,
                                         const BoxArray& sgr,
-                                        Real *vec)
+                                        FArrayBox& f, int fcomp)
 {
   BL_PROFILE("MultiLevelEllipticSolver::writeVectorBox");
+
+  Real* vec = f.dataPtr(fcomp);
 
   if (sgr.size() > 0) {
     FArrayBox vec_values_fab;

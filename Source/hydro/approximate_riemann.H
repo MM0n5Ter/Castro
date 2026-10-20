@@ -342,10 +342,10 @@ namespace HLL {
 
     AMREX_GPU_HOST_DEVICE AMREX_INLINE
     void
-    HLL(const Real* ql, const Real* qr,
+    HLL(amrex::GpuArray<Real, NQ> const& ql, amrex::GpuArray<Real, NQ> const& qr,
         const Real cl, const Real cr,
         const int idir, const int coord,
-        Real* two_wave_flux) {
+        amrex::GpuArray<Real, NUM_STATE>& two_wave_flux) {
 
 
 

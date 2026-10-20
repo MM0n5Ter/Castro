@@ -94,13 +94,7 @@ public:
 
   static void check_residual (const amrex::Box& bx,
                       amrex::Array4<amrex::Real> const& rhs,
-                      amrex::Array4<amrex::Real> const& ecx,
-#if AMREX_SPACEDIM >= 2
-                      amrex::Array4<amrex::Real> const& ecy,
-#endif
-#if AMREX_SPACEDIM == 3
-                      amrex::Array4<amrex::Real> const& ecz,
-#endif
+                      const amrex::GpuArray<amrex::Array4<amrex::Real const>, AMREX_SPACEDIM>& edge_grad,
                       const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& dx,
                       const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM>& problo,
                       int coord_type);

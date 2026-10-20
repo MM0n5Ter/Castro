@@ -379,9 +379,9 @@ HydroSim::compute_godunov_flux(const Box& bx,
         Real cl = qthermo_arr(il,jl,kl,QC);
         Real cr = qthermo_arr(i,j,k,QC);
 
-        Real zone_left_state[NQ];
-        Real zone_right_state[NQ];
-        Real zone_flux_vec[NUM_STATE];
+        amrex::GpuArray<Real, NQ> zone_left_state;
+        amrex::GpuArray<Real, NQ> zone_right_state;
+        amrex::GpuArray<Real, NUM_STATE> zone_flux_vec;
 
         for (int n = 0; n < NQ; n++) {
             zone_left_state[n] = qm(i,j,k,n);

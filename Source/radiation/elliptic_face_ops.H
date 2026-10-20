@@ -159,7 +159,7 @@ namespace ELLIPTIC_OPS
                 Array4<Real const> const bcval,
                 Array4<int const> const mask,
                 Array4<Real const> const b,
-                Real beta, const Real* dx, int bc_variant)
+                Real beta, GpuArray<Real, AMREX_SPACEDIM> const& dx, int bc_variant)
     {
         Real h;
 

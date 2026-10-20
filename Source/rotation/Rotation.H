@@ -41,7 +41,7 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 fictitious_acceleration(const GpuArray<Real, 3>& r, const GpuArray<Real, 3>& v,
                         const GpuArray<Real, 3>& omega, const int coord,
-                        const bool with_coriolis, Real* Sr) {
+                        const bool with_coriolis, GpuArray<Real, 3>& Sr) {
 
   Sr[0] = 0.0;
   Sr[1] = 0.0;
