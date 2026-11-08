@@ -1,16 +1,7 @@
 #include <HydroSim.H>
 #include <sdc_react_solve.H>
-#ifdef RADIATION
-#include <Radiation.H>
-#endif
 
-#ifdef GRAVITY
-#include <Gravity.H>
-#endif
 
-#ifdef DIFFUSION
-#include <diffusion_operator.H>
-#endif
 
 #include <cmath>
 
@@ -18,7 +9,6 @@
 
 using namespace amrex;
 
-#ifndef MHD
 #ifndef AMREX_USE_GPU
 Real
 HydroSim::run_advance_sdc (Real time,
@@ -70,9 +60,6 @@ HydroSim::run_advance_sdc (Real time,
             !(correction_iter == sdc_accuracy_order+sdc_extra_passes-1 && m == COLLOC_NODES-1)) {
 
 
-#ifdef GRAVITY
-            assemble_old_gravity(prev_time);
-#endif
 
             if (apply_source_terms()) {
                 if (sdc_accuracy_order == 4) {
@@ -245,7 +232,6 @@ HydroSim::run_advance_sdc (Real time,
 
     return dt;
 }
-#endif
 #endif
 
 void

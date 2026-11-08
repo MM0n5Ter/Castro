@@ -1,8 +1,5 @@
 #include <HydroSim.H>
 
-#ifdef DIFFUSION
-#include <conductivity.H>
-#endif
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void

@@ -49,11 +49,6 @@ AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void
 zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
 
-#ifdef SIMPLIFIED_SDC
-#ifndef AMREX_USE_GPU
-    amrex::Error("we shouldn't be here with the simplified SDC method (USE_SIMPLIFIED_SDC=TRUE)");
-#endif
-#else
 
 
     if (integrator_rp::jacobian == 2) {
@@ -90,7 +85,6 @@ zone_jacobian(burn_t& burn_state, const Real dt, T& Jac) {
             }
         }
     }
-#endif
 
 
 }

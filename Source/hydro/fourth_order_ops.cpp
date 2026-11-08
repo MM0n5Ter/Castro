@@ -1,8 +1,5 @@
 #include <HydroSim.H>
 #include <fourth_order_stencils.H>
-#ifdef DIFFUSION
-#include <conductivity.H>
-#endif
 
 using namespace amrex;
 
@@ -271,79 +268,3 @@ HydroSim::fourth_viscosity(const Box& bx,
 
 }
 
-#ifdef DIFFUSION
-void
-HydroSim::fourth_accumulate_diffusion(const Box& bx,
-                                  Array4<Real const> const& prim_arr,
-                                  const int temperature_index,
-                                  Array4<Real const> const& interface_state,
-                                  Array4<Real> const& F,
-                                  const int idir, const TemperatureSample sample) {
-
-
-  const auto dx = geom.CellSizeArray();
-
-  amrex::ParallelFor(bx,
-  [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-  {
-
-    eos_t eos_state;
-
-    eos_state.rho = interface_state(i,j,k,QRHO);
-    eos_state.T = prim_arr(i,j,k,temperature_index);
-    eos_state.e = interface_state(i,j,k,QEINTDENS) / interface_state(i,j,k,QRHO);
-    for (int n = 0; n < NumSpec; n++) {
-      eos_state.xn[n] = interface_state(i,j,k,QFS+n);
-    }
-#if NAUX_NET > 0
-    for (int n = 0; n < NumAux; n++) {
-      eos_state.aux[n] = interface_state(i,j,k,QFX+n);
-    }
-#endif
-
-    eos(eos_input_re, eos_state);
-    conductivity(eos_state);
-
-    Real dTdx;
-
-    if (idir == 0) {
-
-      if (sample == TemperatureSample::CellAverage) {
-        dTdx = (-prim_arr(i+1,j,k,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
-                15*prim_arr(i-1,j,k,temperature_index) + prim_arr(i-2,j,k,temperature_index)) / (12.0_rt * dx[0]);
-
-      } else {
-        dTdx = (-prim_arr(i+1,j,k,temperature_index) + 27*prim_arr(i,j,k,temperature_index) -
-                27*prim_arr(i-1,j,k,temperature_index) + prim_arr(i-2,j,k,temperature_index)) / (24.0_rt * dx[0]);
-      }
-
-    } else if (idir == 1) {
-
-      if (sample == TemperatureSample::CellAverage) {
-        dTdx = (-prim_arr(i,j+1,k,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
-                15*prim_arr(i,j-1,k,temperature_index) + prim_arr(i,j-2,k,temperature_index)) / (12.0_rt * dx[1]);
-
-      } else {
-        dTdx = (-prim_arr(i,j+1,k,temperature_index) + 27*prim_arr(i,j,k,temperature_index) -
-                27*prim_arr(i,j-1,k,temperature_index) + prim_arr(i,j-2,k,temperature_index)) / (24.0_rt * dx[1]);
-      }
-
-    } else {
-
-      if (sample == TemperatureSample::CellAverage) {
-        dTdx = (-prim_arr(i,j,k+1,temperature_index) + 15*prim_arr(i,j,k,temperature_index) -
-                15*prim_arr(i,j,k-1,temperature_index) + prim_arr(i,j,k-2,temperature_index)) / (12.0_rt * dx[2]);
-
-      } else {
-        dTdx = (-prim_arr(i,j,k+1,temperature_index) + 27*prim_arr(i,j,k,temperature_index) -
-                27*prim_arr(i,j,k-1,temperature_index) + prim_arr(i,j,k-2,temperature_index)) / (24.0_rt * dx[2]);
-      }
-
-    }
-
-    F(i,j,k,UEINT) -= eos_state.conductivity * dTdx;
-    F(i,j,k,UEDEN) -= eos_state.conductivity * dTdx;
-
-  });
-}
-#endif

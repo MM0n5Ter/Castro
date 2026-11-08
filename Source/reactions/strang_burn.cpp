@@ -12,10 +12,6 @@ using namespace amrex;
 static AMREX_GPU_HOST_DEVICE AMREX_INLINE
 void store_burned_zone (Array4<Real> const& U, int i, int j, int k, const burn_t& burn_state)
 {
-#ifdef NSE_NET
-    U(i,j,k,UPROTON_MU) = burn_state.mu_p;
-    U(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
-#endif
     for (int n = 0; n < NumSpec; ++n) {
         U(i,j,k,UFS+n) = U(i,j,k,URHO) * burn_state.xn[n];
     }
@@ -207,12 +203,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
         {
 
             burn_t burn_state;
-#ifdef NSE_NET
-            burn_state.mu_p = U(i,j,k,UPROTON_MU);
-            burn_state.mu_n = U(i,j,k,UNEUTRON_MU);
-
-            burn_state.y_e = -1.0_rt;
-#endif
 
 #if AMREX_SPACEDIM == 1
             burn_state.dx = dx[0];
@@ -331,14 +321,6 @@ HydroSim::burn_over_state(MultiFab& s, MultiFab& r, Real time, Real dt, const in
                             weights(i,j,k,strang_half) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                         }
                     }
-#ifdef NSE
-                    if (keep_omegadot == 1) {
-                        reactions(i,j,k,NumSpec+NumAux+1) = burn_state.nse;
-                    }
-                    else {
-                        reactions(i,j,k,1) = burn_state.nse;
-                    }
-#endif
                 }
 
                 store_burned_zone(U, i, j, k, burn_state);
@@ -424,7 +406,6 @@ HydroSim::apply_old_reactions (Real time, Real dt) {
 
     step_result status {};
 
-#ifndef SIMPLIFIED_SDC
     int burn_outcome{1};
 
     MultiFab& Reactions_old = get_old_data(Burning_Type);
@@ -441,14 +422,10 @@ HydroSim::apply_old_reactions (Real time, Real dt) {
         }
 
         clean_state(
-#ifdef MHD
-                    Bx_old_grown, By_old_grown, Bz_old_grown,
-#endif
                     Sborder, time, Sborder.nGrow());
 
         MultiFab::Copy(react_new, Reactions_old, 0, 0, react_new.nComp(), react_new.nGrow());
     }
-#endif
 
     return status;
 }
@@ -466,40 +443,6 @@ HydroSim::apply_new_reactions (Real time, Real dt)
     MultiFab& react_new = get_new_data(Burning_Type);
     MultiFab& S_new = get_new_data(State_Type);
 
-#ifdef SIMPLIFIED_SDC
-    MultiFab& Reactions_old = get_old_data(Burning_Type);
-
-    if (time_scheme == SimplifiedIterCorrection) {
-
-        if (do_react) {
-
-            burn_outcome = burn_over_state(time, dt);
-
-            if (burn_outcome != 1) {
-                status.success = false;
-                status.reason = "burn unsuccessful";
-
-                return status;
-            }
-
-            clean_state(S_new, time + dt, S_new.nGrow());
-
-            scan_for_nan(S_new);
-
-        }
-        else {
-
-            MultiFab& SDC_burn_new = get_new_data(Burn_Corr_Type);
-            SDC_burn_new.setVal(0.0, SDC_burn_new.nGrow());
-
-            Reactions_old.setVal(0.0, Reactions_old.nGrow());
-            react_new.setVal(0.0, react_new.nGrow());
-
-        }
-
-    }
-
-#else
 
     if (time_scheme != SimplifiedIterCorrection) {
 
@@ -513,14 +456,10 @@ HydroSim::apply_new_reactions (Real time, Real dt)
         }
 
         clean_state(
-#ifdef MHD
-                    magfield_x_new, magfield_y_new, magfield_z_new,
-#endif
                     S_new, time, S_new.nGrow());
 
     }
 
-#endif
 
     return status;
 }

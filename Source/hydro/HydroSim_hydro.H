@@ -30,15 +30,6 @@
     static void ctoprim(const amrex::Box& bx,
                  const amrex::Real time,
                  amrex::Array4<amrex::Real const> const& uin,
-#ifdef MHD
-                 amrex::Array4<amrex::Real const> const& Bx,
-                 amrex::Array4<amrex::Real const> const& By,
-                 amrex::Array4<amrex::Real const> const& Bz,
-#endif
-#ifdef RADIATION
-                 amrex::Array4<amrex::Real const> const& RadEnergyIn,
-                 amrex::Array4<amrex::Real const> const& lam,
-#endif
                  amrex::Array4<amrex::Real> const& prim_arr,
                  amrex::Array4<amrex::Real> const& qthermo_arr);
 
@@ -58,37 +49,6 @@
                   amrex::Array4<amrex::Real const> const& uin,
                   amrex::Array4<amrex::Real> const& flux);
 
-#ifdef RADIATION
-    void apply_viscosity_radiative(const amrex::Box& bx,
-                      const int idir,
-                      amrex::Array4<amrex::Real const> const& div,
-                      amrex::Array4<amrex::Real const> const& RadEnergyIn,
-                      amrex::Array4<amrex::Real> const& radiative_flux);
-
-
-    void
-    rad_cons_update(const amrex::Box& bx,
-                   amrex::Array4<amrex::Real> const& update,
-                   amrex::Array4<amrex::Real const> const& RadEnergyIn,
-                   amrex::Array4<amrex::Real> const& RadEnergyOut,
-                   amrex::Array4<amrex::Real const> const& radiative_flux1,
-                   amrex::Array4<amrex::Real const> const& qx,
-                   amrex::Array4<amrex::Real const> const& area1,
-#if AMREX_SPACEDIM >= 2
-                   amrex::Array4<amrex::Real const> const& radiative_flux2,
-                   amrex::Array4<amrex::Real const> const& qy,
-                   amrex::Array4<amrex::Real const> const& area2,
-#endif
-#if AMREX_SPACEDIM == 3
-                   amrex::Array4<amrex::Real const> const& radiative_flux3,
-                   amrex::Array4<amrex::Real const> const& qz,
-                   amrex::Array4<amrex::Real const> const& face_area3,
-#endif
-                   int& rad_step_count,
-                   amrex::Array4<amrex::Real const> const& vol,
-                   const amrex::Real dt);
-
-#endif
 
     void corner_ppm_states(const amrex::Box& bx, const amrex::Box& vbx,
                         amrex::Array4<amrex::Real const> const& field_arr,
@@ -138,31 +98,6 @@
 #endif
                         const amrex::Real dt);
 
-#ifdef RADIATION
-    void corner_ppm_rad_states(const amrex::Box& bx, const amrex::Box& vbx,
-                            amrex::Array4<amrex::Real const> const& field_arr,
-                            amrex::Array4<amrex::Real const> const& inv_density_arr,
-                            amrex::Array4<amrex::Real const> const& prim_arr,
-                            amrex::Array4<amrex::Real const> const& qthermo_arr,
-                            amrex::Array4<amrex::Real const> const& prim_source,
-                            amrex::Array4<amrex::Real> const& qxm,
-                            amrex::Array4<amrex::Real> const& qxp,
-#if AMREX_SPACEDIM >= 2
-                            amrex::Array4<amrex::Real> const& qym,
-                            amrex::Array4<amrex::Real> const& qyp,
-#endif
-#if AMREX_SPACEDIM == 3
-                            amrex::Array4<amrex::Real> const& qzm,
-                            amrex::Array4<amrex::Real> const& qzp,
-#endif
-#if AMREX_SPACEDIM < 3
-                            amrex::Array4<amrex::Real const> const& logAreaRateX,
-#endif
-#if AMREX_SPACEDIM == 2
-                            amrex::Array4<amrex::Real const> const& logAreaRateY,
-#endif
-                            const amrex::Real dt);
-#endif
 
     void lines_plm_reconstruct(const amrex::Box& bx,
                              const int idir,
@@ -223,9 +158,6 @@
                        amrex::Array4<amrex::Real> const& qpo,
                        amrex::Array4<amrex::Real const> const& qthermo,
                        amrex::Array4<amrex::Real const> const& flux_tan,
-#ifdef RADIATION
-                       amrex::Array4<amrex::Real const> const& radiative_flux_tan,
-#endif
                        amrex::Array4<amrex::Real const> const& q_t,
 #if AMREX_SPACEDIM == 2
                        amrex::Array4<amrex::Real const> const& area_t,
@@ -241,9 +173,6 @@
                               amrex::Array4<amrex::Real> const& q_out_arr,
                               amrex::Array4<amrex::Real const> const& qthermo,
                               amrex::Array4<amrex::Real const> const& flux_tan,
-#ifdef RADIATION
-                              amrex::Array4<amrex::Real const> const& radiative_flux_tan,
-#endif
                               amrex::Array4<amrex::Real const> const& q_t,
 #if AMREX_SPACEDIM == 2
                               amrex::Array4<amrex::Real const> const& area_t,
@@ -259,13 +188,7 @@
                       amrex::Array4<amrex::Real> const& qpo,
                       amrex::Array4<amrex::Real const> const& qthermo,
                       amrex::Array4<amrex::Real const> const& flux_tan1,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& radiative_flux_tan1,
-#endif
                       amrex::Array4<amrex::Real const> const& flux_tan2,
-#ifdef RADIATION
-                      amrex::Array4<amrex::Real const> const& radiative_flux_tan2,
-#endif
                       amrex::Array4<amrex::Real const> const& q_tan1,
                       amrex::Array4<amrex::Real const> const& q_tan2,
                       amrex::Real third_dt_dx_tan1, amrex::Real third_dt_dx_tan2);
@@ -276,13 +199,7 @@
                              amrex::Array4<amrex::Real> const& q_out_arr,
                              amrex::Array4<amrex::Real const> const& qthermo,
                              amrex::Array4<amrex::Real const> const& flux_tan1,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& radiative_flux_tan1,
-#endif
                              amrex::Array4<amrex::Real const> const& flux_tan2,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real const> const& radiative_flux_tan2,
-#endif
                              amrex::Array4<amrex::Real const> const& q_tan1,
                              amrex::Array4<amrex::Real const> const& q_tan2,
                              amrex::Real third_dt_dx_tan1, amrex::Real third_dt_dx_tan2);
@@ -353,9 +270,6 @@
                              amrex::Array4<amrex::Real> const& qm,
                              amrex::Array4<amrex::Real> const& qp,
                              amrex::Array4<amrex::Real> const& flx,
-#ifdef RADIATION
-                             amrex::Array4<amrex::Real> const& radiative_flux_out,
-#endif
                              amrex::Array4<amrex::Real> const& godunov_state,
                              amrex::Array4<amrex::Real const> const& qthermo,
                              amrex::Array4<amrex::Real const> const& shk,
@@ -370,14 +284,10 @@
     static void
     save_godunov_state(const amrex::Box& bx,
                         amrex::Array4<amrex::Real const> const& interface_state,
-#ifdef RADIATION
-                        amrex::Array4<amrex::Real const> const& lambda,
-#endif
                         amrex::Array4<amrex::Real> const& godunov_state);
 
     static void balance_species_flux(const amrex::Box& bx, amrex::Array4<amrex::Real> const& flux);
 
-#ifndef MHD
     static void
     clip_fluxes_at_density_floor(const amrex::Box& bx,
                                      int idir,
@@ -387,7 +297,6 @@
                                      amrex::Array4<amrex::Real const> const& area,
                                      amrex::Real dt,
                                      bool scale_by_area_dt = true);
-#endif
 
 
    void set_reflecting_boundary_states(const amrex::Box& bx, const int idir,
@@ -400,43 +309,18 @@
                     amrex::Array4<amrex::Real const> const& area,
                     const amrex::Real dt);
 
-#ifdef RADIATION
-    void scale_radiative_flux(const amrex::Box& bx,
-                        amrex::Array4<amrex::Real> const& scaled_radiative_flux,
-                        amrex::Array4<amrex::Real const> const& area,
-                        const amrex::Real dt);
-#endif
 
-#ifndef MHD
     static void reset_edge_thermo(const amrex::Box& bx,
                                         amrex::Array4<amrex::Real> const& edge_state);
 
     static void edge_temp_to_pressure(const amrex::Box& bx,
                                  amrex::Array4<amrex::Real> const& qm,
                                  amrex::Array4<amrex::Real> const& qp);
-#endif
 
     void clamp_state_density(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const int warning_level);
 
-#ifdef HYBRID_MOMENTUM
-
-    void assemble_old_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
-
-
-    void assemble_new_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& field_old, amrex::MultiFab& field_new, amrex::Real time, amrex::Real dt);
-
-
-    void fill_hybrid_source_mf(amrex::MultiFab& source, const amrex::MultiFab& state, const amrex::Real term_weight);
-
-
-    void split_to_linear_momentum(amrex::MultiFab& state, int ng = 0);
-
-
-    void linear_to_split_momentum(amrex::MultiFab& state, int ng = 0);
-
-#endif
 
 #ifdef TRUE_SDC
 

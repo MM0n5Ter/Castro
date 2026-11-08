@@ -1,9 +1,6 @@
 #include <HydroSim.H>
 #include <HydroSim_helpers.H>
 
-#ifdef DIFFUSION
-#include <conduction_coeffs.H>
-#endif
 
 #include <primitive_conversion.H>
 
@@ -18,9 +15,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
     amrex::ignore_unused(time);
 
-#ifdef RADIATION
-  amrex::Abort("Error: radiation not supported for the MOL hydro source term");
-#else
 
   BL_PROFILE("HydroSim::assemble_mol_hydro_source()");
 
@@ -55,9 +49,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
   }
 #endif
 
-#ifdef HYBRID_MOMENTUM
-  GeometryData geomdata = geom.data();
-#endif
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -265,14 +256,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
             }
 
-#ifdef DIFFUSION
-            if (conduction_enabled == 1) {
-              fourth_accumulate_diffusion(ibx[idir],
-                                        prim_arr, QTEMP,
-                                        averaged_state_arr, averaged_flux_arr,
-                                        idir, TemperatureSample::CellAverage);
-            }
-#endif
 
 
 #if AMREX_SPACEDIM == 1
@@ -316,14 +299,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
             }
 
 
-#ifdef DIFFUSION
-            if (conduction_enabled == 1) {
-              fourth_accumulate_diffusion(nbx,
-                                        Temperature_cc.array(mfi), 0,
-                                        face_center_state_arr, flux[idir].array(),
-                                        idir, TemperatureSample::CellCenter);
-            }
-#endif
 
 
             Array4<Real> const dir_flux_arr = (flux[idir]).array();
@@ -361,10 +336,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                       dir_flux_arr(i,j,k,n) = 0.0;
 #ifdef SHOCK_VAR
                   } else if (n == UFLAG_SHOCK) {
-                      dir_flux_arr(i,j,k,n) = 0.0;
-#endif
-#ifdef NSE_NET
-                  } else if (n == UPROTON_MU || n == UNEUTRON_MU) {
                       dir_flux_arr(i,j,k,n) = 0.0;
 #endif
                   } else {
@@ -448,10 +419,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #ifdef SHOCK_VAR
                   dir_flux_arr(i,j,k,UFLAG_SHOCK) = 0.e0;
 #endif
-#ifdef NSE_NET
-                  dir_flux_arr(i,j,k,UPROTON_MU) = 0.e0;
-                  dir_flux_arr(i,j,k,UNEUTRON_MU) = 0.e0;
-#endif
               });
 
               apply_viscosity(nbx, idir, divergence_arr, input_state_arr, dir_flux_arr);
@@ -478,18 +445,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 
             }
 
-#ifdef DIFFUSION
-            cond.resize(obx, 1);
-            auto conductivity_arr = cond.array();
-
-            fill_cell_conductivity(obx, Sborder.array(mfi), conductivity_arr);
-
-            const Box& nbx = amrex::surroundingNodes(bx, idir);
-
-            lines_diffusion_flux(nbx, idir,
-                               input_state_arr, conductivity_arr,
-                               flux[idir].array());
-#endif
 
           }
 
@@ -550,29 +505,6 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
                    volume.array(mfi));
 
 
-#ifdef HYBRID_MOMENTUM
-        auto dx_arr = geom.CellSizeArray();
-
-        amrex::ParallelFor(bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-        {
-
-          GpuArray<Real, 3> loc;
-
-          position(i, j, k, geomdata, loc);
-
-          for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-            loc[dir] -= problem::center[dir];
-
-          Real R = amrex::max(std::sqrt(loc[0] * loc[0] + loc[1] * loc[1]),
-                              std::numeric_limits<Real>::min());
-          Real InvRadius = 1.0_rt / R;
-
-          update_out_arr(i,j,k,UMR) -= ((loc[0] * InvRadius) * (x_edge_state_view(i+1,j,k,GDPRESSURE) - x_edge_state_view(i,j,k,GDPRESSURE)) / dx_arr[0] +
-                                        (loc[1] * InvRadius) * (y_edge_state_view(i,j+1,k,GDPRESSURE) - y_edge_state_view(i,j,k,GDPRESSURE)) / dx_arr[1]);
-
-        });
-#endif
 
 #if AMREX_SPACEDIM <= 2
         if (!Geom().IsCartesian()) {
@@ -666,5 +598,4 @@ HydroSim::assemble_mol_hydro_source(Real time, Real dt, MultiFab& A_divergence)
 #endif
     }
 
-#endif
 }

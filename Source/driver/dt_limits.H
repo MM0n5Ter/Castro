@@ -9,17 +9,8 @@
 
 #include <eos.H>
 
-#ifdef DIFFUSION
-#include <conductivity.H>
-#endif
 
-#ifdef MHD
-#include <mhd_zone_ops.H>
-#endif
 
-#ifdef ROTATION
-#include <Rotation.H>
-#endif
 
 #ifdef REACTIONS
 #include <actual_network.H>
@@ -154,169 +145,6 @@ namespace timestep {
             return r;
 
         }
-#ifdef MHD
-        else if constexpr (T == mhd) {
-
-
-
-            static_assert(count_multifabs == 3);
-
-            auto const& [bx, by, bz] = std::tie(mfs...);
-
-            auto const& bxa = bx.const_arrays();
-            auto const& bya = by.const_arrays();
-            auto const& bza = bz.const_arrays();
-
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
-            {
-
-                Array4<Real const> const& state_view = ua[box_no];
-
-                Array4<Real const> const& bx_arr = bxa[box_no];
-                Array4<Real const> const& by_arr = bya[box_no];
-                Array4<Real const> const& bz_arr = bza[box_no];
-
-                IntVect idx(AMREX_D_DECL(i,j,k));
-
-                const auto* dx = geomdata.CellSize();
-#if AMREX_SPACEDIM >= 2
-                const auto* problo = geomdata.ProbLo();
-                const auto coord = geomdata.Coord();
-#endif
-
-                Real rhoInv = 1.0_rt / state_view(i,j,k,URHO);
-                Real bcx = 0.5_rt * (bx_arr(i+1,j,k) + bx_arr(i,j,k));
-                Real bcy = 0.5_rt * (by_arr(i,j+1,k) + by_arr(i,j,k));
-                Real bcz = 0.5_rt * (bz_arr(i,j,k+1) + bz_arr(i,j,k));
-
-                Real ux = state_view(i,j,k,UMX) * rhoInv;
-                Real uy = state_view(i,j,k,UMY) * rhoInv;
-                Real uz = state_view(i,j,k,UMZ) * rhoInv;
-
-                eos_rep_t eos_state;
-                load_eos_state(state_view, i, j, k, rhoInv, eos_state);
-
-                eos(eos_input_re, eos_state);
-
-                Real e  = state_view(i,j,k,UEINT) * rhoInv;
-
-                Real as = eos_state.gam1 * eos_state.p * rhoInv;
-                Real ca = (bcx*bcx + bcy*bcy + bcz*bcz) * rhoInv;
-
-                Real cx;
-                Real cy;
-                Real cz;
-
-                if (e > 0_rt) {
-                  Real cad = bcx*bcx * rhoInv;
-                  fast_magnetosonic_speed(cx, as, ca, cad);
-
-                  cad = bcy*bcy * rhoInv;
-                  fast_magnetosonic_speed(cy, as, ca, cad);
-
-                  cad = bcz*bcz * rhoInv;
-                  fast_magnetosonic_speed(cz, as, ca, cad);
-
-                } else {
-                  cx = 0.0_rt;
-                  cy = 0.0_rt;
-                  cz = 0.0_rt;
-                }
-
-                Real dt1 = dx[0]/(cx + std::abs(ux));
-
-                Real dt2;
-#if AMREX_SPACEDIM >= 2
-                dt2 = dx[1]/(cy + std::abs(uy));
-                if (coord == 2) {
-                    dt2 *= problo[0] + 0.5_rt * dx[0];
-                }
-#else
-                dt2 = dt1;
-#endif
-
-                Real dt3;
-#if AMREX_SPACEDIM == 3
-                dt3 = dx[2]/(cz + std::abs(uz));
-#else
-                dt3 = dt1;
-#endif
-
-                return {dt_and_cell{amrex::min(dt1, dt2, dt3), idx}};
-
-            });
-
-            return r;
-
-        }
-#endif
-#ifdef DIFFUSION
-        else if constexpr (T == diffusion) {
-
-
-            const Real diffusion_min_density = hydrosim::conduction_cutoff_density;
-            const Real timestep_ceiling = hydrosim::max_dt;
-            const Real cfl_limit = hydrosim::cfl;
-
-            auto r = amrex::ParReduce(TypeList<ReduceOpMin>{}, TypeList<dt_and_cell>{}, activeState,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k) -> GpuTuple<dt_and_cell>
-            {
-                Array4<Real const> const& state_fab_view = ua[box_no];
-
-                IntVect idx(AMREX_D_DECL(i,j,k));
-
-                const auto* dx = geomdata.CellSize();
-#if AMREX_SPACEDIM >= 2
-                const auto* problo = geomdata.ProbLo();
-                const auto coord = geomdata.Coord();
-#endif
-
-                if (state_fab_view(i,j,k,URHO) > diffusion_min_density) {
-
-                    Real rho_inv = 1.0_rt/state_fab_view(i,j,k,URHO);
-
-                    eos_t eos_state;
-
-                    load_eos_state(state_fab_view, i, j, k, rho_inv, eos_state);
-
-                    eos(eos_input_re, eos_state);
-
-                    conductivity(eos_state);
-
-                    Real D = eos_state.conductivity * rho_inv / eos_state.cv;
-
-                    Real dt1 = 0.5_rt * dx[0]*dx[0] / D;
-
-                    Real dt2;
-#if AMREX_SPACEDIM >= 2
-                    dt2 = 0.5_rt * dx[1]*dx[1] / D;
-                    if (coord == 2) {
-                        Real rc = problo[0] + 0.5_rt * dx[0];
-                        dt2 *= rc * rc;
-                    }
-#else
-                    dt2 = dt1;
-#endif
-
-                    Real dt3;
-#if AMREX_SPACEDIM >= 3
-                    dt3 = 0.5_rt * dx[2]*dx[2] / D;
-#else
-                    dt3 = dt1;
-#endif
-
-                    return {dt_and_cell{amrex::min(dt1, dt2, dt3), idx}};
-
-                } else {
-                    return {dt_and_cell{timestep_ceiling/cfl_limit, idx}};
-                }
-            });
-
-            return r;
-
-        }
-#endif
 #ifdef REACTIONS
         else if constexpr (T == burning) {
 
@@ -420,28 +248,7 @@ namespace timestep {
                     }
                 }
 
-#ifdef NSE
-
-#ifdef SIMPLIFIED_SDC
-                for (int n = 0; n < NumSpec; ++n) {
-                    burn_state.y[SFS+n] = burn_state.rho * burn_state.xn[n];
-                }
-
-                burn_state.y[SEINT] = burn_state.rho * burn_state.e;
-
-#endif
-
-#ifdef NSE_NET
-                burn_state.mu_p = S(i,j,k,UPROTON_MU);
-                burn_state.mu_n = S(i,j,k,UNEUTRON_MU);
-#endif
-
-                if (!in_nse(burn_state)) {
-#endif
                     dt_tmp = hydrosim::burn_dt_energy * e / dedt;
-#ifdef NSE
-                }
-#endif
                 for (int n = 0; n < NumSpec; ++n) {
                     dt_tmp = amrex::min(dt_tmp, hydrosim::burn_dt_massfrac * (X[n] / dXdt[n]));
                 }
@@ -456,10 +263,6 @@ namespace timestep {
 
     }
 
-#ifdef RADIATION
-    amrex::Real dtlimit_rad (const amrex::MultiFab& activeState, const amrex::MultiFab& radiationField,
-                           const amrex::GeometryData& geomdata);
-#endif
 
 }
 
