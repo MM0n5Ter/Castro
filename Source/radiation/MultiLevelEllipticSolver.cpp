@@ -191,12 +191,6 @@ void MultiLevelEllipticSolver::attachLevel(int             level,
     for (int i = 0; i < grids[level].size(); i++) {
       if (dmap[level][i] == myid) {
         subgrids[level][i] = amrex::complementIn(grids[level][i], mask);
-#if 0
-        std::cout << "Coarse level, grid " << i << " subgrids are "
-             << subgrids[level][i] << std::endl;
-        std::cout << "Box numPts = " << grids[level][i].numPts()
-             << "Subgrids numPts = " << subgrids[level][i].numPts() << std::endl;
-#endif
         for (int j = 0; j < subgrids[level][i].size(); j++) {
           HYPRE_SStructGridSetExtents(hgrid, part,
                                       loV(subgrids[level][i][j]),
@@ -223,11 +217,7 @@ interpolate_transverse(BoxAuxStorage& coarse_interp, const Mask& msk,
     vf[idir] = reg.smallEnd(idir);
     Box face(vf, vf + ve);
     if (msk(vf) == RadBoundaryData::not_covered) {
-#if (0)
-      for (IntVect v = vf; v <= face.bigEnd(); face.next(v)) {
-        coarse_interp(v).push(coarse_level_index, vc,     1.0);
-      }
-#elif (AMREX_SPACEDIM == 1)
+#if (AMREX_SPACEDIM == 1)
       coarse_interp(vf).push(coarse_level_index, vc, 1.0);
 #elif (AMREX_SPACEDIM == 2)
       if (msk(vf-vj1) != RadBoundaryData::not_covered &&
@@ -490,14 +480,6 @@ void MultiLevelEllipticSolver::makeMatrixLayout()
         Box reg = amrex::adjCell(grids[level][i], ori);
         reg.shift(-vin);
         for (IntVect v = reg.smallEnd(); v <= reg.bigEnd(); reg.next(v)) {
-#if (0 && !defined(NDEBUG))
-          if (msk(v+vin) == RadBoundaryData::not_covered &&
-              entry(ori,i)(v).secondary()) {
-            std::cout << v << " is secondary in orientation " << ori
-                 << " on processor " << ParallelDescriptor::MyProc()
-                 << std::endl;
-          }
-#endif
           if (!entry(ori,i)(v).empty() &&
               !entry(ori,i)(v).secondary()) {
             entry(ori,i)(v).collapse();
@@ -688,17 +670,7 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 0
-    HYPRE_BoomerAMGSetInterpType(solver, 6);
-    HYPRE_BoomerAMGSetCoarsenType(solver, 8);
-    HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
-    HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    int num_sweeps[4] = {2, 2, 2, 1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
   }
   else if (solver_choice == 101) {
     int nparts = fine_level - crse_level + 1;
@@ -944,9 +916,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &solver_handle);
     HYPRE_SStructSplitSetMaxIter(solver_handle, maxiter);
-#if 0
-    HYPRE_SStructSplitSetStructIterLimit(solver_handle, struct_solve_iters);
-#endif
     HYPRE_SStructSplitSetTol(solver_handle, reltol);
     if (struct_method_id == 0) {
       HYPRE_SStructSplitSetStructSolver(solver_handle, HYPRE_SMG);
@@ -955,9 +924,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
       HYPRE_SStructSplitSetStructSolver(solver_handle, HYPRE_PFMG);
     }
     else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(solver_handle, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructSplitSetup(solver_handle, A, b, x);
@@ -992,9 +958,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
 
     HYPRE_SStructSplitCreate(MPI_COMM_WORLD, &split_preconditioner);
     HYPRE_SStructSplitSetMaxIter(split_preconditioner, split_precond_iters);
-#if 0
-    HYPRE_SStructSplitSetStructIterLimit(split_preconditioner, struct_solve_iters);
-#endif
     HYPRE_SStructSplitSetTol(split_preconditioner, 0.0);
     if (struct_method_id == 0) {
       HYPRE_SStructSplitSetStructSolver(split_preconditioner, HYPRE_SMG);
@@ -1003,9 +966,6 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
       HYPRE_SStructSplitSetStructSolver(split_preconditioner, HYPRE_PFMG);
     }
     else {
-#if 0
-      HYPRE_SStructSplitSetStructSolver(split_preconditioner, HYPRE_Jacobi);
-#endif
     }
 
     HYPRE_SStructGMRESSetPrecond(solver_handle,
@@ -1137,26 +1097,15 @@ void MultiLevelEllipticSolver::configureSolver(Real _rel_tolerance, Real _abs_to
     HYPRE_SStructMatrixGetObject(A, (void**) &par_A);
     HYPRE_SStructVectorGetObject(b, (void**) &par_b);
     HYPRE_SStructVectorGetObject(x, (void**) &par_x);
-#if 0
-    HYPRE_SStructMatrixPrint("A", A, 0);
-    HYPRE_SStructVectorPrint("B", b, 0);
-    std::cout << "MultiLevelEllipticSolver: creating solver" << std::endl;
-#endif
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetMinIter(solver, 1);
     HYPRE_BoomerAMGSetMaxIter(solver, maxiter);
     HYPRE_BoomerAMGSetTol(solver, reltol);
-#if 1
     HYPRE_BoomerAMGSetInterpType(solver, 6);
     HYPRE_BoomerAMGSetCoarsenType(solver, 8);
     HYPRE_BoomerAMGSetStrongThreshold(solver, 0.25);
     HYPRE_BoomerAMGSetTruncFactor(solver, 0.);
-#endif
     HYPRE_BoomerAMGSetup(solver, par_A, par_b, par_x);
-#if 0
-    int num_sweeps[4] = {2,2,2,1};
-    HYPRE_BoomerAMGSetNumGridSweeps(solver, num_sweeps);
-#endif
   }
   else if (solver_choice == 151 || solver_choice == 153) {
     HYPRE_ParCSRMatrix par_A;

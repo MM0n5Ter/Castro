@@ -1,7 +1,0 @@
-This is a collection of three Kelvin-Helmholtz instability test problems.
-
-Problem 4 is the same as Problem 3 but halves the perturbation frequency,
-so that the transition is smoother.
-
-These problems are all posed in two dimensions; if you 
-compile in 3D, the problem is simply replicated along the last axis.

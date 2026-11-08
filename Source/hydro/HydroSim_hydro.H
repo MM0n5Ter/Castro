@@ -1,7 +1,4 @@
 
-#ifdef TRUE_SDC
-    void make_primitives(const amrex::Real time);
-#endif
 
     void make_primitives_fourth(const amrex::Real time);
 
@@ -17,24 +14,15 @@
                                       Array4<Real> const& prim_right,
                                       Array4<Real const> const& deferred_source);
 
-#ifndef TRUE_SDC
-#endif
     void source_to_primitive(const amrex::Box& bx, const Real dt,
                      amrex::Array4<amrex::Real const> const& prim_arr,
                      amrex::Array4<amrex::Real const> const& previous_source,
-#ifndef TRUE_SDC
                      amrex::Array4<amrex::Real const> const& source_correction,
-#endif
                      amrex::Array4<amrex::Real> const& prim_source);
 
     static void ctoprim(const amrex::Box& bx,
                  const amrex::Real time,
                  amrex::Array4<amrex::Real const> const& uin,
-#ifdef MHD
-                 amrex::Array4<amrex::Real const> const& Bx,
-                 amrex::Array4<amrex::Real const> const& By,
-                 amrex::Array4<amrex::Real const> const& Bz,
-#endif
 #ifdef RADIATION
                  amrex::Array4<amrex::Real const> const& RadEnergyIn,
                  amrex::Array4<amrex::Real const> const& lam,
@@ -377,7 +365,6 @@
 
     static void balance_species_flux(const amrex::Box& bx, amrex::Array4<amrex::Real> const& flux);
 
-#ifndef MHD
     static void
     clip_fluxes_at_density_floor(const amrex::Box& bx,
                                      int idir,
@@ -387,7 +374,6 @@
                                      amrex::Array4<amrex::Real const> const& area,
                                      amrex::Real dt,
                                      bool scale_by_area_dt = true);
-#endif
 
 
    void set_reflecting_boundary_states(const amrex::Box& bx, const int idir,
@@ -407,105 +393,15 @@
                         const amrex::Real dt);
 #endif
 
-#ifndef MHD
     static void reset_edge_thermo(const amrex::Box& bx,
                                         amrex::Array4<amrex::Real> const& edge_state);
 
     static void edge_temp_to_pressure(const amrex::Box& bx,
                                  amrex::Array4<amrex::Real> const& qm,
                                  amrex::Array4<amrex::Real> const& qp);
-#endif
 
     void clamp_state_density(const amrex::Box& bx,
                                     amrex::Array4<amrex::Real> const& state_arr,
                                     const int warning_level);
 
-#ifdef HYBRID_MOMENTUM
 
-    void assemble_old_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& state, amrex::Real time, amrex::Real dt);
-
-
-    void assemble_new_hybrid_source(amrex::MultiFab& source, amrex::MultiFab& field_old, amrex::MultiFab& field_new, amrex::Real time, amrex::Real dt);
-
-
-    void fill_hybrid_source_mf(amrex::MultiFab& source, const amrex::MultiFab& state, const amrex::Real term_weight);
-
-
-    void split_to_linear_momentum(amrex::MultiFab& state, int ng = 0);
-
-
-    void linear_to_split_momentum(amrex::MultiFab& state, int ng = 0);
-
-#endif
-
-#ifdef TRUE_SDC
-
-    void
-    fourth_face_states(const amrex::Box& bx,
-                      const int idir, const int ncomp,
-                      amrex::Array4<amrex::Real const> const& a,
-                      amrex::Array4<amrex::Real> const& face_values);
-
-    void
-    states(const amrex::Box& bx,
-           const int idir, const int ncomp,
-           amrex::Array4<amrex::Real const> const& a,
-           amrex::Array4<amrex::Real const> const& face_values,
-           amrex::Array4<amrex::Real const> const& flatten_factor,
-           amrex::Array4<amrex::Real> const& al,
-           amrex::Array4<amrex::Real> const& ar);
-
-    void
-    fourth_viscosity(const amrex::Box& bx,
-                 amrex::Array4<amrex::Real const> const& q,
-                 amrex::Array4<amrex::Real const> const& qthermo,
-                 amrex::Array4<amrex::Real> const& viscosity_field,
-                 const int idir);
-
-    enum class TemperatureSample { CellAverage, CellCenter };
-
-    void
-    fourth_accumulate_diffusion(const amrex::Box& bx,
-                              amrex::Array4<amrex::Real const> const& q,
-                              const int temperature_index,
-                              amrex::Array4<amrex::Real const> const& interface_state,
-                              amrex::Array4<amrex::Real> const& F,
-                              const int idir, const TemperatureSample sample);
-
-    static
-    void build_center_state(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& centered_state,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void build_center_state_in_place(const Box& bx,
-                                   Array4<Real> const& U,
-                                   Array4<Real> const& tmp,
-                                   GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void laplacian_of_state(const Box& bx,
-                          Array4<Real const> const& U,
-                          Array4<Real> const& lap, const int ncomp,
-                          GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void build_fourth_average(const Box& bx,
-                             Array4<Real> const& q,
-                             Array4<Real const> const& q_second,
-                             GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void build_fourth_in_place(const Box& bx,
-                              Array4<Real> const& q,
-                              Array4<Real> const& tmp,
-                              GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-    static
-    void build_fourth_in_place_n(const Box& bx,
-                                Array4<Real> const& q, const int ncomp,
-                                Array4<Real> const& tmp,
-                                GpuArray<int, 3> const& domlo, GpuArray<int, 3> const& domhi);
-
-#endif

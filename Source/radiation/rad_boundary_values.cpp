@@ -81,11 +81,6 @@ RadiativeBoundary::RadiativeBoundary(const BoxArray& _grids, const DistributionM
             !geom.isPeriodic(face.coordDir())) {
           const Box& face_box = bndry[face][bi].box();
           bc_type_fabs[face][igrid].reset(new BaseFab<int>(face_box));
-#if 0
-          FORT_RADIATIVE_BOUNDARY_FILL(BL_TO_FORTRAN(bndry[face][bi]),
-                         bc_type_fabs[face][igrid]->dataPtr(),
-                         AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-#endif
         }
       }
     }
@@ -194,16 +189,6 @@ void RadiativeBoundary::setBoundaryFluxConditions(const BCRec& bc, const Boundar
           }
           exit(2);
 
-#if 0
-          FArrayBox& bnd_fab = bndry[face][bi];
-          BaseFab<int>& bc_type_fab = bc_type_fabs[face][i];
-          FORT_RADIATIVE_BOUNDARY_FILL(BL_TO_FORTRAN(bnd_fab),
-                         bc_type_fab.dataPtr(),
-                         AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-          if (face_bc_kind == 0) {
-            setValue(face, i, value);
-          }
-#endif
         }
       }
     }
@@ -246,11 +231,6 @@ MultiGroupBoundary::MultiGroupBoundary(const BoxArray& _grids,
             !geom.isPeriodic(face.coordDir())) {
           const Box& face_box = bndry[face][bi].box();
           bc_type_fabs[face][igrid].reset(new BaseFab<int>(face_box));
-#if 0
-          FORT_RADIATIVE_BOUNDARY_FILL(BL_TO_FORTRAN(bndry[face][bi]),
-                         bc_type_fabs[face][igrid]->dataPtr(),
-                         EXTENT_LIMITS(domain.loVect()), EXTENT_LIMITS(domain.hiVect()), dx, xlo, time);
-#endif
         }
       }
     }
@@ -369,13 +349,6 @@ void MultiGroupBoundary::setBoundaryFluxConditions(const BCRec& bc, const Bounda
           }
           exit(2);
 
-#if 0
-          FArrayBox& bnd_fab = bndry[face][bi];
-          BaseFab<int>& bc_type_fab = *(bc_type_fabs[face][i]);
-
-          FORT_RADIATIVE_BOUNDARY_FILL(BL_TO_FORTRAN(bnd_fab),
-                         bc_type_fab.dataPtr(), AMREX_ARLIM(domain.loVect()), AMREX_ARLIM(domain.hiVect()), dx, xlo, time);
-#endif
           if (face_bc_kind == 0) {
           }
         }
