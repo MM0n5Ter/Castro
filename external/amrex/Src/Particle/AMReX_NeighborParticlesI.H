@@ -1,0 +1,1464 @@
+
+#include <iterator>
+
+namespace amrex {
+
+namespace detail {
+template <class>
+inline constexpr bool always_false_v = false;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+bool NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::use_mask = false;
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+bool NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::enable_inverse = false;
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::NeighborParticleContainer_impl (ParGDBBase* gdb, int ncells)
+    : ParticleContainerType(gdb),
+    m_num_neighbor_cells(ncells)
+{
+    initializeCommComps();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::NeighborParticleContainer_impl (const Geometry            & geom,
+                                  const DistributionMapping & dmap,
+                                  const BoxArray            & ba,
+                                  int                         nneighbor)
+    : ParticleContainerType(geom, dmap, ba),
+    m_num_neighbor_cells(nneighbor)
+{
+    initializeCommComps();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::NeighborParticleContainer_impl (const Vector<Geometry>            & geom,
+                                  const Vector<DistributionMapping> & dmap,
+                                  const Vector<BoxArray>            & ba,
+                                  const Vector<int>                 & rr,
+                                  int                               nneighbor)
+    : ParticleContainerType(geom, dmap, ba, rr),
+    m_num_neighbor_cells(nneighbor)
+{
+    initializeCommComps();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::initializeCommComps () {
+    for (int ii = 0; ii < numRealCommComps(); ++ii) {
+        ghost_real_comp.push_back(1);
+    }
+    for (int ii = 0; ii < numIntCommComps(); ++ii) {
+        ghost_int_comp.push_back(1);
+    }
+    calcCommSize();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::setRealCommComp (int i, bool value) {
+    ghost_real_comp[i] = value;
+    calcCommSize();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::setIntCommComp (int i, bool value) {
+    ghost_int_comp[i] = value;
+    calcCommSize();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::calcCommSize () {
+    size_t comm_size = 0;
+    for (int ii = 0; ii < numRealCommComps(); ++ii) {
+        if (ghost_real_comp[ii]) {
+            comm_size += sizeof(ParticleReal);
+        }
+    }
+    for (int ii = 0; ii < numIntCommComps(); ++ii) {
+        if (ghost_int_comp[ii]) {
+            comm_size += sizeof(int);
+        }
+    }
+    if ( enableInverse() ) { comm_size += 4*sizeof(int); }
+    cdata_size = comm_size;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::Regrid (const DistributionMapping &dmap, const BoxArray &ba ) {
+    const int lev = 0;
+    AMREX_ASSERT(this->finestLevel() == 0);
+    this->SetParticleBoxArray(lev, ba);
+    this->SetParticleDistributionMap(lev, dmap);
+    this->Redistribute();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::Regrid (const DistributionMapping &dmap, const BoxArray &ba, int lev) {
+    AMREX_ASSERT(lev <= this->finestLevel());
+    this->SetParticleBoxArray(lev, ba);
+    this->SetParticleDistributionMap(lev, dmap);
+    this->Redistribute();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::Regrid (const Vector<DistributionMapping>& dmap, const Vector<BoxArray>& ba) {
+    AMREX_ASSERT(ba.size() == this->finestLevel()+1);
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        this->SetParticleBoxArray(lev, ba[lev]);
+        this->SetParticleDistributionMap(lev, dmap[lev]);
+    }
+    this->Redistribute();
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+bool
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::areMasksValid (amrex::Real search_radius) {
+
+    BL_PROFILE("NeighborParticleContainer::areMasksValid");
+
+    resizeContainers(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        BoxArray ba = this->ParticleBoxArray(lev);
+        const DistributionMapping& dmap = this->ParticleDistributionMap(lev);
+
+        if (mask_ptr[lev] == nullptr ||
+            ! BoxArray::SameRefs(mask_ptr[lev]->boxArray(), ba) ||
+            ! DistributionMapping::SameRefs(mask_ptr[lev]->DistributionMap(), dmap))
+        {
+            return false;
+        }
+
+        // When a physical search radius is requested, also invalidate the mask
+        // if its existing grow is smaller than what the radius needs on this
+        // level. Avoids a silent undersizing when a caller previously built
+        // the mask with a smaller (e.g. zero) radius.
+        if (search_radius > amrex::Real(0)) {
+            const auto* dx_lev = this->Geom(lev).CellSize();
+            amrex::Real dx_min = dx_lev[0];
+            for (int d = 1; d < AMREX_SPACEDIM; ++d) {
+                dx_min = std::min(dx_min, dx_lev[d]);
+            }
+            int required = static_cast<int>(std::ceil(search_radius / dx_min));
+            if (mask_ptr[lev]->nGrow(0) < required) { return false; }
+        }
+    }
+    return true;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::BuildMasks (amrex::Real search_radius) {
+
+    BL_PROFILE("NeighborParticleContainer::BuildMasks");
+
+    if (this->numLevels() == 1) { use_mask = true; }
+    else                        { use_mask = false; }
+
+    resizeContainers(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        BoxArray ba = this->ParticleBoxArray(lev);
+        const DistributionMapping& dmap = this->ParticleDistributionMap(lev);
+
+        const Geometry& geom = this->Geom(lev);
+
+        // Mask grow: cell-based (m_num_neighbor_cells) by default. When a
+        // physical search radius is set, expand to ceil(radius / min(dx_lev))
+        // so the mask covers the requested radius along every axis (it uses a
+        // single scalar grow, so we size it by the smallest dx_lev).
+        int mask_ncells = m_num_neighbor_cells;
+        if (search_radius > amrex::Real(0)) {
+            const auto* dx_lev = geom.CellSize();
+            amrex::Real dx_min = dx_lev[0];
+            for (int d = 1; d < AMREX_SPACEDIM; ++d) {
+                dx_min = std::min(dx_min, dx_lev[d]);
+            }
+            mask_ncells = std::max(mask_ncells,
+                                   static_cast<int>(std::ceil(search_radius / dx_min)));
+        }
+
+        mask_ptr[lev] = std::make_unique<iMultiFab>(ba, dmap, int(num_mask_comps), mask_ncells);
+        mask_ptr[lev]->setVal(-1, mask_ncells);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+        for (MFIter mfi(*mask_ptr[lev],this->do_tiling ? this->tile_size : IntVect::TheZeroVector());
+             mfi.isValid(); ++mfi) {
+            const Box& box = mfi.tilebox();
+            const int grid_id = mfi.index();
+            const int tile_id = mfi.LocalTileIndex();
+            (*mask_ptr[lev])[mfi].template setVal<RunOn::Host>(grid_id, box, MaskComps::grid,  1);
+            (*mask_ptr[lev])[mfi].template setVal<RunOn::Host>(tile_id, box, MaskComps::tile,  1);
+            (*mask_ptr[lev])[mfi].template setVal<RunOn::Host>(lev    , box, MaskComps::level, 1);
+        }
+
+        mask_ptr[lev]->FillBoundary(geom.periodicity());
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::GetNeighborCommTags (amrex::Real search_radius)
+{
+    BL_PROFILE("NeighborParticleContainer::GetNeighborCommTags");
+
+    local_neighbors.clear();
+    neighbor_procs.clear();
+
+    if (use_mask)
+    {
+        AMREX_ASSERT(this->finestLevel() == 0);
+        const int lev = 0;
+        for (MFIter mfi(*mask_ptr[lev],this->do_tiling ? this->tile_size : IntVect::TheZeroVector());
+             mfi.isValid(); ++mfi) {
+            const Box& box = mfi.growntilebox();
+            for (IntVect iv = box.smallEnd(); iv <= box.bigEnd(); box.next(iv)) {
+                const int grid = (*mask_ptr[lev])[mfi](iv, MaskComps::grid);
+                if (grid >= 0) {
+                    const int tile = (*mask_ptr[lev])[mfi](iv, MaskComps::tile);
+                    const int level = (*mask_ptr[lev])[mfi](iv, MaskComps::level);
+                    const int global_proc = this->ParticleDistributionMap(level)[grid];
+                    const int proc = ParallelContext::global_to_local_rank(global_proc);
+                    NeighborCommTag comm_tag(proc, level, grid, tile);
+                    local_neighbors.push_back(comm_tag);
+                    if (proc != ParallelContext::MyProcSub()) {
+                        neighbor_procs.push_back(proc);
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int lev = 0; lev < this->numLevels(); ++lev)
+        {
+            for (MFIter mfi(*mask_ptr[lev],this->do_tiling ? this->tile_size : IntVect::TheZeroVector());
+                 mfi.isValid(); ++mfi) {
+                const Box& box = mfi.validbox();
+                Vector<NeighborCommTag> comm_tags;
+                GetCommTagsBox(comm_tags, lev, box, search_radius);
+                for (auto const& tag : comm_tags) {
+                    local_neighbors.push_back(tag);
+                    if (tag.proc_id != ParallelContext::MyProcSub()) {
+                        neighbor_procs.push_back(tag.proc_id);
+                    }
+                }
+            }
+        }
+    }
+
+    RemoveDuplicates(local_neighbors);
+    RemoveDuplicates(neighbor_procs);
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+IntVect
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::computeRefFac (int src_lev, int lev)
+{
+    IntVect ref_fac(1);
+    if (src_lev < lev) {
+        for (int l = src_lev; l < lev; ++l) {
+            ref_fac *= this->GetParGDB()->refRatio(l);
+        }
+    } else if (src_lev > lev) {
+        for (int l = src_lev; l > lev; --l) {
+            ref_fac *= this->GetParGDB()->refRatio(l-1);
+        }
+        ref_fac *= -1;
+    }
+    return ref_fac;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::GetCommTagsBox (Vector<NeighborCommTag>& tags, int src_lev, const Box& in_box,
+                  amrex::Real search_radius)
+{
+    std::vector< std::pair<int, Box> > isects;
+    Box tbx;
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        Box box = in_box;
+        const IntVect& ref_fac = computeRefFac(src_lev, lev);
+        if (ref_fac < IntVect::TheZeroVector())
+        {
+            box.coarsen(-1*ref_fac);
+        }
+        else if (ref_fac > IntVect::TheZeroVector())
+        {
+            box.refine(ref_fac);
+        }
+        if (search_radius > amrex::Real(0)) {
+            const auto* dx_lev = this->Geom(lev).CellSize();
+            IntVect grow_cells;
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                grow_cells[d] = std::max(1, static_cast<int>(
+                    std::ceil(search_radius / dx_lev[d])));
+            }
+            box.grow(grow_cells);
+        } else {
+            box.grow(computeRefFac(0, lev)*m_num_neighbor_cells);
+        }
+        const Periodicity& periodicity = this->Geom(lev).periodicity();
+        const std::vector<IntVect>& pshifts = periodicity.shiftIntVect();
+        const BoxArray& ba = this->ParticleBoxArray(lev);
+
+        for (auto const& pshift : pshifts)
+        {
+            const Box& pbox = box + pshift;
+            bool first_only = false;
+            ba.intersections(pbox, isects, first_only, 0);
+            for (const auto& isec : isects) {
+                const int grid = isec.first;
+                const int global_proc = this->ParticleDistributionMap(lev)[grid];
+                const int proc = ParallelContext::global_to_local_rank(global_proc);
+                for (IntVect iv = pbox.smallEnd(); iv <= pbox.bigEnd(); pbox.next(iv))
+                {
+                    if (ba[grid].contains(iv))
+                    {
+                        int tile = getTileIndex(iv, ba[grid],
+                                                this->do_tiling, this->tile_size, tbx);
+                        tags.push_back(NeighborCommTag(proc, lev, grid, tile));
+                    }
+                }
+            }
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::cacheNeighborInfo (amrex::Real search_radius) {
+
+    BL_PROFILE("NeighborParticleContainer::cacheNeighborInfo");
+
+    AMREX_ASSERT(this->OK());
+
+    resizeContainers(this->numLevels());
+
+    clearNeighbors();
+
+    AMREX_ASSERT(hasNeighbors() == false);
+
+    const int MyProc = ParallelContext::MyProcSub();
+
+    amrex::Vector<std::map<PairIndex,       Vector<NeighborIndexMap> > > local_map;
+    std::map<NeighborCommTag, Vector<NeighborIndexMap> > remote_map;
+
+    // tmp data structures used for OMP reduction
+    amrex::Vector<std::map<PairIndex,       Vector<Vector<NeighborIndexMap> > > > tmp_local_map;
+    std::map<NeighborCommTag, Vector<Vector<NeighborIndexMap> > > tmp_remote_map;
+
+    local_map.resize(this->numLevels());
+    tmp_local_map.resize(this->numLevels());
+
+    int num_threads = OpenMP::get_max_threads();
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        // resize our temporaries in serial
+        for (int i = 0; i < std::ssize(local_neighbors); ++i) {
+            const NeighborCommTag& comm_tag = local_neighbors[i];
+            tmp_remote_map[comm_tag].resize(num_threads);
+            remote_map[comm_tag];
+            PairIndex index(comm_tag.grid_id, comm_tag.tile_id);
+            tmp_local_map[lev][index].resize(num_threads);
+            local_map[lev][index];
+            buffer_tag_cache[lev][index].resize(num_threads);
+        }
+    }
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        // First pass - each thread collects the NeighborIndexMaps it owes to other
+        // grids / tiles / procs
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+        {
+            Vector<NeighborCopyTag> tags;
+            tags.reserve(AMREX_D_TERM(3, *3, *3));
+            for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+                int thread_num = OpenMP::get_thread_num();
+                const int& grid = pti.index();
+                const int& tile = pti.LocalTileIndex();
+                PairIndex src_index(grid, tile);
+
+                NeighborCopyTag src_tag(lev, grid, tile);
+
+                auto& cache = buffer_tag_cache[lev][src_index][thread_num];
+
+                auto const ptd = pti.GetParticleTile().getConstParticleTileData();
+                for (int i = 0; i < pti.numParticles(); ++i) {
+                    getNeighborTags(tags, ptd[i], m_num_neighbor_cells, src_tag, pti, search_radius);
+
+                    // Add neighbors to buffers
+                    for (int j = 0; j < std::ssize(tags); ++j) {
+                        NeighborCopyTag& tag = tags[j];
+                        PairIndex dst_index(tag.grid, tag.tile);
+                        if (tag.grid < 0) { continue; }
+
+                        tag.src_index = i;
+                        const int cache_index = cache.size();
+                        cache.push_back(tag);
+
+                        const int global_who = this->ParticleDistributionMap(tag.level)[tag.grid];
+                        const int who = ParallelContext::global_to_local_rank(global_who);
+                        NeighborIndexMap nim(tag.level, dst_index.first, dst_index.second, -1,
+                                             lev, src_index.first, src_index.second,
+                                             cache_index, thread_num);
+                        if (who == MyProc) {
+                            auto& tmp = tmp_local_map[tag.level][dst_index];
+                            Vector<NeighborIndexMap>& buffer = tmp[thread_num];
+                            buffer.push_back(nim);
+                        } else {
+                            NeighborCommTag comm_tag(who, tag.level, tag.grid, tag.tile);
+                            Vector<NeighborIndexMap>& buffer = tmp_remote_map[comm_tag][thread_num];
+                            buffer.push_back(nim);
+                        }
+                    }
+                    tags.clear();
+                }
+            }
+        }
+    }
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        // second pass - for each tile, collect the neighbors owed from all threads
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#endif
+        for (MFIter mfi = this->MakeMFIter(lev); mfi.isValid(); ++mfi) {
+            const int grid = mfi.index();
+            const int tile = mfi.LocalTileIndex();
+            PairIndex index(grid, tile);
+            for (int i = 0; i < num_threads; ++i) {
+                local_map[lev][index].insert(local_map[lev][index].end(),
+                                             tmp_local_map[lev][index][i].begin(),
+                                             tmp_local_map[lev][index][i].end());
+                tmp_local_map[lev][index][i].erase(tmp_local_map[lev][index][i].begin(),
+                                                   tmp_local_map[lev][index][i].end());
+            }
+        }
+    }
+
+    // do the same for the remote neighbors
+    typename std::map<NeighborCommTag, Vector<Vector<NeighborIndexMap> > >::iterator it;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+#pragma omp single nowait
+#endif
+    for (it=tmp_remote_map.begin(); it != tmp_remote_map.end(); it++) {
+#ifdef AMREX_USE_OMP
+#pragma omp task firstprivate(it)
+#endif
+        {
+            const NeighborCommTag& tag = it->first;
+            Vector<Vector<NeighborIndexMap> >& tmp = it->second;
+            for (int i = 0; i < num_threads; ++i) {
+                remote_map[tag].insert(remote_map[tag].end(), tmp[i].begin(), tmp[i].end());
+                tmp[i].erase(tmp[i].begin(), tmp[i].end());
+            }
+        }
+    }
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        // now for the local neighbors, allocate buffers and cache
+        for (MFIter mfi = this->MakeMFIter(lev); mfi.isValid(); ++mfi) {
+            const int grid = mfi.index();
+            const int tile = mfi.LocalTileIndex();
+            PairIndex dst_index(grid, tile);
+            const Vector<NeighborIndexMap>& map = local_map[lev][dst_index];
+            const int num_ghosts = map.size();
+            neighbors[lev][dst_index].define(this->NumRuntimeRealComps(),
+                                             this->NumRuntimeIntComps(),
+                                             nullptr, nullptr, this->arena());
+            neighbors[lev][dst_index].resize(num_ghosts);
+            local_neighbor_sizes[lev][dst_index] = neighbors[lev][dst_index].size();
+        }
+    }
+
+    for (int lev = 0; lev < this->numLevels(); ++lev) {
+        for (MFIter mfi = this->MakeMFIter(lev); mfi.isValid(); ++mfi) {
+            const int grid = mfi.index();
+            const int tile = mfi.LocalTileIndex();
+            PairIndex dst_index(grid, tile);
+            const Vector<NeighborIndexMap>& map = local_map[lev][dst_index];
+            const int num_ghosts = map.size();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel for
+#endif
+            for (int i = 0; i < num_ghosts; ++i) {
+                const NeighborIndexMap& nim = map[i];
+                PairIndex src_index(nim.src_grid, nim.src_tile);
+                Vector<NeighborCopyTag>& tags = buffer_tag_cache[nim.src_level][src_index][nim.thread_num];
+                AMREX_ASSERT(nim.src_index < tags.size());
+                tags[nim.src_index].dst_index = i;
+                AMREX_ASSERT(size_t(tags[nim.src_index].dst_index) < neighbors[nim.dst_level][dst_index].size());
+            }
+        }
+    }
+
+    // now we allocate the send buffers and cache the remotes
+    std::map<int, int> tile_counts;
+    for (const auto& kv: remote_map) {
+        tile_counts[kv.first.proc_id] += 1;
+    }
+
+    for (const auto& kv: remote_map) {
+        if (kv.first.proc_id == MyProc) { continue; }
+        Vector<char>& buffer = send_data[kv.first.proc_id];
+        buffer.resize(sizeof(int));
+        std::memcpy(buffer.data(), &tile_counts[kv.first.proc_id], sizeof(int));
+    }
+
+    for (auto& kv : remote_map) {
+        if (kv.first.proc_id == MyProc) { continue; }
+        int np = kv.second.size();
+        int data_size = np * cdata_size;
+        Vector<char>& buffer = send_data[kv.first.proc_id];
+        size_t old_size = buffer.size();
+        size_t new_size = buffer.size() + 4*sizeof(int) + data_size;
+        buffer.resize(new_size);
+        char* dst = &buffer[old_size];
+        std::memcpy(dst, &(kv.first.level_id), sizeof(int)); dst += sizeof(int);
+        std::memcpy(dst, &(kv.first.grid_id ), sizeof(int)); dst += sizeof(int);
+        std::memcpy(dst, &(kv.first.tile_id ), sizeof(int)); dst += sizeof(int);
+        std::memcpy(dst, &data_size,           sizeof(int)); dst += sizeof(int);
+        size_t buffer_offset = old_size + 4*sizeof(int);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel for
+#endif
+        for (int i = 0; i < np; ++i) {
+            const NeighborIndexMap& nim = kv.second[i];
+            PairIndex src_index(nim.src_grid, nim.src_tile);
+            Vector<NeighborCopyTag>& tags = buffer_tag_cache[nim.src_level][src_index][nim.thread_num];
+            tags[nim.src_index].dst_index = buffer_offset + i*cdata_size;
+        }
+    }
+
+    if ( enableInverse() )
+    {
+        for (int lev = 0; lev < this->numLevels(); ++lev)
+        {
+            for (const auto& kv : neighbors[lev])
+            {
+                inverse_tags[lev][kv.first].resize(kv.second.size());
+            }
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <typename P>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+getNeighborTags (Vector<NeighborCopyTag>& tags, const P& p,
+                 int nGrow, const NeighborCopyTag& src_tag, const MyParIter& pti,
+                 amrex::Real search_radius)
+{
+    getNeighborTags(tags, p, IntVect(AMREX_D_DECL(nGrow, nGrow, nGrow)), src_tag, pti, search_radius);
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <typename P>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+getNeighborTags (Vector<NeighborCopyTag>& tags, const P& p,
+                 const IntVect& nGrow, const NeighborCopyTag& src_tag, const MyParIter& pti,
+                 amrex::Real search_radius)
+{
+    Box shrink_box = pti.tilebox();
+    shrink_box.grow(-nGrow);
+
+    // Position-based early exit: when search_radius is set, skip particles
+    // that are farther than search_radius from all tile faces.
+    if (search_radius > amrex::Real(0)) {
+        const Box& tile_box = pti.tilebox();
+        const int src_lev = src_tag.level;
+        const auto* dx  = this->Geom(src_lev).CellSize();
+        const auto* plo = this->Geom(src_lev).ProbLo();
+        bool is_interior = true;
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            amrex::Real face_lo = plo[d] + Real(tile_box.smallEnd(d)) * dx[d];
+            amrex::Real face_hi = plo[d] + Real(tile_box.bigEnd(d) + 1) * dx[d];
+            if ((p.pos(d) - face_lo) < search_radius ||
+                (face_hi - p.pos(d)) < search_radius) {
+                is_interior = false;
+                break;
+            }
+        }
+        if (is_interior) { return; }
+    }
+
+    if (use_mask) {
+        const BaseFab<int>& mask = (*mask_ptr[src_tag.level])[src_tag.grid];
+        AMREX_ASSERT(this->finestLevel() == 0);
+        AMREX_ASSERT(src_tag.level == 0);
+
+        const int lev = 0;
+        const IntVect& iv = this->Index(p, lev);
+        if (shrink_box.contains(iv)) { return; }
+
+        const Periodicity& periodicity = this->Geom(lev).periodicity();
+        const Box& domain = this->Geom(lev).Domain();
+        const IntVect& lo = domain.smallEnd();
+        const IntVect& hi = domain.bigEnd();
+
+        // Figure out all our neighbors, removing duplicates
+        AMREX_D_TERM(
+                 for (int ii = -nGrow[0]; ii < nGrow[0] + 1; ii += nGrow[0]) {,
+                     for (int jj = -nGrow[1]; jj < nGrow[1] + 1; jj += nGrow[1]) {,
+                         for (int kk = -nGrow[2]; kk < nGrow[2] + 1; kk += nGrow[2]) {)
+                             if (AMREX_D_TERM((ii == 0), && (jj == 0), && (kk == 0))) { continue; }
+                             IntVect shift(AMREX_D_DECL(ii, jj, kk));
+                             IntVect neighbor_cell = iv + shift;
+
+                             NeighborCopyTag tag;
+                             tag.grid  = mask(neighbor_cell, MaskComps::grid);
+                             tag.tile  = mask(neighbor_cell, MaskComps::tile);
+                             tag.level = mask(neighbor_cell, MaskComps::level);
+                             if (periodicity.isAnyPeriodic()) {
+                                 for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+                                     if (! periodicity.isPeriodic(dir)) { continue; }
+                                     if (neighbor_cell[dir] < lo[dir]) {
+                                         tag.periodic_shift[dir] = -1;
+                                     } else if (neighbor_cell[dir] > hi[dir]) {
+                                         tag.periodic_shift[dir] =  1;
+                                     }
+                                 }
+                             }
+
+                             if (tag != src_tag) { tags.push_back(tag); }
+
+                             AMREX_D_TERM(
+                                          },
+                                 },
+                         })
+
+        RemoveDuplicates(tags);
+        return;
+    }
+    else
+    {
+        std::vector< std::pair<int, Box> > isects;
+        Box tbx;
+        for (int lev = 0; lev < this->numLevels(); ++lev)
+        {
+            IntVect ref_fac = computeRefFac(0, lev);
+            const Periodicity& periodicity = this->Geom(lev).periodicity();
+            const std::vector<IntVect>& pshifts = periodicity.shiftIntVect();
+            const BoxArray& ba = this->ParticleBoxArray(lev);
+            const IntVect& iv = this->Index(p, lev);
+            for (auto const& pshift : pshifts)
+            {
+                Box pbox;
+                if (search_radius > amrex::Real(0)) {
+                    const auto* dx_lev = this->Geom(lev).CellSize();
+                    IntVect grow_cells;
+                    for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                        grow_cells[d] = std::max(1, static_cast<int>(
+                            std::ceil(search_radius / dx_lev[d])));
+                    }
+                    pbox = amrex::grow(Box(iv, iv), grow_cells) + pshift;
+                } else {
+                    pbox = amrex::grow(Box(iv, iv), ref_fac*nGrow) + pshift;
+                }
+                bool first_only = false;
+                ba.intersections(pbox, isects, first_only, 0);
+                for (const auto& isec : isects)
+                {
+                    const Box& grid_box = ba[isec.first];
+                    for (IntVect cell = pbox.smallEnd(); cell <= pbox.bigEnd(); pbox.next(cell)) {
+                        if ( !grid_box.contains(cell) ) { continue; }
+                        int tile = getTileIndex(cell, grid_box,
+                                                this->do_tiling, this->tile_size, tbx);
+                        auto nbor = NeighborCopyTag(lev, isec.first, tile);
+                        nbor.periodic_shift = -pshift;
+                        if (src_tag != nbor) { tags.push_back(nbor); }
+                    }
+                }
+            }
+        }
+
+        RemoveDuplicates(tags);
+        return;
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::fillNeighbors () {
+#ifdef AMREX_USE_GPU
+    fillNeighborsGPU();
+#else
+    fillNeighborsCPU();
+#endif
+    m_has_neighbors = true;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::fillNeighbors (amrex::Real search_radius) {
+    // CPU-only path: GPU build of the radius-based neighbor search is not
+    // yet implemented.
+#ifdef AMREX_USE_GPU
+    amrex::ignore_unused(search_radius);
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(false,
+        "fillNeighbors(search_radius) is not implemented for GPU builds.");
+#else
+    fillNeighborsCPU(search_radius);
+#endif
+    m_has_neighbors = true;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::sumNeighbors (int real_start_comp, int real_num_comp,
+                int int_start_comp,  int int_num_comp) {
+#ifdef AMREX_USE_GPU
+    amrex::ignore_unused(real_start_comp,real_num_comp,int_start_comp,int_num_comp);
+    amrex::Abort("NeighborParticleContainer::sumNeighbors is not implemented for GPU builds");
+#else
+    sumNeighborsCPU(real_start_comp, real_num_comp, int_start_comp, int_num_comp);
+#endif
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::updateNeighbors (bool boundary_neighbors_only)
+{
+
+  AMREX_ASSERT(hasNeighbors());
+
+#ifdef AMREX_USE_GPU
+    updateNeighborsGPU(boundary_neighbors_only);
+#else
+    amrex::ignore_unused(boundary_neighbors_only);
+    updateNeighborsCPU(true);
+#endif
+    m_has_neighbors = true;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>
+::clearNeighbors ()
+{
+#ifdef AMREX_USE_GPU
+    clearNeighborsGPU();
+#else
+    clearNeighborsCPU();
+#endif
+    m_has_neighbors = false;
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+buildNeighborList (CheckPair const& check_pair, bool /*sort*/)
+{
+    AMREX_ASSERT(numParticlesOutOfRange(*this, m_num_neighbor_cells) == 0);
+
+    BL_PROFILE("NeighborParticleContainer::buildNeighborList");
+
+    resizeContainers(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        m_neighbor_list[lev].clear();
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            m_neighbor_list[lev][index];
+        }
+
+#ifndef AMREX_USE_GPU
+        neighbor_list[lev].clear();
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            neighbor_list[lev][index];
+        }
+#endif
+
+              auto& plev = this->GetParticles(lev);
+        const auto& geom = this->Geom(lev);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti)
+        {
+            int gid = pti.index();
+            int tid = pti.LocalTileIndex();
+            auto index = std::make_pair(gid, tid);
+
+            auto& ptile = plev[index];
+
+            if (ptile.numParticles() == 0) { continue; }
+
+            Box bx = pti.tilebox();
+            int ng = computeRefFac(0, lev).max()*m_num_neighbor_cells;
+            bx.grow(ng);
+
+            Gpu::DeviceVector<int> off_bins_v;
+            Gpu::DeviceVector<Dim3>      lo_v;
+            Gpu::DeviceVector<Dim3>      hi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> dxi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> plo_v;
+
+            off_bins_v.push_back(0);
+            off_bins_v.push_back(int(bx.numPts()));
+            lo_v.push_back(lbound(bx));
+            hi_v.push_back(ubound(bx));
+            dxi_v.push_back(geom.InvCellSizeArray());
+            plo_v.push_back(geom.ProbLoArray());
+
+            m_neighbor_list[lev][index].build(ptile,
+                                              check_pair,
+                                              off_bins_v, dxi_v, plo_v, lo_v, hi_v, ng);
+
+#ifndef AMREX_USE_GPU
+            const auto& counts = m_neighbor_list[lev][index].GetCounts();
+            const auto& list   = m_neighbor_list[lev][index].GetList();
+
+            int li = 0;
+            for (int i = 0; i < ptile.numParticles(); ++i)
+            {
+                auto cnt = counts[i];
+                neighbor_list[lev][index].push_back(cnt);
+                for (size_t j = 0; j < cnt; ++j)
+                {
+                    neighbor_list[lev][index].push_back(list[li++]+1);
+                }
+            }
+#endif
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+buildNeighborList (CheckPair const& check_pair, amrex::Real bin_size, bool /*sort*/)
+{
+    AMREX_ASSERT(numParticlesOutOfRange(*this, m_num_neighbor_cells) == 0);
+
+    BL_PROFILE("NeighborParticleContainer::buildNeighborList(bin_size)");
+
+    resizeContainers(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        m_neighbor_list[lev].clear();
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            m_neighbor_list[lev][index];
+        }
+
+#ifndef AMREX_USE_GPU
+        neighbor_list[lev].clear();
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            neighbor_list[lev][index];
+        }
+#endif
+
+        auto& plev = this->GetParticles(lev);
+        const auto& geom = this->Geom(lev);
+        const auto* dx_arr  = geom.CellSize();
+        const auto* plo_arr = geom.ProbLo();
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti)
+        {
+            int gid = pti.index();
+            int tid = pti.LocalTileIndex();
+            auto index = std::make_pair(gid, tid);
+
+            auto& ptile = plev[index];
+
+            if (ptile.numParticles() == 0) { continue; }
+
+            Box tile_box = pti.tilebox();
+            int ng = computeRefFac(0, lev).max() * m_num_neighbor_cells;
+
+            // Build fine bins at bin_size resolution, independent of mesh dx.
+            // The tile box (grown by ng cells) gives the physical extent the
+            // bins must cover; nbins is then ceil(extent / bin_size) per axis.
+            int nbins[AMREX_SPACEDIM];
+            amrex::Real phys_lo[AMREX_SPACEDIM], phys_hi[AMREX_SPACEDIM];
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                phys_lo[d] = plo_arr[d] + (tile_box.smallEnd(d) - ng) * dx_arr[d];
+                phys_hi[d] = plo_arr[d] + (tile_box.bigEnd(d) + 1 + ng) * dx_arr[d];
+                nbins[d] = std::max(1, static_cast<int>(
+                    std::ceil(static_cast<amrex::Real>(phys_hi[d] - phys_lo[d]) / bin_size)));
+            }
+
+            GpuArray<Real, AMREX_SPACEDIM> fine_dxi;
+            GpuArray<Real, AMREX_SPACEDIM> fine_plo;
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                fine_dxi[d] = static_cast<Real>(nbins[d]) / (phys_hi[d] - phys_lo[d]);
+                fine_plo[d] = phys_lo[d];
+            }
+
+            Dim3 fine_lo{.x=0, .y=0, .z=0};
+            Dim3 fine_hi{.x=nbins[0]-1,
+                         .y=AMREX_D_PICK(0, nbins[1]-1, nbins[1]-1),
+                         .z=AMREX_D_PICK(0, 0, nbins[2]-1)};
+
+            Gpu::DeviceVector<int> off_bins_v;
+            Gpu::DeviceVector<Dim3>      lo_v;
+            Gpu::DeviceVector<Dim3>      hi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> dxi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> plo_v;
+
+            off_bins_v.push_back(0);
+            off_bins_v.push_back(AMREX_D_TERM(nbins[0], * nbins[1], * nbins[2]));
+            lo_v.push_back(fine_lo);
+            hi_v.push_back(fine_hi);
+            dxi_v.push_back(fine_dxi);
+            plo_v.push_back(fine_plo);
+
+            // num_cells=1: search +/-1 bin in each direction. Caller must
+            // choose bin_size >= interaction radius for completeness.
+            m_neighbor_list[lev][index].build(ptile,
+                                              check_pair,
+                                              off_bins_v, dxi_v, plo_v, lo_v, hi_v, 1);
+
+#ifndef AMREX_USE_GPU
+            const auto& counts = m_neighbor_list[lev][index].GetCounts();
+            const auto& list   = m_neighbor_list[lev][index].GetList();
+
+            int li = 0;
+            for (int i = 0; i < ptile.numParticles(); ++i)
+            {
+                auto cnt = counts[i];
+                neighbor_list[lev][index].push_back(cnt);
+                for (size_t j = 0; j < cnt; ++j)
+                {
+                    neighbor_list[lev][index].push_back(list[li++]+1);
+                }
+            }
+#endif
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair, class OtherPCType>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+buildNeighborList (CheckPair const& check_pair, OtherPCType& other,
+                   Vector<std::map<std::pair<int, int>,
+                       amrex::NeighborList<typename OtherPCType::ParticleType> > >& neighbor_lists,
+                   bool /*sort*/)
+{
+    BL_PROFILE("NeighborParticleContainer::buildNeighborList");
+
+    AMREX_ASSERT(numParticlesOutOfRange(*this, m_num_neighbor_cells) == 0);
+    AMREX_ASSERT(numParticlesOutOfRange(other, m_num_neighbor_cells) == 0);
+    AMREX_ASSERT(SameIteratorsOK(*this, other));
+
+    EnsureThreadSafeTiles(*this);
+    EnsureThreadSafeTiles(other);
+
+    resizeContainers(this->numLevels());
+    neighbor_lists.resize(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        neighbor_lists[lev].clear();
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            neighbor_lists[lev][index];
+        }
+
+              auto& plev = this->GetParticles(lev);
+        const auto& geom = this->Geom(lev);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti)
+        {
+            int gid = pti.index();
+            int tid = pti.LocalTileIndex();
+            auto index = std::make_pair(gid, tid);
+
+            const auto& ptile = plev[index];
+            auto& other_ptile = other.ParticlesAt(lev, pti);
+            if (ptile.numParticles() == 0) { continue; }
+
+            Box bx = pti.tilebox();
+            int ng = computeRefFac(0, lev).max()*m_num_neighbor_cells;
+            bx.grow(ng);
+
+            Gpu::DeviceVector<int> off_bins_v;
+            Gpu::DeviceVector<Dim3>      lo_v;
+            Gpu::DeviceVector<Dim3>      hi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> dxi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> plo_v;
+
+            off_bins_v.push_back(0);
+            off_bins_v.push_back(int(bx.numPts()));
+            lo_v.push_back(lbound(bx));
+            hi_v.push_back(ubound(bx));
+            dxi_v.push_back(geom.InvCellSizeArray());
+            plo_v.push_back(geom.ProbLoArray());
+
+            neighbor_lists[lev][index].build(ptile, other_ptile,
+                                             check_pair,
+                                             off_bins_v, dxi_v, plo_v, lo_v, hi_v, ng);
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair, class OtherPCType>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+buildNeighborList (CheckPair const& check_pair, OtherPCType& other,
+                   Vector<std::map<std::pair<int, int>,
+                       amrex::NeighborList<typename OtherPCType::ParticleType> > >& neighbor_lists,
+                   amrex::Real bin_size, bool /*sort*/)
+{
+    BL_PROFILE("NeighborParticleContainer::buildNeighborList(bin_size,other)");
+
+    AMREX_ASSERT(numParticlesOutOfRange(*this, m_num_neighbor_cells) == 0);
+    AMREX_ASSERT(numParticlesOutOfRange(other, m_num_neighbor_cells) == 0);
+    AMREX_ASSERT(SameIteratorsOK(*this, other));
+
+    EnsureThreadSafeTiles(*this);
+    EnsureThreadSafeTiles(other);
+
+    resizeContainers(this->numLevels());
+    neighbor_lists.resize(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        neighbor_lists[lev].clear();
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            neighbor_lists[lev][index];
+        }
+
+        auto& plev = this->GetParticles(lev);
+        const auto& geom = this->Geom(lev);
+        const auto* dx_arr  = geom.CellSize();
+        const auto* plo_arr = geom.ProbLo();
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti)
+        {
+            int gid = pti.index();
+            int tid = pti.LocalTileIndex();
+            auto index = std::make_pair(gid, tid);
+
+            const auto& ptile = plev[index];
+            auto& other_ptile = other.ParticlesAt(lev, pti);
+            if (ptile.numParticles() == 0) { continue; }
+
+            Box tile_box = pti.tilebox();
+            int ng = computeRefFac(0, lev).max() * m_num_neighbor_cells;
+
+            // Build fine bins at bin_size resolution, independent of mesh dx.
+            int nbins[AMREX_SPACEDIM];
+            amrex::Real phys_lo[AMREX_SPACEDIM], phys_hi[AMREX_SPACEDIM];
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                phys_lo[d] = plo_arr[d] + (tile_box.smallEnd(d) - ng) * dx_arr[d];
+                phys_hi[d] = plo_arr[d] + (tile_box.bigEnd(d) + 1 + ng) * dx_arr[d];
+                nbins[d] = std::max(1, static_cast<int>(
+                    std::ceil(static_cast<amrex::Real>(phys_hi[d] - phys_lo[d]) / bin_size)));
+            }
+
+            GpuArray<Real, AMREX_SPACEDIM> fine_dxi;
+            GpuArray<Real, AMREX_SPACEDIM> fine_plo;
+            for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+                fine_dxi[d] = static_cast<Real>(nbins[d]) / (phys_hi[d] - phys_lo[d]);
+                fine_plo[d] = phys_lo[d];
+            }
+
+            Dim3 fine_lo{.x=0, .y=0, .z=0};
+            Dim3 fine_hi{.x=nbins[0]-1,
+                         .y=AMREX_D_PICK(0, nbins[1]-1, nbins[1]-1),
+                         .z=AMREX_D_PICK(0, 0, nbins[2]-1)};
+
+            Gpu::DeviceVector<int> off_bins_v;
+            Gpu::DeviceVector<Dim3>      lo_v;
+            Gpu::DeviceVector<Dim3>      hi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> dxi_v;
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> plo_v;
+
+            off_bins_v.push_back(0);
+            off_bins_v.push_back(AMREX_D_TERM(nbins[0], * nbins[1], * nbins[2]));
+            lo_v.push_back(fine_lo);
+            hi_v.push_back(fine_hi);
+            dxi_v.push_back(fine_dxi);
+            plo_v.push_back(fine_plo);
+
+            // num_cells=1: +/-1 bin in each direction. Caller must choose
+            // bin_size >= interaction radius for completeness.
+            neighbor_lists[lev][index].build(ptile, other_ptile,
+                                             check_pair,
+                                             off_bins_v, dxi_v, plo_v, lo_v, hi_v, 1);
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+buildNeighborList (CheckPair const& check_pair, int type_ind, int* ref_ratio,
+                   int num_bin_types, bool /*sort*/)
+{
+    AMREX_ASSERT(numParticlesOutOfRange(*this, m_num_neighbor_cells) == 0);
+
+    if (num_bin_types == 1) { AMREX_ASSERT(ref_ratio[0] == 1); }
+
+    BL_PROFILE("NeighborParticleContainer::buildNeighborList");
+
+    resizeContainers(this->numLevels());
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        m_neighbor_list[lev].clear();
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            m_neighbor_list[lev][index];
+        }
+
+#ifndef AMREX_USE_GPU
+        neighbor_list[lev].clear();
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+            neighbor_list[lev][index];
+        }
+#endif
+
+              auto& plev = this->GetParticles(lev);
+        const auto& geom = this->Geom(lev);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti)
+        {
+            int gid = pti.index();
+            int tid = pti.LocalTileIndex();
+            auto index  = std::make_pair(gid, tid);
+            auto& ptile = plev[index];
+
+            if (ptile.numParticles() == 0) { continue; }
+
+            Box bx = pti.tilebox();
+            int ng = 1;
+
+            auto& soa     = pti.GetStructOfArrays();
+            auto  TypeVec = soa.GetIntData(type_ind);
+            int*  bin_type_array = TypeVec.data();
+
+            Gpu::DeviceVector<int> off_bins_v(num_bin_types+1,0);
+            Gpu::DeviceVector<int>    nbins_v(num_bin_types+1,0);
+            Gpu::DeviceVector<Dim3>      lo_v(num_bin_types);
+            Gpu::DeviceVector<Dim3>      hi_v(num_bin_types);
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> dxi_v(num_bin_types);
+            Gpu::DeviceVector<GpuArray<Real,AMREX_SPACEDIM>> plo_v(num_bin_types);
+
+            for (int type(0); type<num_bin_types; ++type) {
+                // Domain, RB, Coord, Per
+                Box dom = geom.Domain();
+                const Real* plo = geom.ProbLo();
+                const Real* phi = geom.ProbHi();
+                auto lcoord = geom.Coord();
+                Array<int,AMREX_SPACEDIM> lper = geom.isPeriodic();
+
+                // Refined tile box and domain
+                Box  lbx(  bx.smallEnd(), bx.bigEnd(), bx.ixType() );
+                Box ldom( dom.smallEnd(),dom.bigEnd(),dom.ixType() );
+                 lbx.refine( ref_ratio[type] );
+                ldom.refine( ref_ratio[type] );
+
+                // Local copy of RB for refined geom
+                RealBox lrb(plo,phi);
+
+                // New geometry with refined domain
+                Geometry lgeom(ldom,lrb,lcoord,lper);
+
+                // Grow for ghost cells
+                int NGhost = ref_ratio[type]*m_num_neighbor_cells;
+                lbx.grow(NGhost);
+
+                // Store for memcpy
+                auto nbins = int(lbx.numPts());
+                Dim3 lo = lbound( lbx );
+                Dim3 hi = ubound( lbx );
+
+                auto dxInv = lgeom.InvCellSizeArray();
+                auto ploa  = lgeom.ProbLoArray();
+
+                Gpu::htod_memcpy_async( dxi_v.data()   + type, dxInv.data(), sizeof(dxInv) );
+                Gpu::htod_memcpy_async( plo_v.data()   + type, ploa.data() , sizeof(ploa) );
+                Gpu::htod_memcpy_async( lo_v.data()    + type, &lo         , sizeof(lo)    );
+                Gpu::htod_memcpy_async( hi_v.data()    + type, &hi         , sizeof(hi)    );
+                Gpu::htod_memcpy_async( nbins_v.data() + type, &nbins      , sizeof(nbins) );
+            }
+
+            Gpu::exclusive_scan(nbins_v.begin(), nbins_v.end(), off_bins_v.begin());
+
+            m_neighbor_list[lev][index].build(ptile,
+                                              check_pair,
+                                              off_bins_v, dxi_v, plo_v, lo_v, hi_v,
+                                              ng, num_bin_types, bin_type_array);
+
+#ifndef AMREX_USE_GPU
+              BL_PROFILE_VAR("CPU_CopyNeighborList()",CPUCNL);
+
+              const auto& counts = m_neighbor_list[lev][index].GetCounts();
+              const auto& list   = m_neighbor_list[lev][index].GetList();
+
+              int li = 0;
+              for (int i = 0; i < ptile.numParticles(); ++i) {
+                  auto cnt = counts[i];
+                  neighbor_list[lev][index].push_back(cnt);
+                  for (size_t j = 0; j < cnt; ++j) {
+                      neighbor_list[lev][index].push_back(list[li++]+1);
+                  }
+              }
+
+              BL_PROFILE_VAR_STOP(CPUCNL);
+#endif
+        } //ParIter
+    } //Lev
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+template <class CheckPair>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+selectActualNeighbors (CheckPair const& check_pair, int num_cells)
+{
+    BL_PROFILE("NeighborParticleContainer::selectActualNeighbors");
+    const auto& geom_fine = this->Geom(0);
+    const auto& ba_fine   = this->ParticleBoxArray(0);
+    if (ba_fine.size() == 1 && !geom_fine.isAnyPeriodic()) {
+        return;
+    }
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        // clear previous neighbor particle ids
+        if (!m_boundary_particle_ids.empty()) {
+          for (auto& keyval: m_boundary_particle_ids[lev]) {
+            keyval.second.clear();
+          }
+        }
+
+        for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+            PairIndex index(pti.index(), pti.LocalTileIndex());
+
+            // id of actual particles that need to be sent
+            m_boundary_particle_ids[lev][index];
+            m_boundary_particle_ids[lev][index].resize(pti.numNeighborParticles());
+            auto* p_boundary_particle_ids = m_boundary_particle_ids[lev][index].dataPtr();
+
+            auto const& ptile = this->ParticlesAt(lev, pti);
+            auto ptile_data = ptile.getConstParticleTileData();
+
+            Box box       = pti.tilebox();
+            Box grownBox  = box;
+            grownBox.grow(computeRefFac(0, lev).max()*m_num_neighbor_cells);
+            const auto lo = lbound(grownBox);
+            const auto hi = ubound(grownBox);
+
+            const auto& geom    = this->Geom(lev);
+            const auto  domain  = geom.Domain();
+            const auto  dxi     = geom.InvCellSizeArray();
+            const auto  plo     = geom.ProbLoArray();
+
+            const size_t  np_real  = pti.numRealParticles();
+            const size_t  np_total = ptile.numTotalParticles();
+
+            DenseBins<decltype(ptile_data)> bins;
+            bins.build(np_total, ptile_data, grownBox,
+                      [=] AMREX_GPU_DEVICE (auto const& p) noexcept -> IntVect
+                      {
+                          AMREX_D_TERM(int i = static_cast<int>(amrex::Math::floor((p.pos(0)-plo[0])*dxi[0]) - lo.x);,
+                                       int j = static_cast<int>(amrex::Math::floor((p.pos(1)-plo[1])*dxi[1]) - lo.y);,
+                                       int k = static_cast<int>(amrex::Math::floor((p.pos(2)-plo[2])*dxi[2]) - lo.z));
+                          AMREX_D_TERM(AMREX_ASSERT(i >= 0);, AMREX_ASSERT(j >= 0);, AMREX_ASSERT(k >= 0));
+
+                          return IntVect(AMREX_D_DECL(i, j, k));
+                        });
+
+            auto pperm   = bins.permutationPtr();
+            auto poffset = bins.offsetsPtr();
+
+            Gpu::Buffer<unsigned int> np_boundary({0});
+            unsigned int* p_np_boundary = np_boundary.data();
+
+            AMREX_FOR_1D ( np_real, i,
+            {
+                IntVect iv = getParticleCell(ptile_data, i, plo, dxi, domain);
+                iv -= grownBox.smallEnd();
+                auto iv3 = iv.dim3();
+
+                int ix = iv3.x;
+                int iy = iv3.y;
+                int iz = iv3.z;
+
+                int nx = hi.x-lo.x+1;
+                int ny = hi.y-lo.y+1;
+                int nz = hi.z-lo.z+1;
+
+                bool isActualNeighbor = false;
+                // These loops mirror the way the neighbor particles were originally constructed, except
+                // it adds a call to check_pair. Thus the maximum number value of "loc" below is the
+                // number of neighbors minus 1, and the buffer pointed to by p_boundary_particle_ids
+                // will not be overwritten.
+                for (int kk = amrex::max(iz-num_cells, 0); kk <= amrex::min(iz+num_cells, nz-1); ++kk) {
+                    for (int jj = amrex::max(iy-num_cells, 0); jj <= amrex::min(iy+num_cells, ny-1); ++jj) {
+                        for (int ii = amrex::max(ix-num_cells, 0); ii <= amrex::min(ix+num_cells, nx-1); ++ii) {
+                            if (isActualNeighbor) { break; }
+                            int nbr_cell_id = (kk * ny + jj) * nx + ii;
+                            for (auto p = poffset[nbr_cell_id]; p < poffset[nbr_cell_id+1]; ++p) {
+                                if (pperm[p] == int(i)) { continue; }
+                                if (detail::call_check_pair(check_pair, ptile_data, ptile_data, i, pperm[p])) {
+                                    IntVect cell_ijk = getParticleCell(ptile_data, pperm[p], plo, dxi, domain);
+                                    if (!box.contains(cell_ijk)) {
+                                        unsigned int loc = Gpu::Atomic::Add(p_np_boundary, 1U);
+                                        p_boundary_particle_ids[loc] = i;
+                                        isActualNeighbor = true;
+                                        break;
+                                    }
+                                }// end if check_pair
+                            }
+                        }
+                    }
+                }
+            });// end amrex_for_1d
+
+            unsigned int* p_np_boundary_h = np_boundary.copyToHost();
+            m_boundary_particle_ids[lev][index].resize(*p_np_boundary_h);
+
+        }// end mypariter
+    }// end lev
+}
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+printNeighborList ()
+{
+    BL_PROFILE("NeighborParticleContainer::printNeighborList");
+
+    for (int lev = 0; lev < this->numLevels(); ++lev)
+    {
+        for(MFIter mfi = this->MakeMFIter(lev); mfi.isValid(); ++mfi)
+        {
+            int gid = mfi.index();
+            int tid = mfi.LocalTileIndex();
+            auto index = std::make_pair(gid, tid);
+            m_neighbor_list[lev][index].print();
+        }
+    }
+}
+
+template <typename T_ParticleType, int NArrayReal, int NArrayInt,
+          template<class> class Allocator, class CellAssignor>
+void
+NeighborParticleContainer_impl<T_ParticleType, NArrayReal, NArrayInt, Allocator, CellAssignor>::
+resizeContainers (int num_levels)
+{
+    this->reserveData();
+    this->resizeData();
+    if ( std::ssize(neighbors) <= num_levels )
+    {
+        neighbors.resize(num_levels);
+        m_neighbor_list.resize(num_levels);
+        neighbor_list.resize(num_levels);
+        mask_ptr.resize(num_levels);
+        buffer_tag_cache.resize(num_levels);
+        local_neighbor_sizes.resize(num_levels);
+        if ( enableInverse() ) { inverse_tags.resize(num_levels); }
+    }
+
+    AMREX_ASSERT((neighbors.size() == m_neighbor_list.size()) &&
+                 (neighbors.size() == mask_ptr.size()     )    );
+}
+
+}

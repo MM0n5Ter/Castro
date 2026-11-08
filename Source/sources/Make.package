@@ -1,5 +1,0 @@
-CEXE_headers += HydroSim_forcing.H
-
-CEXE_sources += source_driver.cpp
-CEXE_sources += pointwise_sources.cpp
-CEXE_sources += curvilinear_source.cpp
