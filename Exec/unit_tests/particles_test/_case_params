@@ -1,3 +1,0 @@
-# name               data type             default                  in namelist?           size
-
-vel_amp              real                  1.0e0_rt                 y

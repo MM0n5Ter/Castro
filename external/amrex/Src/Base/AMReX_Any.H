@@ -1,0 +1,129 @@
+#ifndef AMREX_ANY_H_
+#define AMREX_ANY_H_
+#include <AMReX_Config.H>
+
+/**
+ * \file AMReX_Any.H
+ * \brief Type-erased container that supports move-only types.
+ */
+
+#include <concepts>
+#include <memory>
+#include <typeinfo>
+#include <type_traits>
+
+namespace amrex {
+
+/**
+ * \class amrex::Any
+ * \ingroup amrex_utilities
+ * \brief Type-erased container similar to \c std::any, but supports move-only types.
+ *
+ * Unlike \c std::any, which requires the stored type to be copy-constructible,
+ * \c amrex::Any can store move-only types such as \c amrex::MultiFab.
+ * An object of this class is itself non-copyable.
+ */
+class Any
+{
+public:
+
+    Any () = default;
+    ~Any () = default;
+
+    Any (Any const& rhs) = delete;
+    Any& operator= (Any const& rhs) = delete;
+
+    Any (Any && rhs) = default;
+    Any& operator= (Any && rhs) = default;
+
+    //! Constructs by moving the given object.
+    //! \param mf Value forwarded into the internal storage.
+    template <typename MF>
+    requires (!std::same_as<Any,std::remove_cvref_t<MF>>)
+    Any (MF && mf) // NOLINT(bugprone-forwarding-reference-overload)
+        : m_ptr(std::make_unique<innards<MF> >(std::forward<MF>(mf)))
+        {}
+
+    //! Assigns by moving the given object.
+    //! \param mf Value forwarded into the internal storage.
+    template <typename MF>
+    requires (!std::same_as<Any,std::remove_cvref_t<MF>>)
+    Any& operator= (MF && mf)
+    {
+        m_ptr = std::make_unique<innards<MF> >(std::forward<MF>(mf));
+        return *this;
+    }
+
+    //! Returns the contained type.
+    [[nodiscard]] const std::type_info& Type () const {
+        if (m_ptr) {
+            return m_ptr->Type();
+        } else {
+            return typeid(void);
+        }
+    }
+
+    //! Returns a reference to the contained object.
+    template <typename MF>
+    [[nodiscard]] MF& get () {
+        if (auto p0 = dynamic_cast<innards<MF>*>(m_ptr.get())) {
+            return p0->m_mf;
+        } else {
+            return dynamic_cast<innards<MF&>&>(*m_ptr).m_mf;
+        }
+    }
+
+    //! Returns a const reference to the contained object.
+    template <typename MF>
+    [[nodiscard]] MF const& get () const {
+        if (auto p0 = dynamic_cast<innards<MF>*>(m_ptr.get())) {
+            return p0->m_mf;
+        } else if (auto p1 = dynamic_cast<innards<MF&>*>(m_ptr.get())) {
+            return p1->m_mf;
+        } else {
+            return dynamic_cast<innards<MF const&> const&>(*m_ptr).m_mf;
+        }
+    }
+
+    //! Returns whether the contained type is the same as the type used for
+    //! the instantiation of this function.
+    template <typename MF>
+    [[nodiscard]] bool is () const { return Type() == typeid(MF); }
+
+    //! Returns whether the object contains a value.
+    [[nodiscard]] bool hasValue () const { return m_ptr != nullptr; }
+
+private:
+
+    /// \cond DOXYGEN_IGNORE
+
+    struct innards_base // NOLINT(cppcoreguidelines-special-member-functions)
+    {
+        [[nodiscard]] virtual const std::type_info& Type () const = 0;
+        virtual ~innards_base () = default;
+    };
+
+    template <typename MF>
+    struct innards final : innards_base // NOLINT(cppcoreguidelines-special-member-functions)
+    {
+        innards (MF && mf)
+            : m_mf(std::move(mf))
+            {}
+
+        ~innards () final = default;
+
+        [[nodiscard]] const std::type_info& Type () const final {
+            return typeid(MF);
+        }
+
+        MF m_mf;
+    };
+
+    /// \endcond
+
+    std::unique_ptr<innards_base> m_ptr;
+};
+
+}
+
+#endif

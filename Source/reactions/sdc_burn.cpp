@@ -8,7 +8,6 @@
 using std::string;
 using namespace amrex;
 
-#ifndef TRUE_SDC
 #ifdef SIMPLIFIED_SDC
 int
 HydroSim::burn_over_state(Real time, Real dt)
@@ -34,11 +33,6 @@ HydroSim::burn_over_state(Real time, Real dt)
     MultiFab& S_old = get_old_data(State_Type);
     MultiFab& S_new = get_new_data(State_Type);
 
-#ifdef MHD
-    MultiFab& magfield_x_new = get_new_data(Bfield_Type_x);
-    MultiFab& magfield_y_new = get_new_data(Bfield_Type_y);
-    MultiFab& magfield_z_new = get_new_data(Bfield_Type_z);
-#endif
 
     const int ng = S_new.nGrow();
 
@@ -75,11 +69,6 @@ HydroSim::burn_over_state(Real time, Real dt)
 
         auto Conserved_old = S_old.array(mfi);
         auto cons_new = S_new.array(mfi);
-#ifdef MHD
-        auto Bx    = magfield_x_new.array(mfi);
-        auto By    = magfield_y_new.array(mfi);
-        auto Bz    = magfield_z_new.array(mfi);
-#endif
         auto I     = SDC_burn_increment.array(mfi);
         auto reaction_source_arr = reactions.array(mfi);
         auto weights = keep_burn_weights ? burn_split_data.array(mfi) : Array4<Real>{};
@@ -108,12 +97,6 @@ HydroSim::burn_over_state(Real time, Real dt)
             burn_state.dx = amrex::min(AMREX_D_DECL(dx[0], dx[1], dx[2]));
 #endif
 
-#ifdef NSE_NET
-            burn_state.mu_p = Conserved_old(i,j,k,UPROTON_MU);
-            burn_state.mu_n = Conserved_old(i,j,k,UNEUTRON_MU);
-
-            burn_state.y_e = -1.0_rt;
-#endif
 
             bool burn_allowed = true;
             burn_state.success = true;
@@ -196,9 +179,6 @@ HydroSim::burn_over_state(Real time, Real dt)
             Array1D<Real, 0, NQEXTRAQ-1> qthermo_dummy;
 
             hydro::cell_to_primitive(i, j, k, cons_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
                                              prim_pre_react, qthermo_dummy, prim_pre_react.len() == NQ);
 
 
@@ -222,10 +202,6 @@ HydroSim::burn_over_state(Real time, Real dt)
                     burn_fault_flag = 1;
                 }
 
-#ifdef NSE_NET
-                cons_new(i,j,k,UPROTON_MU) = burn_state.mu_p;
-                cons_new(i,j,k,UNEUTRON_MU) = burn_state.mu_n;
-#endif
                 cons_new(i,j,k,UEDEN) = burn_state.y[SEDEN];
                 cons_new(i,j,k,UEINT) = burn_state.y[SEINT];
                 for (int n = 0; n < NumSpec; n++) {
@@ -261,14 +237,6 @@ HydroSim::burn_over_state(Real time, Real dt)
                              weights(i,j,k,sdc_pass_number) = amrex::max(1.0_rt, static_cast<Real>(burn_state.n_rhs));
                          }
                      }
-#ifdef NSE
-                    if (keep_omegadot == 1) {
-                        reaction_source_arr(i,j,k,NumSpec+NumAux+1) = burn_state.nse;
-                    }
-                    else {
-                        reaction_source_arr(i,j,k,1) = burn_state.nse;
-                    }
-#endif
                  }
 
             }
@@ -277,9 +245,6 @@ HydroSim::burn_over_state(Real time, Real dt)
             Array1D<Real, 0, NQ-1> q_new;
 
             hydro::cell_to_primitive(i, j, k, cons_new,
-#ifdef MHD
-                                             Bx, By, Bz,
-#endif
                                              q_new, qthermo_dummy, q_new.len() == NQ);
 
 
@@ -362,5 +327,4 @@ HydroSim::burn_over_state(Real time, Real dt)
     return burn_outcome;
 
 }
-#endif
 #endif
