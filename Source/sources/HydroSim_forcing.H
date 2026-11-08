@@ -13,11 +13,6 @@
 
 
     void run_old_sources(
-#ifdef MHD
-                        amrex::MultiFab& Bx,
-                        amrex::MultiFab& By,
-                        amrex::MultiFab& Bz,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& field_old, amrex::MultiFab& field_new,
                         amrex::Real time, amrex::Real dt, bool modify_state_flag = true);
@@ -31,11 +26,6 @@
                               amrex::Real time, amrex::Real dt);
 
     void run_new_sources(
-#ifdef MHD
-                        amrex::MultiFab& Bx,
-                        amrex::MultiFab& By,
-                        amrex::MultiFab& Bz,
-#endif
                         amrex::MultiFab& source,
                         amrex::MultiFab& field_old, amrex::MultiFab& field_new,
                         amrex::Real time, amrex::Real dt, bool modify_state_flag = true);

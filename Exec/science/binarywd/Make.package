@@ -1,4 +1,0 @@
-CEXE_headers += binary_setup.H
-CEXE_sources += star_tracking.cpp
-CEXE_sources += binary_setup.cpp
-CEXE_sources += potential_derives.cpp

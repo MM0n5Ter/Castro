@@ -1,3 +1,0 @@
-
-    derive_lst.add("rad_analytic", IndexType::TheCellType(), Radiation::nGroups, deranalytic, the_same_box);
-    derive_lst.addComponent("rad_analytic", desc_lst, Radiation_Type, 0, Radiation::nGroups);
