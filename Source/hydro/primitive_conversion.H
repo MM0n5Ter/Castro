@@ -3,13 +3,7 @@
 
 #include <HydroSim_helpers.H>
 
-#ifdef HYBRID_MOMENTUM
-#include <hybrid_momentum.H>
-#endif
 
-#ifdef RADIATION
-#include <radiation_helpers.H>
-#endif
 
 namespace hydro {
 
@@ -18,9 +12,7 @@ void source_to_primitive(int i, int j, int k, const Real dt,
                  Array4<Real const> const& field_arr,
                  Array4<Real const> const& prim_arr,
                  Array4<Real const> const& previous_source,
-#ifndef TRUE_SDC
                  Array4<Real const> const& source_correction,
-#endif
                  Array4<Real> const& prim_source)
 {
 
@@ -35,7 +27,6 @@ void source_to_primitive(int i, int j, int k, const Real dt,
 
     for (int n = 0; n < NUM_SOURCE; n++) {
 
-#ifndef TRUE_SDC
         if (time_scheme == CornerTrace && source_half_step == 1) {
             if (n == UMX || n == UMY || n == UMZ) {
                 sourceTerms[n] += 0.5 * dt * source_correction(i,j,k,n);
@@ -43,7 +34,6 @@ void source_to_primitive(int i, int j, int k, const Real dt,
         } else if (time_scheme == SimplifiedIterCorrection  && source_half_step == 1) {
             sourceTerms[n] += source_correction(i,j,k,n);
         }
-#endif
 
         sourceTerms[n] += previous_source(i,j,k,n);
     }
@@ -86,10 +76,6 @@ void cell_to_primitive(int i, int j, int k,
                                Array4<Real const> const& By,
                                Array4<Real const> const& Bz,
 #endif
-#ifdef RADIATION
-                               Array4<Real const> const& RadEnergyIn,
-                               Array4<Real const> const& lam,
-#endif
                                T& q, U& qthermo, const bool include_passives)
 {
 #ifndef AMREX_USE_GPU
@@ -129,11 +115,6 @@ void cell_to_primitive(int i, int j, int k,
     }
 
     q(QTEMP) = uin(i,j,k,UTEMP);
-#ifdef RADIATION
-    for (int g = 0; g < NGROUPS; g++) {
-        q(QRADENG+g) = RadEnergyIn(i,j,k,g);
-    }
-#endif
 
     if (include_passives) {
         for (int passive_index = 0; passive_index < npassive; passive_index++) {
@@ -161,9 +142,6 @@ void cell_to_primitive(int i, int j, int k,
     q(QTEMP) = eos_state.T;
     q(QEINTDENS) = eos_state.e * q(QRHO);
     q(QPRES) = eos_state.p;
-#ifdef TRUE_SDC
-    q(QGC) = eos_state.gam1;
-#endif
 
 #ifdef MHD
     q(QPTOTAL) = q(QPRES) +
@@ -172,39 +150,8 @@ void cell_to_primitive(int i, int j, int k,
                          q(QBFIELDZ) * q(QBFIELDZ));
 #endif
 
-#ifdef RADIATION
-    qthermo(QGAMMA1G) = eos_state.gam1;
-    qthermo(QCG) = eos_state.cs;
-
-    Real group_lambdas[NGROUPS];
-    for (int g = 0; g < NGROUPS; g++) {
-        group_lambdas[g] = lam(i,j,k,g);
-    }
-    Real qs[NQ];
-    for (int n = 0; n < NQ; n++) {
-        qs[n] = q(n);
-    }
-    Real total_pressure;
-    Real total_sound_speed;
-    Real gamma1_total;
-    compute_total_pressure_sound(group_lambdas, qs,
-                      qthermo(QCG),
-                      total_pressure, total_sound_speed, gamma1_total);
-
-    q(QPTOTAL) = total_pressure;
-
-    qthermo(QC) = total_sound_speed;
-    qthermo(QGAMMA1) = gamma1_total;
-
-    q(QETOTDENS) = q(QEINTDENS);
-    for (int g = 0; g < NGROUPS; g++) {
-        qthermo(QFLUXLIM+g) = lam(i,j,k,g);
-        q(QETOTDENS) += q(QRADENG+g);
-    }
-#else
     qthermo(QGAMMA1) = eos_state.gam1;
     qthermo(QC) = eos_state.cs;
-#endif
 }
 
 }

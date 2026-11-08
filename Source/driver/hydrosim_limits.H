@@ -11,8 +11,6 @@ constexpr int NUM_GROW{4};
 
 #ifdef MHD
 constexpr int SRC_GHOST_WIDTH{6};
-#elif TRUE_SDC
-constexpr int SRC_GHOST_WIDTH{NUM_GROW};
 #else
 constexpr int SRC_GHOST_WIDTH{3};
 #endif
